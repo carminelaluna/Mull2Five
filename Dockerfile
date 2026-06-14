@@ -14,7 +14,6 @@ RUN pip install --no-cache-dir .
 
 COPY backend ./backend
 COPY frontend ./frontend
-COPY assets ./assets
 COPY scripts ./scripts
 COPY migrations ./migrations
 COPY alembic.ini ./alembic.ini
