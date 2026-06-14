@@ -2,15 +2,16 @@ services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: arcana_events
-      POSTGRES_USER: arcana
-      POSTGRES_PASSWORD: arcana
+      # Credenziali da .env in produzione; default solo per sviluppo locale.
+      POSTGRES_DB: ${POSTGRES_DB:-arcana_events}
+      POSTGRES_USER: ${POSTGRES_USER:-arcana}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-arcana}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U arcana -d arcana_events"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-arcana} -d $${POSTGRES_DB:-arcana_events}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -33,7 +34,7 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgresql+psycopg://arcana:arcana@db:5432/arcana_events
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-arcana}:${POSTGRES_PASSWORD:-arcana}@db:5432/${POSTGRES_DB:-arcana_events}
       REDIS_URL: redis://redis:6379/0
       APP_URL: http://127.0.0.1:8000
       FRONTEND_URL: http://127.0.0.1:8000
@@ -51,7 +52,7 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgresql+psycopg://arcana:arcana@db:5432/arcana_events
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-arcana}:${POSTGRES_PASSWORD:-arcana}@db:5432/${POSTGRES_DB:-arcana_events}
       BACKUP_DIR: /backups
       RETENTION_DAYS: "14"
     volumes:

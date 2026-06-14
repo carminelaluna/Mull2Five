@@ -1,0 +1,19 @@
+# Configurazione GitGuardian (ggshield + dashboard).
+# Marca come ignorati i SOLI placeholder di test/CI/sviluppo: NON sono segreti
+# di produzione. I segreti reali stanno solo in `.env` (gitignored) e nelle
+# variabili d'ambiente; l'app non contiene credenziali hardcoded.
+version: 2
+
+secret:
+  ignored-paths:
+    - "tests/**"                      # password/SECRET_KEY fittizi nei test
+    - "frontend/e2e/**"               # credenziali fittizie negli E2E
+    - "frontend/playwright.config.js" # SECRET_KEY di test per il webServer E2E
+    - ".github/workflows/ci.yml"      # SECRET_KEY di test per la CI
+    - ".env.example"                  # template senza valori reali
+
+  ignored-matches:
+    - name: "Password DB di default per sviluppo locale (docker-compose)"
+      match: arcana
+    - name: "SECRET_KEY placeholder di sviluppo (config default)"
+      match: dev-secret-change-me
