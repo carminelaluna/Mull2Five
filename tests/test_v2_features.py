@@ -269,6 +269,38 @@ def test_organizer_uploads_decklist_for_registration(client):
     assert row["decklist_raw_text"].startswith("4 Lightning Bolt")
 
 
+# ── Parser: riga vuota = sideboard ────────────────────────────
+
+
+def test_blank_line_marks_sideboard():
+    from backend.app.services.decklists import validate_decklist
+    deck = "4 Lightning Bolt\n56 Mountain\n\n3 Blood Moon\n2 Pyroblast"
+    v = validate_decklist(deck, "Modern")
+    assert v.main_count == 60
+    assert v.side_count == 5   # tutto dopo la riga vuota è sideboard
+
+
+def test_blank_line_before_main_ignored():
+    from backend.app.services.decklists import validate_decklist
+    deck = "\n\n4 Lightning Bolt\n56 Mountain"   # righe vuote iniziali ignorate
+    v = validate_decklist(deck, "Modern")
+    assert v.main_count == 60 and v.side_count == 0
+
+
+# ── Deadline caricamento lista (solo giocatore) ───────────────
+
+
+def test_decklist_locked_past_deadline(client):
+    org = _register(client, "v2-dl-org@example.com", role="organizer")
+    # inizio nel passato → oltre la deadline di 30 min
+    tid = _make_tournament(client, org, starts_on="2020-01-01", start_time="10:00", decklist_required=True)
+    player = _register(client, "v2-dl-player@example.com")
+    client.post(f"/api/tournaments/{tid}/registrations", json={"wizards_account": ""}, headers=player)
+    r = client.post(f"/api/tournaments/{tid}/decklist", headers=player,
+                    json={"raw_text": "4 Bolt\n56 Mountain", "archetype": "Burn"})
+    assert r.status_code == 409   # liste bloccate (deadline superata)
+
+
 # ── Orario di inizio ──────────────────────────────────────────
 
 

@@ -130,11 +130,16 @@ async function buildCard(t, reg) {
     payActions = `<div class="pay-actions" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">${buttons.join('')}</div>`;
   }
 
-  /* Decklist — decklist_status: missing | submitted | valid | invalid */
+  /* Decklist — decklist_status: missing | submitted | valid | invalid.
+     Caricamento consentito solo prima dell'inizio (le liste si bloccano a torneo
+     avviato e, di default, 30 min prima dell'orario di inizio). */
   const hasDeck = reg.decklist_status && reg.decklist_status !== 'missing';
+  const deckOpen = t.status === 'published';
   const deckBadge = hasDeck
     ? `<span class="badge ok">Lista inviata ✓</span>`
-    : `<button class="ghost" data-action="upload-deck" data-tournament-id="${t.id}" data-reg-id="${reg.id}" type="button">Carica lista</button>`;
+    : deckOpen
+      ? `<button class="ghost" data-action="upload-deck" data-tournament-id="${t.id}" data-reg-id="${reg.id}" type="button">Carica lista</button>`
+      : '<span class="badge warn">Liste chiuse</span>';
 
   /* Pairings round corrente */
   let pairingsHtml = '';

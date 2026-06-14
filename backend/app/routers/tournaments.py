@@ -2,7 +2,7 @@ import csv
 import io
 import math
 import random
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 
 import stripe
 from fastapi import APIRouter, Depends, HTTPException, Response
@@ -2305,14 +2305,27 @@ def ensure_latest_round_has_results(tournament_id: int, db: Session) -> None:
         raise HTTPException(status_code=409, detail="Complete all current round results first")
 
 
+DECKLIST_DEADLINE_MINUTES = 30   # default: liste chiuse 30 minuti prima dell'inizio
+
+
 def decklists_locked(tournament: Tournament) -> bool:
+    # A torneo iniziato/chiuso le liste sono sempre bloccate.
     if tournament.status in {TournamentStatus.RUNNING, TournamentStatus.COMPLETED, TournamentStatus.CANCELLED}:
         return True
+    # Deadline esplicita impostata dall'organizzatore.
     if tournament.decklist_deadline:
         deadline = tournament.decklist_deadline
         if deadline.tzinfo is None:
             deadline = deadline.replace(tzinfo=UTC)
         return datetime.now(UTC) > deadline
+    # Default: 30 minuti prima dell'orario di inizio (se impostato).
+    if tournament.start_time:
+        try:
+            hh, mm = (int(x) for x in tournament.start_time.split(":"))
+            start_dt = datetime.combine(tournament.starts_on, time(hh, mm), tzinfo=UTC)
+            return datetime.now(UTC) > start_dt - timedelta(minutes=DECKLIST_DEADLINE_MINUTES)
+        except (ValueError, TypeError):
+            return False
     return False
 
 

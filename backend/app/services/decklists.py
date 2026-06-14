@@ -22,6 +22,9 @@ def validate_decklist(raw_text: str, tournament_format: str) -> DeckValidation:
     for raw_line in raw_text.splitlines():
         line = raw_line.strip()
         if not line:
+            # Una riga vuota dopo il main: il resto è sideboard (formato MTGO/Arena).
+            if section == "main" and main_count > 0:
+                section = "side"
             continue
         if line.lower().startswith(("sideboard", "side", "sb")):
             section = "side"
