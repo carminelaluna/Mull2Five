@@ -3,6 +3,7 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from slowapi import _rate_limit_exceeded_handler
@@ -80,6 +81,21 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
         level="error",
     )
     return JSONResponse(status_code=500, content={"detail": "Errore interno del server"})
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Errori di validazione (422): trasforma la lista Pydantic in un messaggio
+    leggibile (string), così il frontend può mostrarlo direttamente in `detail`
+    invece di "[object Object]"."""
+    parts = []
+    for err in exc.errors():
+        loc = [str(p) for p in err.get("loc", []) if p not in ("body", "query", "path")]
+        field = ".".join(loc) or "campo"
+        parts.append(f"{field}: {err.get('msg', 'valore non valido')}")
+    detail = "; ".join(parts) or "Dati non validi"
+    return JSONResponse(status_code=422, content={"detail": detail})
+
 
 if settings.app_env == "development":
     # In sviluppo accettiamo tutte le origini (Vite, Postman, browser diretto)

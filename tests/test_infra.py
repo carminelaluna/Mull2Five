@@ -53,6 +53,16 @@ def test_cache_is_noop_without_redis():
         assert cache_get("t:k") is None
 
 
+def test_validation_error_returns_readable_string(client):
+    """422: il detail dev'essere una stringa leggibile, non una lista di oggetti."""
+    # Password troppo corta + email mancante → errori di validazione
+    resp = client.post("/api/auth/register", json={"display_name": "X", "password": "短"})
+    assert resp.status_code == 422
+    detail = resp.json()["detail"]
+    assert isinstance(detail, str)
+    assert len(detail) > 0
+
+
 def test_alerting_disabled_by_default():
     from backend.app.core.alerting import alerting_enabled, send_alert
 
