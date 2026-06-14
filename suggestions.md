@@ -354,28 +354,23 @@ a una fase successiva su indicazione del committente.
 
 ---
 
-## Migrazione "tutto online" (back-office organizzatore) — stato
+## Migrazione "tutto online" — ✅ COMPLETATA (V2, 2026-06-14)
 
 > Obiettivo del committente: niente più tool offline (localStorage), tutto via backend,
-> accessibile da più PC contemporaneamente (tornei grandi: banco, scorekeeping, judge).
+> accessibile da più PC contemporaneamente. **Il tool offline è stato eliminato**: esiste
+> un solo frontend online in `frontend/` (vedi [[project-architecture]]).
 
-### ✅ Già online (backend, multi-device)
-- **Creazione/gestione tornei** — `organizer.html` (tab Tornei): crea, avvia, chiudi, elimina; scelta metodi pagamento; pubblicazione abbinamenti/classifica.
-- **Iscritti** (tab Iscritti): walk-in al banco (`POST /walk-in`, crea l'account al volo), segna pagato contanti (`POST /registrations/{id}/mark-paid`), check-in, drop, filtro, paginazione 100/pagina per tornei grandi.
-- **Regia torneo** — `control.html`: timer round (restart/extend), +min per tavolo, inserimento risultati, genera round, vista judge.
+### ✅ Tutto online (backend, multi-device)
+- **Creazione/gestione tornei** — `organizer.html` (tab Tornei): crea, avvia, chiudi, duplica; scelta metodi pagamento; pubblicazione abbinamenti/classifica; **Classifica anche per i tornei conclusi** (storico).
+- **Iscritti** (tab Iscritti): walk-in al banco, segna pagato contanti, check-in, drop, filtro, paginazione.
+- **Liste / Annunci / Penalità** — tab dedicate nel back-office (decklist degli iscritti, invio annunci, assegnazione penalità judge).
+- **Regia torneo** — `control.html`: timer round (avvia/stop/restart/extend, **non parte all'avvio**), +min per tavolo, inserimento risultati, genera round (cambia tab), vista judge.
 - **Classifica e Report** — tab dedicate (standings live, incassi/presenze).
-- **Schermi condivisi** — `display.html?t=ID`, `timer.html?t=ID` (timer negativo + per-tavolo).
-- **Lato giocatore** — iscrizione, pagamento (Stripe/PayPal/sandbox), decklist self-service, pairings, risultati, drop, leaderboard.
+- **Schermi condivisi** — `display.html?t=ID`, `timer.html?t=ID` (timer negativo + per-tavolo, solo server-mode).
+- **Lato giocatore** — iscrizione, pagamento (Stripe/PayPal/sandbox), decklist self-service, pairings, **risultati con conferma/contestazione (chiama Judge)**, drop, storico, leaderboard, profilo pubblico.
+- **Ricerca tornei** — filtri server-side per nome/formato/data/città/stato.
 - **Permessi staff/judge** — gli endpoint timer/risultati/penalità accettano lo staff invitato.
 
-### ⏳ Ancora da portare nel back-office online (oggi solo nel tool offline localStorage)
-- **Gestione decklist lato organizzatore** (revisione/validazione liste degli iscritti dal banco). I giocatori già caricano le liste online; manca la vista organizzatore.
-- **Penalità/judge UI** dedicata nel back-office (l'endpoint c'è già: `POST /penalties`).
-- **Annunci ai giocatori** dal back-office (endpoint `POST /announcements` già presente).
-- **Pod draft / seating** online (oggi generati nel tool offline).
-- **Stampa abbinamenti / deck-check / EventLink export** dal back-office (export CSV già via API `/export.csv`).
-
-### 🔜 Passi consigliati per dismettere del tutto il tool offline
-1. Aggiungere al back-office le tab **Liste**, **Annunci**, **Penalità** (endpoint già pronti).
-2. Reindirizzare le vecchie pagine offline (`tornei.html`, `iscritti.html`, …) al back-office online, o rimuoverle.
-3. Spostare creazione torneo dell'organizer interamente sull'API (fatto in `organizer.html`); deprecare `sync.js`.
+### ℹ️ Note operative
+- La cache (`core/cache.py`) è **no-op senza Redis** per evitare stale tra più worker Gunicorn; con `REDIS_URL` torna attiva e condivisa. Vedi [[cache-multiworker-pitfall]].
+- Test: pytest 48, vitest 7, E2E Playwright sul flusso online.
