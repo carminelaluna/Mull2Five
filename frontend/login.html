@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Accedi — Arcana Events</title>
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="app.css" />
+  </head>
+  <body>
+    <header class="public-header">
+      <a class="brand" href="index.html">
+        <span class="brand-mark">AE</span>
+        <span><strong>Arcana Events</strong></span>
+      </a>
+    </header>
+
+    <main class="public-main" style="max-width:480px">
+      <div class="auth-card" style="margin-top:40px">
+        <div class="auth-tabs">
+          <button class="auth-tab active" id="tabLogin" type="button">Accedi</button>
+          <button class="auth-tab" id="tabRegister" type="button">Registrati</button>
+        </div>
+
+        <!-- Login -->
+        <form class="auth-form" id="formLogin">
+          <label>Email
+            <input id="loginEmail" type="email" required placeholder="player@email.com" autocomplete="email" />
+          </label>
+          <label>Password
+            <input id="loginPassword" type="password" required placeholder="••••••••" autocomplete="current-password" />
+          </label>
+          <p class="field-error" id="errLogin"></p>
+          <button class="primary" type="submit">Accedi</button>
+          <p style="margin-top:8px;text-align:right"><a href="forgot-password.html">Password dimenticata?</a></p>
+        </form>
+
+        <!-- Registrazione -->
+        <form class="auth-form hidden" id="formRegister">
+          <label>Nome completo
+            <input id="regName" required placeholder="Mario Rossi" autocomplete="name" />
+          </label>
+          <label>Email
+            <input id="regEmail" type="email" required placeholder="player@email.com" autocomplete="email" />
+          </label>
+          <label>Password
+            <input id="regPassword" type="password" required placeholder="Min. 8 caratteri" autocomplete="new-password" />
+          </label>
+          <label>Conferma password
+            <input id="regConfirm" type="password" required placeholder="Ripeti la password" autocomplete="new-password" />
+          </label>
+          <label>Tipo di account
+            <select id="regRole">
+              <option value="player">Giocatore — mi iscrivo ai tornei</option>
+              <option value="organizer">Organizzatore — gestisco i tornei del negozio</option>
+            </select>
+          </label>
+          <p class="field-error" id="errRegister"></p>
+          <button class="primary" type="submit">Crea account</button>
+        </form>
+      </div>
+    </main>
+
+    <script type="module" src="js/login-public.js"></script>
+  </body>
+</html>

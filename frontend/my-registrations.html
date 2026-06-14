@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Le mie iscrizioni — Arcana Events</title>
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="app.css" />
+  </head>
+  <body>
+    <header class="public-header">
+      <a class="brand" href="index.html">
+        <span class="brand-mark">AE</span>
+        <span><strong>Arcana Events</strong></span>
+      </a>
+      <nav class="public-nav">
+        <a href="index.html">Tornei</a>
+        <a href="my-registrations.html" style="color:var(--ink)">Le mie iscrizioni</a>
+      </nav>
+      <div class="public-auth" id="publicAuth"></div>
+    </header>
+
+    <main class="public-main">
+      <div class="section-heading" style="margin-bottom:24px">
+        <div>
+          <span class="eyebrow">Il mio profilo</span>
+          <h1>Le mie iscrizioni</h1>
+        </div>
+        <button class="secondary" id="pushToggle" type="button" hidden>🔔 Attiva notifiche</button>
+      </div>
+
+      <div id="registrationsList">
+        <p class="empty">Caricamento…</p>
+      </div>
+
+      <section style="margin-top:40px">
+        <div class="section-heading" style="margin-bottom:16px">
+          <div><span class="eyebrow">Dashboard</span><h2>Storico tornei</h2></div>
+        </div>
+        <div class="panel" id="historyList"><p class="empty">Caricamento…</p></div>
+      </section>
+    </main>
+
+    <!-- Dialog: carica decklist -->
+    <dialog id="deckDialog">
+      <form method="dialog" class="modal">
+        <header>
+          <div><span class="eyebrow">Decklist</span><h2 id="deckDialogTitle">Carica lista</h2></div>
+          <button class="icon-button" value="cancel">×</button>
+        </header>
+        <label>Incolla la lista
+          <textarea id="deckText" placeholder="4 Lightning Bolt&#10;4 Ragavan…&#10;&#10;Sideboard&#10;2 Blood Moon" style="min-height:220px"></textarea>
+        </label>
+        <label>Archetipo
+          <input id="deckArchetype" placeholder="Izzet Murktide, Domain Ramp…" />
+        </label>
+        <p class="field-error" id="deckError"></p>
+        <menu>
+          <button class="secondary" value="cancel">Annulla</button>
+          <button class="primary" id="submitDeck" type="button">Invia lista</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <!-- Dialog: inserisci risultato -->
+    <dialog id="resultDialog">
+      <form method="dialog" class="modal">
+        <header>
+          <div><span class="eyebrow">Risultato</span><h2>Il mio risultato</h2></div>
+          <button class="icon-button" value="cancel">×</button>
+        </header>
+        <p id="resultDescription" style="color:var(--muted)"></p>
+        <label>Risultato dal mio punto di vista
+          <select id="resultSelect">
+            <option value="">— Seleziona</option>
+            <option value="2-0">2 – 0 (ho vinto 2-0)</option>
+            <option value="2-1">2 – 1 (ho vinto 2-1)</option>
+            <option value="1-1">1 – 1 (pareggio)</option>
+            <option value="1-2">1 – 2 (ho perso 1-2)</option>
+            <option value="0-2">0 – 2 (ho perso 0-2)</option>
+            <option value="1-0">1 – 0</option>
+            <option value="0-1">0 – 1</option>
+            <option value="0-0">0 – 0</option>
+          </select>
+        </label>
+        <p class="field-error" id="resultError"></p>
+        <menu>
+          <button class="secondary" value="cancel">Annulla</button>
+          <button class="primary" id="submitResult" type="button">Invia risultato</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <div id="toast" role="status" aria-live="polite"></div>
+    <script type="module" src="js/my-registrations.js"></script>
+  </body>
+</html>

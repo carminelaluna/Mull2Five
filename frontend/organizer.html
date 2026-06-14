@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Back-office — Arcana Events</title>
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="app.css" />
+    <style>
+      .bo-wrap { max-width: 1000px; margin: 0 auto; }
+      .bo-tabs { display:flex; gap:6px; flex-wrap:wrap; margin:16px 0; }
+      .bo-tab { padding:8px 16px; border:1px solid var(--line,#3a352d); border-radius:8px;
+                background:transparent; color:var(--ink,#f5efe0); cursor:pointer; }
+      .bo-tab.active { background:var(--teal,#3e8e7e); border-color:var(--teal,#3e8e7e); color:#0f1110; font-weight:600; }
+      .bo-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; }
+      table.bo { width:100%; border-collapse:collapse; }
+      table.bo th, table.bo td { padding:8px 10px; border-bottom:1px solid var(--line,#3a352d); text-align:left; font-size:.92rem; }
+      table.bo th { color:var(--muted,#b9ad99); text-transform:uppercase; font-size:.72rem; letter-spacing:.06em; }
+      .pill { font-size:.72rem; padding:2px 7px; border-radius:999px; border:1px solid var(--line,#3a352d); }
+      .pill.ok { background:rgba(62,142,126,.18); border-color:var(--teal,#3e8e7e); }
+      .pill.warn { background:rgba(224,162,60,.16); border-color:var(--warn,#e0a23c); }
+      .row-actions { display:flex; gap:6px; flex-wrap:wrap; }
+    </style>
+  </head>
+  <body>
+    <header class="public-header">
+      <a class="brand" href="index.html"><span class="brand-mark">AE</span><span><strong>Arcana Events</strong></span></a>
+      <nav class="public-nav"><a href="index.html">Tornei</a><a href="control.html">Regia</a></nav>
+      <div class="public-auth" id="publicAuth"></div>
+    </header>
+
+    <main class="public-main bo-wrap">
+      <div class="section-heading" style="margin-bottom:4px">
+        <div><span class="eyebrow">Back-office organizzatore</span><h1>Gestione torneo (online)</h1></div>
+        <select id="activeTournament" aria-label="Torneo attivo"></select>
+      </div>
+      <p class="muted" id="activeHint" style="margin-top:0"></p>
+
+      <div class="bo-tabs">
+        <button class="bo-tab active" data-tab="tornei" type="button">Tornei</button>
+        <button class="bo-tab" data-tab="iscritti" type="button">Iscritti</button>
+        <button class="bo-tab" data-tab="liste" type="button">Liste</button>
+        <button class="bo-tab" data-tab="annunci" type="button">Annunci</button>
+        <button class="bo-tab" data-tab="penalita" type="button">Penalità</button>
+        <button class="bo-tab" data-tab="classifica" type="button">Classifica</button>
+        <button class="bo-tab" data-tab="report" type="button">Report</button>
+      </div>
+
+      <section id="panel"></section>
+    </main>
+
+    <div id="toast" role="status" aria-live="polite"></div>
+    <script type="module" src="js/organizer.js"></script>
+  </body>
+</html>

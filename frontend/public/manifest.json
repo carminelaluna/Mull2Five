@@ -1,0 +1,13 @@
+{
+  "name": "Arcana Events",
+  "short_name": "ArcanaOp",
+  "description": "Gestionale offline per tornei MTG — iscrizioni, decklist, round, classifica.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#11110f",
+  "theme_color": "#b6483f",
+  "icons": [
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ],
+  "categories": ["games", "utilities"]
+}

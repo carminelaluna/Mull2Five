@@ -1,0 +1,7 @@
+Method,Name,Error,Occurrences,First Seen,Last Seen
+GET,/api/tournaments/{id}/registrations [ORG],HTTPError('500 Server Error: Internal Server Error for url: /api/tournaments/{id}/registrations [ORG]'),7,2026-06-03T21:52:09Z,2026-06-03T21:52:48Z
+GET,/api/tournaments [ANON],HTTPError('500 Server Error: Internal Server Error for url: /api/tournaments [ANON]'),5,2026-06-03T21:51:37Z,2026-06-03T21:52:48Z
+GET,/api/tournaments/{id} [ORG],HTTPError('500 Server Error: Internal Server Error for url: /api/tournaments/{id} [ORG]'),2,2026-06-03T21:51:38Z,2026-06-03T21:51:42Z
+GET,/api/tournaments/{id}/standings [READ-ONLY],HTTPError('500 Server Error: Internal Server Error for url: /api/tournaments/{id}/standings [READ-ONLY]'),10,2026-06-03T21:51:38Z,2026-06-03T21:52:49Z
+GET,/api/tournaments/{id} [READ-ONLY],HTTPError('500 Server Error: Internal Server Error for url: /api/tournaments/{id} [READ-ONLY]'),7,2026-06-03T21:51:42Z,2026-06-03T21:52:49Z
+GET,/api/tournaments/{id}/my-pairings [PLAYER],HTTPError('500 Server Error: Internal Server Error for url: /api/tournaments/{id}/my-pairings [PLAYER]'),73,2026-06-03T21:51:37Z,2026-06-03T21:52:49Z

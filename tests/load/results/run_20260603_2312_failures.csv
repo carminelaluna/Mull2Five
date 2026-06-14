@@ -1,0 +1,27 @@
+Method,Name,Error,Occurrences,First Seen,Last Seen
+GET,/api/tournaments/{id} [ANON],"ConnectionResetError(104, 'Connection reset by peer')",4,2026-06-03T21:12:31Z,2026-06-03T21:14:12Z
+GET,/api/tournaments/{id}/standings [READ-ONLY],"ConnectionResetError(104, 'Connection reset by peer')",10,2026-06-03T21:12:19Z,2026-06-03T21:14:11Z
+GET,/health,"ConnectionResetError(104, 'Connection reset by peer')",3,2026-06-03T21:12:29Z,2026-06-03T21:12:36Z
+GET,/api/tournaments/{id}/my-pairings [PLAYER],"ConnectionResetError(104, 'Connection reset by peer')",56,2026-06-03T21:12:26Z,2026-06-03T21:14:11Z
+GET,/api/tournaments/{id} [ORG],"ConnectionResetError(104, 'Connection reset by peer')",2,2026-06-03T21:13:54Z,2026-06-03T21:14:02Z
+GET,/api/tournaments/{id} [ANON],HTTPError('500 Server Error: Internal Server Error for url: /api/tournaments/{id} [ANON]'),22,2026-06-03T21:12:24Z,2026-06-03T21:14:15Z
+GET,/api/tournaments/{id}/registrations [ORG],HTTPError('500 Server Error: Internal Server Error for url: /api/tournaments/{id}/registrations [ORG]'),51,2026-06-03T21:12:23Z,2026-06-03T21:14:12Z
+PATCH,/api/pairings/{id}/result [ORG],HTTPError('500 Server Error: Internal Server Error for url: /api/pairings/{id}/result [ORG]'),2,2026-06-03T21:13:31Z,2026-06-03T21:13:35Z
+GET,/api/tournaments/{id}/my-registration [PLAYER],HTTPError('500 Server Error: Internal Server Error for url: /api/tournaments/{id}/my-registration [PLAYER]'),192,2026-06-03T21:13:10Z,2026-06-03T21:14:17Z
+GET,/api/tournaments [ANON],HTTPError('500 Server Error: Internal Server Error for url: /api/tournaments [ANON]'),26,2026-06-03T21:12:25Z,2026-06-03T21:14:12Z
+GET,/api/tournaments/{id} [ORG],HTTPError('500 Server Error: Internal Server Error for url: /api/tournaments/{id} [ORG]'),8,2026-06-03T21:12:23Z,2026-06-03T21:14:12Z
+PATCH,/api/pairings/{id}/player-result [PLAYER],HTTPError('500 Server Error: Internal Server Error for url: /api/pairings/{id}/player-result [PLAYER]'),43,2026-06-03T21:13:31Z,2026-06-03T21:14:15Z
+POST,/api/tournaments/{id}/rounds [ORG generate],HTTPError('500 Server Error: Internal Server Error for url: /api/tournaments/{id}/rounds [ORG generate]'),12,2026-06-03T21:13:14Z,2026-06-03T21:14:04Z
+GET,/api/tournaments/{id}/standings [READ-ONLY],HTTPError('500 Server Error: Internal Server Error for url: /api/tournaments/{id}/standings [READ-ONLY]'),75,2026-06-03T21:12:23Z,2026-06-03T21:14:14Z
+GET,/api/tournaments/{id}/standings [PLAYER],HTTPError('500 Server Error: Internal Server Error for url: /api/tournaments/{id}/standings [PLAYER]'),111,2026-06-03T21:12:48Z,2026-06-03T21:14:01Z
+GET,/api/tournaments/{id}/standings [PLAYER],"ConnectionResetError(104, 'Connection reset by peer')",17,2026-06-03T21:12:59Z,2026-06-03T21:13:15Z
+POST,/api/tournaments/{id}/rounds [ORG generate],"ConnectionResetError(104, 'Connection reset by peer')",3,2026-06-03T21:12:57Z,2026-06-03T21:13:28Z
+GET,/api/tournaments/{id}/my-registration [PLAYER],"ConnectionResetError(104, 'Connection reset by peer')",12,2026-06-03T21:13:13Z,2026-06-03T21:14:11Z
+GET,/api/tournaments/{id} [READ-ONLY],HTTPError('500 Server Error: Internal Server Error for url: /api/tournaments/{id} [READ-ONLY]'),40,2026-06-03T21:12:39Z,2026-06-03T21:14:14Z
+GET,/api/tournaments?running [READ-ONLY],HTTPError('500 Server Error: Internal Server Error for url: /api/tournaments?running [READ-ONLY]'),14,2026-06-03T21:12:23Z,2026-06-03T21:14:16Z
+GET,/api/tournaments?running [READ-ONLY],"ConnectionResetError(104, 'Connection reset by peer')",4,2026-06-03T21:12:24Z,2026-06-03T21:13:20Z
+GET,/api/tournaments/{id}/standings [ORG],HTTPError('500 Server Error: Internal Server Error for url: /api/tournaments/{id}/standings [ORG]'),6,2026-06-03T21:12:40Z,2026-06-03T21:13:08Z
+GET,/api/tournaments/{id}/my-pairings [PLAYER],HTTPError('500 Server Error: Internal Server Error for url: /api/tournaments/{id}/my-pairings [PLAYER]'),303,2026-06-03T21:12:23Z,2026-06-03T21:14:16Z
+GET,/api/tournaments/{id} [READ-ONLY],"ConnectionResetError(104, 'Connection reset by peer')",3,2026-06-03T21:12:29Z,2026-06-03T21:14:12Z
+GET,/api/tournaments/{id}/registrations [ORG],"ConnectionResetError(104, 'Connection reset by peer')",5,2026-06-03T21:12:29Z,2026-06-03T21:14:05Z
+GET,/api/tournaments [ANON],"ConnectionResetError(104, 'Connection reset by peer')",8,2026-06-03T21:12:29Z,2026-06-03T21:13:54Z

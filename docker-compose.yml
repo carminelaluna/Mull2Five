@@ -15,12 +15,26 @@ services:
       timeout: 5s
       retries: 10
 
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "60", "1", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   web:
     build: .
     env_file:
       - .env
     environment:
       DATABASE_URL: postgresql+psycopg://arcana:arcana@db:5432/arcana_events
+      REDIS_URL: redis://redis:6379/0
       APP_URL: http://127.0.0.1:8000
       FRONTEND_URL: http://127.0.0.1:8000
     ports:
@@ -28,7 +42,26 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  backup:
+    build: .
+    profiles: ["backup"]
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://arcana:arcana@db:5432/arcana_events
+      BACKUP_DIR: /backups
+      RETENTION_DAYS: "14"
+    volumes:
+      - ./backups:/backups
+    entrypoint: ["bash", "scripts/backup_db.sh"]
+    depends_on:
+      db:
+        condition: service_healthy
 
 volumes:
   postgres_data:
+  redis_data:
 

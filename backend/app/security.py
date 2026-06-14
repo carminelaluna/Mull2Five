@@ -29,6 +29,26 @@ def create_access_token(user: User) -> str:
     return jwt.encode(payload, settings.secret_key, algorithm="HS256")
 
 
+def create_reset_token(user: User) -> str:
+    """Token monouso per il reset password — scade in 30 minuti."""
+    settings = get_settings()
+    expires = datetime.now(UTC) + timedelta(minutes=30)
+    payload = {"sub": str(user.id), "purpose": "password-reset", "exp": expires}
+    return jwt.encode(payload, settings.secret_key, algorithm="HS256")
+
+
+def verify_reset_token(token: str) -> int | None:
+    """Restituisce lo user_id se il token di reset è valido, altrimenti None."""
+    settings = get_settings()
+    try:
+        payload = jwt.decode(token, settings.secret_key, algorithms=["HS256"])
+        if payload.get("purpose") != "password-reset":
+            return None
+        return int(payload.get("sub", "0"))
+    except (JWTError, ValueError):
+        return None
+
+
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:
     settings = get_settings()
     credentials_error = HTTPException(

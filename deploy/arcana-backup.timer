@@ -1,0 +1,10 @@
+[Unit]
+Description=Arcana Events — backup giornaliero del database
+
+[Timer]
+# Ogni giorno alle 03:30, con recupero se la macchina era spenta
+OnCalendar=*-*-* 03:30:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Classifica stagionale — Arcana Events</title>
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="app.css" />
+  </head>
+  <body>
+    <header class="public-header">
+      <a class="brand" href="index.html">
+        <span class="brand-mark">AE</span>
+        <span><strong>Arcana Events</strong></span>
+      </a>
+      <nav class="public-nav" aria-label="Navigazione">
+        <a href="index.html">Tornei</a>
+        <a href="leaderboard.html" aria-current="page">Classifica stagionale</a>
+        <a href="my-registrations.html">Le mie iscrizioni</a>
+        <a href="organizer.html">Organizza</a>
+      </nav>
+      <div class="public-auth" id="publicAuth">
+        <a class="secondary-link" href="login.html">Accedi</a>
+      </div>
+    </header>
+
+    <main class="public-main" style="max-width:760px">
+      <section style="margin-top:32px">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+          <h1>Classifica stagionale</h1>
+          <select id="seasonSelect" aria-label="Stagione"></select>
+        </div>
+        <p class="muted" id="seasonInfo"></p>
+
+        <div class="panel" style="margin-top:16px">
+          <table class="data-table" style="width:100%">
+            <thead>
+              <tr><th>#</th><th>Giocatore</th><th>Punti</th><th>V-P-S</th><th>Tornei</th></tr>
+            </thead>
+            <tbody id="leaderboardTable">
+              <tr><td colspan="5">Caricamento…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <script type="module">
+      const esc = (s) => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      const tbody  = document.querySelector('#leaderboardTable');
+      const select = document.querySelector('#seasonSelect');
+      const info   = document.querySelector('#seasonInfo');
+
+      async function loadSeasons() {
+        try {
+          const resp = await fetch('/api/seasons');
+          const seasons = resp.ok ? await resp.json() : [];
+          if (!seasons.length) {
+            tbody.innerHTML = '<tr><td colspan="5">Nessuna stagione attiva al momento.</td></tr>';
+            select.style.display = 'none';
+            return;
+          }
+          select.innerHTML = seasons.map(s =>
+            `<option value="${s.id}">${esc(s.name)} (${s.tournament_count} tornei)</option>`).join('');
+          select.addEventListener('change', () => loadLeaderboard(select.value));
+          loadLeaderboard(seasons[0].id);
+          const s = seasons[0];
+          info.textContent = `Punti: ${s.points_win} a vittoria, ${s.points_draw} a pareggio.`;
+        } catch {
+          tbody.innerHTML = '<tr><td colspan="5">Errore di connessione.</td></tr>';
+        }
+      }
+
+      async function loadLeaderboard(seasonId) {
+        tbody.innerHTML = '<tr><td colspan="5">Caricamento…</td></tr>';
+        try {
+          const resp = await fetch(`/api/seasons/${seasonId}/leaderboard`);
+          const rows = resp.ok ? await resp.json() : [];
+          tbody.innerHTML = rows.length
+            ? rows.map(r => `<tr ${r.position <= 3 ? 'style="font-weight:bold"' : ''}>
+                <td>${r.position <= 3 ? ['🥇','🥈','🥉'][r.position-1] : r.position}</td>
+                <td>${esc(r.player_name)}</td>
+                <td><strong>${r.points}</strong></td>
+                <td>${r.wins}-${r.losses}-${r.draws}</td>
+                <td>${r.tournaments_played}</td>
+              </tr>`).join('')
+            : '<tr><td colspan="5">Nessun risultato ancora — gioca il primo torneo!</td></tr>';
+        } catch {
+          tbody.innerHTML = '<tr><td colspan="5">Errore di connessione.</td></tr>';
+        }
+      }
+
+      loadSeasons();
+    </script>
+  </body>
+</html>

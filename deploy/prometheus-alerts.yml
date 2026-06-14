@@ -1,0 +1,37 @@
+# Regole di alert Prometheus per Arcana Events.
+# Carica in Prometheus (rule_files) e instrada gli alert con Alertmanager.
+# Le metriche provengono dall'endpoint /metrics dell'app (vedi core/monitoring.py).
+#
+# Nota: l'app ha anche un alerting applicativo autonomo (email/Telegram) per
+# "DB giù" ed "errori 5xx" — vedi core/alerting.py. Queste regole sono il
+# secondo livello, lato infrastruttura/uptime esterno.
+groups:
+  - name: arcana-events
+    rules:
+      - alert: ArcanaInstanceDown
+        expr: up{job="arcana-events"} == 0
+        for: 1m
+        labels: { severity: critical }
+        annotations:
+          summary: "Istanza Arcana Events non raggiungibile"
+          description: "L'endpoint /metrics non risponde da oltre 1 minuto."
+
+      - alert: ArcanaHigh5xxRate
+        expr: |
+          sum(rate(arcana_http_requests_total{status=~"5.."}[5m]))
+            / sum(rate(arcana_http_requests_total[5m])) > 0.05
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "Tasso di errori 5xx elevato (>5%)"
+          description: "Più del 5% delle richieste fallisce con 5xx negli ultimi 5 minuti."
+
+      - alert: ArcanaHighLatency
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(arcana_http_request_duration_seconds_bucket[5m])) by (le)) > 1.5
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "Latenza p95 elevata (>1.5s)"
+          description: "Il 95° percentile della latenza supera 1.5s da 5 minuti."

@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Regia torneo — Arcana Events</title>
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="app.css" />
+    <style>
+      .ctl-wrap { max-width: 900px; margin: 0 auto; }
+      .ctl-timer { display:flex; align-items:center; gap:16px; flex-wrap:wrap;
+                   padding:16px; border:1px solid var(--line,#3a352d); border-radius:10px; margin-bottom:16px; }
+      .ctl-clock { font-size:clamp(36px,7vw,72px); font-weight:800; font-variant-numeric:tabular-nums; line-height:1; }
+      .ctl-clock.warning { color:var(--warn,#e0a23c); }
+      .ctl-clock.over    { color:var(--danger,#e36363); }
+      .ctl-row { display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+                 padding:10px 12px; border-bottom:1px solid var(--line,#3a352d); }
+      .ctl-row .names { flex:1; min-width:200px; }
+      .ctl-tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; }
+      .ctl-tab { padding:6px 12px; border:1px solid var(--line,#3a352d); border-radius:8px;
+                 background:transparent; color:var(--ink,#f5efe0); cursor:pointer; }
+      .ctl-tab.active { background:var(--teal,#3e8e7e); border-color:var(--teal,#3e8e7e); color:#0f1110; font-weight:600; }
+      .ctl-tab.judge.active { background:var(--accent,#d8b465); border-color:var(--accent,#d8b465); }
+      .tbl-clock { font-variant-numeric:tabular-nums; font-weight:700; min-width:64px; text-align:right; }
+      .tbl-clock.over { color:var(--danger,#e36363); }
+      .tbl-extra { color:var(--accent,#d8b465); font-size:.8rem; }
+    </style>
+  </head>
+  <body>
+    <header class="public-header">
+      <a class="brand" href="index.html"><span class="brand-mark">AE</span><span><strong>Arcana Events</strong></span></a>
+      <nav class="public-nav"><a href="index.html">Tornei</a><a href="organizer.html">Back-office</a></nav>
+      <div class="public-auth" id="publicAuth"></div>
+    </header>
+
+    <main class="public-main ctl-wrap">
+      <div class="section-heading" style="margin-bottom:16px">
+        <div><span class="eyebrow">Regia torneo</span><h1>Console organizzatore</h1></div>
+        <select id="tournamentSelect" aria-label="Torneo"></select>
+      </div>
+
+      <div id="screenLinks" style="margin-bottom:12px"></div>
+
+      <!-- Timer del round -->
+      <div class="ctl-timer">
+        <span class="ctl-clock" id="ctlClock">--:--</span>
+        <label>min <input id="ctlMinutes" type="number" min="1" max="180" value="50" style="width:64px" /></label>
+        <button class="primary"   id="ctlRestart" type="button">▶ Avvia / Reset</button>
+        <button class="secondary" id="ctlExtend5"  type="button">+5′ round</button>
+        <button class="secondary" id="ctlExtend10" type="button">+10′ round</button>
+        <span id="ctlRoundLabel" style="color:var(--muted,#b9ad99)"></span>
+      </div>
+
+      <div class="ctl-tabs" id="ctlTabs"></div>
+      <div class="panel" id="ctlTables"><p class="empty">Caricamento…</p></div>
+
+      <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+        <button class="secondary" id="ctlGenRound" type="button">Genera round successivo</button>
+      </div>
+    </main>
+
+    <div id="toast" role="status" aria-live="polite"></div>
+    <script type="module" src="js/control.js"></script>
+  </body>
+</html>

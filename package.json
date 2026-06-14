@@ -1,0 +1,8 @@
+{
+  "private": true,
+  "scripts": {
+    "dev":   "echo \"Esegui 'cd frontend && npm run dev'\" && cd frontend && npm run dev",
+    "build": "cd frontend && npm run build",
+    "test":  "cd frontend && npm run test:run"
+  }
+}

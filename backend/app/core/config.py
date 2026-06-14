@@ -36,6 +36,31 @@ class Settings(BaseSettings):
     smtp_from_email: str = "noreply@arcana-events.local"
     smtp_use_tls: bool = True
 
+    # Redis: cache distribuita + lockout condiviso tra worker/istanze.
+    # Se vuoto o irraggiungibile si usa il fallback in-memory (single-instance).
+    redis_url: str | None = None
+
+    # Web Push (VAPID). Genera le chiavi con: `python -m backend.app.core.webpush genkeys`
+    vapid_public_key: str | None = None
+    vapid_private_key: str | None = None
+    vapid_subject: str = "mailto:noreply@arcana-events.local"
+
+    # Monitoring: protegge /metrics con un token (se impostato).
+    metrics_token: str | None = None
+
+    # Alerting: notifica operativa quando qualcosa va storto (DB giù, errori 5xx).
+    # Canali opzionali: email a alert_email, e/o Telegram (bot token + chat id).
+    alert_email: str | None = None
+    telegram_bot_token: str | None = None
+    telegram_chat_id: str | None = None
+    # Throttle anti-spam: stesso alert (per chiave) non più di una volta ogni N secondi.
+    alert_throttle_secs: int = 300
+    # Watchdog: intervallo di self-check del DB (0 = disabilitato).
+    watchdog_interval_secs: int = 60
+
+    # Multi-tenant: header che identifica l'organizzazione (negozio) corrente.
+    tenant_header: str = "X-Arcana-Org"
+
 
 @lru_cache
 def get_settings() -> Settings:

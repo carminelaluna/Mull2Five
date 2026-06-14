@@ -1,15 +1,42 @@
+# Python
 __pycache__/
 *.py[cod]
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
+*.egg-info/
+build/
+
+# Ambienti virtuali
 .venv/
 .venv-win/
 venv/
+
+# Variabili d'ambiente
 .env
+*.local
+
+# Database
 *.db
 *.sqlite
-*.egg-info/
-dist/
-build/
+*.db-shm
+*.db-wal
+
+# Report di test ed editor locali
+frontend/playwright-report/
+frontend/test-results/
+.claude/
+
+# Frontend build e dipendenze
+frontend/dist/
+frontend/node_modules/
+frontend/.vite/
+
+# Residui Vite alla root
+.vite/
 node_modules/
+dist/
+
+# OS
+.DS_Store
+Thumbs.db

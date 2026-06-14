@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Timer Round — Arcana Events</title>
+    <style>
+      /* Pagina dedicata: solo il timer, a tutto schermo, leggibile da lontano. */
+      :root { --bg:#11110f; --fg:#f5efe0; --accent:#d8b465; --warn:#e0a23c; --over:#e36363; }
+      * { margin:0; padding:0; box-sizing:border-box; }
+      html, body { height:100%; }
+      body {
+        background:var(--bg); color:var(--fg);
+        font-family:system-ui, Arial, sans-serif;
+        display:flex; flex-direction:column; align-items:center; justify-content:center;
+        height:100vh; overflow:hidden; cursor:none;
+      }
+      #label { font-size:clamp(18px,4vw,40px); color:var(--accent); letter-spacing:.1em;
+               text-transform:uppercase; margin-bottom:2vh; text-align:center; }
+      #clock {
+        font-size:clamp(80px,26vw,420px); font-weight:800; line-height:.9;
+        font-variant-numeric:tabular-nums; letter-spacing:.02em;
+      }
+      #clock.warning { color:var(--warn); }
+      #clock.over    { color:var(--over); animation:pulse 1s steps(2,end) infinite; }
+      @keyframes pulse { 50% { opacity:.35; } }
+      #hint { position:fixed; bottom:12px; font-size:12px; color:#6b6456; }
+    </style>
+  </head>
+  <body>
+    <div id="label">Timer round</div>
+    <div id="clock">--:--</div>
+    <div id="hint"></div>
+
+    <script type="module">
+      /* Schermo timer condivisibile (online). Uso: timer.html?t=ID_TORNEO
+         Legge round_ends_at da /public-display: cross-device, nessuno stato locale. */
+      const tid    = new URLSearchParams(location.search).get('t');
+      const clock  = document.getElementById('clock');
+      const label  = document.getElementById('label');
+      const hint   = document.getElementById('hint');
+
+      let endsAt = null;   // Date | null
+      let name   = '';
+
+      function formatTime(sec) {
+        const neg = sec < 0;
+        const s = Math.abs(Math.floor(sec));
+        const mm = String(Math.floor(s / 60)).padStart(2, '0');
+        const ss = String(s % 60).padStart(2, '0');
+        return (neg ? '-' : '') + `${mm}:${ss}`;
+      }
+
+      function paint(sec) {
+        clock.textContent = formatTime(sec);
+        clock.className = sec <= 0 ? 'over' : sec <= 300 ? 'warning' : '';
+      }
+
+      async function refresh() {
+        if (!tid) { hint.textContent = 'Manca ?t=ID_TORNEO'; return; }
+        try {
+          const r = await fetch(`/api/tournaments/${tid}/public-display`);
+          if (!r.ok) return;
+          const d = await r.json();
+          name   = d.tournament_name || '';
+          endsAt = d.round_ends_at ? new Date(d.round_ends_at) : null;
+          label.textContent = d.round_number
+            ? `${name} — Round ${d.round_number}` : (name || 'Timer round');
+        } catch {}
+      }
+      function tick() {
+        if (!endsAt) { clock.textContent = '--:--'; clock.className = ''; return; }
+        paint((endsAt - Date.now()) / 1000);
+      }
+
+      hint.textContent = 'Aggiornamento automatico dal server';
+      refresh();
+      setInterval(refresh, 10_000);  // riallinea con il backend
+      setInterval(tick, 250);
+    </script>
+  </body>
+</html>

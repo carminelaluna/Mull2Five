@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Torneo — Arcana Events</title>
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="app.css" />
+  </head>
+  <body>
+    <header class="public-header">
+      <a class="brand" href="index.html">
+        <span class="brand-mark">AE</span>
+        <span><strong>Arcana Events</strong></span>
+      </a>
+      <nav class="public-nav">
+        <a href="index.html">← Tutti i tornei</a>
+      </nav>
+      <div class="public-auth" id="publicAuth"></div>
+    </header>
+
+    <main class="public-main">
+      <div id="eventDetail" class="event-detail-layout">
+        <p class="empty">Caricamento…</p>
+      </div>
+    </main>
+
+    <!-- Dialog iscrizione -->
+    <dialog id="registerDialog">
+      <form method="dialog" class="modal" id="registerForm">
+        <header>
+          <div><span class="eyebrow">Iscrizione</span><h2 id="registerTitle">Iscriviti</h2></div>
+          <button class="icon-button" value="cancel">×</button>
+        </header>
+        <label>Wizards Account (opzionale)
+          <input id="regWizards" placeholder="##########" />
+        </label>
+        <label>Metodo di pagamento
+          <select id="regPayment">
+            <option value="stripe">Carta (Stripe)</option>
+            <option value="paypal">PayPal</option>
+            <option value="sandbox">Sandbox (test)</option>
+          </select>
+        </label>
+        <p id="regError" class="field-error"></p>
+        <menu>
+          <button class="secondary" value="cancel">Annulla</button>
+          <button class="primary" id="confirmRegister" type="button">Iscriviti e paga</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <div id="toast" role="status" aria-live="polite"></div>
+    <script type="module" src="js/event.js"></script>
+  </body>
+</html>

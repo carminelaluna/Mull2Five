@@ -1,29 +1,38 @@
+import csv
+import io
 import random
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 import stripe
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy import Select, delete, func, select
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session, joinedload, selectinload  # noqa: F401
 
+from backend.app.core.config import get_settings
+from backend.app.core.tenant import resolve_org
 from backend.app.db import get_db
 from backend.app.models import (
     Announcement,
     Decklist,
     DecklistRevision,
     DecklistStatus,
+    InviteCode,
+    Organization,
+    Pairing,
+    PairingResultReport,
     Payment,
     PaymentStatus,
-    Pairing,
     Penalty,
     Registration,
+    RegistrationMode,
+    ResultReportStatus,
     Round,
     Tournament,
-    InviteCode,
-    RegistrationMode,
-    TournamentStructure,
+    TournamentStaff,
     TournamentStatus,
+    TournamentStructure,
     User,
+    UserRole,
 )
 from backend.app.schemas import (
     AnnouncementCreate,
@@ -37,50 +46,106 @@ from backend.app.schemas import (
     ManualPairingIn,
     OrganizerRegistrationOut,
     PairingOut,
-    PaymentOut,
     PairingResultIn,
+    PairingResultRejectIn,
+    PaymentOut,
     PenaltyCreate,
     PenaltyOut,
     PlayerCardOut,
+    PlayerHistoryRowOut,
+    PlayerPublicProfileOut,
+    PublicDisplayOut,
+    PublicPairingOut,
+    RefundDecisionIn,
+    RefundRequestIn,
     RegistrationCreate,
     RegistrationOut,
-    RefundRequestIn,
-    RefundDecisionIn,
     RoundOut,
+    StaffIn,
+    StaffOut,
     StandingOut,
+    TableExtendIn,
+    TimerExtendIn,
+    TimerRestartIn,
     TournamentControlsIn,
     TournamentCreate,
     TournamentOut,
+    TournamentReportOut,
+    WalkInIn,
 )
 from backend.app.security import get_current_user, require_organizer
-from backend.app.core.config import get_settings
 from backend.app.services.decklists import validate_card_legality, validate_decklist
 from backend.app.services.email import event_announcement_html, send_email
-from backend.app.services.payments import create_paypal_checkout, create_stripe_checkout, refund_paypal_capture
+from backend.app.services.payments import (
+    create_paypal_checkout,
+    create_stripe_checkout,
+    refund_paypal_capture,
+)
 
 router = APIRouter(prefix="/tournaments", tags=["tournaments"])
 
 
 def tournament_with_counts(stmt: Select[tuple[Tournament]], db: Session) -> list[TournamentOut]:
-    tournaments = db.scalars(stmt).all()
-    counts = dict(
-        db.execute(
-            select(Registration.tournament_id, func.count(Registration.id)).group_by(
-                Registration.tournament_id
-            )
-        ).all()
+    """
+    Ottimizzazione: unica query con LEFT JOIN invece di 2 query separate.
+    La versione precedente eseguiva COUNT su tutte le iscrizioni (N+1 sotto carico).
+    """
+    count_subq = (
+        select(
+            Registration.tournament_id,
+            func.count(Registration.id).label("cnt"),
+        )
+        .group_by(Registration.tournament_id)
+        .subquery("reg_counts")
     )
+
+    combined = (
+        stmt.add_columns(func.coalesce(count_subq.c.cnt, 0).label("reg_count"))
+        .outerjoin(count_subq, Tournament.id == count_subq.c.tournament_id)
+    )
+
+    rows = db.execute(combined).all()
     return [
         TournamentOut.model_validate(tournament).model_copy(
-            update={"registered_players": counts.get(tournament.id, 0)}
+            update={"registered_players": int(reg_count)}
         )
-        for tournament in tournaments
+        for tournament, reg_count in rows
     ]
 
 
 @router.get("", response_model=list[TournamentOut])
-def list_tournaments(db: Session = Depends(get_db)) -> list[TournamentOut]:
+def list_tournaments(
+    org: Organization | None = Depends(resolve_org),
+    name: str | None = None,
+    format: str | None = None,
+    venue: str | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    status: str | None = None,
+    db: Session = Depends(get_db),
+) -> list[TournamentOut]:
+    """Elenco pubblico tornei del negozio (tenant), con filtri di ricerca.
+    `status` accetta valori multipli separati da virgola (es. published,running)."""
     stmt = select(Tournament).where(Tournament.status != TournamentStatus.CANCELLED)
+    if org:
+        stmt = stmt.where(
+            (Tournament.organization_id == org.id) | (Tournament.organization_id.is_(None))
+        )
+    if status:
+        wanted = [s.strip() for s in status.split(",") if s.strip()]
+        if wanted:
+            stmt = stmt.where(Tournament.status.in_(wanted))
+    if name:
+        stmt = stmt.where(Tournament.name.ilike(f"%{name}%"))
+    if format:
+        stmt = stmt.where(Tournament.format == format)
+    if venue:
+        stmt = stmt.where(Tournament.venue.ilike(f"%{venue}%"))
+    if date_from:
+        stmt = stmt.where(Tournament.starts_on >= date_from)
+    if date_to:
+        stmt = stmt.where(Tournament.starts_on <= date_to)
+    stmt = stmt.order_by(Tournament.starts_on.asc())
     return tournament_with_counts(stmt, db)
 
 
@@ -102,16 +167,156 @@ def my_tournaments(
     return tournament_with_counts(select(Tournament).where(Tournament.id.in_(ids)), db)
 
 
+@router.get("/me/history", response_model=list[PlayerHistoryRowOut])
+def my_history(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[PlayerHistoryRowOut]:
+    """Storico tornei del giocatore: piazzamento, record e punti per ogni torneo giocato."""
+    regs = db.scalars(
+        select(Registration)
+        .where(Registration.player_id == user.id)
+        .options(joinedload(Registration.tournament))
+    ).all()
+    rows: list[PlayerHistoryRowOut] = []
+    for reg in regs:
+        t = reg.tournament
+        if not t:
+            continue
+        placement = None
+        record = ""
+        points = 0
+        # Calcola piazzamento solo per tornei iniziati/conclusi
+        if t.status in {TournamentStatus.RUNNING, TournamentStatus.COMPLETED}:
+            standings = calculate_standings(t.id, db)
+            mine = next((s for s in standings if s.registration_id == reg.id), None)
+            if mine:
+                placement = mine.position
+                record = mine.record
+                points = mine.points
+        rows.append(PlayerHistoryRowOut(
+            tournament_id=t.id, tournament_name=t.name, starts_on=t.starts_on,
+            format=t.format, status=t.status, placement=placement, record=record, points=points,
+        ))
+    rows.sort(key=lambda r: str(r.starts_on), reverse=True)
+    return rows
+
+
+@router.get("/players/{email}/public-history", response_model=PlayerPublicProfileOut)
+def player_public_history(
+    email: str,
+    db: Session = Depends(get_db),
+) -> PlayerPublicProfileOut:
+    """Profilo pubblico di un giocatore: storico e statistiche aggregate, calcolate
+    solo dai tornei con classifica pubblica. Nessuna autenticazione richiesta."""
+    player = db.scalar(select(User).where(User.email == email.lower()))
+    if not player:
+        raise HTTPException(status_code=404, detail="Giocatore non trovato")
+    regs = db.scalars(
+        select(Registration)
+        .where(Registration.player_id == player.id)
+        .options(joinedload(Registration.tournament))
+    ).all()
+    rows: list[PlayerHistoryRowOut] = []
+    tot_pts = wins = draws = losses = 0
+    for reg in regs:
+        t = reg.tournament
+        if not t or not t.standings_public:
+            continue
+        if t.status not in {TournamentStatus.RUNNING, TournamentStatus.COMPLETED}:
+            continue
+        standings = calculate_standings(t.id, db)
+        mine = next((s for s in standings if s.registration_id == reg.id), None)
+        if not mine:
+            continue
+        # record è "V/P/S" (vittorie/pareggi/sconfitte)
+        try:
+            w, d, ls = (int(x) for x in str(mine.record).split("/"))
+        except (ValueError, AttributeError):
+            w = d = ls = 0
+        wins += w
+        draws += d
+        losses += ls
+        tot_pts += mine.points
+        rows.append(PlayerHistoryRowOut(
+            tournament_id=t.id, tournament_name=t.name, starts_on=t.starts_on,
+            format=t.format, status=t.status, placement=mine.position,
+            record=mine.record, points=mine.points,
+        ))
+    rows.sort(key=lambda r: str(r.starts_on), reverse=True)
+    return PlayerPublicProfileOut(
+        display_name=player.display_name, email=player.email,
+        tournaments_played=len(rows), total_points=tot_pts,
+        wins=wins, draws=draws, losses=losses, rows=rows,
+    )
+
+
+@router.post("/{tournament_id}/duplicate", response_model=TournamentOut, status_code=201)
+def duplicate_tournament(
+    tournament_id: int,
+    organizer: User = Depends(require_organizer),
+    db: Session = Depends(get_db),
+) -> TournamentOut:
+    """Duplica un torneo (stesse impostazioni, data +7 giorni, senza iscritti né round).
+    Utile per gli eventi ricorrenti (es. FNM ogni venerdì)."""
+    src = load_owned_tournament(tournament_id, organizer, db)
+    copy = Tournament(
+        organizer_id=organizer.id,
+        name=src.name,
+        format=src.format,
+        rules_enforcement_level=src.rules_enforcement_level,
+        venue=src.venue,
+        starts_on=src.starts_on + timedelta(days=7),
+        capacity=src.capacity,
+        entry_fee_cents=src.entry_fee_cents,
+        currency=src.currency,
+        status=TournamentStatus.PUBLISHED,
+        structure=src.structure,
+        swiss_rounds=src.swiss_rounds,
+        top_cut_size=src.top_cut_size,
+        decklist_required=src.decklist_required,
+        check_in_required=src.check_in_required,
+        self_check_in_enabled=src.self_check_in_enabled,
+        late_registration_enabled=src.late_registration_enabled,
+        registration_mode=src.registration_mode,
+        pairings_public=src.pairings_public,
+        standings_public=src.standings_public,
+        decklists_public=src.decklists_public,
+        round_timer_minutes=src.round_timer_minutes,
+        refund_policy=src.refund_policy,
+        invite_code_required=src.invite_code_required,
+        email_notifications_enabled=src.email_notifications_enabled,
+        legal_validation_enabled=src.legal_validation_enabled,
+        description=src.description,
+        season_id=src.season_id,
+        pay_at_event=src.pay_at_event,
+        pay_stripe=src.pay_stripe,
+        pay_paypal=src.pay_paypal,
+    )
+    db.add(copy)
+    db.commit()
+    db.refresh(copy)
+    from backend.app.core.cache import cache_invalidate
+    cache_invalidate("tournaments:")
+    return TournamentOut.model_validate(copy).model_copy(update={"registered_players": 0})
+
+
 @router.post("", response_model=TournamentOut, status_code=201)
 def create_tournament(
     payload: TournamentCreate,
     organizer: User = Depends(require_organizer),
     db: Session = Depends(get_db),
 ) -> TournamentOut:
-    tournament = Tournament(**payload.model_dump(), organizer_id=organizer.id)
+    tournament = Tournament(
+        **payload.model_dump(),
+        organizer_id=organizer.id,
+        organization_id=organizer.organization_id,
+    )
     db.add(tournament)
     db.commit()
     db.refresh(tournament)
+    from backend.app.core.cache import cache_invalidate
+    cache_invalidate("tournaments:")
     return TournamentOut.model_validate(tournament).model_copy(update={"registered_players": 0})
 
 
@@ -137,7 +342,14 @@ def start_tournament(
         raise HTTPException(status_code=409, detail="At least two eligible players are required")
     tournament.status = TournamentStatus.RUNNING
     db.add(tournament)
-    return create_round_for_tournament(tournament, db)
+    result = create_round_for_tournament(tournament, db)
+    # Notifica email giocatori idonei
+    try:
+        from backend.app.services.notifications import notify_tournament_started
+        notify_tournament_started(tournament, eligible_registrations(tournament, db))
+    except Exception:
+        pass
+    return result
 
 
 @router.post("/{tournament_id}/close", response_model=TournamentOut)
@@ -164,8 +376,12 @@ def delete_tournament(
     db: Session = Depends(get_db),
 ) -> None:
     tournament = load_owned_tournament(tournament_id, organizer, db)
+    # Un torneo concluso è parte dello storico: non può essere eliminato.
+    if tournament.status == TournamentStatus.COMPLETED:
+        raise HTTPException(status_code=409, detail="I tornei conclusi non possono essere eliminati (storico)")
     round_ids = db.scalars(select(Round.id).where(Round.tournament_id == tournament.id)).all()
     if round_ids:
+        db.execute(delete(PairingResultReport).where(PairingResultReport.pairing_id.in_(select(Pairing.id).where(Pairing.round_id.in_(round_ids)))))
         db.execute(delete(Pairing).where(Pairing.round_id.in_(round_ids)))
     registration_ids = db.scalars(
         select(Registration.id).where(Registration.tournament_id == tournament.id)
@@ -201,10 +417,12 @@ def register_for_tournament(
     if tournament.status == TournamentStatus.RUNNING and not tournament.late_registration_enabled:
         raise HTTPException(status_code=409, detail="Late registration is disabled")
     registered = db.scalar(
-        select(func.count(Registration.id)).where(Registration.tournament_id == tournament_id)
+        select(func.count(Registration.id)).where(
+            Registration.tournament_id == tournament_id,
+            Registration.waitlisted == False,  # noqa: E712
+        )
     )
-    if registered and registered >= tournament.capacity:
-        raise HTTPException(status_code=409, detail="Tournament is full")
+    is_full = bool(registered and registered >= tournament.capacity)
     existing = db.scalar(
         select(Registration).where(
             Registration.tournament_id == tournament_id,
@@ -213,37 +431,69 @@ def register_for_tournament(
     )
     if existing:
         raise HTTPException(status_code=409, detail="Already registered")
+    # Torneo pieno → lista d'attesa invece di rifiuto
     registration = Registration(
         tournament_id=tournament_id,
         player_id=user.id,
         wizards_account=payload.wizards_account,
+        waitlisted=is_full,
     )
     db.add(registration)
     db.commit()
     db.refresh(registration)
+    from backend.app.core.cache import cache_invalidate
+    cache_invalidate("tournaments:")               # il count cambia
+    cache_invalidate(f"registrations:{tournament_id}")  # lista iscritti cambia
+    # Notifica email
+    try:
+        from backend.app.services.notifications import notify_registration_confirmed
+        notify_registration_confirmed(registration)
+    except Exception:
+        pass
     return registration_out(registration)
 
 
 @router.get("/{tournament_id}/registrations", response_model=list[OrganizerRegistrationOut])
 def list_registrations(
     tournament_id: int,
+    page: int = 1,
+    page_size: int = 100,
     organizer: User = Depends(require_organizer),
     db: Session = Depends(get_db),
 ) -> list[OrganizerRegistrationOut]:
+    """Lista iscritti con paginazione (default 100/pagina).
+    Usa ?page=2 per la pagina successiva, ?page_size=50 per ridurre il carico.
+    """
+    from backend.app.core.cache import cache_get, cache_set
     tournament = db.get(Tournament, tournament_id)
     if not tournament or tournament.organizer_id != organizer.id:
         raise HTTPException(status_code=404, detail="Tournament not found")
+
+    page = max(1, page)
+    page_size = max(1, min(page_size, 200))   # max 200/pagina
+    offset = (page - 1) * page_size
+
+    cache_key = f"registrations:{tournament_id}:p{page}:s{page_size}"
+    cached = cache_get(cache_key)
+    if cached is not None:
+        return cached
+
     registrations = db.scalars(
         select(Registration)
         .where(Registration.tournament_id == tournament_id)
+        .order_by(Registration.id)
+        .offset(offset)
+        .limit(page_size)
         .options(
             selectinload(Registration.player),
             selectinload(Registration.decklist),
-            selectinload(Registration.decklist_revisions),
             selectinload(Registration.payment),
+            selectinload(Registration.decklist_revisions),  # conta revisioni senza N+1
         )
     ).all()
-    return [organizer_registration_out(item) for item in registrations]
+    result = [organizer_registration_out(item) for item in registrations]
+    cache_set(cache_key, result, ttl=8.0)
+    return result
 
 
 @router.get("/{tournament_id}/my-registration", response_model=RegistrationOut)
@@ -252,18 +502,26 @@ def my_registration(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> RegistrationOut:
+    from backend.app.core.cache import cache_get, cache_set
+    cache_key = f"my-reg:{tournament_id}:{user.id}"
+    cached = cache_get(cache_key)
+    if cached is not None:
+        return cached
+    # joinedload per query singola: 1 query con JOIN invece di 3+1 selectinload
     registration = db.scalar(
         select(Registration)
         .where(Registration.tournament_id == tournament_id, Registration.player_id == user.id)
         .options(
-            selectinload(Registration.player),
-            selectinload(Registration.decklist),
-            selectinload(Registration.payment),
+            joinedload(Registration.player),
+            joinedload(Registration.decklist),
+            joinedload(Registration.payment),
         )
     )
     if not registration:
         raise HTTPException(status_code=404, detail="Registration not found")
-    return registration_out(registration)
+    result = registration_out(registration)
+    cache_set(cache_key, result, ttl=10.0)
+    return result
 
 
 @router.patch("/{tournament_id}/self-check-in", response_model=RegistrationOut)
@@ -276,10 +534,10 @@ def self_check_in(
         select(Registration)
         .where(Registration.tournament_id == tournament_id, Registration.player_id == user.id)
         .options(
-            selectinload(Registration.player),
-            selectinload(Registration.decklist),
-            selectinload(Registration.payment),
-            selectinload(Registration.tournament),
+            joinedload(Registration.player),
+            joinedload(Registration.decklist),
+            joinedload(Registration.payment),
+            joinedload(Registration.tournament),
         )
     )
     if not registration:
@@ -291,6 +549,101 @@ def self_check_in(
     registration.checked_in = True
     db.commit()
     db.refresh(registration)
+    return registration_out(registration)
+
+
+def promote_from_waitlist(tournament: Tournament, db: Session) -> None:
+    """Promuove il primo in lista d'attesa se si è liberato un posto."""
+    active = db.scalar(
+        select(func.count(Registration.id)).where(
+            Registration.tournament_id == tournament.id,
+            Registration.waitlisted == False,  # noqa: E712
+            Registration.dropped == False,     # noqa: E712
+        )
+    )
+    if active and active >= tournament.capacity:
+        return
+    next_in_line = db.scalar(
+        select(Registration)
+        .where(
+            Registration.tournament_id == tournament.id,
+            Registration.waitlisted == True,  # noqa: E712
+        )
+        .order_by(Registration.created_at, Registration.id)
+        .options(joinedload(Registration.player))
+    )
+    if not next_in_line:
+        return
+    next_in_line.waitlisted = False
+    db.commit()
+    from backend.app.core.cache import cache_invalidate
+    cache_invalidate(f"registrations:{tournament.id}")
+    cache_invalidate(f"my-reg:{tournament.id}:{next_in_line.player_id}")
+    try:
+        send_email(
+            next_in_line.player.email,
+            f"{tournament.name} — Sei dentro!",
+            f"Ciao {next_in_line.player.display_name},\n\n"
+            f"si è liberato un posto per \"{tournament.name}\" e sei stato promosso "
+            "dalla lista d'attesa. Completa il pagamento per confermare l'iscrizione.",
+        )
+    except Exception:
+        pass
+
+
+@router.post("/{tournament_id}/my-registration/drop", response_model=RegistrationOut)
+def self_drop(
+    tournament_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> RegistrationOut:
+    """Il giocatore si ritira da solo dal torneo (tra un round e l'altro)."""
+    registration = db.scalar(
+        select(Registration)
+        .where(Registration.tournament_id == tournament_id, Registration.player_id == user.id)
+        .options(
+            joinedload(Registration.player),
+            joinedload(Registration.decklist),
+            joinedload(Registration.payment),
+            joinedload(Registration.tournament),
+        )
+    )
+    if not registration:
+        raise HTTPException(status_code=404, detail="Registration not found")
+    if registration.dropped:
+        raise HTTPException(status_code=409, detail="Already dropped")
+    tournament = registration.tournament
+    if tournament.status in {TournamentStatus.COMPLETED, TournamentStatus.CANCELLED}:
+        raise HTTPException(status_code=409, detail="Tournament is closed")
+    # Drop consentito solo tra i round: blocca se ha una partita in corso senza risultato
+    open_pairing = db.scalar(
+        select(Pairing)
+        .join(Round)
+        .where(
+            Round.tournament_id == tournament_id,
+            Round.number == select(func.max(Round.number))
+                .where(Round.tournament_id == tournament_id)
+                .scalar_subquery(),
+            Pairing.result == "",
+            (Pairing.player_a_registration_id == registration.id)
+            | (Pairing.player_b_registration_id == registration.id),
+        )
+    )
+    if open_pairing:
+        raise HTTPException(
+            status_code=409,
+            detail="Completa o fai refertare la partita in corso prima di ritirarti",
+        )
+    was_waitlisted = registration.waitlisted
+    registration.dropped = True
+    db.commit()
+    db.refresh(registration)
+    from backend.app.core.cache import cache_invalidate
+    cache_invalidate(f"registrations:{tournament_id}")
+    cache_invalidate(f"my-reg:{tournament_id}:{user.id}")
+    # Il drop di un iscritto attivo libera un posto per la waitlist
+    if not was_waitlisted:
+        promote_from_waitlist(tournament, db)
     return registration_out(registration)
 
 
@@ -374,6 +727,11 @@ def create_announcement(
                 payload.body,
                 event_announcement_html(tournament.name, payload.title, payload.body),
             )
+    # Notifica Web Push a tutti gli iscritti (no-op se VAPID non configurato)
+    if tournament:
+        from backend.app.services.notifications import push_to_tournament
+
+        push_to_tournament(db, tournament_id, f"{tournament.name}: {payload.title}", payload.body)
     return announcement
 
 
@@ -403,15 +761,16 @@ def list_announcements(
 def create_penalty(
     tournament_id: int,
     payload: PenaltyCreate,
-    organizer: User = Depends(require_organizer),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Penalty:
-    tournament = load_owned_tournament(tournament_id, organizer, db)
+    # Organizzatore proprietario o staff/judge invitato
+    tournament = load_tournament_for_staff(tournament_id, user, db)
     load_registration_for_tournament(tournament.id, payload.registration_id, db)
     penalty = Penalty(
         tournament_id=tournament.id,
         registration_id=payload.registration_id,
-        judge_id=organizer.id,
+        judge_id=user.id,
         round_id=payload.round_id,
         kind=payload.kind,
         note=payload.note,
@@ -484,12 +843,108 @@ def set_drop(
     organizer: User = Depends(require_organizer),
     db: Session = Depends(get_db),
 ) -> OrganizerRegistrationOut:
-    load_owned_tournament(tournament_id, organizer, db)
+    tournament = load_owned_tournament(tournament_id, organizer, db)
     registration = load_registration_for_tournament(tournament_id, registration_id, db)
     registration.dropped = dropped
     db.commit()
     db.refresh(registration)
+    if dropped and not registration.waitlisted:
+        promote_from_waitlist(tournament, db)
     return organizer_registration_out(registration)
+
+
+@router.post("/{tournament_id}/registrations/{registration_id}/mark-paid", response_model=OrganizerRegistrationOut)
+def mark_registration_paid(
+    tournament_id: int,
+    registration_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> OrganizerRegistrationOut:
+    """Segna pagata un'iscrizione (contanti/al banco). Organizer o staff."""
+    tournament = load_tournament_for_staff(tournament_id, user, db)
+    registration = load_registration_for_tournament(tournament_id, registration_id, db)
+    payment = registration.payment or Payment(
+        registration_id=registration.id,
+        provider="cash",
+        amount_cents=tournament.entry_fee_cents,
+        currency=tournament.currency,
+    )
+    payment.provider = payment.provider or "cash"
+    payment.status = PaymentStatus.PAID
+    payment.paid_at = datetime.now(UTC)
+    db.add(payment)
+    db.commit()
+    from backend.app.core.cache import cache_invalidate
+    cache_invalidate(f"registrations:{tournament_id}")
+    cache_invalidate(f"my-reg:{tournament_id}:{registration.player_id}")
+    return organizer_registration_out(
+        load_registration_for_tournament(tournament_id, registration_id, db)
+    )
+
+
+@router.post("/{tournament_id}/walk-in", response_model=OrganizerRegistrationOut, status_code=201)
+def add_walk_in(
+    tournament_id: int,
+    payload: WalkInIn,
+    organizer: User = Depends(require_organizer),
+    db: Session = Depends(get_db),
+) -> OrganizerRegistrationOut:
+    """Iscrive al banco un giocatore presente. Crea l'account se non esiste
+    (il giocatore potrà poi impostare la password via 'password dimenticata')."""
+    tournament = load_owned_tournament(tournament_id, organizer, db)
+    if tournament.status in {TournamentStatus.COMPLETED, TournamentStatus.CANCELLED}:
+        raise HTTPException(status_code=409, detail="Closed tournaments cannot accept registrations")
+    email = payload.email.lower()
+    player = db.scalar(select(User).where(User.email == email))
+    if not player:
+        player = User(
+            email=email,
+            display_name=payload.display_name,
+            role=UserRole.PLAYER,
+            password_hash=None,
+            is_active=True,
+        )
+        db.add(player)
+        db.flush()
+    existing = db.scalar(
+        select(Registration).where(
+            Registration.tournament_id == tournament_id,
+            Registration.player_id == player.id,
+        )
+    )
+    if existing:
+        raise HTTPException(status_code=409, detail="Player already registered")
+    active = db.scalar(
+        select(func.count(Registration.id)).where(
+            Registration.tournament_id == tournament_id,
+            Registration.waitlisted == False,  # noqa: E712
+        )
+    ) or 0
+    is_full = active >= tournament.capacity
+    registration = Registration(
+        tournament_id=tournament_id,
+        player_id=player.id,
+        wizards_account=payload.wizards_account,
+        waitlisted=is_full,
+    )
+    db.add(registration)
+    db.flush()
+    if payload.mark_paid and not is_full:
+        db.add(Payment(
+            registration_id=registration.id,
+            provider="cash",
+            status=PaymentStatus.PAID,
+            amount_cents=tournament.entry_fee_cents,
+            currency=tournament.currency,
+            paid_at=datetime.now(UTC),
+        ))
+    db.commit()
+    from backend.app.core.cache import cache_invalidate
+    cache_invalidate(f"registrations:{tournament_id}")
+    cache_invalidate("tournaments:")
+    return organizer_registration_out(
+        load_registration_for_tournament(tournament_id, registration.id, db)
+    )
 
 
 @router.patch("/{tournament_id}/controls", response_model=TournamentOut)
@@ -516,12 +971,19 @@ def get_standings(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[StandingOut]:
+    from backend.app.core.cache import cache_get, cache_set
     tournament = db.get(Tournament, tournament_id)
     if not tournament:
         raise HTTPException(status_code=404, detail="Tournament not found")
     if tournament.organizer_id != user.id and not tournament.standings_public:
         return []
-    return calculate_standings(tournament_id, db)
+    cache_key = f"standings:{tournament_id}"
+    cached = cache_get(cache_key)
+    if cached is not None:
+        return cached
+    result = calculate_standings(tournament_id, db)
+    cache_set(cache_key, result, ttl=30.0)   # 30s — invalidata esplicitamente dopo ogni risultato
+    return result
 
 
 @router.get("/{tournament_id}/rounds", response_model=list[RoundOut])
@@ -543,9 +1005,64 @@ def list_rounds(
         )
         .order_by(Round.number)
     ).all()
+    report_map = latest_result_reports(tournament_id, db)
     if not is_organizer:
         rounds = [round_obj for round_obj in rounds if round_obj.is_published and tournament.pairings_public]
-    return [round_out(round_obj) for round_obj in rounds]
+    return [round_out(round_obj, report_map) for round_obj in rounds]
+
+
+@router.get("/{tournament_id}/my-pairings", response_model=list[RoundOut])
+def my_pairings(
+    tournament_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[RoundOut]:
+    # Niente cache: dato live e per-giocatore. Con più worker Gunicorn la cache
+    # in-memory è per-processo e l'invalidazione non si propaga: un avversario
+    # potrebbe non vedere il risultato appena inserito (sezione conferma assente).
+    # La query carica solo i 3 pairing del giocatore, è economica.
+    registration = db.scalar(
+        select(Registration).where(
+            Registration.tournament_id == tournament_id,
+            Registration.player_id == user.id,
+        )
+    )
+    if not registration:
+        raise HTTPException(status_code=404, detail="Registration not found")
+
+    # Carica SOLO i pairing di questo giocatore (3 righe), non tutti i 1500
+    pairings = db.scalars(
+        select(Pairing)
+        .join(Round)
+        .where(
+            Round.tournament_id == tournament_id,
+            (Pairing.player_a_registration_id == registration.id)
+            | (Pairing.player_b_registration_id == registration.id),
+        )
+        .options(
+            selectinload(Pairing.round),
+            selectinload(Pairing.player_a).selectinload(Registration.player),
+            selectinload(Pairing.player_b).selectinload(Registration.player),
+        )
+        .order_by(Round.number)
+    ).all()
+
+    # Raggruppa per round
+    round_map: dict[int, tuple[Round, list[Pairing]]] = {}
+    for pairing in pairings:
+        rnd = pairing.round
+        if rnd.id not in round_map:
+            round_map[rnd.id] = (rnd, [])
+        round_map[rnd.id][1].append(pairing)
+
+    report_map = latest_result_reports(tournament_id, db)
+    result = []
+    for rnd, player_pairings in sorted(round_map.values(), key=lambda x: x[0].number):
+        # NON mutare rnd.pairings: assegnare la relazione ORM dissocia gli altri
+        # pairing dal round (UPDATE round_id=NULL al commit successivo)
+        result.append(round_out(rnd, report_map, pairings=player_pairings))
+
+    return result
 
 
 @router.post("/{tournament_id}/decklist", response_model=DecklistOut)
@@ -610,6 +1127,11 @@ async def checkout(
     if not registration:
         raise HTTPException(status_code=404, detail="Registration not found")
     tournament = registration.tournament
+    # Il provider richiesto deve essere abilitato dall'organizzatore per questo torneo
+    if payload.provider == "stripe" and not tournament.pay_stripe:
+        raise HTTPException(status_code=409, detail="Pagamento con Stripe non disponibile per questo torneo")
+    if payload.provider == "paypal" and not tournament.pay_paypal:
+        raise HTTPException(status_code=409, detail="Pagamento con PayPal non disponibile per questo torneo")
     payment = registration.payment or Payment(
         registration_id=registration.id,
         provider=payload.provider,
@@ -633,7 +1155,8 @@ async def checkout(
         frontend_url = str(settings.frontend_url).rstrip("/")
         payment.provider_checkout_id = f"sandbox-{payload.provider}-{payment.id}"
         payment.checkout_url = (
-            f"{frontend_url}/sandbox-checkout?payment_id={payment.id}&provider={payload.provider}"
+            f"{frontend_url}/sandbox-checkout.html"
+            f"?payment_id={payment.id}&provider={payload.provider}"
         )
         db.commit()
         db.refresh(payment)
@@ -724,7 +1247,15 @@ def create_round(
     if tournament.status != TournamentStatus.RUNNING:
         raise HTTPException(status_code=409, detail="Start the tournament before creating rounds")
     ensure_latest_round_has_results(tournament_id, db)
-    return create_round_for_tournament(tournament, db)
+    result = create_round_for_tournament(tournament, db)
+    # Notifica email pairings pronti
+    try:
+        from backend.app.services.notifications import notify_pairings_ready
+        regs = eligible_registrations(tournament, db)
+        notify_pairings_ready(tournament, result.number, regs)
+    except Exception:
+        pass
+    return result
 
 
 @router.patch("/{tournament_id}/pairings/{pairing_id}", response_model=RoundOut)
@@ -820,10 +1351,11 @@ def report_result(
     tournament_id: int,
     pairing_id: int,
     payload: PairingResultIn,
-    organizer: User = Depends(require_organizer),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> RoundOut:
-    load_owned_tournament(tournament_id, organizer, db)
+    # Organizzatore proprietario o staff/judge invitato
+    load_tournament_for_staff(tournament_id, user, db)
     pairing = db.scalar(
         select(Pairing)
         .join(Round)
@@ -843,6 +1375,10 @@ def report_result(
         raise HTTPException(status_code=404, detail="Pairing not found")
     apply_pairing_result(tournament_id, pairing, payload, db)
     db.refresh(pairing.round)
+    from backend.app.core.cache import cache_invalidate
+    cache_invalidate(f"standings:{tournament_id}")       # standings cambiano dopo ogni risultato
+    cache_invalidate(f"result-reports:{tournament_id}")  # report map obsoleta
+    cache_invalidate(f"my-pairings:{tournament_id}")     # card giocatori obsoleta
     return round_out(pairing.round)
 
 
@@ -854,10 +1390,395 @@ def report_player_result(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> RoundOut:
+    pairing = load_player_pairing(tournament_id, pairing_id, user, db)
+    ensure_allowed_score(payload)
+    reporter_id = player_registration_id_for_pairing(pairing, user)
+    existing = latest_open_report(pairing.id, db)
+    if existing and existing.reporter_registration_id != reporter_id:
+        raise HTTPException(status_code=409, detail="Opponent result is waiting for confirm or reject")
+    if existing and existing.reporter_registration_id == reporter_id:
+        existing.match_wins_a = payload.match_wins_a
+        existing.match_wins_b = payload.match_wins_b
+        existing.draws = payload.draws
+        existing.created_at = datetime.now(UTC)
+        db.add(existing)
+    else:
+        db.add(
+            PairingResultReport(
+                pairing_id=pairing.id,
+                reporter_registration_id=reporter_id,
+                match_wins_a=payload.match_wins_a,
+                match_wins_b=payload.match_wins_b,
+                draws=payload.draws,
+                status=ResultReportStatus.PENDING,
+            )
+        )
+    db.commit()
+    db.refresh(pairing.round)
+    # Invalida PRIMA di ricostruire: così l'avversario vede subito il report e
+    # gli compare la sezione "Conferma / Chiama Judge" (no attesa del TTL cache).
+    from backend.app.core.cache import cache_invalidate
+    cache_invalidate(f"result-reports:{tournament_id}")
+    cache_invalidate(f"my-pairings:{tournament_id}")
+    return round_out(pairing.round, latest_result_reports(tournament_id, db))
+
+
+@router.post("/{tournament_id}/pairings/{pairing_id}/player-result/confirm", response_model=RoundOut)
+def confirm_player_result(
+    tournament_id: int,
+    pairing_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> RoundOut:
+    pairing = load_player_pairing(tournament_id, pairing_id, user, db)
+    reporter_id = player_registration_id_for_pairing(pairing, user)
+    report = latest_open_report(pairing.id, db)
+    if not report:
+        raise HTTPException(status_code=404, detail="No pending result to confirm")
+    if report.reporter_registration_id == reporter_id:
+        raise HTTPException(status_code=409, detail="Opponent must confirm this result")
+    apply_pairing_result(
+        tournament_id,
+        pairing,
+        PairingResultIn(
+            match_wins_a=report.match_wins_a,
+            match_wins_b=report.match_wins_b,
+            draws=report.draws,
+        ),
+        db,
+    )
+    report.status = ResultReportStatus.CONFIRMED
+    report.resolved_at = datetime.now(UTC)
+    db.add(report)
+    db.commit()
+    db.refresh(pairing.round)
+    from backend.app.core.cache import cache_invalidate
+    cache_invalidate(f"standings:{tournament_id}")
+    cache_invalidate(f"result-reports:{tournament_id}")
+    cache_invalidate(f"my-pairings:{tournament_id}")
+    return round_out(pairing.round, latest_result_reports(tournament_id, db))
+
+
+@router.post("/{tournament_id}/pairings/{pairing_id}/player-result/reject", response_model=RoundOut)
+def reject_player_result(
+    tournament_id: int,
+    pairing_id: int,
+    payload: PairingResultRejectIn,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> RoundOut:
+    pairing = load_player_pairing(tournament_id, pairing_id, user, db)
+    reporter_id = player_registration_id_for_pairing(pairing, user)
+    report = latest_open_report(pairing.id, db)
+    if not report:
+        raise HTTPException(status_code=404, detail="No pending result to reject")
+    if report.reporter_registration_id == reporter_id:
+        raise HTTPException(status_code=409, detail="Opponent must reject this result")
+    report.status = ResultReportStatus.CONFLICT
+    report.note = payload.note
+    report.resolved_at = datetime.now(UTC)
+    db.add(report)
+    db.commit()
+    db.refresh(pairing.round)
+    from backend.app.core.cache import cache_invalidate
+    cache_invalidate(f"result-reports:{tournament_id}")
+    cache_invalidate(f"my-pairings:{tournament_id}")
+    return round_out(pairing.round, latest_result_reports(tournament_id, db))
+
+
+@router.get("/{tournament_id}/public-display", response_model=PublicDisplayOut)
+def public_display(tournament_id: int, db: Session = Depends(get_db)) -> PublicDisplayOut:
+    """Dati per lo schermo pubblico in negozio (TV/proiettore) — nessuna autenticazione.
+
+    Restituisce pairing del round corrente (se pairings_public), scadenza timer
+    e standings (se standings_public). Cache 10s: regge il polling di più schermi.
+    """
+    from backend.app.core.cache import cache_get, cache_set
+    cache_key = f"public-display:{tournament_id}"
+    cached = cache_get(cache_key)
+    if cached is not None:
+        return cached
+
+    tournament = db.get(Tournament, tournament_id)
+    if not tournament:
+        raise HTTPException(status_code=404, detail="Tournament not found")
+
+    latest_round = None
+    pairings_out: list[PublicPairingOut] = []
+    if tournament.pairings_public:
+        latest_round = db.scalar(
+            select(Round)
+            .where(Round.tournament_id == tournament_id, Round.is_published == True)  # noqa: E712
+            .options(
+                selectinload(Round.pairings).selectinload(Pairing.player_a).selectinload(Registration.player),
+                selectinload(Round.pairings).selectinload(Pairing.player_b).selectinload(Registration.player),
+            )
+            .order_by(Round.number.desc())
+        )
+        if latest_round:
+            base_end = latest_round.ends_at
+            pairings_out = [
+                PublicPairingOut(
+                    table_number=p.table_number,
+                    player_a=p.player_a.player.display_name,
+                    player_b=p.player_b.player.display_name if p.player_b else None,
+                    result=p.result,
+                    extra_seconds=p.extra_seconds,
+                    # Fine effettiva del tavolo = fine round + minuti extra concessi
+                    ends_at=(base_end + timedelta(seconds=p.extra_seconds)) if base_end else None,
+                )
+                for p in sorted(latest_round.pairings, key=lambda x: x.table_number)
+            ]
+
+    standings = calculate_standings(tournament_id, db) if tournament.standings_public else []
+
+    result = PublicDisplayOut(
+        tournament_name=tournament.name,
+        round_number=latest_round.number if latest_round else None,
+        round_ends_at=latest_round.ends_at if latest_round else None,
+        pairings=pairings_out,
+        standings=standings[:16],   # top 16 bastano per lo schermo
+    )
+    cache_set(cache_key, result, ttl=10.0)
+    return result
+
+
+def _latest_round_or_404(tournament_id: int, db: Session) -> Round:
+    rnd = db.scalar(
+        select(Round)
+        .where(Round.tournament_id == tournament_id)
+        .order_by(Round.number.desc())
+    )
+    if not rnd:
+        raise HTTPException(status_code=404, detail="Nessun round generato")
+    return rnd
+
+
+@router.post("/{tournament_id}/timer/restart", response_model=RoundOut)
+def restart_round_timer(
+    tournament_id: int,
+    payload: TimerRestartIn,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> RoundOut:
+    """(Ri)avvia il timer dell'ultimo round: ends_at = ora + minuti. Organizer o staff."""
+    load_tournament_for_staff(tournament_id, user, db)
+    rnd = _latest_round_or_404(tournament_id, db)
+    now = datetime.now(UTC)
+    rnd.starts_at = now
+    rnd.ends_at = now + timedelta(minutes=payload.minutes)
+    db.commit()
+    db.refresh(rnd)
+    from backend.app.core.cache import cache_invalidate
+    cache_invalidate(f"public-display:{tournament_id}")
+    return round_out(rnd, latest_result_reports(tournament_id, db))
+
+
+@router.post("/{tournament_id}/timer/extend", response_model=RoundOut)
+def extend_round_timer(
+    tournament_id: int,
+    payload: TimerExtendIn,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> RoundOut:
+    """Aggiunge minuti alla scadenza dell'intero round corrente. Organizer o staff."""
+    load_tournament_for_staff(tournament_id, user, db)
+    rnd = _latest_round_or_404(tournament_id, db)
+    base = rnd.ends_at or datetime.now(UTC)
+    if base.tzinfo is None:
+        base = base.replace(tzinfo=UTC)
+    rnd.ends_at = base + timedelta(minutes=payload.minutes)
+    db.commit()
+    db.refresh(rnd)
+    from backend.app.core.cache import cache_invalidate
+    cache_invalidate(f"public-display:{tournament_id}")
+    return round_out(rnd, latest_result_reports(tournament_id, db))
+
+
+@router.patch("/{tournament_id}/pairings/{pairing_id}/extend", response_model=RoundOut)
+def extend_table_timer(
+    tournament_id: int,
+    pairing_id: int,
+    payload: TableExtendIn,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> RoundOut:
+    """Aggiunge minuti al singolo tavolo (es. ruling del judge). Organizer o staff."""
+    load_tournament_for_staff(tournament_id, user, db)
     pairing = db.scalar(
         select(Pairing)
         .join(Round)
-        .join(Tournament)
+        .where(Pairing.id == pairing_id, Round.tournament_id == tournament_id)
+        .options(
+            selectinload(Pairing.round)
+            .selectinload(Round.pairings)
+            .selectinload(Pairing.player_a)
+            .selectinload(Registration.player),
+            selectinload(Pairing.round)
+            .selectinload(Round.pairings)
+            .selectinload(Pairing.player_b)
+            .selectinload(Registration.player),
+        )
+    )
+    if not pairing:
+        raise HTTPException(status_code=404, detail="Pairing not found")
+    pairing.extra_seconds = (pairing.extra_seconds or 0) + payload.minutes * 60
+    db.commit()
+    db.refresh(pairing.round)
+    from backend.app.core.cache import cache_invalidate
+    cache_invalidate(f"public-display:{tournament_id}")
+    return round_out(pairing.round, latest_result_reports(tournament_id, db))
+
+
+def _ical_escape(value: str) -> str:
+    return value.replace("\\", "\\\\").replace(",", "\\,").replace(";", "\\;")
+
+
+def _tournament_to_vevent(tournament: Tournament) -> str:
+    start = tournament.starts_on.strftime("%Y%m%d")
+    return (
+        "BEGIN:VEVENT\r\n"
+        f"UID:arcana-tournament-{tournament.id}@arcana-events\r\n"
+        f"DTSTART;VALUE=DATE:{start}\r\n"
+        f"SUMMARY:{_ical_escape(tournament.name)} ({_ical_escape(tournament.format)})\r\n"
+        f"LOCATION:{_ical_escape(tournament.venue)}\r\n"
+        f"DESCRIPTION:{_ical_escape(tournament.description or tournament.format)}\r\n"
+        "END:VEVENT\r\n"
+    )
+
+
+@router.get("/{tournament_id}/ical")
+def tournament_ical(tournament_id: int, db: Session = Depends(get_db)) -> Response:
+    """File .ics per 'Aggiungi al calendario' — pubblico."""
+    tournament = db.get(Tournament, tournament_id)
+    if not tournament or tournament.status == TournamentStatus.CANCELLED:
+        raise HTTPException(status_code=404, detail="Tournament not found")
+    body = (
+        "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Arcana Events//IT\r\n"
+        + _tournament_to_vevent(tournament)
+        + "END:VCALENDAR\r\n"
+    )
+    return Response(
+        content=body,
+        media_type="text/calendar",
+        headers={"Content-Disposition": f'attachment; filename="torneo-{tournament_id}.ics"'},
+    )
+
+
+@router.get("/calendar/feed.ics")
+def calendar_feed(db: Session = Depends(get_db)) -> Response:
+    """Feed iCal di tutti i tornei pubblicati — da far seguire ai regular."""
+    tournaments = db.scalars(
+        select(Tournament).where(
+            Tournament.status.in_([TournamentStatus.PUBLISHED, TournamentStatus.RUNNING])
+        )
+    ).all()
+    body = (
+        "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Arcana Events//IT\r\n"
+        "X-WR-CALNAME:Arcana Events — Tornei\r\n"
+        + "".join(_tournament_to_vevent(t) for t in tournaments)
+        + "END:VCALENDAR\r\n"
+    )
+    return Response(content=body, media_type="text/calendar")
+
+
+@router.get("/{tournament_id}/export.csv")
+def export_results_csv(
+    tournament_id: int,
+    organizer: User = Depends(require_organizer),
+    db: Session = Depends(get_db),
+) -> Response:
+    """Export CSV iscritti + risultati round per round (per Wizards EventLink)."""
+    tournament = load_owned_tournament(tournament_id, organizer, db)
+    registrations = db.scalars(
+        select(Registration)
+        .where(Registration.tournament_id == tournament_id)
+        .options(joinedload(Registration.player))
+    ).all()
+    reg_names = {r.id: r.player.display_name for r in registrations}
+
+    rounds = db.scalars(
+        select(Round)
+        .where(Round.tournament_id == tournament_id)
+        .options(selectinload(Round.pairings))
+        .order_by(Round.number)
+    ).all()
+
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+    writer.writerow(["# Torneo", tournament.name, tournament.format, str(tournament.starts_on)])
+    writer.writerow([])
+    writer.writerow(["## Iscritti"])
+    writer.writerow(["Nome", "Wizards Account", "Archetipo", "Check-in", "Drop", "Waitlist"])
+    for reg in registrations:
+        writer.writerow([
+            reg.player.display_name, reg.wizards_account, reg.archetype,
+            "si" if reg.checked_in else "no",
+            "si" if reg.dropped else "no",
+            "si" if reg.waitlisted else "no",
+        ])
+    writer.writerow([])
+    writer.writerow(["## Risultati"])
+    writer.writerow(["Round", "Tavolo", "Giocatore A", "Giocatore B", "Risultato", "Games A", "Games B", "Pareggi"])
+    for rnd in rounds:
+        for p in sorted(rnd.pairings, key=lambda x: x.table_number):
+            writer.writerow([
+                rnd.number, p.table_number,
+                reg_names.get(p.player_a_registration_id, "?"),
+                reg_names.get(p.player_b_registration_id, "BYE") if p.player_b_registration_id else "BYE",
+                p.result, p.match_wins_a, p.match_wins_b, p.draws,
+            ])
+
+    return Response(
+        content=buffer.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="torneo-{tournament_id}-risultati.csv"'},
+    )
+
+
+@router.get("/reports/mine", response_model=list[TournamentReportOut])
+def my_reports(
+    organizer: User = Depends(require_organizer),
+    db: Session = Depends(get_db),
+) -> list[TournamentReportOut]:
+    """Report incassi/presenze per tutti i tornei dell'organizzatore."""
+    tournaments = db.scalars(
+        select(Tournament).where(Tournament.organizer_id == organizer.id)
+    ).all()
+    reports = []
+    for tournament in tournaments:
+        regs = db.scalar(
+            select(func.count(Registration.id)).where(
+                Registration.tournament_id == tournament.id,
+                Registration.waitlisted == False,  # noqa: E712
+            )
+        ) or 0
+        paid = db.scalar(
+            select(func.count(Payment.id))
+            .join(Registration, Payment.registration_id == Registration.id)
+            .where(
+                Registration.tournament_id == tournament.id,
+                Payment.status == PaymentStatus.PAID,
+            )
+        ) or 0
+        reports.append(TournamentReportOut(
+            tournament_id=tournament.id,
+            tournament_name=tournament.name,
+            starts_on=tournament.starts_on,
+            format=tournament.format,
+            registrations=regs,
+            paid_count=paid,
+            revenue_cents=paid * tournament.entry_fee_cents,
+            currency=tournament.currency,
+        ))
+    reports.sort(key=lambda r: r.starts_on, reverse=True)
+    return reports
+
+
+def load_player_pairing(tournament_id: int, pairing_id: int, user: User, db: Session) -> Pairing:
+    pairing = db.scalar(
+        select(Pairing)
+        .join(Round)
         .where(Pairing.id == pairing_id, Round.tournament_id == tournament_id)
         .options(
             selectinload(Pairing.round)
@@ -880,9 +1801,65 @@ def report_player_result(
         raise HTTPException(status_code=403, detail="You are not seated at this table")
     if not pairing.round.is_published:
         raise HTTPException(status_code=409, detail="Pairing is not published")
-    apply_pairing_result(tournament_id, pairing, payload, db)
-    db.refresh(pairing.round)
-    return round_out(pairing.round)
+    if pairing.result:
+        raise HTTPException(status_code=409, detail="Result is already final")
+    if not pairing.player_b_registration_id:
+        raise HTTPException(status_code=409, detail="BYE results are automatic")
+    return pairing
+
+
+def player_registration_id_for_pairing(pairing: Pairing, user: User) -> int:
+    if pairing.player_a.player_id == user.id:
+        return pairing.player_a_registration_id
+    if pairing.player_b and pairing.player_b.player_id == user.id:
+        return pairing.player_b_registration_id
+    raise HTTPException(status_code=403, detail="You are not seated at this table")
+
+
+def latest_open_report(pairing_id: int, db: Session) -> PairingResultReport | None:
+    return db.scalar(
+        select(PairingResultReport)
+        .where(
+            PairingResultReport.pairing_id == pairing_id,
+            PairingResultReport.status.in_([ResultReportStatus.PENDING, ResultReportStatus.CONFLICT]),
+        )
+        .order_by(PairingResultReport.created_at.desc(), PairingResultReport.id.desc())
+    )
+
+
+def latest_result_reports(tournament_id: int, db: Session) -> dict[int, dict]:
+    """Restituisce {pairing_id: dict} con i dati del report più recente.
+
+    Usa plain dict invece di oggetti SQLAlchemy per evitare DetachedInstanceError.
+    Niente cache: con più worker Gunicorn la cache in-memory è per-processo e
+    l'invalidazione non si propaga, così l'avversario non vedrebbe il report
+    appena inserito. È una query piccola, la leggiamo sempre fresca.
+    """
+    reports = db.scalars(
+        select(PairingResultReport)
+        .join(Pairing)
+        .join(Round)
+        .where(Round.tournament_id == tournament_id)
+        .options(
+            selectinload(PairingResultReport.reporter).selectinload(Registration.player),
+        )
+        .order_by(PairingResultReport.created_at.asc(), PairingResultReport.id.asc())
+    ).all()
+    # Serializza subito — prima che la sessione si chiuda
+    result: dict[int, dict] = {}
+    for report in reports:
+        reporter_name = ""
+        if report.reporter and report.reporter.player:
+            reporter_name = report.reporter.player.display_name
+        result[report.pairing_id] = {
+            "id": report.id,
+            "status": report.status,
+            "match_wins_a": report.match_wins_a,
+            "match_wins_b": report.match_wins_b,
+            "reporter_registration_id": report.reporter_registration_id,
+            "reporter_name": reporter_name,
+        }
+    return result
 
 
 def registration_out(registration: Registration) -> RegistrationOut:
@@ -894,6 +1871,7 @@ def registration_out(registration: Registration) -> RegistrationOut:
         wizards_account=registration.wizards_account,
         checked_in=registration.checked_in,
         dropped=registration.dropped,
+        waitlisted=registration.waitlisted,
         player=registration.player,
         decklist_status=registration.decklist.status if registration.decklist else "missing",
         payment_status=registration.payment.status if registration.payment else "pending",
@@ -918,11 +1896,102 @@ def organizer_registration_out(registration: Registration) -> OrganizerRegistrat
     )
 
 
+def is_tournament_staff(tournament_id: int, user_id: int, db: Session) -> bool:
+    return bool(db.scalar(
+        select(func.count(TournamentStaff.id)).where(
+            TournamentStaff.tournament_id == tournament_id,
+            TournamentStaff.user_id == user_id,
+        )
+    ))
+
+
+def load_tournament_for_staff(tournament_id: int, user: User, db: Session) -> Tournament:
+    """Torneo accessibile da organizzatore proprietario O staff/judge invitato.
+
+    Lo staff può inserire risultati e penalità ma non eliminare il torneo
+    né vedere i pagamenti (quelli restano dietro load_owned_tournament).
+    """
+    tournament = db.scalar(
+        select(Tournament)
+        .where(Tournament.id == tournament_id)
+        .options(selectinload(Tournament.rounds))
+    )
+    if not tournament:
+        raise HTTPException(status_code=404, detail="Tournament not found")
+    if tournament.organizer_id == user.id:
+        return tournament
+    if is_tournament_staff(tournament_id, user.id, db):
+        return tournament
+    raise HTTPException(status_code=404, detail="Tournament not found")
+
+
+@router.post("/{tournament_id}/staff", response_model=StaffOut, status_code=201)
+def add_staff(
+    tournament_id: int,
+    payload: StaffIn,
+    organizer: User = Depends(require_organizer),
+    db: Session = Depends(get_db),
+) -> StaffOut:
+    """Invita un utente come staff/judge del torneo (per email)."""
+    load_owned_tournament(tournament_id, organizer, db)
+    user = db.scalar(select(User).where(User.email == payload.email.lower()))
+    if not user or not user.is_active:
+        raise HTTPException(status_code=404, detail="Nessun utente registrato con questa email")
+    if user.id == organizer.id:
+        raise HTTPException(status_code=409, detail="Sei già l'organizzatore")
+    if is_tournament_staff(tournament_id, user.id, db):
+        raise HTTPException(status_code=409, detail="Utente già nello staff")
+    staff = TournamentStaff(tournament_id=tournament_id, user_id=user.id)
+    db.add(staff)
+    db.commit()
+    db.refresh(staff)
+    return StaffOut(
+        id=staff.id, user_id=user.id,
+        display_name=user.display_name, email=user.email,
+    )
+
+
+@router.get("/{tournament_id}/staff", response_model=list[StaffOut])
+def list_staff(
+    tournament_id: int,
+    organizer: User = Depends(require_organizer),
+    db: Session = Depends(get_db),
+) -> list[StaffOut]:
+    load_owned_tournament(tournament_id, organizer, db)
+    members = db.scalars(
+        select(TournamentStaff)
+        .where(TournamentStaff.tournament_id == tournament_id)
+        .options(joinedload(TournamentStaff.user))
+    ).all()
+    return [
+        StaffOut(
+            id=m.id, user_id=m.user_id,
+            display_name=m.user.display_name, email=m.user.email,
+        )
+        for m in members
+    ]
+
+
+@router.delete("/{tournament_id}/staff/{staff_id}", status_code=204)
+def remove_staff(
+    tournament_id: int,
+    staff_id: int,
+    organizer: User = Depends(require_organizer),
+    db: Session = Depends(get_db),
+) -> None:
+    load_owned_tournament(tournament_id, organizer, db)
+    staff = db.get(TournamentStaff, staff_id)
+    if not staff or staff.tournament_id != tournament_id:
+        raise HTTPException(status_code=404, detail="Staff member not found")
+    db.delete(staff)
+    db.commit()
+
+
 def load_owned_tournament(tournament_id: int, organizer: User, db: Session) -> Tournament:
     tournament = db.scalar(
         select(Tournament)
         .where(Tournament.id == tournament_id)
-        .options(selectinload(Tournament.rounds).selectinload(Round.pairings))
+        .options(selectinload(Tournament.rounds))  # pairings non servono qui
     )
     if not tournament or tournament.organizer_id != organizer.id:
         raise HTTPException(status_code=404, detail="Tournament not found")
@@ -990,6 +2059,7 @@ def eligible_registrations(tournament: Tournament, db: Session) -> list[Registra
         if registration.payment
         and registration.payment.status == PaymentStatus.PAID
         and not registration.dropped
+        and not registration.waitlisted
         and (not tournament.check_in_required or registration.checked_in)
         and (
             not tournament.decklist_required
@@ -1015,8 +2085,11 @@ def create_round_for_tournament(tournament: Tournament, db: Session) -> RoundOut
     round_obj = Round(
         tournament_id=tournament.id,
         number=current_round_number,
+        # Online-first: il round è subito pubblicato così i giocatori possono
+        # inserire i propri risultati. `pairings_public` controlla separatamente
+        # la visibilità sul display pubblico/TV, non la possibilità di refertare.
         phase=phase,
-        is_published=tournament.pairings_public,
+        is_published=True,
         starts_at=starts_at,
         ends_at=starts_at + timedelta(minutes=tournament.round_timer_minutes),
     )
@@ -1173,9 +2246,7 @@ def apply_pairing_result(
         raise HTTPException(status_code=409, detail="This result is locked because a later round exists")
     if not pairing.player_b_registration_id:
         raise HTTPException(status_code=409, detail="BYE results are automatic")
-    allowed_scores = {(0, 0), (1, 0), (1, 1), (0, 1), (2, 0), (0, 2), (2, 1), (1, 2)}
-    if (payload.match_wins_a, payload.match_wins_b) not in allowed_scores:
-        raise HTTPException(status_code=422, detail="Unsupported match result")
+    ensure_allowed_score(payload)
     pairing.match_wins_a = payload.match_wins_a
     pairing.match_wins_b = payload.match_wins_b
     pairing.draws = payload.draws
@@ -1186,6 +2257,12 @@ def apply_pairing_result(
     else:
         pairing.result = "D"
     db.commit()
+
+
+def ensure_allowed_score(payload: PairingResultIn) -> None:
+    allowed_scores = {(0, 0), (1, 0), (1, 1), (0, 1), (2, 0), (0, 2), (2, 1), (1, 2)}
+    if (payload.match_wins_a, payload.match_wins_b) not in allowed_scores:
+        raise HTTPException(status_code=422, detail="Unsupported match result")
 
 
 def default_swiss_rounds(player_count: int) -> int:
@@ -1306,7 +2383,20 @@ def average(values: list[float]) -> float:
     return sum(values) / len(values) if values else 0.0
 
 
-def round_out(round_obj: Round) -> RoundOut:
+def round_out(
+    round_obj: Round,
+    report_map: dict[int, dict] | None = None,
+    pairings: list[Pairing] | None = None,
+) -> RoundOut:
+    """Costruisce RoundOut da un Round SQLAlchemy.
+
+    report_map deve essere dict[pairing_id, dict] (plain dict, non oggetti SQLAlchemy)
+    per evitare DetachedInstanceError quando il risultato viene servito dalla cache.
+    pairings, se fornito, sostituisce round_obj.pairings senza mutare la relazione ORM
+    (assegnare round_obj.pairings dissocerebbe gli altri pairing dal round).
+    """
+    report_map = report_map or {}
+    pairing_list = pairings if pairings is not None else round_obj.pairings
     return RoundOut(
         id=round_obj.id,
         tournament_id=round_obj.tournament_id,
@@ -1327,7 +2417,21 @@ def round_out(round_obj: Round) -> RoundOut:
                 match_wins_a=pairing.match_wins_a,
                 match_wins_b=pairing.match_wins_b,
                 draws=pairing.draws,
+                extra_seconds=pairing.extra_seconds,
+                report_id=report_map[pairing.id]["id"] if pairing.id in report_map else None,
+                report_status=report_map[pairing.id]["status"] if pairing.id in report_map else "",
+                report_score=(
+                    f"{report_map[pairing.id]['match_wins_a']}-{report_map[pairing.id]['match_wins_b']}"
+                    if pairing.id in report_map
+                    else ""
+                ),
+                report_reporter_registration_id=(
+                    report_map[pairing.id]["reporter_registration_id"] if pairing.id in report_map else None
+                ),
+                report_reporter_name=(
+                    report_map[pairing.id]["reporter_name"] if pairing.id in report_map else ""
+                ),
             )
-            for pairing in sorted(round_obj.pairings, key=lambda item: item.table_number)
+            for pairing in sorted(pairing_list, key=lambda item: item.table_number)
         ],
     )

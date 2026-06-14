@@ -4,216 +4,288 @@ Piattaforma full-stack per gestione tornei MTG: backend Python, database relazio
 login, dashboard utente, dashboard tornei, iscrizioni, decklist, round e pagamenti
 Stripe/PayPal.
 
-## Funzionalita
+## Funzionalità
 
-- Backend FastAPI.
-- DB SQLAlchemy con SQLite per sviluppo e PostgreSQL per Docker/Linux.
-- Registrazione/login email + password.
-- OAuth Google e Apple configurabile.
-- Ruoli `player`, `organizer`, `admin`.
-- Gli organizzatori possono creare eventi.
-- Gli organizzatori possono vedere iscritti, stato pagamento e decklist complete.
-- Dashboard utente con tornei propri e iscrizioni.
-- Dashboard tornei pubblici con iscrizione.
-- Dopo l'iscrizione il giocatore viene mandato subito al checkout.
-- Decklist con validazione base.
-- Pagamenti Stripe Checkout e PayPal Checkout.
-- Sandbox locale per testare il pagamento quando le chiavi provider non sono configurate.
-- Webhook Stripe e PayPal per aggiornare lo stato pagamento.
-- Start torneo, round e pairings.
-- Strutture torneo: svizzera, eliminazione diretta, svizzera + top cut.
-- Classifica con punti, record V/S/P e tie-breaker in stile torneo.
+App **interamente online** (tutto passa dal backend, niente localStorage): accessibile
+da più PC contemporaneamente, pensata anche per tornei grandi.
 
-## Requisiti
+### Giocatori
+- Sfoglia tornei con filtri: nome, formato, data, luogo, distanza GPS (Nominatim + Haversine)
+- Iscrizione + pagamento obbligatorio (Stripe/PayPal/sandbox)
+- "Le mie iscrizioni": pairings, risultati, decklist self-service, QR check-in, storico tornei
+- Notifiche Web Push (annunci, nuovo round) + profilo pubblico condivisibile
+- Interfaccia bilingue IT/EN
 
-- Linux.
-- Python 3.11+.
-- PostgreSQL 16 consigliato in produzione.
-- Docker e Docker Compose opzionali.
+### Organizzatori
+- Back-office (`organizer.html`): tornei, iscritti, liste, annunci, penalità, classifica, report
+- Console Regia (`control.html`): timer round (restart/extend), +min per tavolo, risultati, genera round, vista judge
+- Schermi condivisibili full-screen: `timer.html?t=ID`, `display.html?t=ID` (TV negozio)
+- Pairing svizzero, Top 8 bracket, multi-tenant (più negozi)
 
-## Avvio Rapido Linux
+### Infrastruttura
+- Redis (cache + lockout), Web Push (VAPID), Prometheus `/metrics`, alerting email/Telegram + watchdog DB
+- Alembic migrations, backup automatici PostgreSQL (cron/systemd)
+- Rate limiting (slowapi), account lockout, JWT expiry, CSP headers
+- GitHub Actions CI/CD; test: pytest (backend) + Vitest + Playwright E2E
 
+---
+
+## Architettura
+
+**Un solo frontend online** in `frontend/` (Vite multi-page), servito in produzione da
+nginx (`frontend/dist`, `try_files $uri $uri.html`). Backend FastAPI su `/api`.
+Il vecchio organizer tool offline (localStorage) è stato rimosso: ogni funzione passa
+ora dal backend ed è accessibile da qualunque dispositivo.
+
+---
+
+## Avvio rapido
+
+Il modo più comune in sviluppo: backend in WSL, Vite su Windows.
+
+**Terminale 1 — backend (WSL):**
 ```bash
-cp .env.example .env
+cp .env.example .env   # solo la prima volta
 ./scripts/dev.sh
 ```
 
-Apri:
-
-```text
-http://127.0.0.1:8000
+**Terminale 2 — frontend (Windows):**
+```bash
+cd frontend
+npm install            # solo la prima volta
+npm run dev            # apre http://localhost:5173
 ```
 
-## Avvio Manuale
+> Il proxy Vite inoltra automaticamente `/api` e `/health` al backend su `127.0.0.1:8000`.
+> Nessuna configurazione CORS necessaria in sviluppo.
+
+---
+
+## Comandi frontend (npm)
+
+> Tutti i comandi npm vanno eseguiti da `frontend/` oppure con `make fe-*` dalla root.
+
+| Comando | Da `frontend/` | Dalla root |
+|---|---|---|
+| Dev server | `npm run dev` | `make fe-dev` |
+| Build produzione | `npm run build` | `make fe-build` |
+| Anteprima build | `npm run preview` | — |
+| Test unit (watch) | `npm run test` | `make fe-test` |
+| Test unit (una volta) | `npm run test:run` | `make fe-test-run` |
+| Test unit con coverage | `npm run test:cover` | — |
+| E2E test | `npm run e2e` | — |
+| E2E con UI interattiva | `npm run e2e:ui` | — |
+| Installa browser Playwright | `npm run e2e:install` | — |
+
+---
+
+## Comandi backend (Python / WSL)
+
+| Comando | Descrizione |
+|---|---|
+| `./scripts/dev.sh` | Installa dipendenze e avvia uvicorn con reload |
+| `make dev` | Alias per `dev.sh` |
+| `make install` | Solo installazione dipendenze |
+| `make lint` | Linting con ruff |
+| `make test` | Test suite Python |
+| `docker compose up --build` | Avvio completo con PostgreSQL |
+| `docker compose down` | Spegni i container |
+
+---
+
+## Test
+
+### Frontend (Vitest)
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install --upgrade pip
-pip install -e ".[dev]"
-cp .env.example .env
-uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload
+cd frontend   # tutti i comandi npm si eseguono da qui
+
+# Una volta sola
+npm run test:run
+
+# Modalità watch (riesegue al salvataggio)
+npm run test
+
+# Con report coverage
+npm run test:cover
 ```
 
-## Avvio con Docker
+I test vivono in `tests/` e coprono:
+
+| File | Cosa testa |
+|---|---|
+| `tests/utils.test.js` | `invertResult`, `parseDeck` (duplicati, Commander), `haversine`, `Paginator`, `escapeHtml`, `storageKB` |
+| `tests/state.test.js` | `computeStandings`, `swissPairing`, `isRoundComplete`, `getResultObj` (retrocompat) |
+| `tests/auth.test.js` | `registerUser`, `loginUser`, `startSession`, `isOrganizer` |
+| `tests/round.test.js` | Coerenza risultati pair[0]/pair[1], lock giocatore, formato stringa |
+| `tests/search.test.js` | `filterEventsSync` (nome, formato, data, venue, raggio), edge cases deck parser |
+
+### Backend (Python)
 
 ```bash
-cp .env.example .env
-docker compose up --build
+# Dalla root del progetto (venv attivo)
+python -m unittest discover -s tests -v
+
+# Oppure con make
+make test
 ```
 
-Il servizio web ascolta su:
+---
+
+## Struttura Progetto
 
 ```text
-http://127.0.0.1:8000
+.
+├── backend/                    # FastAPI — API, DB, auth, pagamenti
+│   └── app/
+│       ├── routers/            # auth, tournaments, payments, admin
+│       ├── services/           # oauth, pagamenti
+│       └── core/               # config, db
+├── frontend/                   # Vite — app online unica (tutto via backend)
+│   ├── js/                     # Moduli ES (un file per pagina)
+│   │   ├── app.js              # Home pubblica (lista tornei, ricerca)
+│   │   ├── login-public.js     # Login/registrazione (JWT)
+│   │   ├── my-registrations.js # Iscrizioni giocatore + storico + push
+│   │   ├── organizer.js        # Back-office organizzatore
+│   │   ├── control.js          # Console Regia (timer, risultati, round)
+│   │   ├── event.js            # Pagina evento pubblica
+│   │   ├── player.js           # Profilo giocatore
+│   │   ├── i18n.js             # Internazionalizzazione it/en
+│   │   └── push.js             # Web Push (subscribe/unsubscribe)
+│   ├── public/                 # Asset statici serviti da Vite alla root
+│   │   ├── icons/icon.svg
+│   │   ├── manifest.json       # PWA manifest
+│   │   └── sw.js               # Service Worker + push handler
+│   ├── tests/                  # Vitest unit (i18n, push)
+│   ├── e2e/                    # Playwright E2E (flusso online)
+│   ├── index.html  login.html  event.html  my-registrations.html
+│   ├── player.html  leaderboard.html  organizer.html  control.html
+│   ├── timer.html  display.html  forgot-password.html  reset-password.html
+│   ├── sandbox-checkout.html
+│   ├── styles.css  app.css
+│   ├── vite.config.js
+│   ├── vitest.config.js
+│   └── package.json
+├── deploy/
+│   ├── systemd/arcana-events.service
+│   └── nginx/arcana-events.conf
+├── scripts/
+│   └── dev.sh                  # Avvio backend (WSL)
+├── .env.example
+├── Makefile
+├── pyproject.toml
+├── docker-compose.yml
+└── README.md
 ```
+
+---
 
 ## Configurazione
 
-Le variabili sono in `.env`.
+Copia `.env.example` in `.env` e modifica i valori necessari.
 
-Per sviluppo locale puoi lasciare:
-
+**Sviluppo locale (SQLite):**
 ```env
 DATABASE_URL=sqlite:///./arcana_events.db
+SECRET_KEY=cambia-questo-valore
 ```
 
-Per Docker viene usato PostgreSQL:
-
+**Docker / Produzione (PostgreSQL):**
 ```env
 DATABASE_URL=postgresql+psycopg://arcana:arcana@db:5432/arcana_events
 ```
 
-## OAuth Google
+**Backend URL per il proxy Vite:**
+```env
+# .env.local (solo frontend, gitignored)
+# Imposta solo se il proxy non funziona (es. WSL con IP diverso da 127.0.0.1)
+VITE_API_URL=http://127.0.0.1:8000/api
+```
 
-Compila in `.env`:
+---
 
+## OAuth
+
+**Google** — aggiungi in `.env`:
 ```env
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 ```
+Callback: `http://127.0.0.1:8000/api/auth/oauth/google/callback`
 
-Callback da configurare nella Google Cloud Console:
-
-```text
-http://127.0.0.1:8000/api/auth/oauth/google/callback
-```
-
-## OAuth Apple
-
-Compila in `.env`:
-
+**Apple** — aggiungi in `.env`:
 ```env
 APPLE_CLIENT_ID=
 APPLE_TEAM_ID=
 APPLE_KEY_ID=
 APPLE_PRIVATE_KEY_PATH=/opt/arcana-events/AuthKey_XXXXXXXXXX.p8
 ```
+Callback: `http://127.0.0.1:8000/api/auth/oauth/apple/callback`
 
-Callback:
-
-```text
-http://127.0.0.1:8000/api/auth/oauth/apple/callback
-```
+---
 
 ## Pagamenti
 
-Stripe:
-
+**Stripe:**
 ```env
 STRIPE_SECRET_KEY=
 STRIPE_WEBHOOK_SECRET=
 ```
+Webhook: `https://tuo-dominio.it/api/payments/stripe/webhook`
 
-Webhook Stripe:
-
-```text
-https://tuo-dominio.it/api/payments/stripe/webhook
-```
-
-PayPal:
-
+**PayPal:**
 ```env
 PAYPAL_CLIENT_ID=
 PAYPAL_CLIENT_SECRET=
 PAYPAL_ENV=sandbox
 PAYMENT_SANDBOX_MOCK=true
 ```
+Webhook: `https://tuo-dominio.it/api/payments/paypal/webhook`
 
-Webhook PayPal:
+Con `PAYMENT_SANDBOX_MOCK=true` il backend genera una pagina sandbox locale per testare i pagamenti senza credenziali reali.
 
-```text
-https://tuo-dominio.it/api/payments/paypal/webhook
-```
-
-Con `PAYMENT_SANDBOX_MOCK=true`, in sviluppo il backend genera una pagina locale:
-
-```text
-/sandbox-checkout
-```
-
-Da li puoi completare un pagamento finto e vedere lo stato aggiornato nella dashboard
-organizzatore. In produzione imposta le credenziali reali Stripe/PayPal e disattiva il mock.
-
-I rimborsi possono essere richiesti dal giocatore dalla pagina torneo. L'organizzatore li approva
-dalla lista iscritti. Stripe usa `STRIPE_SECRET_KEY` e il payment intent del checkout; PayPal usa
-il capture ID ricevuto dal webhook `PAYMENT.CAPTURE.COMPLETED`.
-
-## Notifiche Email
-
-Gli annunci evento possono inviare email agli iscritti se SMTP e notifiche evento sono attivi:
-
-```env
-SMTP_HOST=smtp.example.com
-SMTP_PORT=587
-SMTP_USERNAME=
-SMTP_PASSWORD=
-SMTP_FROM_EMAIL=noreply@example.com
-SMTP_USE_TLS=true
-```
+---
 
 ## Deploy Linux
-
-Sono inclusi esempi di configurazione:
-
-- `deploy/systemd/arcana-events.service`
-- `deploy/nginx/arcana-events.conf`
-
-Flusso tipico:
 
 ```bash
 sudo mkdir -p /opt/arcana-events
 sudo cp -R . /opt/arcana-events
 cd /opt/arcana-events
+
+# Build frontend
+npm install && npm run build
+
+# Backend
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e .
-cp .env.example .env
+cp .env.example .env   # poi modifica .env
+
+# Systemd
 sudo cp deploy/systemd/arcana-events.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now arcana-events
+
+# Nginx
+sudo cp deploy/nginx/arcana-events.conf /etc/nginx/sites-available/arcana-events
+sudo ln -s /etc/nginx/sites-available/arcana-events /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
 ```
 
-## Struttura Progetto
+**Nginx** — aggiorna `arcana-events.conf` per servire il build statico:
+```nginx
+server {
+    root /opt/arcana-events/dist;
+    try_files $uri $uri.html $uri/ =404;
 
-```text
-.
-+-- backend/
-|   +-- app/
-|       +-- routers/
-|       +-- services/
-+-- index.html
-+-- styles.css
-+-- app.js
-+-- frontend/
-+-- deploy/
-+-- assets/
-|   +-- tournament-hall.png
-+-- screenshots/
-    +-- arcana-events-qa.png
+    location /api    { proxy_pass http://127.0.0.1:8000; proxy_set_header Host $host; }
+    location /health { proxy_pass http://127.0.0.1:8000; }
+}
 ```
+
+---
 
 ## Note
 
-La versione include il core applicativo e le integrazioni provider-ready. Per produzione
-servono credenziali reali OAuth, Stripe e PayPal, HTTPS e un `SECRET_KEY` robusto.
+Per produzione servono: credenziali reali OAuth / Stripe / PayPal, HTTPS, e un `SECRET_KEY` lungo e casuale (`python -c "import secrets; print(secrets.token_hex(32))"`).

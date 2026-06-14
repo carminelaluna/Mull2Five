@@ -3,389 +3,74 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Arcana Events</title>
-    <link rel="stylesheet" href="/static/styles.css" />
+    <title>Arcana Events — Trova il tuo torneo MTG</title>
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#b6483f" />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="app.css" />
   </head>
   <body>
-    <aside>
-      <a class="brand" href="/">
-        <span>AE</span>
-        <strong>Arcana Events</strong>
+    <header class="public-header">
+      <a class="brand" href="index.html">
+        <span class="brand-mark">AE</span>
+        <span><strong>Arcana Events</strong></span>
       </a>
-      <nav>
-        <button data-view="discover">Tornei</button>
-        <button data-view="create" id="createNavButton" hidden>Crea evento</button>
-        <button data-view="account" id="accountNavButton">Login/Registrati</button>
+      <nav class="public-nav" aria-label="Navigazione">
+        <a href="index.html" data-i18n="nav.tournaments">Tornei</a>
+        <a href="leaderboard.html" data-i18n="nav.leaderboard">Classifica stagionale</a>
+        <a href="my-registrations.html" data-i18n="nav.my">Le mie iscrizioni</a>
+        <a href="organizer.html" data-i18n="nav.organize">Organizza</a>
       </nav>
-      <div class="account-box" id="accountBox"></div>
-    </aside>
+      <div class="public-auth" id="publicAuth">
+        <a class="secondary-link" href="login.html" data-i18n="auth.login">Accedi</a>
+        <a class="primary-btn" href="login.html" data-i18n="auth.register">Registrati</a>
+      </div>
+    </header>
 
-    <main>
-      <section class="hero">
-        <div>
-          <p class="eyebrow">MTG tournament platform</p>
-          <h1>Organizza eventi Magic senza perdere il controllo del torneo.</h1>
-          <p>
-            Iscrizioni, pagamenti, decklist, pairings, classifica e top cut lavorano insieme:
-            meno fogli sparsi, piu tempo per gestire tavoli, judge call e giocatori.
-          </p>
+    <main class="public-main">
+      <section class="public-hero">
+        <div class="public-hero-copy">
+          <span class="eyebrow" data-i18n="home.eyebrow">MTG Tournament Platform</span>
+          <h1 data-i18n="home.title">Trova e partecipa ai tornei Magic vicino a te.</h1>
+          <p data-i18n="home.subtitle">Iscriviti, paga l'entry fee, carica la decklist e segui i tuoi pairings — tutto in un posto.</p>
         </div>
       </section>
 
-      <section class="view active" id="discover">
-        <header class="section-head">
-          <div>
-            <p class="eyebrow">Event finder</p>
-            <h2>Tornei disponibili</h2>
-          </div>
-          <button class="secondary" id="refreshTournaments">Aggiorna</button>
-        </header>
-        <form class="panel search-panel" id="tournamentSearchForm">
+      <!-- Filtri ricerca -->
+      <section class="public-search panel">
+        <form id="searchForm" class="search-form-public">
           <label>
-            Nome
-            <input name="name" placeholder="RCQ Modern" />
+            <input id="searchName" placeholder="Nome torneo…" />
           </label>
           <label>
-            Luogo
-            <input name="venue" placeholder="Milano, Torino, Roma" />
-          </label>
-          <label>
-            Dal
-            <input name="date_from" type="date" />
-          </label>
-          <label>
-            Al
-            <input name="date_to" type="date" />
-          </label>
-          <label>
-            Distanza da
-            <input name="distance_origin" placeholder="Milano" />
-          </label>
-          <label>
-            Raggio km
-            <input name="distance_km" min="1" type="number" placeholder="50" />
-          </label>
-          <div class="search-actions">
-            <button class="primary" type="submit">Cerca</button>
-            <button class="secondary" id="clearTournamentSearch" type="button">Reset</button>
-          </div>
-        </form>
-        <div class="event-list" id="tournamentList"></div>
-      </section>
-
-      <section class="view" id="create">
-        <header class="section-head">
-          <div>
-            <p class="eyebrow">Organizer tools</p>
-            <h2>Crea evento</h2>
-          </div>
-        </header>
-        <form class="panel form-grid" id="createTournamentForm">
-          <label>
-            Nome
-            <input name="name" required placeholder="RCQ Modern - Store Name" />
-          </label>
-          <label>
-            Formato
-            <select name="format">
-              <option>Modern</option>
-              <option>Standard</option>
-              <option>Pioneer</option>
-              <option>Legacy</option>
-              <option>Commander</option>
-              <option>Sealed</option>
-              <option>Draft</option>
+            <select id="searchFormat">
+              <option value="">Tutti i formati</option>
+              <option>Modern</option><option>Standard</option><option>Pioneer</option>
+              <option>Legacy</option><option>Commander</option><option>Sealed</option><option>Draft</option>
             </select>
           </label>
           <label>
-            REL
-            <select name="rules_enforcement_level">
-              <option>Regular</option>
-              <option selected>Competitive</option>
-              <option>Professional</option>
-            </select>
+            <input id="searchDate" type="date" />
           </label>
           <label>
-            Venue
-            <input name="venue" placeholder="Arcana Store, Milano" />
+            <input id="searchCity" placeholder="Città…" />
           </label>
-          <label>
-            Data
-            <input name="starts_on" required type="date" />
-          </label>
-          <label>
-            Capienza
-            <input name="capacity" min="2" required type="number" value="64" />
-          </label>
-          <label>
-            Entry fee EUR
-            <input name="entry_fee" min="0" required step="0.01" type="number" value="25" />
-          </label>
-          <label>
-            Stato
-            <select name="status">
-              <option value="published" selected>Pubblicato</option>
-              <option value="draft">Bozza</option>
-            </select>
-          </label>
-          <label>
-            Struttura torneo
-            <select name="structure">
-              <option value="swiss">Svizzera</option>
-              <option value="single_elimination">Eliminazione diretta</option>
-              <option value="swiss_topcut">Svizzera + top cut</option>
-            </select>
-          </label>
-          <label>
-            Round svizzera
-            <input name="swiss_rounds" min="0" type="number" value="0" />
-          </label>
-          <label>
-            Top cut
-            <input name="top_cut_size" min="2" type="number" value="8" />
-          </label>
-          <label>
-            Deadline decklist
-            <input name="decklist_deadline" type="datetime-local" />
-          </label>
-          <label>
-            Modalita iscrizione
-            <select name="registration_mode">
-              <option value="open" selected>Aperta</option>
-              <option value="closed">Chiusa</option>
-            </select>
-          </label>
-          <label>
-            Timer round
-            <input name="round_timer_minutes" min="1" max="120" type="number" value="50" />
-          </label>
-          <label class="check">
-            <input name="decklist_required" type="checkbox" checked />
-            Decklist obbligatoria
-          </label>
-          <label class="check">
-            <input name="check_in_required" type="checkbox" />
-            Check-in obbligatorio per i pairings
-          </label>
-          <label class="check">
-            <input name="self_check_in_enabled" type="checkbox" />
-            Self check-in giocatori
-          </label>
-          <label class="check">
-            <input name="late_registration_enabled" type="checkbox" />
-            Late registration
-          </label>
-          <label class="check">
-            <input name="pairings_public" type="checkbox" />
-            Pairings pubblici
-          </label>
-          <label class="check">
-            <input name="standings_public" type="checkbox" checked />
-            Classifica pubblica
-          </label>
-          <label class="check">
-            <input name="email_notifications_enabled" type="checkbox" />
-            Notifiche email
-          </label>
-          <label class="check">
-            <input name="legal_validation_enabled" type="checkbox" />
-            Validazione legalita Scryfall
-          </label>
-          <label class="wide">
-            Policy rimborsi
-            <textarea name="refund_policy" placeholder="Es. Rimborso entro 72 ore dall'evento, al netto delle fee."></textarea>
-          </label>
-          <label class="wide">
-            Descrizione
-            <textarea name="description" placeholder="Premi, schedule, policy liste"></textarea>
-          </label>
-          <button class="primary wide">Crea torneo</button>
+          <button class="primary" type="submit" data-i18n="search.submit">Cerca</button>
         </form>
       </section>
 
-      <section class="view" id="detail">
-        <header class="section-head">
-          <div>
-            <p class="eyebrow">Organizer dashboard</p>
-            <h2 id="detailTitle">Dettaglio torneo</h2>
-          </div>
-          <div class="row">
-            <button class="secondary" id="startTournament">Start torneo</button>
-            <button class="primary" id="nextRound">Crea prossimo turno</button>
-            <button class="secondary" id="closeTournament">Chiudi torneo</button>
-            <button class="secondary" id="deleteTournament">Cancella torneo</button>
-          </div>
-        </header>
-        <div id="tournamentDetail" class="detail-layout"></div>
-      </section>
-
-      <section class="view" id="sandbox">
-        <header class="section-head">
-          <div>
-            <p class="eyebrow">Sandbox checkout</p>
-            <h2>Pagamento test</h2>
-          </div>
-        </header>
-        <div class="panel">
-          <p id="sandboxCopy">Conferma questo pagamento sandbox per completare l'iscrizione.</p>
-          <button class="primary" id="completeSandboxPayment">Completa pagamento sandbox</button>
-        </div>
-      </section>
-
-      <section class="view" id="account">
-        <header class="section-head">
-          <div>
-            <p class="eyebrow">Accesso</p>
-            <h2 id="accountTitle">Login e registrazione</h2>
-          </div>
-        </header>
-        <div class="auth-grid" id="authForms">
-          <form class="panel" id="loginForm">
-            <h3>Login</h3>
-            <label>Email <input name="email" required type="email" /></label>
-            <label>Password <input name="password" required type="password" /></label>
-            <button class="primary">Entra</button>
-          </form>
-          <form class="panel" id="registerForm">
-            <h3>Registrati</h3>
-            <label>Nome <input name="display_name" required /></label>
-            <label>Email <input name="email" required type="email" /></label>
-            <label>Password <input name="password" minlength="8" required type="password" /></label>
-            <label>
-              Tipo account
-              <select name="role">
-                <option value="player">Giocatore</option>
-                <option value="organizer">Organizzatore</option>
-              </select>
-            </label>
-            <button class="primary">Crea account</button>
-          </form>
-          <div class="panel">
-            <h3>OAuth</h3>
-            <p>
-              Google e Apple sono predisposti nel backend. Dopo aver inserito le credenziali in
-              `.env`, usa questi endpoint per avviare il login.
-            </p>
-            <button class="secondary" data-oauth="google">Continua con Google</button>
-            <button class="secondary" data-oauth="apple">Continua con Apple</button>
-          </div>
-        </div>
-        <div class="profile-layout" id="profilePanel" hidden></div>
+      <!-- Lista tornei -->
+      <section class="public-events">
+        <div id="eventsList" class="public-events-grid"></div>
+        <p id="eventsEmpty" class="empty" style="display:none">Nessun torneo trovato.</p>
+        <div id="eventsPagination" class="pagination"></div>
       </section>
     </main>
 
-    <dialog id="registerDialog">
-      <form method="dialog" class="modal" id="registrationForm">
-        <h2>Iscrizione torneo</h2>
-        <input type="hidden" name="tournament_id" />
-        <label>Wizards Account <input name="wizards_account" /></label>
-        <label>
-          Pagamento
-          <select name="payment_provider">
-            <option value="stripe">Stripe sandbox</option>
-            <option value="paypal">PayPal sandbox</option>
-          </select>
-        </label>
-        <button class="primary" type="submit">Iscriviti e paga</button>
-        <button class="secondary" formnovalidate value="cancel">Annulla</button>
-      </form>
-    </dialog>
+    <footer class="public-footer">
+      <p>© 2026 Arcana Events · <a href="/docs">API</a></p>
+    </footer>
 
-    <dialog id="deckDialog">
-      <form method="dialog" class="modal" id="deckForm">
-        <h2>Carica decklist</h2>
-        <input type="hidden" name="tournament_id" />
-        <label>Archetipo <input name="archetype" placeholder="Affinity, Boros Energy, Dimir Murktide" /></label>
-        <textarea name="raw_text" required placeholder="4 Lightning Bolt&#10;4 Ragavan, Nimble Pilferer&#10;&#10;Sideboard&#10;2 Blood Moon"></textarea>
-        <button class="primary" type="submit">Invia lista</button>
-        <button class="secondary" formnovalidate value="cancel">Annulla</button>
-      </form>
-    </dialog>
-
-    <dialog id="deckViewDialog">
-      <form method="dialog" class="deck-view-modal">
-        <header class="section-head">
-          <div>
-            <p class="eyebrow">Decklist</p>
-            <h2 id="deckViewTitle">Decklist</h2>
-          </div>
-          <button class="secondary" value="cancel">Chiudi</button>
-        </header>
-        <div id="deckImageGrid" class="deck-board"></div>
-      </form>
-    </dialog>
-
-    <dialog id="refundDialog">
-      <form method="dialog" class="modal" id="refundForm">
-        <h2>Richiedi rimborso</h2>
-        <textarea name="reason" placeholder="Motivo della richiesta"></textarea>
-        <button class="primary" type="submit">Invia richiesta</button>
-        <button class="secondary" formnovalidate value="cancel">Annulla</button>
-      </form>
-    </dialog>
-
-    <dialog id="announcementDialog">
-      <form method="dialog" class="modal" id="announcementForm">
-        <h2>Nuovo annuncio</h2>
-        <label>Titolo <input name="title" required /></label>
-        <label>Messaggio <textarea name="body" required></textarea></label>
-        <label class="check"><input name="send_email" type="checkbox" /> Invia anche email</label>
-        <button class="primary" type="submit">Pubblica</button>
-        <button class="secondary" formnovalidate value="cancel">Annulla</button>
-      </form>
-    </dialog>
-
-    <dialog id="penaltyDialog">
-      <form method="dialog" class="modal" id="penaltyForm">
-        <h2>Penalita judge</h2>
-        <input name="registration_id" type="hidden" />
-        <label>
-          Tipo
-          <select name="kind">
-            <option value="warning">Warning</option>
-            <option value="game_loss">Game loss</option>
-            <option value="match_loss">Match loss</option>
-            <option value="disqualification">Disqualification</option>
-            <option value="note">Nota</option>
-          </select>
-        </label>
-        <label>Round ID <input name="round_id" type="number" /></label>
-        <label>Nota <textarea name="note"></textarea></label>
-        <label class="check"><input name="is_private" type="checkbox" checked /> Privata</label>
-        <button class="primary" type="submit">Registra</button>
-        <button class="secondary" formnovalidate value="cancel">Annulla</button>
-      </form>
-    </dialog>
-
-    <dialog id="pairingDialog">
-      <form method="dialog" class="modal" id="pairingForm">
-        <h2>Modifica pairing</h2>
-        <input name="pairing_id" type="hidden" />
-        <label>Tavolo <input name="table_number" min="1" required type="number" /></label>
-        <label>ID iscrizione Player A <input name="player_a_registration_id" required type="number" /></label>
-        <label>ID iscrizione Player B <input name="player_b_registration_id" type="number" placeholder="Vuoto per BYE" /></label>
-        <button class="primary" type="submit">Aggiorna pairing</button>
-        <button class="secondary" formnovalidate value="cancel">Annulla</button>
-      </form>
-    </dialog>
-
-    <dialog id="infoDialog">
-      <form method="dialog" class="modal info-modal">
-        <div id="infoDialogContent"></div>
-        <button class="secondary" value="cancel">Chiudi</button>
-      </form>
-    </dialog>
-
-    <dialog id="confirmDeleteDialog">
-      <form method="dialog" class="modal" id="confirmDeleteForm">
-        <h2>Cancella torneo</h2>
-        <p>Questa azione elimina torneo, iscrizioni, pagamenti, decklist, turni e pairings.</p>
-        <button class="primary danger" type="submit">Cancella definitivamente</button>
-        <button class="secondary" formnovalidate value="cancel">Annulla</button>
-      </form>
-    </dialog>
-
-    <div id="toast"></div>
-    <script src="/static/app.js"></script>
+    <script type="module" src="js/app.js"></script>
   </body>
 </html>

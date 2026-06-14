@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, model_validator
 
 
 class TokenOut(BaseModel):
@@ -24,7 +24,7 @@ class LoginIn(BaseModel):
 
 class UserOut(BaseModel):
     id: int
-    email: EmailStr
+    email: str          # str, non EmailStr: la validazione serve solo in input, non in output
     display_name: str
     role: str
 
@@ -52,11 +52,22 @@ class TournamentCreate(BaseModel):
     registration_mode: str = Field(default="open", pattern="^(open|closed)$")
     pairings_public: bool = False
     standings_public: bool = True
+    decklists_public: bool = False
     round_timer_minutes: int = Field(default=50, ge=1, le=120)
     refund_policy: str = ""
     email_notifications_enabled: bool = False
     legal_validation_enabled: bool = False
     description: str = ""
+    pay_at_event: bool = True
+    pay_stripe: bool = False
+    pay_paypal: bool = False
+
+    @model_validator(mode="after")
+    def _require_payment_method(self):
+        # Almeno un metodo di pagamento deve essere abilitato alla creazione
+        if not (self.pay_at_event or self.pay_stripe or self.pay_paypal):
+            raise ValueError("Seleziona almeno un metodo di pagamento (al banco, Stripe o PayPal).")
+        return self
 
 
 class TournamentOut(BaseModel):
@@ -82,11 +93,15 @@ class TournamentOut(BaseModel):
     registration_mode: str
     pairings_public: bool
     standings_public: bool
+    decklists_public: bool = False
     round_timer_minutes: int
     refund_policy: str
     email_notifications_enabled: bool
     legal_validation_enabled: bool
     description: str
+    pay_at_event: bool = True
+    pay_stripe: bool = False
+    pay_paypal: bool = False
     registered_players: int = 0
 
     model_config = {"from_attributes": True}
@@ -94,6 +109,147 @@ class TournamentOut(BaseModel):
 
 class RegistrationCreate(BaseModel):
     wizards_account: str = ""
+
+
+class WalkInIn(BaseModel):
+    """Iscrizione 'al banco' creata dall'organizzatore per un giocatore presente."""
+    email: EmailStr
+    display_name: str = Field(min_length=2, max_length=160)
+    wizards_account: str = ""
+    mark_paid: bool = True
+
+
+class TimerRestartIn(BaseModel):
+    minutes: int = Field(default=50, ge=1, le=180)
+
+
+class TimerExtendIn(BaseModel):
+    minutes: int = Field(ge=1, le=120)
+
+
+class TableExtendIn(BaseModel):
+    minutes: int = Field(ge=1, le=120)
+
+
+class ForgotPasswordIn(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordIn(BaseModel):
+    token: str
+    new_password: str = Field(min_length=8)
+
+
+class SeasonCreate(BaseModel):
+    name: str = Field(min_length=3, max_length=120)
+    points_win: int = 3
+    points_draw: int = 1
+
+
+class SeasonOut(BaseModel):
+    id: int
+    name: str
+    points_win: int
+    points_draw: int
+    is_active: bool
+    tournament_count: int = 0
+
+    model_config = {"from_attributes": True}
+
+
+class LeaderboardRowOut(BaseModel):
+    position: int
+    player_name: str
+    points: int
+    wins: int
+    draws: int
+    losses: int
+    tournaments_played: int
+
+
+class StaffIn(BaseModel):
+    email: EmailStr
+
+
+class StaffOut(BaseModel):
+    id: int
+    user_id: int
+    display_name: str
+    email: str
+
+
+class PlayerHistoryRowOut(BaseModel):
+    tournament_id: int
+    tournament_name: str
+    starts_on: date
+    format: str
+    status: str
+    placement: int | None = None
+    record: str = ""
+    points: int = 0
+
+
+class PushSubscriptionKeys(BaseModel):
+    p256dh: str
+    auth: str
+
+
+class PushSubscriptionIn(BaseModel):
+    endpoint: str
+    keys: PushSubscriptionKeys
+
+
+class VapidKeyOut(BaseModel):
+    public_key: str | None = None
+    enabled: bool = False
+
+
+class OrganizationOut(BaseModel):
+    id: int
+    slug: str
+    name: str
+    is_default: bool = False
+
+    model_config = {"from_attributes": True}
+
+
+class PlayerPublicProfileOut(BaseModel):
+    display_name: str
+    email: str
+    tournaments_played: int = 0
+    total_points: int = 0
+    wins: int = 0
+    draws: int = 0
+    losses: int = 0
+    rows: list[PlayerHistoryRowOut] = []
+
+
+class TournamentReportOut(BaseModel):
+    tournament_id: int
+    tournament_name: str
+    starts_on: date
+    format: str
+    registrations: int
+    paid_count: int
+    revenue_cents: int
+    currency: str
+
+
+class PublicPairingOut(BaseModel):
+    table_number: int
+    player_a: str
+    player_b: str | None
+    result: str
+    extra_seconds: int = 0
+    ends_at: datetime | None = None   # fine effettiva del tavolo (round + extra)
+
+
+class PublicDisplayOut(BaseModel):
+    tournament_name: str
+    round_number: int | None
+    round_ends_at: datetime | None
+    pairings: list[PublicPairingOut] = []
+    standings: list[StandingOut] = []
 
 
 class RegistrationOut(BaseModel):
@@ -104,6 +260,7 @@ class RegistrationOut(BaseModel):
     wizards_account: str
     checked_in: bool
     dropped: bool
+    waitlisted: bool = False
     player: UserOut
     decklist_status: str = "missing"
     payment_status: str = "pending"
@@ -112,7 +269,7 @@ class RegistrationOut(BaseModel):
 
 
 class OrganizerRegistrationOut(RegistrationOut):
-    player_email: EmailStr
+    player_email: str   # str, non EmailStr: output, non input
     decklist_id: int | None = None
     decklist_main_count: int | None = None
     decklist_side_count: int | None = None
@@ -126,6 +283,7 @@ class OrganizerRegistrationOut(RegistrationOut):
 class TournamentControlsIn(BaseModel):
     pairings_public: bool | None = None
     standings_public: bool | None = None
+    decklists_public: bool | None = None
     decklist_deadline: datetime | None = None
     self_check_in_enabled: bool | None = None
     late_registration_enabled: bool | None = None
@@ -272,6 +430,12 @@ class PairingOut(BaseModel):
     match_wins_a: int = 0
     match_wins_b: int = 0
     draws: int = 0
+    extra_seconds: int = 0
+    report_id: int | None = None
+    report_status: str = ""
+    report_score: str = ""
+    report_reporter_registration_id: int | None = None
+    report_reporter_name: str = ""
 
 
 class RoundOut(BaseModel):
@@ -291,6 +455,10 @@ class PairingResultIn(BaseModel):
     draws: int = Field(default=0, ge=0, le=0)
 
 
+class PairingResultRejectIn(BaseModel):
+    note: str = ""
+
+
 class StandingOut(BaseModel):
     position: int
     registration_id: int
@@ -302,3 +470,7 @@ class StandingOut(BaseModel):
     opponent_match_win_percentage: float
     game_win_percentage: float
     opponent_game_win_percentage: float
+
+
+# Risolve la forward reference "StandingOut" usata in PublicDisplayOut
+PublicDisplayOut.model_rebuild()

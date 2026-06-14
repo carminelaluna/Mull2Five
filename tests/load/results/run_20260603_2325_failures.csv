@@ -1,0 +1,15 @@
+Method,Name,Error,Occurrences,First Seen,Last Seen
+GET,/api/tournaments/{id}/standings [READ-ONLY],"ConnectionResetError(104, 'Connection reset by peer')",3,2026-06-03T21:25:45Z,2026-06-03T21:27:14Z
+GET,/health,"ConnectionResetError(104, 'Connection reset by peer')",1,2026-06-03T21:25:32Z,2026-06-03T21:25:32Z
+GET,/api/tournaments/{id}/my-pairings [PLAYER],"ConnectionResetError(104, 'Connection reset by peer')",11,2026-06-03T21:25:30Z,2026-06-03T21:27:21Z
+GET,/api/tournaments/{id} [ANON],HTTPError('500 Server Error: Internal Server Error for url: /api/tournaments/{id} [ANON]'),6,2026-06-03T21:26:10Z,2026-06-03T21:27:05Z
+GET,/api/tournaments/{id}/registrations [ORG],HTTPError('500 Server Error: Internal Server Error for url: /api/tournaments/{id}/registrations [ORG]'),39,2026-06-03T21:25:37Z,2026-06-03T21:27:26Z
+GET,/api/tournaments/{id}/my-registration [PLAYER],HTTPError('500 Server Error: Internal Server Error for url: /api/tournaments/{id}/my-registration [PLAYER]'),3,2026-06-03T21:26:58Z,2026-06-03T21:27:04Z
+GET,/api/tournaments [ANON],HTTPError('500 Server Error: Internal Server Error for url: /api/tournaments [ANON]'),11,2026-06-03T21:26:06Z,2026-06-03T21:27:16Z
+GET,/api/tournaments/{id} [ORG],HTTPError('500 Server Error: Internal Server Error for url: /api/tournaments/{id} [ORG]'),12,2026-06-03T21:26:02Z,2026-06-03T21:27:10Z
+GET,/api/tournaments/{id}/standings [READ-ONLY],HTTPError('500 Server Error: Internal Server Error for url: /api/tournaments/{id}/standings [READ-ONLY]'),20,2026-06-03T21:26:07Z,2026-06-03T21:27:16Z
+GET,/api/tournaments/{id}/standings [PLAYER],HTTPError('500 Server Error: Internal Server Error for url: /api/tournaments/{id}/standings [PLAYER]'),3,2026-06-03T21:26:46Z,2026-06-03T21:26:46Z
+GET,/api/tournaments/{id} [READ-ONLY],HTTPError('500 Server Error: Internal Server Error for url: /api/tournaments/{id} [READ-ONLY]'),15,2026-06-03T21:26:07Z,2026-06-03T21:27:15Z
+GET,/api/tournaments?running [READ-ONLY],HTTPError('500 Server Error: Internal Server Error for url: /api/tournaments?running [READ-ONLY]'),3,2026-06-03T21:26:09Z,2026-06-03T21:27:16Z
+GET,/api/tournaments/{id}/standings [ORG],HTTPError('500 Server Error: Internal Server Error for url: /api/tournaments/{id}/standings [ORG]'),1,2026-06-03T21:27:12Z,2026-06-03T21:27:12Z
+GET,/api/tournaments/{id}/my-pairings [PLAYER],HTTPError('500 Server Error: Internal Server Error for url: /api/tournaments/{id}/my-pairings [PLAYER]'),143,2026-06-03T21:26:02Z,2026-06-03T21:27:16Z

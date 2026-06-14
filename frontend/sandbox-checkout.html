@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pagamento — Arcana Events</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="app.css" />
+  </head>
+  <body>
+    <header class="public-header">
+      <a class="brand" href="index.html">
+        <span class="brand-mark">AE</span>
+        <span><strong>Arcana Events</strong></span>
+      </a>
+    </header>
+
+    <main class="public-main" style="max-width:440px">
+      <div class="auth-card" style="margin-top:48px;text-align:center">
+        <span class="eyebrow" id="providerLabel">Checkout</span>
+        <h1 style="margin:8px 0">Pagamento di prova</h1>
+        <p class="muted" style="margin-bottom:8px">
+          Ambiente sandbox: nessun addebito reale. In produzione, con le chiavi
+          Stripe/PayPal configurate, qui si aprirebbe il vero checkout del provider.
+        </p>
+        <p style="font-size:1.4rem;font-weight:bold" id="amountLabel"></p>
+        <p class="field-error" id="payError"></p>
+        <div style="display:flex;flex-direction:column;gap:10px;margin-top:16px">
+          <button class="primary" id="payBtn" type="button">Conferma pagamento</button>
+          <a class="secondary-link" href="my-registrations.html">Annulla e torna alle mie iscrizioni</a>
+        </div>
+      </div>
+    </main>
+
+    <script type="module">
+      const params    = new URLSearchParams(location.search);
+      const paymentId = params.get('payment_id');
+      const provider  = params.get('provider') || '';
+      const token     = localStorage.getItem('arcana-events-jwt-v1');
+
+      document.querySelector('#providerLabel').textContent =
+        provider ? `Checkout ${provider}` : 'Checkout';
+
+      if (!paymentId) {
+        document.querySelector('#payError').textContent = 'Pagamento non valido: id mancante.';
+        document.querySelector('#payBtn').disabled = true;
+      }
+
+      document.querySelector('#payBtn').addEventListener('click', async () => {
+        const btn = document.querySelector('#payBtn');
+        const err = document.querySelector('#payError');
+        err.textContent = '';
+        btn.disabled = true; btn.textContent = 'Elaborazione…';
+        try {
+          const r = await fetch(`/api/payments/sandbox/${paymentId}/complete`, {
+            method: 'POST',
+            headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+          });
+          if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || 'Pagamento fallito');
+          btn.textContent = 'Pagato ✓';
+          location.href = 'my-registrations.html?paid=1';
+        } catch (e) {
+          err.textContent = e.message;
+          btn.disabled = false; btn.textContent = 'Conferma pagamento';
+        }
+      });
+    </script>
+  </body>
+</html>
