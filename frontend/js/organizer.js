@@ -128,7 +128,6 @@ function renderTornei() {
         <label>Data<input id="nDate" type="date" required /></label>
         <label>Capienza<input id="nCap" type="number" min="2" value="64" /></label>
         <label>Entry fee €<input id="nFee" type="number" min="0" step="0.01" value="25" /></label>
-        <label>Round svizzeri<input id="nRounds" type="number" min="0" value="0" title="0 = automatico" /></label>
         <label style="display:flex;align-items:center;gap:6px"><input id="nDeck" type="checkbox" checked /> Lista obbligatoria</label>
         <label style="display:flex;align-items:center;gap:6px"><input id="nAtEvent" type="checkbox" checked /> Pagamento al banco</label>
         <label style="display:flex;align-items:center;gap:6px"><input id="nStripe" type="checkbox" /> Online Stripe</label>
@@ -163,7 +162,6 @@ async function createTournament(e) {
     entry_fee_cents: Math.round((+$('#nFee').value || 0) * 100),
     currency: 'EUR',
     status: 'published',
-    swiss_rounds: +$('#nRounds').value || 0,
     decklist_required: $('#nDeck').checked,
     pay_at_event: $('#nAtEvent').checked,
     pay_stripe: $('#nStripe').checked,

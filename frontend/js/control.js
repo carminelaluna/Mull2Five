@@ -84,11 +84,7 @@ async function init() {
     () => apiFetch(`/tournaments/${_tid}/timer/stop`, { method: 'POST' }), 'Timer fermato.'));
   $('#ctlExtend5').addEventListener('click',  () => call(() => apiExtend(5),  '+5 minuti al round.'));
   $('#ctlExtend10').addEventListener('click', () => call(() => apiExtend(10), '+10 minuti al round.'));
-  $('#ctlGenRound').addEventListener('click', () => call(async () => {
-    // Il timer NON parte da solo: l'organizzatore lo avvia con "Avvia / Reset".
-    const rnd = await apiFetch(`/tournaments/${_tid}/rounds`, { method: 'POST' });
-    if (rnd?.id) _activeRoundId = rnd.id;   // passa subito alla tab del nuovo round
-  }, 'Round generato.'));
+  $('#ctlGenRound').addEventListener('click', genRound);
 
   refresh();
   setInterval(refresh, 4000);   // riallinea con il backend (modifiche di altri)
@@ -97,6 +93,27 @@ async function init() {
 
 function apiExtend(min) {
   return apiFetch(`/tournaments/${_tid}/timer/extend`, { method: 'POST', body: JSON.stringify({ minutes: min }) });
+}
+
+/* Genera il round successivo. Se i turni svizzeri previsti sono finiti, il
+   backend risponde 409 EXTRA_SWISS_ROUND: chiediamo conferma e riproviamo con
+   ?force=true (il timer NON parte da solo). */
+async function genRound(force = false) {
+  try {
+    const rnd = await apiFetch(`/tournaments/${_tid}/rounds${force ? '?force=true' : ''}`, { method: 'POST' });
+    if (rnd?.id) _activeRoundId = rnd.id;   // passa subito alla tab del nuovo round
+    toast('Round generato.');
+    await refresh();
+  } catch (e) {
+    if (!force && String(e.message).includes('EXTRA_SWISS_ROUND')) {
+      const msg = e.message.replace(/^EXTRA_SWISS_ROUND:\s*/, '');
+      if (window.confirm(`⚠️ ${msg}\n\nVuoi comunque generare un turno aggiuntivo?`)) {
+        return genRound(true);
+      }
+      return;   // annullato
+    }
+    toast('Errore: ' + e.message);
+  }
 }
 
 async function call(fn, okMsg) {

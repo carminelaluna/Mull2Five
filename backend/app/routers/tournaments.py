@@ -1,5 +1,6 @@
 import csv
 import io
+import math
 import random
 from datetime import UTC, date, datetime, timedelta
 
@@ -1246,6 +1247,7 @@ async def decide_refund(
 @router.post("/{tournament_id}/rounds", response_model=RoundOut)
 def create_round(
     tournament_id: int,
+    force: bool = False,
     organizer: User = Depends(require_organizer),
     db: Session = Depends(get_db),
 ) -> RoundOut:
@@ -1253,6 +1255,23 @@ def create_round(
     if tournament.status != TournamentStatus.RUNNING:
         raise HTTPException(status_code=409, detail="Start the tournament before creating rounds")
     ensure_latest_round_has_results(tournament_id, db)
+
+    # Torneo svizzero "puro": i turni previsti sono ceil(log2(iscritti)). Generare
+    # un turno oltre quel numero può ripetere gli abbinamenti → richiede conferma.
+    if tournament.structure == TournamentStructure.SWISS and not force:
+        eligible_count = len(eligible_registrations(tournament, db))
+        planned = planned_swiss_rounds(tournament, eligible_count)
+        next_number = len(tournament.rounds) + 1
+        if next_number > planned:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"EXTRA_SWISS_ROUND: i {planned} turni svizzeri previsti per "
+                    f"{eligible_count} giocatori sono completati. Un turno aggiuntivo "
+                    "può ripetere gli abbinamenti: è sconsigliato."
+                ),
+            )
+
     result = create_round_for_tournament(tournament, db)
     # Notifica email pairings pronti
     try:
@@ -2290,19 +2309,15 @@ def ensure_allowed_score(payload: PairingResultIn) -> None:
 
 
 def default_swiss_rounds(player_count: int) -> int:
-    if player_count <= 8:
-        return 3
-    if player_count <= 16:
-        return 4
-    if player_count <= 32:
-        return 5
-    if player_count <= 64:
-        return 6
-    if player_count <= 128:
-        return 7
-    if player_count <= 226:
-        return 8
-    return 9
+    """Numero di turni svizzeri = ceil(log2(iscritti)).
+    Es: 8→3, 16→4, 32→5, 64→6 (standard MTG). Minimo 1."""
+    return max(1, math.ceil(math.log2(max(2, player_count))))
+
+
+def planned_swiss_rounds(tournament: Tournament, eligible_count: int) -> int:
+    """Turni svizzeri previsti per il torneo: override manuale se impostato,
+    altrimenti calcolo automatico ceil(log2(iscritti))."""
+    return tournament.swiss_rounds or default_swiss_rounds(eligible_count)
 
 
 def calculate_standings(tournament_id: int, db: Session) -> list[StandingOut]:

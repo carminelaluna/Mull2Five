@@ -213,6 +213,41 @@ def test_organizations_endpoints(client):
     assert cur.status_code in (200, 404)
 
 
+# ── Round svizzeri automatici = ceil(log2(iscritti)) ──────────
+
+
+def test_default_swiss_rounds_is_log2():
+    from backend.app.routers.tournaments import default_swiss_rounds
+    assert default_swiss_rounds(2) == 1
+    assert default_swiss_rounds(4) == 2
+    assert default_swiss_rounds(8) == 3
+    assert default_swiss_rounds(16) == 4
+    assert default_swiss_rounds(32) == 5   # 32 persone → 5 turni
+    assert default_swiss_rounds(64) == 6
+    assert default_swiss_rounds(9) == 4    # non potenza di 2: ceil(log2(9))
+
+
+def test_extra_swiss_round_requires_force(client):
+    """Superati i turni previsti, /rounds chiede conferma (409); con force=true procede."""
+    org = _register(client, "v2-extra-org@example.com", role="organizer")
+    # 2 giocatori → turni previsti = ceil(log2(2)) = 1
+    tid, round1, players = _seed_started(client, org)
+    pairing = next(p for p in round1["pairings"] if p["player_b"])
+    # referta il turno 1 (necessario per generarne un altro)
+    client.patch(f"/api/tournaments/{tid}/pairings/{pairing['id']}/result",
+                 json={"match_wins_a": 2, "match_wins_b": 0, "draws": 0}, headers=org)
+
+    # turno 2 > previsti(1) senza force → 409 con marcatore EXTRA_SWISS_ROUND
+    r = client.post(f"/api/tournaments/{tid}/rounds", headers=org)
+    assert r.status_code == 409
+    assert "EXTRA_SWISS_ROUND" in r.json()["detail"]
+
+    # con force=true → procede (abbinamenti eventualmente ripetuti)
+    r = client.post(f"/api/tournaments/{tid}/rounds?force=true", headers=org)
+    assert r.status_code == 200, r.text
+    assert r.json()["number"] == 2
+
+
 # ── Classifica visibile a torneo chiuso ───────────────────────
 
 
