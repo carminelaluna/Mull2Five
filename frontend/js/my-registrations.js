@@ -263,6 +263,8 @@ function openDeckDialog(tournamentId, regId) {
   document.querySelector('#deckText').value              = '';
   document.querySelector('#deckArchetype').value         = '';
   document.querySelector('#deckError').textContent       = '';
+  const file = document.querySelector('#deckFile');
+  if (file) file.value = '';
   document.querySelector('#deckDialog').showModal();
 }
 
@@ -447,6 +449,11 @@ document.addEventListener('DOMContentLoaded', () => {
   setupPushToggle();
   document.querySelector('#submitDeck').addEventListener('click', submitDeck);
   document.querySelector('#submitResult').addEventListener('click', submitResult);
+  // Carica la lista da file nel textarea
+  document.querySelector('#deckFile')?.addEventListener('change', async (e) => {
+    const f = e.target.files[0];
+    if (f) document.querySelector('#deckText').value = await f.text();
+  });
 });
 
 /* ── Notifiche Web Push ──────────────────────────────── */

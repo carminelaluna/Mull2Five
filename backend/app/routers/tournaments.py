@@ -1120,6 +1120,45 @@ def submit_decklist(
     return decklist
 
 
+@router.post("/{tournament_id}/registrations/{registration_id}/decklist", response_model=DecklistOut)
+def submit_decklist_for_registration(
+    tournament_id: int,
+    registration_id: int,
+    payload: DecklistCreate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Decklist:
+    """L'organizzatore/staff carica la decklist per conto di un iscritto (deck check
+    al banco). Non soggetto al lock delle liste, a differenza dell'invio del giocatore."""
+    tournament = load_tournament_for_staff(tournament_id, user, db)
+    registration = load_registration_for_tournament(tournament_id, registration_id, db)
+
+    validation = validate_decklist(payload.raw_text, tournament.format)
+    registration.archetype = payload.archetype.strip()
+    errors = validation.errors[:]
+    if tournament.legal_validation_enabled:
+        errors.extend(validate_card_legality(payload.raw_text, tournament.format))
+    status = DecklistStatus.INVALID if errors else DecklistStatus.VALID
+    decklist = registration.decklist or Decklist(registration_id=registration.id, raw_text="")
+    decklist.raw_text = payload.raw_text
+    decklist.main_count = validation.main_count
+    decklist.side_count = validation.side_count
+    decklist.status = status
+    decklist.validation_errors = "\n".join(errors)
+    db.add(registration)
+    db.add(decklist)
+    db.add(DecklistRevision(
+        registration_id=registration.id, edited_by_id=user.id, raw_text=payload.raw_text,
+        main_count=validation.main_count, side_count=validation.side_count,
+        status=status, validation_errors="\n".join(errors),
+    ))
+    db.commit()
+    db.refresh(decklist)
+    from backend.app.core.cache import cache_invalidate
+    cache_invalidate(f"registrations:{tournament_id}")
+    return decklist
+
+
 @router.post("/{tournament_id}/checkout", response_model=PaymentOut)
 async def checkout(
     tournament_id: int,

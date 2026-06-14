@@ -248,6 +248,27 @@ def test_extra_swiss_round_requires_force(client):
     assert r.json()["number"] == 2
 
 
+# ── Organizzatore carica la lista per un iscritto ─────────────
+
+
+def test_organizer_uploads_decklist_for_registration(client):
+    org = _register(client, "v2-deck-org@example.com", role="organizer")
+    tid = _make_tournament(client, org, decklist_required=True)
+    reg = client.post(f"/api/tournaments/{tid}/walk-in", headers=org,
+                      json={"email": "deckp@example.com", "display_name": "DeckP", "mark_paid": True})
+    rid = reg.json()["id"]
+    deck = "4 Lightning Bolt\n4 Ragavan, Nimble Pilferer\n52 Mountain\n\nSideboard\n2 Blood Moon"
+    r = client.post(f"/api/tournaments/{tid}/registrations/{rid}/decklist", headers=org,
+                    json={"raw_text": deck, "archetype": "Burn"})
+    assert r.status_code == 200, r.text
+    assert r.json()["main_count"] > 0
+    # ora compare nella lista iscritti
+    regs = client.get(f"/api/tournaments/{tid}/registrations", headers=org).json()
+    row = next(x for x in regs if x["id"] == rid)
+    assert row["decklist_status"] in ("valid", "invalid")
+    assert row["decklist_raw_text"].startswith("4 Lightning Bolt")
+
+
 # ── Orario di inizio ──────────────────────────────────────────
 
 

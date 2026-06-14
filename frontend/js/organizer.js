@@ -295,13 +295,24 @@ async function doWalkIn(e, tid) {
 }
 
 async function regAction(tid, act, rid, val) {
+  const on = (val === 'true' || val === true);
+  // Aggiornamento ottimistico: cambia subito lo stato e ridisegna, poi sincronizza.
+  const reg = _regs.find(r => String(r.id) === String(rid));
+  const prev = reg ? { payment_status: reg.payment_status, checked_in: reg.checked_in, dropped: reg.dropped } : null;
+  if (reg) {
+    if (act === 'pay')     reg.payment_status = 'paid';
+    if (act === 'checkin') reg.checked_in = on;
+    if (act === 'drop')    reg.dropped = on;
+    drawIscritti(tid);
+  }
   try {
     if (act === 'pay')     await apiFetch(`/tournaments/${tid}/registrations/${rid}/mark-paid`, { method: 'POST' });
-    if (act === 'checkin') await apiFetch(`/tournaments/${tid}/registrations/${rid}/check-in?checked_in=${val}`, { method: 'PATCH' });
-    if (act === 'drop')    await apiFetch(`/tournaments/${tid}/registrations/${rid}/drop?dropped=${val}`, { method: 'PATCH' });
-    toast('Aggiornato.');
-    await loadRegs(tid, true);
-  } catch (err) { toast('Errore: ' + err.message); }
+    if (act === 'checkin') await apiFetch(`/tournaments/${tid}/registrations/${rid}/check-in?checked_in=${on}`, { method: 'PATCH' });
+    if (act === 'drop')    await apiFetch(`/tournaments/${tid}/registrations/${rid}/drop?dropped=${on}`, { method: 'PATCH' });
+  } catch (err) {
+    if (reg && prev) { Object.assign(reg, prev); drawIscritti(tid); }   // rollback
+    toast('Errore: ' + err.message);
+  }
 }
 
 /* Carica TUTTE le iscrizioni (tutte le pagine) — usato da Liste e Penalità. */
@@ -330,12 +341,26 @@ async function renderListe() {
       <td><span class="pill ${badge(r.decklist_status)}">${esc(r.decklist_status)}</span></td>
       <td>${r.decklist_main_count ?? '—'} / ${r.decklist_side_count ?? '—'}</td>
       <td>${r.decklist_errors ? `<small style="color:var(--danger,#e36363)">${esc(r.decklist_errors)}</small>` : '—'}</td>
-      <td>${r.decklist_raw_text ? `<button class="mini-button" data-deck="${r.id}" type="button">Vedi</button>` : '—'}</td>
-    </tr>`).join('') || '<tr><td colspan="5" class="muted">Nessuna lista.</td></tr>';
+      <td class="row-actions">
+        ${r.decklist_raw_text ? `<button class="mini-button" data-deck="${r.id}" type="button">Vedi</button>` : ''}
+        <button class="mini-button" data-upload="${r.id}" type="button">${r.decklist_raw_text ? 'Modifica' : 'Carica'} lista</button>
+      </td>
+    </tr>`).join('') || '<tr><td colspan="5" class="muted">Nessun iscritto.</td></tr>';
   $('#panel').innerHTML = `<div class="panel"><h3>Liste — ${esc(t.name)}</h3>
     <input id="listFilter" placeholder="Filtra…" style="margin-bottom:8px;width:100%" />
-    <table class="bo"><thead><tr><th>Giocatore</th><th>Stato</th><th>Main/Side</th><th>Errori</th><th></th></tr></thead><tbody id="listBody">${rows}</tbody></table>
-    <pre id="deckView" style="display:none;white-space:pre-wrap;background:rgba(0,0,0,.25);padding:12px;border-radius:8px;margin-top:12px;max-height:320px;overflow:auto"></pre></div>`;
+    <table class="bo"><thead><tr><th>Giocatore</th><th>Stato</th><th>Main/Side</th><th>Errori</th><th>Azioni</th></tr></thead><tbody id="listBody">${rows}</tbody></table>
+    <pre id="deckView" style="display:none;white-space:pre-wrap;background:rgba(0,0,0,.25);padding:12px;border-radius:8px;margin-top:12px;max-height:320px;overflow:auto"></pre>
+    <div id="deckUpload" style="display:none;margin-top:12px;border-top:1px solid var(--line,#3a352d);padding-top:12px">
+      <h4 id="duName" style="margin:0 0 8px"></h4>
+      <label style="display:block;margin-bottom:6px">Carica da file (.txt/.dec)
+        <input id="duFile" type="file" accept=".txt,.dec,.csv,text/plain" /></label>
+      <textarea id="duText" placeholder="4 Lightning Bolt&#10;4 Ragavan…&#10;&#10;Sideboard&#10;2 Blood Moon" style="width:100%;min-height:200px"></textarea>
+      <label style="display:block;margin-top:6px">Archetipo<input id="duArch" placeholder="Izzet Murktide…" /></label>
+      <div style="margin-top:8px;display:flex;gap:8px">
+        <button class="primary" id="duSubmit" type="button">Salva lista</button>
+        <button class="secondary" id="duCancel" type="button">Annulla</button>
+      </div>
+    </div></div>`;
   $('#listFilter').addEventListener('input', (e) => {
     const q = e.target.value.toLowerCase();
     $('#listBody').querySelectorAll('tr').forEach(tr => tr.style.display = tr.textContent.toLowerCase().includes(q) ? '' : 'none');
@@ -346,6 +371,39 @@ async function renderListe() {
     v.textContent = `${r.player?.display_name}\n\n${r.decklist_raw_text}`;
     v.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }));
+  $('#panel').querySelectorAll('[data-upload]').forEach(b => b.addEventListener('click', () => {
+    const r = regs.find(x => String(x.id) === b.dataset.upload);
+    openDeckUpload(t.id, r);
+  }));
+  // Carica il testo da file nel textarea
+  $('#duFile').addEventListener('change', async (e) => {
+    const f = e.target.files[0];
+    if (f) $('#duText').value = await f.text();
+  });
+  $('#duCancel').addEventListener('click', () => { $('#deckUpload').style.display = 'none'; });
+}
+
+function openDeckUpload(tid, reg) {
+  $('#duName').textContent = `Lista di ${reg.player?.display_name || reg.player_email}`;
+  $('#duText').value = reg.decklist_raw_text || '';
+  $('#duArch').value = reg.archetype || '';
+  $('#duFile').value = '';
+  const panel = $('#deckUpload');
+  panel.style.display = 'block';
+  panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  const submit = $('#duSubmit');
+  submit.onclick = async () => {
+    const raw = $('#duText').value.trim();
+    if (raw.length < 5) { toast('Incolla o carica una lista valida.'); return; }
+    submit.disabled = true;
+    try {
+      await apiFetch(`/tournaments/${tid}/registrations/${reg.id}/decklist`, {
+        method: 'POST', body: JSON.stringify({ raw_text: raw, archetype: $('#duArch').value.trim() }),
+      });
+      toast('Lista salvata.');
+      renderListe();   // ricarica con lo stato aggiornato
+    } catch (err) { toast('Errore: ' + err.message); submit.disabled = false; }
+  };
 }
 
 /* ── ANNUNCI ─────────────────────────────────────────── */
@@ -458,8 +516,27 @@ async function renderReport() {
       <div class="panel" style="text-align:center"><small class="muted">Presenze totali</small><div style="font-size:1.5rem;font-weight:bold">${totPlayers}</div></div>
       <div class="panel" style="text-align:center"><small class="muted">Tornei</small><div style="font-size:1.5rem;font-weight:bold">${reports.length}</div></div>
     </div>
-    <div class="panel"><h3>Report incassi</h3>
+    <div class="panel"><h3 style="display:flex;justify-content:space-between;align-items:center">Report incassi
+      <button class="secondary" id="repCsv" type="button">⬇ Scarica CSV</button></h3>
       <table class="bo"><thead><tr><th>Torneo</th><th>Iscritti</th><th>Paganti</th><th>Incasso</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  $('#repCsv').addEventListener('click', () => downloadReportCsv(reports));
+}
+
+/* Genera e scarica il report incassi in CSV (lato client). */
+function downloadReportCsv(reports) {
+  const cell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const header = ['Torneo', 'Formato', 'Data', 'Iscritti', 'Paganti', 'Incasso', 'Valuta'];
+  const lines = [header.join(',')];
+  for (const r of reports) {
+    lines.push([r.tournament_name, r.format, r.starts_on, r.registrations, r.paid_count,
+                (r.revenue_cents / 100).toFixed(2), r.currency].map(cell).join(','));
+  }
+  const blob = new Blob(['﻿' + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `report-incassi-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 document.addEventListener('DOMContentLoaded', init);
