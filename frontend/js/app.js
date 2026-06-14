@@ -10,7 +10,7 @@ const PER_PAGE = 12;
 /* ── Helpers ─────────────────────────────────────────── */
 
 async function apiFetch(path, opts = {}) {
-  const token = localStorage.getItem('arcana-events-jwt-v1');
+  const token = localStorage.getItem('manabind-jwt-v1');
   const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
   if (token) headers['Authorization'] = `Bearer ${token}`;
   const r = await fetch(API + path, { ...opts, headers });
@@ -25,7 +25,7 @@ function fmtMoney(v) { return (+v||0).toLocaleString('it-IT',{style:'currency',c
 /* ── Sessione ─────────────────────────────────────────── */
 
 function getSession() {
-  const t = localStorage.getItem('arcana-events-jwt-v1');
+  const t = localStorage.getItem('manabind-jwt-v1');
   if (!t) return null;
   try { return JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))); }
   catch { return null; }
@@ -39,7 +39,7 @@ function updateAuthNav() {
     el.innerHTML = `<span style="color:var(--muted);font-size:.88rem">${esc(session.email)}</span>
       <button class="secondary-link" id="logoutBtn" type="button">Esci</button>`;
     el.querySelector('#logoutBtn').addEventListener('click', () => {
-      localStorage.removeItem('arcana-events-jwt-v1');
+      localStorage.removeItem('manabind-jwt-v1');
       location.reload();
     });
   } else {

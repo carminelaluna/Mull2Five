@@ -1,5 +1,5 @@
 [Unit]
-Description=Arcana Events — backup database PostgreSQL
+Description=Manabind — backup database PostgreSQL
 After=network.target
 
 [Service]

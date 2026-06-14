@@ -1,11 +1,11 @@
 /**
- * Service Worker — Arcana Events (item 15: PWA offline)
+ * Service Worker — Manabind (item 15: PWA offline)
  * Strategia: cache-first per asset statici, network-first per API.
  * In produzione (npm run build) usa vite-plugin-pwa per gestione
  * automatica dei file con hash. Questo SW è ottimizzato per dev/server locale.
  */
 
-const CACHE = 'arcana-events-v1';
+const CACHE = 'manabind-v1';
 
 const STATIC = [
   '/', '/index.html', '/login.html', '/event.html', '/my-registrations.html',
@@ -60,7 +60,7 @@ self.addEventListener('fetch', e => {
    Riceve le notifiche dal backend (annunci, nuovi round) e le mostra anche
    quando la tab è chiusa. Il click apre/focalizza l'app sulla URL indicata. */
 self.addEventListener('push', e => {
-  let data = { title: 'Arcana Events', body: '', url: '/my-registrations.html' };
+  let data = { title: 'Manabind', body: '', url: '/my-registrations.html' };
   try { data = { ...data, ...(e.data ? e.data.json() : {}) }; } catch { /* payload non-JSON */ }
   e.waitUntil(
     self.registration.showNotification(data.title, {

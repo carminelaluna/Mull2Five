@@ -3,15 +3,15 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Pagamento — Arcana Events</title>
+    <title>Pagamento — Manabind</title>
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="app.css" />
   </head>
   <body>
     <header class="public-header">
       <a class="brand" href="index.html">
-        <span class="brand-mark">AE</span>
-        <span><strong>Arcana Events</strong></span>
+        <span class="brand-mark">MB</span>
+        <span><strong>Manabind</strong></span>
       </a>
     </header>
 
@@ -36,7 +36,7 @@
       const params    = new URLSearchParams(location.search);
       const paymentId = params.get('payment_id');
       const provider  = params.get('provider') || '';
-      const token     = localStorage.getItem('arcana-events-jwt-v1');
+      const token     = localStorage.getItem('manabind-jwt-v1');
 
       document.querySelector('#providerLabel').textContent =
         provider ? `Checkout ${provider}` : 'Checkout';

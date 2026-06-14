@@ -6,9 +6,9 @@
  *   initI18n();            // traduce gli elementi [data-i18n] e monta il selettore
  *   t('nav.tournaments');  // stringa tradotta nella lingua corrente
  *
- * La lingua è persistita in localStorage ('arcana-lang'); default dal browser → it.
+ * La lingua è persistita in localStorage ('manabind-lang'); default dal browser → it.
  */
-const STORE_KEY = 'arcana-lang';
+const STORE_KEY = 'manabind-lang';
 
 const DICT = {
   it: {

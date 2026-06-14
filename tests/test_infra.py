@@ -15,7 +15,7 @@ def test_metrics_endpoint(client):
     resp = client.get("/metrics")
     assert resp.status_code == 200
     # prometheus_client è installato → deve esserci il nome metrica
-    assert "arcana_http_requests_total" in resp.text
+    assert "manabind_http_requests_total" in resp.text
 
 
 def test_vapid_key_endpoint(client):

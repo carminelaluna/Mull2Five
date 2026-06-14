@@ -6,7 +6,7 @@
  * gli schermi pubblici (display.html, timer.html?t=ID) si aggiornano da soli.
  */
 const API       = '/api';
-const TOKEN_KEY = 'arcana-events-jwt-v1';
+const TOKEN_KEY = 'manabind-jwt-v1';
 const token     = localStorage.getItem(TOKEN_KEY);
 if (!token) location.replace('login.html?next=control.html');
 

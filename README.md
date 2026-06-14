@@ -1,4 +1,4 @@
-# Arcana Events
+# Manabind
 
 Piattaforma full-stack per gestione tornei MTG: backend Python, database relazionale,
 login, dashboard utente, dashboard tornei, iscrizioni, decklist, round e pagamenti

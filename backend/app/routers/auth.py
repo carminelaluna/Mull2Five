@@ -94,7 +94,7 @@ def forgot_password(
         reset_url = f"{str(settings.frontend_url).rstrip('/')}/reset-password.html?token={token}"
         send_email(
             user.email,
-            "Arcana Events — Reimposta la tua password",
+            "Manabind — Reimposta la tua password",
             f"Ciao {user.display_name},\n\n"
             f"per reimpostare la password apri questo link (valido 30 minuti):\n{reset_url}\n\n"
             "Se non hai richiesto tu il reset, ignora questa email.",

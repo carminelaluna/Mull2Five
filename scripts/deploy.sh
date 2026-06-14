@@ -12,7 +12,7 @@ for arg in "$@"; do
 done
 
 echo "═══════════════════════════════════════"
-echo "  Arcana Events — Deploy $(date '+%Y-%m-%d %H:%M')"
+echo "  Manabind — Deploy $(date '+%Y-%m-%d %H:%M')"
 echo "═══════════════════════════════════════"
 
 # ── Backend ───────────────────────────────────────────

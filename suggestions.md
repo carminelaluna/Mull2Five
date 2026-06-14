@@ -1,4 +1,4 @@
-# Suggerimenti — Arcana Events Frontend
+# Suggerimenti — Manabind Frontend
 
 ## Funzionalità mancanti (alta priorità)
 
@@ -254,7 +254,7 @@ selettore IT/EN nell'header, lingua persistita in localStorage (default dal brow
 
 ### ~~49. Multi-negozio / multi-tenant~~ ✅
 Modello `Organization` + `organization_id` su `User`/`Tournament`, org di default
-auto-seedata con backfill. Risoluzione tenant via header `X-Arcana-Org` o `?org=slug`
+auto-seedata con backfill. Risoluzione tenant via header `X-Manabind-Org` o `?org=slug`
 (`core/tenant.py`); il listing pubblico filtra per organizzazione. Router
 `/api/organizations` (list/current/create-admin).
 
@@ -286,8 +286,8 @@ e per le istanze già in produzione. Uso: `alembic upgrade head`.
 per listare e triggerare. `postgresql-client` aggiunto all'immagine.
 
 ### ~~53. Monitoraggio e alert~~ ✅
-**Monitoring**: `core/monitoring.py` con metriche Prometheus (`arcana_http_requests_total`,
-`arcana_http_request_duration_seconds`) via middleware, endpoint `/metrics` (protetto
+**Monitoring**: `core/monitoring.py` con metriche Prometheus (`manabind_http_requests_total`,
+`manabind_http_request_duration_seconds`) via middleware, endpoint `/metrics` (protetto
 da `METRICS_TOKEN` opzionale), `/health` profondo che verifica DB e backend cache.
 **Alerting**: `core/alerting.py` con canali email + Telegram, throttle anti-spam
 cross-worker via Redis. Agganciato a: handler globale eccezioni 5xx (in main.py) e

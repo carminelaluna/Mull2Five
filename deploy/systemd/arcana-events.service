@@ -1,5 +1,5 @@
 [Unit]
-Description=Arcana Events FastAPI service
+Description=Manabind FastAPI service
 After=network.target
 
 [Service]

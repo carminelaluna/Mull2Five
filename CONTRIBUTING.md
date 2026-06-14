@@ -1,4 +1,4 @@
-# Contribuire ad Arcana Events
+# Contribuire ad Manabind
 
 ## Setup sviluppo
 

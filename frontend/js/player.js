@@ -1,5 +1,5 @@
 const API       = '/api';
-const TOKEN_KEY = 'arcana-events-jwt-v1';
+const TOKEN_KEY = 'manabind-jwt-v1';
 const params    = new URLSearchParams(location.search);
 const EMAIL     = params.get('email');   // URL: /player.html?email=xxx@xxx.com
 

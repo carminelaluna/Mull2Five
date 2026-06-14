@@ -6,7 +6,7 @@
  * ogni postazione vede gli stessi dati in tempo reale (refresh su ogni azione).
  */
 const API       = '/api';
-const TOKEN_KEY = 'arcana-events-jwt-v1';
+const TOKEN_KEY = 'manabind-jwt-v1';
 const token     = localStorage.getItem(TOKEN_KEY);
 if (!token) location.replace('login.html?next=organizer.html');
 

@@ -1,7 +1,7 @@
 {
-  "name": "Arcana Events",
-  "short_name": "ArcanaOp",
-  "description": "Gestionale offline per tornei MTG — iscrizioni, decklist, round, classifica.",
+  "name": "Manabind",
+  "short_name": "Manabind",
+  "description": "Gestionale online per tornei MTG — iscrizioni, decklist, round, classifica.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#11110f",

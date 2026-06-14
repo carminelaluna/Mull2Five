@@ -1,5 +1,5 @@
 const API       = '/api';
-const TOKEN_KEY = 'arcana-events-jwt-v1';
+const TOKEN_KEY = 'manabind-jwt-v1';
 
 /* ── Auth guard ──────────────────────────────────────── */
 const token = localStorage.getItem(TOKEN_KEY);

@@ -2,7 +2,7 @@
 Risoluzione del tenant (organizzazione) dalla richiesta.
 
 Il negozio corrente è identificato — in ordine — da:
-  1. header `X-Arcana-Org: <slug>` (configurabile via settings.tenant_header)
+  1. header `X-Manabind-Org: <slug>` (configurabile via settings.tenant_header)
   2. query param `?org=<slug>`
 Se non specificato o non trovato, si usa l'organizzazione di default.
 """

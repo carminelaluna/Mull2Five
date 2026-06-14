@@ -1,5 +1,5 @@
 [project]
-name = "arcana-events"
+name = "manabind"
 version = "0.1.0"
 description = "Tournament organizer backend for MTG events."
 requires-python = ">=3.11"

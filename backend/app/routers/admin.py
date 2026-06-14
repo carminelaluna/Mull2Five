@@ -48,7 +48,7 @@ def list_backups(admin: User = Depends(require_admin)) -> list[dict]:
     if not _BACKUP_DIR.exists():
         return []
     items = []
-    for f in sorted(_BACKUP_DIR.glob("arcana_*.dump"), reverse=True):
+    for f in sorted(_BACKUP_DIR.glob("manabind_*.dump"), reverse=True):
         stat = f.stat()
         items.append({
             "name": f.name,

@@ -1661,7 +1661,7 @@ def _tournament_to_vevent(tournament: Tournament) -> str:
     start = tournament.starts_on.strftime("%Y%m%d")
     return (
         "BEGIN:VEVENT\r\n"
-        f"UID:arcana-tournament-{tournament.id}@arcana-events\r\n"
+        f"UID:manabind-tournament-{tournament.id}@manabind\r\n"
         f"DTSTART;VALUE=DATE:{start}\r\n"
         f"SUMMARY:{_ical_escape(tournament.name)} ({_ical_escape(tournament.format)})\r\n"
         f"LOCATION:{_ical_escape(tournament.venue)}\r\n"
@@ -1677,7 +1677,7 @@ def tournament_ical(tournament_id: int, db: Session = Depends(get_db)) -> Respon
     if not tournament or tournament.status == TournamentStatus.CANCELLED:
         raise HTTPException(status_code=404, detail="Tournament not found")
     body = (
-        "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Arcana Events//IT\r\n"
+        "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Manabind//IT\r\n"
         + _tournament_to_vevent(tournament)
         + "END:VCALENDAR\r\n"
     )
@@ -1697,8 +1697,8 @@ def calendar_feed(db: Session = Depends(get_db)) -> Response:
         )
     ).all()
     body = (
-        "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Arcana Events//IT\r\n"
-        "X-WR-CALNAME:Arcana Events — Tornei\r\n"
+        "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Manabind//IT\r\n"
+        "X-WR-CALNAME:Manabind — Tornei\r\n"
         + "".join(_tournament_to_vevent(t) for t in tournaments)
         + "END:VCALENDAR\r\n"
     )

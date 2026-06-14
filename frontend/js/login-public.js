@@ -1,5 +1,5 @@
 const API       = '/api';
-const TOKEN_KEY = 'arcana-events-jwt-v1';
+const TOKEN_KEY = 'manabind-jwt-v1';
 const REDIRECT  = new URLSearchParams(location.search).get('next') || 'my-registrations.html';
 
 function decodeJwt(t) {

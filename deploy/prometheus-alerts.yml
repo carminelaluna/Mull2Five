@@ -1,4 +1,4 @@
-# Regole di alert Prometheus per Arcana Events.
+# Regole di alert Prometheus per Manabind.
 # Carica in Prometheus (rule_files) e instrada gli alert con Alertmanager.
 # Le metriche provengono dall'endpoint /metrics dell'app (vedi core/monitoring.py).
 #
@@ -6,30 +6,30 @@
 # "DB giù" ed "errori 5xx" — vedi core/alerting.py. Queste regole sono il
 # secondo livello, lato infrastruttura/uptime esterno.
 groups:
-  - name: arcana-events
+  - name: manabind
     rules:
-      - alert: ArcanaInstanceDown
-        expr: up{job="arcana-events"} == 0
+      - alert: ManabindInstanceDown
+        expr: up{job="manabind"} == 0
         for: 1m
         labels: { severity: critical }
         annotations:
-          summary: "Istanza Arcana Events non raggiungibile"
+          summary: "Istanza Manabind non raggiungibile"
           description: "L'endpoint /metrics non risponde da oltre 1 minuto."
 
-      - alert: ArcanaHigh5xxRate
+      - alert: ManabindHigh5xxRate
         expr: |
-          sum(rate(arcana_http_requests_total{status=~"5.."}[5m]))
-            / sum(rate(arcana_http_requests_total[5m])) > 0.05
+          sum(rate(manabind_http_requests_total{status=~"5.."}[5m]))
+            / sum(rate(manabind_http_requests_total[5m])) > 0.05
         for: 5m
         labels: { severity: warning }
         annotations:
           summary: "Tasso di errori 5xx elevato (>5%)"
           description: "Più del 5% delle richieste fallisce con 5xx negli ultimi 5 minuti."
 
-      - alert: ArcanaHighLatency
+      - alert: ManabindHighLatency
         expr: |
           histogram_quantile(0.95,
-            sum(rate(arcana_http_request_duration_seconds_bucket[5m])) by (le)) > 1.5
+            sum(rate(manabind_http_request_duration_seconds_bucket[5m])) by (le)) > 1.5
         for: 5m
         labels: { severity: warning }
         annotations:

@@ -5,7 +5,7 @@
  */
 import { test, expect } from '@playwright/test';
 
-const TOKEN_KEY = 'arcana-events-jwt-v1';
+const TOKEN_KEY = 'manabind-jwt-v1';
 const uniqueEmail = () => `e2e_${Date.now()}_${Math.floor(Math.random() * 1e4)}@test.it`;
 
 test.beforeEach(async ({ page }) => {
@@ -15,7 +15,7 @@ test.beforeEach(async ({ page }) => {
 
 test('home pubblica si carica e mostra brand + ricerca', async ({ page }) => {
   await page.goto('/index.html');
-  await expect(page.locator('.brand')).toContainText('Arcana Events');
+  await expect(page.locator('.brand')).toContainText('Manabind');
   await expect(page.locator('#searchForm')).toBeVisible();
   // La lista tornei (o l'empty state) viene popolata dal backend.
   await expect(page.locator('#eventsList, #eventsEmpty')).toHaveCount(2);

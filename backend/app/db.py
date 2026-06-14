@@ -187,7 +187,7 @@ def seed_default_organization() -> None:
                     "INSERT INTO organizations (slug, name, is_default, created_at) "
                     "VALUES (:s, :n, :d, CURRENT_TIMESTAMP)"
                 ),
-                {"s": DEFAULT_ORG_SLUG, "n": "Arcana Events", "d": True if not _is_sqlite else 1},
+                {"s": DEFAULT_ORG_SLUG, "n": "Manabind", "d": True if not _is_sqlite else 1},
             )
             row = connection.execute(
                 text("SELECT id FROM organizations WHERE slug = :s"), {"s": DEFAULT_ORG_SLUG}

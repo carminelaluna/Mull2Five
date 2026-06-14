@@ -17,7 +17,7 @@ def test_health(client):
 def test_root(client):
     response = client.get("/")
     assert response.status_code == 200
-    assert "Arcana Events" in response.json()["message"]
+    assert "Manabind" in response.json()["message"]
 
 
 def test_list_tournaments_empty(client):

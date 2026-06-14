@@ -1,4 +1,4 @@
-# Arcana Events TODO
+# Manabind TODO
 
 Funzioni derivate dall'analisi di Melee.gg e adattate al progetto.
 

@@ -40,7 +40,7 @@ def _registration_confirmed(player_name: str, tournament: "Tournament") -> tuple
         f"Data: {tournament.starts_on.strftime('%d/%m/%Y') if tournament.starts_on else 'TBD'}\n"
         f"Formato: {tournament.format}\n"
         f"Luogo: {tournament.venue or 'TBD'}\n\n"
-        f"Buona fortuna!\n\nArcana Events"
+        f"Buona fortuna!\n\nManabind"
     )
     html = event_announcement_html(tournament.name, "Iscrizione confermata ✓", body)
     return subject, body, html
@@ -52,7 +52,7 @@ def _pairings_ready(player_name: str, tournament: "Tournament", round_number: in
         f"Ciao {player_name},\n\n"
         f"Gli abbinamenti del Round {round_number} di {tournament.name} sono pronti.\n"
         f"Controlla i pairings sul sito e siediti al tuo tavolo.\n\n"
-        f"In bocca al lupo!\n\nArcana Events"
+        f"In bocca al lupo!\n\nManabind"
     )
     html = event_announcement_html(tournament.name, f"Round {round_number} — Abbinamenti pronti", body)
     return subject, body, html
@@ -64,7 +64,7 @@ def _tournament_started(player_name: str, tournament: "Tournament") -> tuple[str
         f"Ciao {player_name},\n\n"
         f"{tournament.name} è ufficialmente iniziato.\n"
         f"Assicurati di avere la tua decklist con te.\n\n"
-        f"Arcana Events"
+        f"Manabind"
     )
     html = event_announcement_html(tournament.name, "Il torneo è iniziato!", body)
     return subject, body, html
@@ -75,7 +75,7 @@ def _payment_confirmed(player_name: str, tournament: "Tournament", amount: float
     body = (
         f"Ciao {player_name},\n\n"
         f"Il tuo pagamento di €{amount:.2f} per {tournament.name} è stato ricevuto.\n\n"
-        f"Arcana Events"
+        f"Manabind"
     )
     html = event_announcement_html(tournament.name, "Pagamento confermato ✓", body)
     return subject, body, html

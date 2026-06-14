@@ -167,7 +167,7 @@ def metrics(request: Request):
 @app.get("/")
 def root() -> dict:
     return {
-        "message": "Arcana Events API",
+        "message": "Manabind API",
         "docs":     "/docs",
         "frontend": "http://localhost:5173",
     }

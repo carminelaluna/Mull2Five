@@ -40,7 +40,7 @@ def event_announcement_html(event_name: str, title: str, body: str) -> str:
           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;margin:auto;background:#1e1d1a;border:1px solid #3a352d;border-radius:8px;">
             <tr>
               <td style="padding:24px;">
-                <p style="margin:0 0 8px;color:#b9ad99;font-size:12px;font-weight:bold;letter-spacing:.08em;text-transform:uppercase;">Arcana Events</p>
+                <p style="margin:0 0 8px;color:#b9ad99;font-size:12px;font-weight:bold;letter-spacing:.08em;text-transform:uppercase;">Manabind</p>
                 <h1 style="margin:0 0 8px;font-size:24px;line-height:1.2;">{escaped_title}</h1>
                 <p style="margin:0 0 20px;color:#b9ad99;">{escaped_event}</p>
                 <div style="font-size:16px;line-height:1.55;white-space:pre-wrap;">{escaped_body}</div>

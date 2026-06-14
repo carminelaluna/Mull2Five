@@ -61,7 +61,7 @@ def now_utc() -> datetime:
 class Organization(Base):
     """Tenant: il negozio/organizzazione che ospita i tornei. Ogni organizer e
     torneo appartiene a un'organizzazione; il listing pubblico può essere filtrato
-    per tenant (header X-Arcana-Org o slug). Esiste sempre un'org di default."""
+    per tenant (header X-Manabind-Org o slug). Esiste sempre un'org di default."""
     __tablename__ = "organizations"
 
     id: Mapped[int] = mapped_column(primary_key=True)

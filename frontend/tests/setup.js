@@ -48,6 +48,6 @@ beforeEach(() => {
   vi.clearAllMocks();
   /* Resetta fake-indexeddb tra i test */
   if (globalThis.indexedDB?.deleteDatabase) {
-    globalThis.indexedDB.deleteDatabase('arcana-events-db');
+    globalThis.indexedDB.deleteDatabase('manabind-db');
   }
 });

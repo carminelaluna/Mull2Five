@@ -28,7 +28,7 @@ describe('i18n', () => {
     setLang('en');
     expect(getLang()).toBe('en');
     expect(t('nav.tournaments')).toBe('Tournaments');
-    expect(localStorage.getItem('arcana-lang')).toBe('en');
+    expect(localStorage.getItem('manabind-lang')).toBe('en');
     expect(document.querySelector('[data-i18n]').textContent).toBe('Tournaments');
     expect(document.documentElement.lang).toBe('en');
   });

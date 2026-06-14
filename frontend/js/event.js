@@ -3,7 +3,7 @@ const params = new URLSearchParams(location.search);
 const TOURNAMENT_ID = params.get('id');
 
 async function apiFetch(path, opts = {}) {
-  const token = localStorage.getItem('arcana-events-jwt-v1');
+  const token = localStorage.getItem('manabind-jwt-v1');
   const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
   if (token) headers['Authorization'] = `Bearer ${token}`;
   const r = await fetch(API + path, { ...opts, headers });
@@ -21,7 +21,7 @@ function toast(msg) {
 }
 
 function getSession() {
-  const t = localStorage.getItem('arcana-events-jwt-v1'); if (!t) return null;
+  const t = localStorage.getItem('manabind-jwt-v1'); if (!t) return null;
   try { return JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))); }
   catch { return null; }
 }
@@ -40,7 +40,7 @@ async function loadEvent() {
     const isReg  = !!myReg;
     const canReg = session && !isReg && spots > 0 && t.registration_mode === 'open';
 
-    document.title = `${t.name} — Arcana Events`;
+    document.title = `${t.name} — Manabind`;
     document.querySelector('#eventDetail').innerHTML = `
       <div class="event-detail-header">
         <div>
@@ -115,7 +115,7 @@ function updateAuthNav() {
   if (s) {
     el.innerHTML = `<span style="color:var(--muted);font-size:.85rem">${esc(s.email)}</span>
       <button class="secondary-link" id="logoutBtn" type="button">Esci</button>`;
-    el.querySelector('#logoutBtn').addEventListener('click', () => { localStorage.removeItem('arcana-events-jwt-v1'); location.reload(); });
+    el.querySelector('#logoutBtn').addEventListener('click', () => { localStorage.removeItem('manabind-jwt-v1'); location.reload(); });
   } else {
     el.innerHTML = `<a class="secondary-link" href="login.html">Accedi</a>
                     <a class="primary-btn" href="login.html">Registrati</a>`;
