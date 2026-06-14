@@ -248,6 +248,31 @@ def test_extra_swiss_round_requires_force(client):
     assert r.json()["number"] == 2
 
 
+# ── Orario di inizio ──────────────────────────────────────────
+
+
+def test_tournament_start_time(client):
+    org = _register(client, "v2-time-org@example.com", role="organizer")
+    tid = _make_tournament(client, org, start_time="20:30")
+    t = client.get(f"/api/tournaments/{tid}").json()
+    assert t["start_time"] == "20:30"
+
+
+def test_invalid_start_time_rejected(client):
+    org = _register(client, "v2-badtime-org@example.com", role="organizer")
+    r = client.post("/api/tournaments", headers=org, json={
+        "name": "Bad Time", "format": "Modern", "starts_on": "2027-06-01",
+        "start_time": "25:99", "capacity": 8, "entry_fee_cents": 0, "pay_at_event": True,
+    })
+    assert r.status_code == 422
+
+
+def test_cache_set_accepts_float_ttl():
+    """Regressione: ttl float non deve sollevare (Redis vuole int)."""
+    from backend.app.core.cache import cache_set
+    cache_set("ttltest", {"a": 1}, ttl=5.0)   # non deve lanciare
+
+
 # ── Classifica visibile a torneo chiuso ───────────────────────
 
 

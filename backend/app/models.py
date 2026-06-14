@@ -131,6 +131,7 @@ class Tournament(Base):
     rules_enforcement_level: Mapped[str] = mapped_column(String(40), default="Competitive")
     venue: Mapped[str] = mapped_column(String(180), default="")
     starts_on: Mapped[date] = mapped_column(Date)
+    start_time: Mapped[str | None] = mapped_column(String(5), nullable=True)  # "HH:MM"
     capacity: Mapped[int] = mapped_column(Integer)
     entry_fee_cents: Mapped[int] = mapped_column(Integer, default=0)
     currency: Mapped[str] = mapped_column(String(3), default="EUR")

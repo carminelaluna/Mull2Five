@@ -93,7 +93,7 @@ async function loadTournaments() {
           <span class="badge">${esc(t.format)}</span>
         </div>
         <div class="event-card-meta">
-          <span>${fmtDate(t.starts_on?.substring(0,10))}</span>
+          <span>${fmtDate(t.starts_on?.substring(0,10))}${t.start_time ? ' · ' + esc(t.start_time) : ''}</span>
           <span>${fmtMoney((t.entry_fee_cents||0)/100)} entry</span>
           <span>${Math.max(t.capacity - (t.registered_players||0), 0)} posti</span>
           <span class="badge">${esc(t.rules_enforcement_level || 'Regular')}</span>

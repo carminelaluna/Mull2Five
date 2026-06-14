@@ -268,6 +268,7 @@ def duplicate_tournament(
         rules_enforcement_level=src.rules_enforcement_level,
         venue=src.venue,
         starts_on=src.starts_on + timedelta(days=7),
+        start_time=src.start_time,
         capacity=src.capacity,
         entry_fee_cents=src.entry_fee_cents,
         currency=src.currency,

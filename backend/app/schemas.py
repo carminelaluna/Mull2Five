@@ -37,6 +37,7 @@ class TournamentCreate(BaseModel):
     rules_enforcement_level: str = "Competitive"
     venue: str = ""
     starts_on: date
+    start_time: str | None = Field(default=None, pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
     capacity: int = Field(gt=1)
     entry_fee_cents: int = Field(ge=0)
     currency: str = "EUR"
@@ -78,6 +79,7 @@ class TournamentOut(BaseModel):
     rules_enforcement_level: str
     venue: str
     starts_on: date
+    start_time: str | None = None
     capacity: int
     entry_fee_cents: int
     currency: str

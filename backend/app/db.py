@@ -127,6 +127,7 @@ def migrate_existing_schema() -> None:
             add_column(connection, columns, "tournaments", "pay_stripe",   "BOOLEAN", "0")
             add_column(connection, columns, "tournaments", "pay_paypal",   "BOOLEAN", "0")
             add_nullable_column(connection, columns, "tournaments", "organization_id", "INTEGER")
+            add_nullable_column(connection, columns, "tournaments", "start_time", "VARCHAR(5)")
 
         if "users" in inspector.get_table_names():
             columns = {col["name"] for col in inspector.get_columns("users")}

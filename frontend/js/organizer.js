@@ -98,7 +98,7 @@ function render() {
 function tournamentRow(t, archived) {
   return `
     <tr>
-      <td><strong>${esc(t.name)}</strong><br><small class="muted">${esc(t.format)} · ${fmtDate(t.starts_on)}</small></td>
+      <td><strong>${esc(t.name)}</strong><br><small class="muted">${esc(t.format)} · ${fmtDate(t.starts_on)}${t.start_time ? ' ' + esc(t.start_time) : ''}</small></td>
       <td><span class="pill ${t.status === 'running' ? 'ok' : 'warn'}">${esc(t.status)}</span></td>
       <td>${t.registered_players}/${t.capacity}</td>
       <td class="row-actions">
@@ -126,6 +126,7 @@ function renderTornei() {
         <label>Nome<input id="nName" required placeholder="RCQ Modern" /></label>
         <label>Formato<input id="nFormat" value="Modern" /></label>
         <label>Data<input id="nDate" type="date" required /></label>
+        <label>Orario inizio<input id="nTime" type="time" required value="20:00" /></label>
         <label>Capienza<input id="nCap" type="number" min="2" value="64" /></label>
         <label>Entry fee €<input id="nFee" type="number" min="0" step="0.01" value="25" /></label>
         <label style="display:flex;align-items:center;gap:6px"><input id="nDeck" type="checkbox" checked /> Lista obbligatoria</label>
@@ -158,6 +159,7 @@ async function createTournament(e) {
     name: $('#nName').value.trim(),
     format: $('#nFormat').value.trim() || 'Modern',
     starts_on: $('#nDate').value,
+    start_time: $('#nTime').value || null,
     capacity: +$('#nCap').value || 8,
     entry_fee_cents: Math.round((+$('#nFee').value || 0) * 100),
     currency: 'EUR',
@@ -170,6 +172,7 @@ async function createTournament(e) {
     standings_public: $('#nStandPub').checked,
   };
   if (!body.name || !body.starts_on) { toast('Nome e data obbligatori.'); return; }
+  if (!body.start_time) { toast('Inserisci l\'orario di inizio.'); return; }
   // C2: almeno un metodo di pagamento dev'essere selezionato
   if (!body.pay_at_event && !body.pay_stripe && !body.pay_paypal) {
     toast('Seleziona almeno un metodo di pagamento.'); return;

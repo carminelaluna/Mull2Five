@@ -63,7 +63,7 @@ async function loadEvent() {
         <div class="panel">
           <h3>Dettagli</h3>
           <dl class="info-dl">
-            <dt>Data</dt>       <dd>${fmtDate(t.starts_on?.substring(0,10))}</dd>
+            <dt>Data</dt>       <dd>${fmtDate(t.starts_on?.substring(0,10))}${t.start_time ? ' · ' + esc(t.start_time) : ''}</dd>
             <dt>Formato</dt>    <dd>${esc(t.format)}</dd>
             <dt>REL</dt>        <dd>${esc(t.rules_enforcement_level || 'Regular')}</dd>
             <dt>Entry fee</dt>  <dd>${fmtMoney((t.entry_fee_cents||0)/100)}</dd>

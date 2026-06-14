@@ -54,7 +54,8 @@ def cache_set(key: str, value: Any, ttl: float = 5.0) -> None:
         payload = json.dumps(value, default=_json_default)
     except (TypeError, ValueError):
         return
-    get_redis().set(_PREFIX + key, payload, ex=ttl)
+    # Redis vuole un TTL intero (in secondi): un float solleva DataError.
+    get_redis().set(_PREFIX + key, payload, ex=max(1, int(ttl)))
 
 
 def cache_invalidate(prefix: str) -> None:
