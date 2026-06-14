@@ -3,7 +3,7 @@
 #
 # Esegue pg_dump (formato custom, compresso), salva in BACKUP_DIR con timestamp
 # e rimuove i backup più vecchi di RETENTION_DAYS. Pensato per essere lanciato
-# da cron o da un systemd timer (vedi deploy/arcana-backup.{service,timer}).
+# da cron o da un systemd timer (vedi deploy/manabind-backup.{service,timer}).
 #
 # Variabili (override via env o .env):
 #   DATABASE_URL     URL SQLAlchemy/psql (postgresql://user:pass@host:port/db)

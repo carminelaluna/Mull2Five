@@ -167,8 +167,8 @@ make test
 │   ├── vitest.config.js
 │   └── package.json
 ├── deploy/
-│   ├── systemd/arcana-events.service
-│   └── nginx/arcana-events.conf
+│   ├── systemd/manabind.service
+│   └── nginx/manabind.conf
 ├── scripts/
 │   └── dev.sh                  # Avvio backend (WSL)
 ├── .env.example
@@ -218,7 +218,7 @@ Callback: `http://127.0.0.1:8000/api/auth/oauth/google/callback`
 APPLE_CLIENT_ID=
 APPLE_TEAM_ID=
 APPLE_KEY_ID=
-APPLE_PRIVATE_KEY_PATH=/opt/arcana-events/AuthKey_XXXXXXXXXX.p8
+APPLE_PRIVATE_KEY_PATH=/opt/manabind/AuthKey_XXXXXXXXXX.p8
 ```
 Callback: `http://127.0.0.1:8000/api/auth/oauth/apple/callback`
 
@@ -249,9 +249,9 @@ Con `PAYMENT_SANDBOX_MOCK=true` il backend genera una pagina sandbox locale per 
 ## Deploy Linux
 
 ```bash
-sudo mkdir -p /opt/arcana-events
-sudo cp -R . /opt/arcana-events
-cd /opt/arcana-events
+sudo mkdir -p /opt/manabind
+sudo cp -R . /opt/manabind
+cd /opt/manabind
 
 # Build frontend
 npm install && npm run build
@@ -263,20 +263,20 @@ pip install -e .
 cp .env.example .env   # poi modifica .env
 
 # Systemd
-sudo cp deploy/systemd/arcana-events.service /etc/systemd/system/
+sudo cp deploy/systemd/manabind.service /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable --now arcana-events
+sudo systemctl enable --now manabind
 
 # Nginx
-sudo cp deploy/nginx/arcana-events.conf /etc/nginx/sites-available/arcana-events
-sudo ln -s /etc/nginx/sites-available/arcana-events /etc/nginx/sites-enabled/
+sudo cp deploy/nginx/manabind.conf /etc/nginx/sites-available/manabind
+sudo ln -s /etc/nginx/sites-available/manabind /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-**Nginx** — aggiorna `arcana-events.conf` per servire il build statico:
+**Nginx** — aggiorna `manabind.conf` per servire il build statico:
 ```nginx
 server {
-    root /opt/arcana-events/dist;
+    root /opt/manabind/dist;
     try_files $uri $uri.html $uri/ =404;
 
     location /api    { proxy_pass http://127.0.0.1:8000; proxy_set_header Host $host; }

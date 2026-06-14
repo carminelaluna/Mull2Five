@@ -5,8 +5,8 @@ After=network.target
 [Service]
 Type=oneshot
 # Adatta WorkingDirectory e User al tuo deploy
-WorkingDirectory=/opt/arcana-events
-EnvironmentFile=/opt/arcana-events/.env
-Environment=BACKUP_DIR=/var/backups/arcana
+WorkingDirectory=/opt/manabind
+EnvironmentFile=/opt/manabind/.env
+Environment=BACKUP_DIR=/var/backups/manabind
 Environment=RETENTION_DAYS=14
 ExecStart=/usr/bin/env bash scripts/backup_db.sh

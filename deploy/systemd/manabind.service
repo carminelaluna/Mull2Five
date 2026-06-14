@@ -1,0 +1,16 @@
+[Unit]
+Description=Manabind FastAPI service
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/manabind
+EnvironmentFile=/opt/manabind/.env
+ExecStart=/opt/manabind/.venv/bin/uvicorn backend.app.main:app --host 127.0.0.1 --port 8000
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+

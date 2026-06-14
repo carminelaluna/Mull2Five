@@ -28,7 +28,7 @@ if [ "$SKIP_BACKEND" -eq 0 ]; then
   python -c "from backend.app.db import create_all; create_all()"
 
   echo "▶ Backend — riavvio servizio systemd…"
-  sudo systemctl restart arcana-events && echo "  arcana-events riavviato ✓"
+  sudo systemctl restart manabind && echo "  manabind riavviato ✓"
 fi
 
 # ── Frontend ──────────────────────────────────────────

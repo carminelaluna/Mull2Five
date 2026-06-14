@@ -281,7 +281,7 @@ e per le istanze già in produzione. Uso: `alembic upgrade head`.
 
 ### ~~52. Backup automatico del database~~ ✅
 `scripts/backup_db.sh` (pg_dump formato custom + retention configurabile), unit
-`deploy/arcana-backup.{service,timer}` (giornaliero alle 03:30, Persistent), servizio
+`deploy/manabind-backup.{service,timer}` (giornaliero alle 03:30, Persistent), servizio
 `backup` in docker-compose (profilo `backup`), endpoint admin `GET/POST /api/admin/backups`
 per listare e triggerare. `postgresql-client` aggiunto all'immagine.
 
