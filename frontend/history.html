@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Storico tornei — Manabind</title>
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="app.css" />
+  </head>
+  <body>
+    <header class="public-header">
+      <a class="brand" href="index.html">
+        <span class="brand-mark">MB</span>
+        <span><strong>Manabind</strong></span>
+      </a>
+      <nav class="public-nav" aria-label="Navigazione">
+        <a href="index.html">Tornei</a>
+        <a href="history.html" aria-current="page">Storico</a>
+        <a href="leaderboard.html">Classifica stagionale</a>
+        <a href="my-registrations.html">Le mie iscrizioni</a>
+      </nav>
+      <div class="public-auth" id="publicAuth"></div>
+    </header>
+
+    <main class="public-main">
+      <div class="section-heading" style="margin-bottom:16px">
+        <div><span class="eyebrow">Albo d'oro</span><h1>Storico tornei</h1></div>
+        <input id="histSearch" placeholder="Cerca per nome…" />
+      </div>
+
+      <section class="public-events">
+        <div id="histList" class="public-events-grid"><p class="empty">Caricamento…</p></div>
+      </section>
+
+      <!-- Risultati del torneo selezionato -->
+      <section id="histResults" style="display:none;margin-top:24px"></section>
+    </main>
+
+    <div id="toast" role="status" aria-live="polite"></div>
+    <script type="module" src="js/history.js"></script>
+  </body>
+</html>

@@ -269,6 +269,49 @@ def test_organizer_uploads_decklist_for_registration(client):
     assert row["decklist_raw_text"].startswith("4 Lightning Bolt")
 
 
+# ── Storico pubblico: risultati torneo concluso ───────────────
+
+
+def test_public_results_winner_and_decklists(client):
+    org = _register(client, "v2-pr-org@example.com", role="organizer")
+    tid = _make_tournament(client, org, standings_public=True, decklists_public=True)
+    for i in range(2):
+        em = f"pr{i}-{tid}@example.com"
+        _register(client, em)
+        client.post(f"/api/tournaments/{tid}/walk-in", headers=org,
+                    json={"email": em, "display_name": f"PR{i}", "mark_paid": True})
+    round1 = client.post(f"/api/tournaments/{tid}/start", headers=org).json()
+    pairing = next(p for p in round1["pairings"] if p["player_b"])
+    # carica una lista (come organizzatore) per il giocatore A
+    a_reg = pairing["player_a_registration_id"]
+    client.post(f"/api/tournaments/{tid}/registrations/{a_reg}/decklist", headers=org,
+                json={"raw_text": "4 Lightning Bolt\n56 Mountain", "archetype": "Burn"})
+    client.patch(f"/api/tournaments/{tid}/pairings/{pairing['id']}/result",
+                 json={"match_wins_a": 2, "match_wins_b": 0, "draws": 0}, headers=org)
+    client.post(f"/api/tournaments/{tid}/close", headers=org)
+
+    # endpoint pubblico, senza autenticazione
+    r = client.get(f"/api/tournaments/{tid}/public-results")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["status"] == "completed"
+    assert body["standings_public"] is True
+    assert len(body["standings"]) == 2
+    assert body["standings"][0]["position"] == 1   # vincitore
+    # la lista pubblica del giocatore con archetipo Burn è presente
+    burn = next((s for s in body["standings"] if s["archetype"] == "Burn"), None)
+    assert burn and burn["decklist"] and "Lightning Bolt" in burn["decklist"]
+
+
+def test_public_results_hidden_when_not_public(client):
+    org = _register(client, "v2-pr2-org@example.com", role="organizer")
+    tid = _make_tournament(client, org, standings_public=False)
+    r = client.get(f"/api/tournaments/{tid}/public-results")
+    assert r.status_code == 200
+    assert r.json()["standings_public"] is False
+    assert r.json()["standings"] == []
+
+
 # ── Parser: riga vuota = sideboard ────────────────────────────
 
 

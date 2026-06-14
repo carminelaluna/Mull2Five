@@ -57,6 +57,8 @@ from backend.app.schemas import (
     PlayerPublicProfileOut,
     PublicDisplayOut,
     PublicPairingOut,
+    PublicResultsOut,
+    PublicStandingRow,
     RefundDecisionIn,
     RefundRequestIn,
     RegistrationCreate,
@@ -1549,6 +1551,41 @@ def reject_player_result(
     cache_invalidate(f"result-reports:{tournament_id}")
     cache_invalidate(f"my-pairings:{tournament_id}")
     return round_out(pairing.round, latest_result_reports(tournament_id, db))
+
+
+@router.get("/{tournament_id}/public-results", response_model=PublicResultsOut)
+def public_results(tournament_id: int, db: Session = Depends(get_db)) -> PublicResultsOut:
+    """Risultati pubblici di un torneo (storico): vincitore, classifica e — se le
+    liste sono pubbliche — le decklist. Nessuna autenticazione richiesta."""
+    tournament = db.get(Tournament, tournament_id)
+    if not tournament:
+        raise HTTPException(status_code=404, detail="Tournament not found")
+
+    rows: list[PublicStandingRow] = []
+    if tournament.standings_public:
+        standings = calculate_standings(tournament_id, db)
+        decks: dict[int, Registration] = {}
+        if tournament.decklists_public:
+            regs = db.scalars(
+                select(Registration)
+                .where(Registration.tournament_id == tournament_id)
+                .options(selectinload(Registration.decklist))
+            ).all()
+            decks = {r.id: r for r in regs}
+        for s in standings:
+            reg = decks.get(s.registration_id)
+            rows.append(PublicStandingRow(
+                position=s.position, registration_id=s.registration_id, name=s.name,
+                points=s.points, record=s.record,
+                archetype=(reg.archetype if reg else "") or "",
+                decklist=(reg.decklist.raw_text if reg and reg.decklist else None),
+            ))
+    return PublicResultsOut(
+        tournament_id=tournament.id, name=tournament.name, format=tournament.format,
+        starts_on=tournament.starts_on, start_time=tournament.start_time, status=tournament.status,
+        standings_public=tournament.standings_public, decklists_public=tournament.decklists_public,
+        standings=rows,
+    )
 
 
 @router.get("/{tournament_id}/public-display", response_model=PublicDisplayOut)

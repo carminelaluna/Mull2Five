@@ -23,6 +23,7 @@ export default defineConfig({
         /* App online — frontend unico (rimosso il tool offline) */
         index:              'index.html',          // home pubblica giocatori
         login:              'login.html',
+        history:            'history.html',
         event:              'event.html',
         'my-registrations': 'my-registrations.html',
         player:             'player.html',

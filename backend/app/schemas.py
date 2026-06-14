@@ -215,6 +215,28 @@ class OrganizationOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class PublicStandingRow(BaseModel):
+    position: int
+    registration_id: int
+    name: str
+    points: int
+    record: str
+    archetype: str = ""
+    decklist: str | None = None   # raw_text, solo se le liste sono pubbliche
+
+
+class PublicResultsOut(BaseModel):
+    tournament_id: int
+    name: str
+    format: str
+    starts_on: date
+    start_time: str | None = None
+    status: str
+    standings_public: bool
+    decklists_public: bool
+    standings: list[PublicStandingRow] = []
+
+
 class PlayerPublicProfileOut(BaseModel):
     display_name: str
     email: str
