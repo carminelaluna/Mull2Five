@@ -363,8 +363,14 @@ def close_tournament(
         raise HTTPException(status_code=409, detail="Cancelled tournaments cannot be closed")
     tournament.status = TournamentStatus.COMPLETED
     db.add(tournament)
+    # Ferma i timer di tutti i round alla chiusura del torneo.
+    for rnd in db.scalars(select(Round).where(Round.tournament_id == tournament_id)).all():
+        rnd.ends_at = None
+        db.add(rnd)
     db.commit()
     db.refresh(tournament)
+    from backend.app.core.cache import cache_invalidate
+    cache_invalidate(f"public-display:{tournament_id}")
     count = db.scalar(select(func.count(Registration.id)).where(Registration.tournament_id == tournament.id))
     return TournamentOut.model_validate(tournament).model_copy(update={"registered_players": count or 0})
 
@@ -1574,6 +1580,23 @@ def restart_round_timer(
     return round_out(rnd, latest_result_reports(tournament_id, db))
 
 
+@router.post("/{tournament_id}/timer/stop", response_model=RoundOut)
+def stop_round_timer(
+    tournament_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> RoundOut:
+    """Ferma il timer dell'ultimo round (ends_at = None). Organizer o staff."""
+    load_tournament_for_staff(tournament_id, user, db)
+    rnd = _latest_round_or_404(tournament_id, db)
+    rnd.ends_at = None
+    db.commit()
+    db.refresh(rnd)
+    from backend.app.core.cache import cache_invalidate
+    cache_invalidate(f"public-display:{tournament_id}")
+    return round_out(rnd, latest_result_reports(tournament_id, db))
+
+
 @router.post("/{tournament_id}/timer/extend", response_model=RoundOut)
 def extend_round_timer(
     tournament_id: int,
@@ -2081,7 +2104,6 @@ def create_round_for_tournament(tournament: Tournament, db: Session) -> RoundOut
         db.add(tournament)
         db.commit()
         raise HTTPException(status_code=409, detail="Elimination bracket is complete")
-    starts_at = datetime.now(UTC)
     round_obj = Round(
         tournament_id=tournament.id,
         number=current_round_number,
@@ -2090,8 +2112,10 @@ def create_round_for_tournament(tournament: Tournament, db: Session) -> RoundOut
         # la visibilità sul display pubblico/TV, non la possibilità di refertare.
         phase=phase,
         is_published=True,
-        starts_at=starts_at,
-        ends_at=starts_at + timedelta(minutes=tournament.round_timer_minutes),
+        # Il timer NON parte automaticamente: l'organizzatore lo avvia a mano
+        # ("Avvia timer" in Regia). Finché ends_at è None il timer è fermo.
+        starts_at=None,
+        ends_at=None,
     )
     db.add(round_obj)
     db.flush()

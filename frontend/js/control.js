@@ -80,13 +80,15 @@ async function init() {
   $('#ctlRestart').addEventListener('click', async () => {
     await call(() => apiFetch(`/tournaments/${_tid}/timer/restart`, { method: 'POST', body: JSON.stringify({ minutes: +$('#ctlMinutes').value || 50 }) }), 'Timer avviato.');
   });
+  $('#ctlStop').addEventListener('click', () => call(
+    () => apiFetch(`/tournaments/${_tid}/timer/stop`, { method: 'POST' }), 'Timer fermato.'));
   $('#ctlExtend5').addEventListener('click',  () => call(() => apiExtend(5),  '+5 minuti al round.'));
   $('#ctlExtend10').addEventListener('click', () => call(() => apiExtend(10), '+10 minuti al round.'));
   $('#ctlGenRound').addEventListener('click', () => call(async () => {
-    await apiFetch(`/tournaments/${_tid}/rounds`, { method: 'POST' });
-    // Reset del timer del torneo al nuovo round (richiesta organizzatore)
-    await apiFetch(`/tournaments/${_tid}/timer/restart`, { method: 'POST', body: JSON.stringify({ minutes: +$('#ctlMinutes').value || 50 }) });
-  }, 'Round generato — timer azzerato.'));
+    // Il timer NON parte da solo: l'organizzatore lo avvia con "Avvia / Reset".
+    const rnd = await apiFetch(`/tournaments/${_tid}/rounds`, { method: 'POST' });
+    if (rnd?.id) _activeRoundId = rnd.id;   // passa subito alla tab del nuovo round
+  }, 'Round generato.'));
 
   refresh();
   setInterval(refresh, 4000);   // riallinea con il backend (modifiche di altri)
@@ -108,7 +110,7 @@ async function refresh() {
   try {
     _rounds = (await apiFetch(`/tournaments/${_tid}/rounds`) || []).sort((a, b) => a.number - b.number);
   } catch { _rounds = []; }
-  if (!_rounds.some(r => r.id === _activeRoundId)) _activeRoundId = _rounds.at(-1)?.id ?? null;
+  if (!_rounds.some(r => String(r.id) === String(_activeRoundId))) _activeRoundId = _rounds.at(-1)?.id ?? null;
   render();
   renderScreenLinks();
 }
@@ -121,12 +123,12 @@ function renderScreenLinks() {
     <small style="color:var(--muted);margin-left:8px">${base}/display.html?t=${_tid}</small>`;
 }
 
-function activeRound() { return _rounds.find(r => r.id === _activeRoundId); }
+function activeRound() { return _rounds.find(r => String(r.id) === String(_activeRoundId)); }
 
 function render() {
   const round = activeRound();
   $('#ctlTabs').innerHTML = _rounds.map(r =>
-    `<button class="ctl-tab${r.id === _activeRoundId ? ' active' : ''}" data-round="${r.id}" type="button">Round ${r.number}</button>`
+    `<button class="ctl-tab${String(r.id) === String(_activeRoundId) ? ' active' : ''}" data-round="${r.id}" type="button">Round ${r.number}</button>`
   ).join('') + `<button class="ctl-tab judge${_judge ? ' active' : ''}" id="judgeToggle" type="button">⚖ Judge</button>`;
 
   $('#ctlTabs').querySelectorAll('[data-round]').forEach(b =>

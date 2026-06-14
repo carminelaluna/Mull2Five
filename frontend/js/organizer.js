@@ -43,6 +43,7 @@ function toast(m) { const e = $('#toast'); e.textContent = m; e.classList.add('s
 let _tab = 'tornei';
 let _tournaments = [];
 let _activeId = null;
+let _classificaId = null;   // override: classifica di un torneo concluso dallo storico
 
 async function init() {
   $('#publicAuth').innerHTML =
@@ -53,10 +54,11 @@ async function init() {
   document.querySelectorAll('.bo-tab').forEach(b =>
     b.addEventListener('click', () => {
       _tab = b.dataset.tab;
+      _classificaId = null;   // tornando alla tab si guarda il torneo attivo
       document.querySelectorAll('.bo-tab').forEach(x => x.classList.toggle('active', x === b));
       render();
     }));
-  $('#activeTournament').addEventListener('change', (e) => { _activeId = e.target.value; render(); });
+  $('#activeTournament').addEventListener('change', (e) => { _activeId = e.target.value; _classificaId = null; render(); });
 
   await loadTournaments();
   render();
@@ -104,6 +106,7 @@ function tournamentRow(t, archived) {
         <a class="mini-button" href="../display.html?t=${t.id}" target="_blank" rel="noopener">📺 Display</a>
         <button class="mini-button" data-act="dup" data-id="${t.id}" type="button">Duplica</button>
         ${t.status === 'published' ? `<button class="mini-button" data-act="start" data-id="${t.id}" type="button">▶ Avvia</button>` : ''}
+        ${archived ? `<button class="mini-button" data-act="standings" data-id="${t.id}" type="button">📊 Classifica</button>` : ''}
         ${!archived ? `<button class="mini-button" data-act="close" data-id="${t.id}" type="button">Chiudi</button>` : ''}
         ${!archived ? `<button class="mini-button" data-act="del" data-id="${t.id}" type="button" style="color:var(--danger,#e36363)">Elimina</button>` : ''}
       </td>
@@ -182,6 +185,14 @@ async function createTournament(e) {
 }
 
 async function tournamentAction(act, id) {
+  // Vedi classifica di un torneo (anche concluso) senza renderlo "attivo".
+  if (act === 'standings') {
+    _classificaId = id;
+    _tab = 'classifica';
+    document.querySelectorAll('.bo-tab').forEach(x => x.classList.toggle('active', x.dataset.tab === 'classifica'));
+    render();
+    return;
+  }
   const confirmMsg = act === 'del' ? 'Eliminare definitivamente il torneo e tutti i dati?' : null;
   if (confirmMsg && !window.confirm(confirmMsg)) return;
   try {
@@ -408,7 +419,10 @@ async function renderPenalita() {
 
 /* ── CLASSIFICA ──────────────────────────────────────── */
 async function renderClassifica() {
-  const t = activeT();
+  // Se arrivi dallo storico (torneo concluso) usa quello, altrimenti il torneo attivo.
+  const t = _classificaId
+    ? _tournaments.find(x => String(x.id) === String(_classificaId))
+    : activeT();
   if (!t) { $('#panel').innerHTML = '<p class="empty">Seleziona un torneo.</p>'; return; }
   let standings = [];
   try { standings = (await apiFetch(`/tournaments/${t.id}/standings`)) || []; } catch (err) { toast('Errore: ' + err.message); }
