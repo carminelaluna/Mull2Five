@@ -182,6 +182,7 @@ class Registration(Base):
     checked_in: Mapped[bool] = mapped_column(Boolean, default=False)
     dropped: Mapped[bool] = mapped_column(Boolean, default=False)
     waitlisted: Mapped[bool] = mapped_column(Boolean, default=False)
+    promoted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
 
     tournament: Mapped[Tournament] = relationship(back_populates="registrations")
@@ -365,6 +366,21 @@ class TournamentStaff(Base):
 
     user: Mapped[User] = relationship()
     tournament: Mapped[Tournament] = relationship()
+
+
+class AuditLog(Base):
+    """Traccia azioni sensibili dell'organizzatore (es. correzione risultati a
+    torneo concluso): chi, quando, cosa."""
+    __tablename__ = "audit_logs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tournament_id: Mapped[int] = mapped_column(ForeignKey("tournaments.id", ondelete="CASCADE"), index=True)
+    editor_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    action: Mapped[str] = mapped_column(String(64))
+    detail: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+
+    editor: Mapped[User] = relationship()
 
 
 class InviteCode(Base):

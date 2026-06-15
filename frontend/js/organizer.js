@@ -510,7 +510,8 @@ async function renderReport() {
       <td>${r.registrations}</td>
       <td>${r.paid_count}</td>
       <td>${money(r.revenue_cents, r.currency)}</td>
-    </tr>`).join('') || '<tr><td colspan="4" class="muted">Nessun torneo.</td></tr>';
+      <td><button class="secondary" data-meta="${r.tournament_id}" type="button">📊 Meta</button></td>
+    </tr>`).join('') || '<tr><td colspan="5" class="muted">Nessun torneo.</td></tr>';
   $('#panel').innerHTML = `
     <div class="bo-grid" style="margin-bottom:14px">
       <div class="panel" style="text-align:center"><small class="muted">Incasso totale</small><div style="font-size:1.5rem;font-weight:bold">${money(totRev)}</div></div>
@@ -519,8 +520,31 @@ async function renderReport() {
     </div>
     <div class="panel"><h3 style="display:flex;justify-content:space-between;align-items:center">Report incassi
       <button class="secondary" id="repCsv" type="button">⬇ Scarica CSV</button></h3>
-      <table class="bo"><thead><tr><th>Torneo</th><th>Iscritti</th><th>Paganti</th><th>Incasso</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+      <table class="bo"><thead><tr><th>Torneo</th><th>Iscritti</th><th>Paganti</th><th>Incasso</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+    <div id="metaBox"></div>`;
   $('#repCsv').addEventListener('click', () => downloadReportCsv(reports));
+  $('#panel').querySelectorAll('[data-meta]').forEach(btn =>
+    btn.addEventListener('click', () => loadMetaStats(btn.dataset.meta)));
+}
+
+/* #41 Statistiche meta: archetipi più giocati + win rate per archetipo. */
+async function loadMetaStats(tid) {
+  const box = $('#metaBox');
+  box.innerHTML = '<div class="panel">Carico statistiche meta…</div>';
+  let stats = [];
+  try { stats = (await apiFetch(`/tournaments/${tid}/meta-stats`)) || []; }
+  catch (err) { box.innerHTML = `<div class="panel muted">Errore: ${esc(err.message)}</div>`; return; }
+  if (!stats.length) { box.innerHTML = '<div class="panel muted">Nessun dato meta per questo torneo.</div>'; return; }
+  const rows = stats.map(s => `
+    <tr>
+      <td><strong>${esc(s.archetype)}</strong></td>
+      <td>${s.players}</td>
+      <td>${s.wins}-${s.draws}-${s.losses}</td>
+      <td>${s.win_rate.toFixed(1)}%</td>
+    </tr>`).join('');
+  box.innerHTML = `<div class="panel"><h3>Statistiche meta</h3>
+    <table class="bo"><thead><tr><th>Archetipo</th><th>Giocatori</th><th>Record (W-D-L)</th><th>Win rate</th></tr></thead>
+    <tbody>${rows}</tbody></table></div>`;
 }
 
 /* Genera e scarica il report incassi in CSV (lato client). */

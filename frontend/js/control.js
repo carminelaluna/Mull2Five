@@ -159,25 +159,56 @@ function render() {
     .filter(p => !_judge || (p.player_b && !p.result))
     .sort((a, b) => a.table_number - b.table_number);
 
-  $('#ctlTables').innerHTML = pairings.length
-    ? pairings.map(p => renderRow(round, p)).join('')
-    : '<p class="empty" style="margin:0">Tutti i tavoli hanno un risultato. ✓</p>';
+  // #37 No-show: l'ultimo round senza risultati può essere rigenerato segnando assenti.
+  const isLatest = String(round.id) === String(_rounds.at(-1)?.id);
+  const noResults = !round.pairings.some(p => p.result && p.player_b);
+  const noShowBar = (!_judge && isLatest && noResults)
+    ? `<div class="noshow-bar">
+         <button class="mini-button" id="regenRoundBtn" type="button">♻ Segna assenti &amp; rigenera</button>
+         <small style="color:var(--muted)">Spunta gli assenti, poi rigenera gli abbinamenti.</small>
+       </div>` : '';
+
+  $('#ctlTables').innerHTML = noShowBar + (pairings.length
+    ? pairings.map(p => renderRow(round, p, !_judge && isLatest && noResults)).join('')
+    : '<p class="empty" style="margin:0">Tutti i tavoli hanno un risultato. ✓</p>');
+
+  const regenBtn = $('#regenRoundBtn');
+  if (regenBtn) regenBtn.addEventListener('click', () => {
+    const ids = [...$('#ctlTables').querySelectorAll('input[data-absent]:checked')].map(c => +c.dataset.absent);
+    if (!ids.length && !window.confirm('Nessun assente selezionato: rigenerare comunque gli abbinamenti?')) return;
+    call(() => apiFetch(`/tournaments/${_tid}/rounds/regenerate`, {
+      method: 'POST', body: JSON.stringify({ drop_registration_ids: ids }),
+    }), 'Round rigenerato.');
+  });
 
   // Handlers risultato
   $('#ctlTables').querySelectorAll('[data-action="result"]').forEach(sel =>
-    sel.addEventListener('change', () => submitResult(p_id(sel), sel.value)));
+    sel.addEventListener('change', () => submitResult(p_id(sel), sel.value, sel.dataset.correct === '1')));
   $('#ctlTables').querySelectorAll('[data-action="edit"]').forEach(btn =>
     btn.addEventListener('click', () => { _editing.add(btn.dataset.pid); render(); }));
   $('#ctlTables').querySelectorAll('[data-action="extend-table"]').forEach(btn =>
     btn.addEventListener('click', () => call(
       () => apiFetch(`/tournaments/${_tid}/pairings/${btn.dataset.pid}/extend`, { method: 'PATCH', body: JSON.stringify({ minutes: +btn.dataset.min }) }),
       `+${btn.dataset.min} minuti al tavolo.`)));
+  // #47 penalità rapide judge
+  $('#ctlTables').querySelectorAll('[data-action="penalty"]').forEach(btn =>
+    btn.addEventListener('click', () => {
+      const kindLbl = btn.dataset.kind === 'game_loss' ? 'Game Loss' : 'Warning';
+      call(() => apiFetch(`/tournaments/${_tid}/penalties`, {
+        method: 'POST',
+        body: JSON.stringify({ registration_id: +btn.dataset.rid, round_id: activeRound()?.id || null, kind: btn.dataset.kind }),
+      }), `${kindLbl} assegnato.`);
+    }));
 }
 
 function p_id(el) { return el.dataset.pid; }
 
-function renderRow(round, p) {
+function renderRow(round, p, allowNoShow = false) {
   const isBye = !p.player_b;
+  // #37 caselle "assente" per segnare i no-show prima di rigenerare il round
+  const absentBox = (id, name) => allowNoShow
+    ? `<label class="absent-chk"><input type="checkbox" data-absent="${id}"> ass.</label>`
+    : '';
   const finalScore = p.result && p.result !== '' ? `${p.match_wins_a}-${p.match_wins_b}` : '';
   const editing = _editing.has(String(p.id));
 
@@ -188,9 +219,23 @@ function renderRow(round, p) {
     control = `<span class="badge ok">${finalScore.replace('-', ' – ')} 🔒</span>
       <button class="mini-button" data-action="edit" data-pid="${p.id}" type="button">Modifica</button>`;
   } else {
+    // Se sto correggendo un risultato già bloccato uso l'endpoint /correct (con audit log),
+    // che è consentito anche a torneo concluso; altrimenti il normale /result.
+    const correct = finalScore ? ' data-correct="1"' : '';
     const opts = ['<option value="">— in corso</option>']
       .concat(SCORES.map(s => `<option value="${s}"${finalScore === s ? ' selected' : ''}>${s.replace('-', ' – ')}</option>`));
-    control = `<select data-action="result" data-pid="${p.id}">${opts.join('')}</select>`;
+    control = `<select data-action="result" data-pid="${p.id}"${correct}>${opts.join('')}</select>`;
+  }
+
+  // ── #47 Pannello judge: penalità rapide per tavolo ──
+  let judgeTools = '';
+  if (_judge && !isBye) {
+    judgeTools = `<span class="judge-tools">
+      <button class="mini-button warn" data-action="penalty" data-rid="${p.player_a_registration_id}" data-kind="warning" type="button">⚠ ${esc(p.player_a)}</button>
+      <button class="mini-button warn" data-action="penalty" data-rid="${p.player_b_registration_id}" data-kind="warning" type="button">⚠ ${esc(p.player_b)}</button>
+      <button class="mini-button danger" data-action="penalty" data-rid="${p.player_a_registration_id}" data-kind="game_loss" type="button">GL ${esc(p.player_a)}</button>
+      <button class="mini-button danger" data-action="penalty" data-rid="${p.player_b_registration_id}" data-kind="game_loss" type="button">GL ${esc(p.player_b)}</button>
+    </span>`;
   }
 
   // Timer per-tavolo (round.ends_at + extra)
@@ -207,18 +252,22 @@ function renderRow(round, p) {
 
   return `<div class="ctl-row">
     <span class="table-num">T${p.table_number}</span>
-    <span class="names"><strong>${esc(p.player_a)}</strong> vs <strong>${esc(p.player_b || 'BYE')}</strong></span>
+    <span class="names"><strong>${esc(p.player_a)}</strong>${absentBox(p.player_a_registration_id, p.player_a)} vs <strong>${esc(p.player_b || 'BYE')}</strong>${p.player_b ? absentBox(p.player_b_registration_id, p.player_b) : ''}</span>
     ${tableClock}
+    ${judgeTools}
     <span>${control}</span>
   </div>`;
 }
 
-async function submitResult(pairingId, score) {
+async function submitResult(pairingId, score, isCorrection = false) {
   if (!score) return;
   _editing.delete(String(pairingId));
+  // #39 la correzione di un risultato già bloccato passa da /correct (audit log,
+  // consentito anche a torneo concluso); l'inserimento normale resta su /result.
+  const path = isCorrection ? `/pairings/${pairingId}/correct` : `/pairings/${pairingId}/result`;
   await call(
-    () => apiFetch(`/tournaments/${_tid}/pairings/${pairingId}/result`, { method: 'PATCH', body: JSON.stringify(scoreToBody(score)) }),
-    'Risultato registrato.');
+    () => apiFetch(`/tournaments/${_tid}${path}`, { method: 'PATCH', body: JSON.stringify(scoreToBody(score)) }),
+    isCorrection ? 'Risultato corretto.' : 'Risultato registrato.');
 }
 
 /* ── Tick: countdown round + per-tavolo ──────────────── */

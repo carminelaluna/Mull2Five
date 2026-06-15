@@ -46,17 +46,38 @@ def _ping_db() -> None:
         conn.execute(text("SELECT 1"))
 
 
+async def _waitlist_sweeper(interval: int) -> None:
+    """Riaccoda periodicamente i promossi dalla waitlist che non hanno pagato (#32)."""
+    from backend.app.db import SessionLocal
+    from backend.app.routers.tournaments import sweep_waitlist_deadlines
+
+    while True:
+        await asyncio.sleep(interval)
+        try:
+            db = SessionLocal()
+            try:
+                n = await asyncio.to_thread(sweep_waitlist_deadlines, db)
+                if n:
+                    logger.info("Waitlist sweeper: riaccodati %d giocatori", n)
+            finally:
+                db.close()
+        except Exception:  # noqa: BLE001
+            logger.exception("Errore nel waitlist sweeper")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Inizializza il DB e avvia il watchdog di alerting."""
     create_all()
-    task: asyncio.Task | None = None
+    tasks: list[asyncio.Task] = []
     if settings.watchdog_interval_secs > 0:
-        task = asyncio.create_task(_db_watchdog(settings.watchdog_interval_secs))
+        tasks.append(asyncio.create_task(_db_watchdog(settings.watchdog_interval_secs)))
+    # Sweeper waitlist ogni 10 minuti (riaccoda i promossi non paganti scaduti).
+    tasks.append(asyncio.create_task(_waitlist_sweeper(600)))
     try:
         yield
     finally:
-        if task:
+        for task in tasks:
             task.cancel()
 
 

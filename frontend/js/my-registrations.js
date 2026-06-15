@@ -93,6 +93,9 @@ async function loadRegistrations() {
     container.querySelectorAll('[data-action="self-drop"]').forEach(btn => {
       btn.addEventListener('click', () => selfDrop(btn.dataset.tournamentId, btn.dataset.name));
     });
+    container.querySelectorAll('[data-action="self-cancel"]').forEach(btn => {
+      btn.addEventListener('click', () => selfCancel(btn.dataset.tournamentId, btn.dataset.name));
+    });
     container.querySelectorAll('[data-action="pay"]').forEach(btn => {
       btn.addEventListener('click', () => payNow(btn, btn.dataset.tournamentId, btn.dataset.provider));
     });
@@ -177,6 +180,11 @@ async function buildCard(t, reg) {
   const dropBtn = canDrop
     ? `<button class="ghost" data-action="self-drop" data-tournament-id="${t.id}" data-name="${esc(t.name)}" type="button" style="color:var(--danger,#e36363)">Ritirati</button>`
     : '';
+  // #43 Annulla iscrizione self-service: solo prima dell'inizio (torneo pubblicato).
+  const canCancel = !reg.dropped && t.status === 'published';
+  const cancelBtn = canCancel
+    ? `<button class="ghost" data-action="self-cancel" data-tournament-id="${t.id}" data-name="${esc(t.name)}" type="button" style="color:var(--danger,#e36363)">Annulla iscrizione</button>`
+    : '';
 
   return `<article class="panel reg-card">
     <div class="reg-card-head">
@@ -193,7 +201,7 @@ async function buildCard(t, reg) {
     <div class="reg-card-meta">
       <span>${fmtDate(t.starts_on?.substring(0,10))}</span>
       <span>Entry: ${fmtMoney((t.entry_fee_cents || 0) / 100)}</span>
-      ${payBadge} ${deckBadge} ${dropBtn}
+      ${payBadge} ${deckBadge} ${dropBtn} ${cancelBtn}
       <a class="secondary-link" href="/api/tournaments/${t.id}/ical">📅 Aggiungi al calendario</a>
     </div>
     ${payActions}
@@ -388,6 +396,18 @@ async function selfDrop(tournamentId, name) {
   try {
     await apiFetch(`/tournaments/${tournamentId}/my-registration/drop`, { method: 'POST' });
     toast('Ritiro registrato. Buona giornata!');
+    await loadRegistrations();
+  } catch (err) {
+    toast('Errore: ' + err.message);
+  }
+}
+
+/* ── #43 Annulla iscrizione self-service (pre-torneo) ──── */
+async function selfCancel(tournamentId, name) {
+  if (!window.confirm(`Annullare l'iscrizione a "${name}"?\nSe avevi pagato e mancano più di 24h all'inizio, riceverai il rimborso automaticamente.`)) return;
+  try {
+    const res = await apiFetch(`/tournaments/${tournamentId}/my-registration/cancel`, { method: 'POST' });
+    toast(res?.refunded ? 'Iscrizione annullata e rimborso avviato.' : 'Iscrizione annullata.');
     await loadRegistrations();
   } catch (err) {
     toast('Errore: ' + err.message);

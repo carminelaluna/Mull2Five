@@ -3,14 +3,34 @@ from datetime import UTC, datetime
 import stripe
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from backend.app.core.config import get_settings
 from backend.app.db import get_db
-from backend.app.models import Payment, PaymentStatus
+from backend.app.models import Payment, PaymentStatus, Registration
 from backend.app.schemas import SandboxPaymentOut
 
 router = APIRouter(prefix="/payments", tags=["payments"])
+
+
+def _on_payment_paid(db: Session, payment: Payment) -> None:
+    """Dopo che un pagamento diventa PAID: invia la ricevuta email (#45) e ferma
+    il timer di pagamento della waitlist (#32). Non solleva mai."""
+    try:
+        reg = db.scalar(
+            select(Registration)
+            .where(Registration.id == payment.registration_id)
+            .options(joinedload(Registration.player), joinedload(Registration.tournament))
+        )
+        if not reg:
+            return
+        reg.promoted_at = None   # ha pagato: conferma promozione dalla waitlist
+        db.add(reg)
+        db.commit()
+        from backend.app.services.notifications import notify_payment_confirmed
+        notify_payment_confirmed(reg, payment.amount_cents / 100)
+    except Exception:  # noqa: BLE001
+        pass
 
 
 @router.post("/sandbox/{payment_id}/complete", response_model=SandboxPaymentOut)
@@ -26,6 +46,7 @@ def complete_sandbox_payment(payment_id: int, db: Session = Depends(get_db)) -> 
     payment.paid_at = datetime.now(UTC)
     db.commit()
     db.refresh(payment)
+    _on_payment_paid(db, payment)
     return SandboxPaymentOut(id=payment.id, status=payment.status)
 
 
@@ -54,6 +75,7 @@ async def stripe_webhook(
             payment.provider_payment_id = session.get("payment_intent") or ""
             payment.paid_at = datetime.now(UTC)
             db.commit()
+            _on_payment_paid(db, payment)
     return {"status": "ok"}
 
 
@@ -72,4 +94,5 @@ async def paypal_webhook(request: Request, db: Session = Depends(get_db)) -> dic
             payment.provider_payment_id = resource.get("id", "")
             payment.paid_at = datetime.now(UTC)
             db.commit()
+            _on_payment_paid(db, payment)
     return {"status": "ok"}

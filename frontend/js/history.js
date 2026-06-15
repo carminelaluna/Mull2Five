@@ -112,6 +112,35 @@ async function showResults(tid) {
     pre.textContent = `${s.name}${s.archetype ? ' — ' + s.archetype : ''}\n\n${s.decklist}`;
     pre.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }));
+
+  // #46 Bracket Top 8 (se gli abbinamenti sono pubblici)
+  loadBracket(tid, box);
+}
+
+/* #46 Bracket pubblico Top 8: mostrato sotto la classifica se pairings_public. */
+async function loadBracket(tid, box) {
+  let matches = [];
+  try { matches = (await apiGet(`/tournaments/${tid}/public-bracket`)) || []; }
+  catch { return; }
+  if (!matches.length) return;
+  const byRound = {};
+  for (const m of matches) (byRound[m.round_number] ||= []).push(m);
+  const cols = Object.keys(byRound).sort((a, b) => a - b).map(rn => {
+    const cells = byRound[rn].sort((a, b) => a.table_number - b.table_number).map(m => {
+      const aw = m.winner && m.winner === m.player_a, bw = m.winner && m.winner === m.player_b;
+      return `<div class="bracket-match">
+        <div class="${aw ? 'bw' : ''}">${esc(m.player_a)} <span class="muted">${m.match_wins_a}</span></div>
+        <div class="${bw ? 'bw' : ''}">${esc(m.player_b || 'BYE')} <span class="muted">${m.match_wins_b}</span></div>
+      </div>`;
+    }).join('');
+    return `<div class="bracket-col"><h4>Turno ${rn}</h4>${cells}</div>`;
+  }).join('');
+  const panel = document.createElement('div');
+  panel.className = 'panel';
+  panel.style.marginTop = '12px';
+  panel.innerHTML = `<h3 style="margin-top:0">🏆 Bracket Top 8</h3>
+    <div class="bracket-grid" style="display:flex;gap:16px;overflow-x:auto">${cols}</div>`;
+  box.appendChild(panel);
 }
 
 document.addEventListener('DOMContentLoaded', () => {

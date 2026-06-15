@@ -259,6 +259,27 @@ class PlayerPublicProfileOut(BaseModel):
     organized: list[OrganizedTournamentRow] = []
 
 
+class AuditLogOut(BaseModel):
+    id: int
+    action: str
+    detail: str
+    editor: str
+    created_at: datetime
+
+
+class MetaStatRow(BaseModel):
+    archetype: str
+    players: int
+    wins: int
+    draws: int
+    losses: int
+    win_rate: float
+
+
+class RegenerateRoundIn(BaseModel):
+    drop_registration_ids: list[int] = []
+
+
 class TournamentReportOut(BaseModel):
     tournament_id: int
     tournament_name: str

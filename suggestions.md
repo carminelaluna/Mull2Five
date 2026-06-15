@@ -170,10 +170,8 @@ endpoint `/api/push/{vapid-key,subscribe,unsubscribe}`, handler `push`/`notifica
 nel service worker, invio da `push_to_tournament()` agganciato agli annunci. Bottone
 "Attiva notifiche" in "Le mie iscrizioni". No-op graceful se VAPID non configurato.
 
-### 32. Scadenza promozione waitlist 🟡
-Oggi il promosso dalla waitlist resta dentro per sempre anche se non paga. Serve una
-deadline (es. 6 ore): scaduta, torna in coda e si promuove il successivo. Richiede un
-job schedulato (APScheduler o cron) — primo pezzo di infrastruttura asincrona.
+### ~~32. Scadenza promozione waitlist~~ ✅
+Deadline di 6h (`WAITLIST_PAY_HOURS`): il promosso non pagante torna in coda e si promuove il successivo. Sweep periodico (task asyncio nel lifespan, ogni 10 min) senza dipendenze esterne.
 
 ### ~~33. Redis per cache e lockout~~ ✅
 `core/redis.py` con client unificato e fallback in-memory thread-safe. `cache.py` e
@@ -195,26 +193,22 @@ Organizzo FNM OGNI venerdì: oggi ricreo il torneo a mano ogni settimana. Serve
 "Duplica torneo" (un click, data +7 giorni) e/o template salvati. È la feature
 che mi fa risparmiare più tempo in assoluto dopo la waitlist.
 
-### 37. Gestione no-show 🟡
-Round 1 generato e due iscritti non si presentano: oggi devo fare drop manuale uno
-a uno e rigenerare. Serve "segna assenti e rigenera round 1" in un click.
+### ~~37. Gestione no-show~~ ✅
+"Segna assenti & rigenera" nella Regia (control.html): caselle per-giocatore sull'ultimo round senza risultati → POST `/rounds/regenerate` marca i drop e riabbina.
 
 ### 38. Time extension per tavolo 🟡
 Il judge dà +5 minuti al tavolo 7 dopo un ruling: il timer del display deve
 mostrarlo. Oggi il timer è unico per il round.
 
-### 39. Correzione risultati post-torneo con audit log 🟡
-A torneo chiuso i risultati sono immutabili. Capita di scoprire un errore di
-inserimento il giorno dopo: serve una correzione da organizer che ricalcoli le
-standings e la leaderboard stagionale, tracciata (chi, quando, cosa).
+### ~~39. Correzione risultati post-torneo con audit log~~ ✅
+PATCH `/pairings/{id}/correct` consentito anche a torneo chiuso, ricalcola standings e scrive su `audit_logs` (chi/quando/cosa). "Modifica" nella Regia instrada le correzioni qui; GET `/audit` per consultarle.
 
 ### 40. Early bird e codici sconto 🟢
 Quota ridotta per chi si iscrive entro una data, codici sconto per i regular.
 Il campo entry_fee è fisso oggi.
 
-### 41. Statistiche meta 🟢
-Nel report manca: archetipi più giocati e win rate per archetipo (i dati ci sono
-già nelle registrazioni + risultati). Utile per pre-ordinare il prodotto giusto.
+### ~~41. Statistiche meta~~ ✅
+GET `/meta-stats`: archetipi più giocati + win rate per archetipo. Bottone "📊 Meta" nel Report dell'organizer.
 
 ### Punto di vista giocatore
 
@@ -223,30 +217,23 @@ già nelle registrazioni + risultati). Utile per pre-ordinare il prodotto giusto
 pagina storico: tornei giocati, record cumulativo, win rate per formato/archetipo,
 piazzamenti. I dati sono tutti nel DB.
 
-### 43. Rimborso self-service pre-torneo 🟡
-Se non posso più venire venerdì, oggi devo scrivere al negozio. Serve "Annulla
-iscrizione" con rimborso automatico se mancano più di N ore all'inizio
-(il refund flow backend esiste già, manca il bottone collegato alla policy).
+### ~~43. Rimborso self-service pre-torneo~~ ✅
+"Annulla iscrizione" in Le mie iscrizioni (torneo pubblicato): POST `/my-registration/cancel`, rimborso automatico se mancano >24h (`CANCEL_REFUND_HOURS`) e libera il posto.
 
 ### 44. Decklist avversari a torneo finito 🟡
 `decklists_public` esiste come flag ma il giocatore non ha una pagina per
 sfogliare le liste degli altri dopo il torneo. È metà del divertimento competitivo.
 
-### 45. Ricevuta di pagamento 🟢
-Dopo il checkout non ricevo nulla: serve email con ricevuta (importo, torneo, data)
-— vedi #34.
+### ~~45. Ricevuta di pagamento~~ ✅
+`_on_payment_paid` invia la ricevuta email (importo/torneo/data) su ogni pagamento PAID (sandbox + webhook Stripe/PayPal) e conferma la promozione waitlist.
 
-### 46. Bracket Top 8 visibile dalla SPA 🟢
-Il bracket esiste nell'organizer tool; il giocatore in Top 8 non lo vede dal
-telefono. Esporre /bracket nella pagina evento pubblica.
+### ~~46. Bracket Top 8 visibile dalla SPA~~ ✅
+GET `/public-bracket` (gated su `pairings_public`), reso nello storico pubblico (history) sotto la classifica.
 
 ### Più in là (parcheggiate consapevolmente)
 
-### 47. TODO: Pannello di controllo arbitri 📌 (richiesto, pianificato più avanti)
-Vista dedicata per il judge invitato (#26): coda dei tavoli chiamati, ruling log
-con timer, penalità rapide per tavolo, time extension (#38), deck check casuale
-suggerito. Oggi lo staff usa le stesse pagine dell'organizer — funziona, ma un
-pannello focalizzato ridurrebbe gli errori nei tornei competitivi.
+### ~~47. Pannello di controllo arbitri~~ ✅ (prima versione)
+Vista Judge nella Regia: coda dei tavoli aperti, penalità rapide (Warning/Game Loss) per giocatore via POST `/penalties`, time extension per-tavolo (#38). Ruling-log esteso e deck-check casuale restano da fare.
 
 ### ~~48. Multi-lingua (EN)~~ ✅
 `js/i18n.js` con dizionari it/en, attributi `data-i18n`/`data-i18n-placeholder`,

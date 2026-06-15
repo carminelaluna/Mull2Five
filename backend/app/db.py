@@ -137,6 +137,7 @@ def migrate_existing_schema() -> None:
             columns = {col["name"] for col in inspector.get_columns("registrations")}
             add_column(connection, columns, "registrations", "dropped",    "BOOLEAN", "0")
             add_column(connection, columns, "registrations", "waitlisted", "BOOLEAN", "0")
+            add_nullable_column(connection, columns, "registrations", "promoted_at", "DATETIME")
 
         if "rounds" in inspector.get_table_names():
             columns = {col["name"] for col in inspector.get_columns("rounds")}
