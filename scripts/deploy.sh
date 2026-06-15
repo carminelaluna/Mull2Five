@@ -23,6 +23,16 @@ if [ "$SKIP_BACKEND" -eq 0 ]; then
     echo "ERRORE: .env mancante. Copia .env.example in .env e configura DATABASE_URL/SECRET_KEY prima del deploy." >&2
     exit 1
   fi
+  if [ ! -w "." ]; then
+    echo "ERRORE: $(pwd) non e' scrivibile dall'utente $(id -un)." >&2
+    echo "Correggi sul server con: sudo chown -R $(id -un):$(id -gn) $(pwd)" >&2
+    exit 1
+  fi
+  if [ -e ".venv" ] && [ ! -w ".venv" ]; then
+    echo "ERRORE: .venv non e' scrivibile dall'utente $(id -un)." >&2
+    echo "Correggi sul server con: sudo chown -R $(id -un):$(id -gn) $(pwd)/.venv" >&2
+    exit 1
+  fi
 
   python3 -m venv .venv
   source .venv/bin/activate
