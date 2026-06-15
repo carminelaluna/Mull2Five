@@ -29,7 +29,8 @@ function getSession() {
 function updateAuthNav() {
   const s = getSession(); const el = document.querySelector('#publicAuth'); if (!el) return;
   el.innerHTML = s
-    ? `<span style="color:var(--muted);font-size:.85rem">${esc(s.email)}</span>
+    ? `<a class="secondary-link" href="player.html?email=${encodeURIComponent(s.email)}">Profilo</a>
+       <span style="color:var(--muted);font-size:.85rem">${esc(s.email)}</span>
        <button class="secondary-link" id="logoutBtn" type="button">Esci</button>`
     : `<a class="secondary-link" href="login.html">Accedi</a><a class="primary-btn" href="login.html">Registrati</a>`;
   el.querySelector('#logoutBtn')?.addEventListener('click', () => { localStorage.removeItem(TOKEN_KEY); location.reload(); });

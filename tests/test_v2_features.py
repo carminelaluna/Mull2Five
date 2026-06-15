@@ -269,6 +269,21 @@ def test_organizer_uploads_decklist_for_registration(client):
     assert row["decklist_raw_text"].startswith("4 Lightning Bolt")
 
 
+# ── Profilo pubblico organizzatore ────────────────────────────
+
+
+def test_public_profile_shows_organized_tournaments(client):
+    org = _register(client, "v2-prof-org2@example.com", role="organizer")
+    _make_tournament(client, org, name="FNM Uno", starts_on="2027-06-01")
+    _make_tournament(client, org, name="RCQ Due", starts_on="2027-07-01")
+    r = client.get("/api/tournaments/players/v2-prof-org2@example.com/public-history")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["role"] == "organizer"
+    names = {o["name"] for o in body["organized"]}
+    assert {"FNM Uno", "RCQ Due"} <= names
+
+
 # ── Storico pubblico: risultati torneo concluso ───────────────
 
 

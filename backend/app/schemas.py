@@ -237,15 +237,26 @@ class PublicResultsOut(BaseModel):
     standings: list[PublicStandingRow] = []
 
 
+class OrganizedTournamentRow(BaseModel):
+    tournament_id: int
+    name: str
+    format: str
+    starts_on: date
+    status: str
+    registered_players: int = 0
+
+
 class PlayerPublicProfileOut(BaseModel):
     display_name: str
     email: str
+    role: str = "player"
     tournaments_played: int = 0
     total_points: int = 0
     wins: int = 0
     draws: int = 0
     losses: int = 0
     rows: list[PlayerHistoryRowOut] = []
+    organized: list[OrganizedTournamentRow] = []
 
 
 class TournamentReportOut(BaseModel):

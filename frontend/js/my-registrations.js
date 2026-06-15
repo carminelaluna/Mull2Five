@@ -40,7 +40,8 @@ let _activeIsA          = true;   // sono il giocatore A del pairing?
 /* ── Auth nav ────────────────────────────────────────── */
 function updateAuthNav() {
   const el = document.querySelector('#publicAuth'); if (!el) return;
-  el.innerHTML = `<span style="color:var(--muted);font-size:.85rem">${esc(session.email)}</span>
+  el.innerHTML = `<a class="secondary-link" href="player.html?email=${encodeURIComponent(session.email)}">Profilo</a>
+    <span style="color:var(--muted);font-size:.85rem">${esc(session.email)}</span>
     <button class="secondary-link" id="logoutBtn" type="button">Esci</button>`;
   el.querySelector('#logoutBtn').addEventListener('click', () => {
     localStorage.removeItem(TOKEN_KEY); location.replace('index.html');

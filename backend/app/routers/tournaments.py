@@ -45,6 +45,7 @@ from backend.app.schemas import (
     InviteCodeCreate,
     InviteCodeOut,
     ManualPairingIn,
+    OrganizedTournamentRow,
     OrganizerRegistrationOut,
     PairingOut,
     PairingResultIn,
@@ -247,10 +248,32 @@ def player_public_history(
             record=mine.record, points=mine.points,
         ))
     rows.sort(key=lambda r: str(r.starts_on), reverse=True)
+
+    # Tornei organizzati (pubblicati/in corso/conclusi) — sezione profilo organizzatore.
+    organized: list[OrganizedTournamentRow] = []
+    org_tournaments = db.scalars(
+        select(Tournament)
+        .where(
+            Tournament.organizer_id == player.id,
+            Tournament.status.in_([
+                TournamentStatus.PUBLISHED, TournamentStatus.RUNNING, TournamentStatus.COMPLETED,
+            ]),
+        )
+        .order_by(Tournament.starts_on.desc())
+    ).all()
+    for t in org_tournaments:
+        count = db.scalar(
+            select(func.count(Registration.id)).where(Registration.tournament_id == t.id)
+        )
+        organized.append(OrganizedTournamentRow(
+            tournament_id=t.id, name=t.name, format=t.format, starts_on=t.starts_on,
+            status=t.status, registered_players=count or 0,
+        ))
+
     return PlayerPublicProfileOut(
-        display_name=player.display_name, email=player.email,
+        display_name=player.display_name, email=player.email, role=player.role,
         tournaments_played=len(rows), total_points=tot_pts,
-        wins=wins, draws=draws, losses=losses, rows=rows,
+        wins=wins, draws=draws, losses=losses, rows=rows, organized=organized,
     )
 
 

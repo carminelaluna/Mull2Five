@@ -47,7 +47,8 @@ let _classificaId = null;   // override: classifica di un torneo concluso dallo 
 
 async function init() {
   $('#publicAuth').innerHTML =
-    `<span style="color:var(--muted);font-size:.85rem">${esc(session.email)}</span>
+    `<a class="secondary-link" href="player.html?email=${encodeURIComponent(session.email)}">Profilo</a>
+     <span style="color:var(--muted);font-size:.85rem">${esc(session.email)}</span>
      <button class="secondary-link" id="logoutBtn" type="button">Esci</button>`;
   $('#logoutBtn').addEventListener('click', () => { localStorage.removeItem(TOKEN_KEY); location.replace('index.html'); });
 
