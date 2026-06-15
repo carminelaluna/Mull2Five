@@ -190,9 +190,18 @@ DATABASE_URL=sqlite:///./arcana_events.db
 SECRET_KEY=cambia-questo-valore
 ```
 
-**Docker / Produzione (PostgreSQL):**
+**Docker Compose (PostgreSQL):**
 ```env
 DATABASE_URL=postgresql+psycopg://arcana:arcana@db:5432/arcana_events
+```
+
+**EC2/systemd:**
+- se usi PostgreSQL installato sulla stessa macchina, usa `localhost`/`127.0.0.1`, non `db`;
+- se usi RDS, usa l'endpoint RDS;
+- se usi SQLite, metti il database in una directory scrivibile dal servizio:
+
+```env
+DATABASE_URL=sqlite:////var/lib/manabind/arcana_events.db
 ```
 
 **Backend URL per il proxy Vite:**
@@ -262,6 +271,9 @@ source .venv/bin/activate
 pip install -e .
 cp .env.example .env   # poi modifica .env
 
+# Se usi SQLite su systemd, in .env imposta:
+# DATABASE_URL=sqlite:////var/lib/manabind/arcana_events.db
+
 # Systemd
 sudo cp deploy/systemd/manabind.service /etc/systemd/system/
 sudo systemctl daemon-reload
@@ -276,13 +288,28 @@ sudo nginx -t && sudo systemctl reload nginx
 **Nginx** — aggiorna `manabind.conf` per servire il build statico:
 ```nginx
 server {
-    root /opt/manabind/dist;
+    root /opt/manabind/frontend/dist;
     try_files $uri $uri.html $uri/ =404;
 
     location /api    { proxy_pass http://127.0.0.1:8000; proxy_set_header Host $host; }
     location /health { proxy_pass http://127.0.0.1:8000; }
 }
 ```
+
+Se la home mostra `Impossibile caricare i tornei: Bad Gateway`, Nginx non sta ricevendo
+una risposta valida dal backend. Sul server verifica in quest'ordine:
+
+```bash
+curl -i http://127.0.0.1:8000/health
+sudo systemctl status manabind --no-pager
+sudo journalctl -u manabind -n 120 --no-pager
+sudo tail -n 80 /var/log/nginx/error.log
+```
+
+Cause comuni:
+- `DATABASE_URL` contiene host `db` ma non stai usando Docker Compose: su EC2/systemd usa `127.0.0.1` o l'endpoint RDS.
+- SQLite punta a `/opt/manabind/arcana_events.db` e il servizio `www-data` non può scrivere: usa `/var/lib/manabind/arcana_events.db`.
+- il virtualenv non è stato aggiornato dopo il deploy: riesegui `./scripts/deploy.sh`.
 
 ---
 

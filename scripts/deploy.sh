@@ -19,6 +19,11 @@ echo "════════════════════════�
 if [ "$SKIP_BACKEND" -eq 0 ]; then
   echo ""
   echo "▶ Backend — installazione dipendenze…"
+  if [ ! -f ".env" ]; then
+    echo "ERRORE: .env mancante. Copia .env.example in .env e configura DATABASE_URL/SECRET_KEY prima del deploy." >&2
+    exit 1
+  fi
+
   python3 -m venv .venv
   source .venv/bin/activate
   pip install --upgrade pip --quiet
@@ -29,6 +34,15 @@ if [ "$SKIP_BACKEND" -eq 0 ]; then
 
   echo "▶ Backend — riavvio servizio systemd…"
   sudo systemctl restart manabind && echo "  manabind riavviato ✓"
+
+  echo "▶ Backend — health check locale…"
+  if ! curl --fail --silent --show-error http://127.0.0.1:8000/health >/tmp/manabind-health.json; then
+    echo "ERRORE: backend non raggiungibile su 127.0.0.1:8000. Ultimi log:" >&2
+    sudo journalctl -u manabind -n 80 --no-pager >&2 || true
+    exit 1
+  fi
+  cat /tmp/manabind-health.json
+  echo ""
 fi
 
 # ── Frontend ──────────────────────────────────────────
