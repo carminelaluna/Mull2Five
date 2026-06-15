@@ -32,6 +32,11 @@ if [ "$SKIP_BACKEND" -eq 0 ]; then
   echo "▶ Backend — migrazione DB…"
   python -c "from backend.app.db import create_all; create_all()"
 
+  echo "▶ Backend — installazione unit systemd…"
+  sudo cp deploy/systemd/manabind.service /etc/systemd/system/manabind.service
+  sudo systemctl daemon-reload
+  sudo systemctl enable manabind >/dev/null
+
   echo "▶ Backend — riavvio servizio systemd…"
   sudo systemctl restart manabind && echo "  manabind riavviato ✓"
 
