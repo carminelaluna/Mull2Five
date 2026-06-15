@@ -51,8 +51,8 @@ if [ "$SKIP_BACKEND" -eq 0 ]; then
   sudo systemctl restart manabind && echo "  manabind riavviato ✓"
 
   echo "▶ Backend — health check locale…"
-  if ! curl --fail --silent --show-error http://127.0.0.1:8000/health >/tmp/manabind-health.json; then
-    echo "ERRORE: backend non raggiungibile su 127.0.0.1:8000. Ultimi log:" >&2
+  if ! curl --fail --silent --show-error http://51.20.43.164:8000/health >/tmp/manabind-health.json; then
+    echo "ERRORE: backend non raggiungibile su 51.20.43.164:8000. Ultimi log:" >&2
     sudo journalctl -u manabind -n 80 --no-pager >&2 || true
     exit 1
   fi
