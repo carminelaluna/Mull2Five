@@ -11,7 +11,7 @@ import {
 } from './catalog.js';
 
 const $ = (s) => document.querySelector(s);
-const SAVED_KEY = 'manabind-saved-searches-v1';
+const SAVED_KEY = 'mull2five-saved-searches-v1';
 const PER_PAGE = 25;
 
 let _page = 1;

@@ -1,5 +1,5 @@
 [project]
-name = "manabind"
+name = "mull2five"
 version = "0.1.0"
 description = "Tournament organizer backend for MTG events."
 requires-python = ">=3.11"
@@ -16,11 +16,9 @@ dependencies = [
   "httpx>=0.27.0",
   "stripe>=10.0.0",
   "slowapi>=0.1.9",
-  "gunicorn>=22.0.0",
   "redis>=5.0.0",
   "prometheus-client>=0.20.0",
   "pywebpush>=2.0.0",
-  "alembic>=1.13.0",
 ]
 
 [project.optional-dependencies]
@@ -44,7 +42,6 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "tests/*"      = ["F401"]                            # import inutilizzati nei file di test
 "tests/load/*" = ["E401", "E701", "E702", "F811"]    # one-liner intenzionali nei load test
-"migrations/*" = ["E501", "F401", "E402"]            # file Alembic autogenerati
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -11,10 +11,6 @@ Palette: lime `#c6ff3d`, nero `#0d0d0f`, bianco. Gli asset stanno in
 (logo orizzontale per l'header, verticale per il login, badge per gli spazi stretti).
 Il nome si scrive sempre `Mull2Five`.
 
-Restano volutamente con il vecchio nome gli identificatori tecnici: chiavi
-localStorage (`manabind-jwt-v1`), header tenant `X-Manabind-Org`, metriche
-Prometheus. Rinominarli sloggherebbe gli utenti.
-
 ## Funzionalità
 
 App **interamente online** (tutto passa dal backend, niente localStorage): accessibile
@@ -37,7 +33,7 @@ da più PC contemporaneamente, pensata anche per tornei grandi.
 
 ### Infrastruttura
 - Redis (cache + lockout), Web Push (VAPID), Prometheus `/metrics`, alerting email/Telegram + watchdog DB
-- Alembic migrations, backup PostgreSQL cifrati ogni notte (GitHub Actions)
+- Schema creato e aggiornato all'avvio (migrazioni additive), backup PostgreSQL cifrati ogni notte (GitHub Actions)
 - Rate limiting (slowapi), account lockout, JWT expiry, CSP headers
 - GitHub Actions CI/CD; test: pytest (backend) + Vitest + Playwright E2E
 
@@ -149,45 +145,24 @@ make test
 
 ```text
 .
-├── backend/                    # FastAPI — API, DB, auth, pagamenti
-│   └── app/
-│       ├── routers/            # auth, tournaments, payments, admin
-│       ├── services/           # oauth, pagamenti
-│       └── core/               # config, db
-├── frontend/                   # Vite — app online unica (tutto via backend)
-│   ├── js/                     # Moduli ES (un file per pagina)
-│   │   ├── app.js              # Home pubblica (lista tornei, ricerca)
-│   │   ├── login-public.js     # Login/registrazione (JWT)
-│   │   ├── my-registrations.js # Iscrizioni giocatore + storico + push
-│   │   ├── organizer.js        # Back-office organizzatore
-│   │   ├── control.js          # Console Regia (timer, risultati, round)
-│   │   ├── event.js            # Pagina evento pubblica
-│   │   ├── player.js           # Profilo giocatore
-│   │   ├── i18n.js             # Internazionalizzazione it/en
-│   │   └── push.js             # Web Push (subscribe/unsubscribe)
-│   ├── public/                 # Asset statici serviti da Vite alla root
-│   │   ├── icons/icon.svg
-│   │   ├── manifest.json       # PWA manifest
-│   │   └── sw.js               # Service Worker + push handler
-│   ├── tests/                  # Vitest unit (i18n, push)
-│   ├── e2e/                    # Playwright E2E (flusso online)
-│   ├── index.html  login.html  event.html  my-registrations.html
-│   ├── player.html  leaderboard.html  organizer.html  control.html
-│   ├── timer.html  display.html  forgot-password.html  reset-password.html
-│   ├── sandbox-checkout.html
-│   ├── styles.css  app.css
-│   ├── vite.config.js
-│   ├── vitest.config.js
-│   └── package.json
-├── deploy/
-│   └── prometheus-alerts.yml
-├── scripts/
-│   └── dev.sh                  # Avvio backend (WSL)
-├── .env.example
-├── Makefile
-├── pyproject.toml
-├── docker-compose.yml
-└── README.md
+├── backend/app/
+│   ├── routers/          # auth, tournaments, events, tags, organizations, payments, push, seasons, admin
+│   ├── services/         # email, notifiche, pagamenti, decklist, oauth, avvisi all'organizzatore
+│   └── core/             # config, rate limit, lockout, cache/Redis, monitoring, tenant, web push
+├── frontend/             # Vite multi-page; in produzione lo serve il backend
+│   ├── js/               # un modulo per pagina, più i condivisi:
+│   │                     #   catalog.js (schede e vocabolario), escape.js (escape HTML),
+│   │                     #   console.js (Regia), deck-view.js (lista grafica), push.js
+│   ├── public/           # brand/, icone, site.webmanifest, sw.js
+│   ├── tests/            # Vitest
+│   ├── e2e/              # Playwright
+│   └── *.html            # una pagina per sezione
+├── tests/                # pytest; tests/load/ per i test di carico (Locust)
+├── scripts/              # dev.sh, backup_db.sh, dati di prova
+├── .github/workflows/    # CI e backup notturno cifrato
+├── Dockerfile            # immagine unica: build del frontend + backend
+├── docker-compose.yml    # PostgreSQL e Redis in locale
+└── HOSTING.md            # messa online (Render + Supabase)
 ```
 
 ---
@@ -198,13 +173,13 @@ Copia `.env.example` in `.env` e modifica i valori necessari.
 
 **Sviluppo locale (SQLite):**
 ```env
-DATABASE_URL=sqlite:///./arcana_events.db
+DATABASE_URL=sqlite:///./mull2five.db
 SECRET_KEY=cambia-questo-valore
 ```
 
 **Docker Compose (PostgreSQL):**
 ```env
-DATABASE_URL=postgresql+psycopg://arcana:arcana@db:5432/arcana_events
+DATABASE_URL=postgresql+psycopg://mull2five:mull2five@db:5432/mull2five
 ```
 
 **Backend URL per il proxy Vite:**
@@ -230,7 +205,7 @@ Callback: `http://127.0.0.1:8000/api/auth/oauth/google/callback`
 APPLE_CLIENT_ID=
 APPLE_TEAM_ID=
 APPLE_KEY_ID=
-APPLE_PRIVATE_KEY_PATH=/opt/manabind/AuthKey_XXXXXXXXXX.p8
+APPLE_PRIVATE_KEY_PATH=/etc/secrets/AuthKey_XXXXXXXXXX.p8
 ```
 Callback: `http://127.0.0.1:8000/api/auth/oauth/apple/callback`
 

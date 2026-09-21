@@ -27,12 +27,12 @@ except Exception:  # noqa: BLE001 — dipendenza opzionale
 
 if _ENABLED:
     REQUEST_COUNT = Counter(
-        "manabind_http_requests_total",
+        "mull2five_http_requests_total",
         "Totale richieste HTTP",
         ["method", "path", "status"],
     )
     REQUEST_LATENCY = Histogram(
-        "manabind_http_request_duration_seconds",
+        "mull2five_http_request_duration_seconds",
         "Durata richieste HTTP in secondi",
         ["method", "path"],
         buckets=(0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5),

@@ -2311,7 +2311,7 @@ def _tournament_to_vevent(tournament: Tournament) -> str:
     start = tournament.starts_on.strftime("%Y%m%d")
     return (
         "BEGIN:VEVENT\r\n"
-        f"UID:manabind-tournament-{tournament.id}@manabind\r\n"
+        f"UID:mull2five-tournament-{tournament.id}@mull2five\r\n"
         f"DTSTART;VALUE=DATE:{start}\r\n"
         f"SUMMARY:{_ical_escape(tournament.name)} ({_ical_escape(tournament.format)})\r\n"
         f"LOCATION:{_ical_escape(tournament.venue)}\r\n"

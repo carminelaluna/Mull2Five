@@ -7,7 +7,7 @@
  */
 import { esc } from './escape.js';
 export const API = '/api';
-export const TOKEN_KEY = 'manabind-jwt-v1';
+export const TOKEN_KEY = 'mull2five-jwt-v1';
 
 export const EVENT_TYPES = [
   { value: 'locals',             label: 'Serate di gioco' },
@@ -159,7 +159,7 @@ export function placeholder(el, message) {
 
 /* ── Posizione del giocatore ───────────────────────────────── */
 
-const GEO_KEY = 'manabind-geo-v1';
+const GEO_KEY = 'mull2five-geo-v1';
 
 /** Ultima posizione concessa. Resta in locale: non la mandiamo a nessuno
     se non come parametro di ricerca al nostro backend. */

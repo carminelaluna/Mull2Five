@@ -31,8 +31,6 @@ RUN pip install --no-cache-dir .
 COPY backend ./backend
 COPY --from=frontend /frontend/dist ./frontend/dist
 COPY scripts ./scripts
-COPY migrations ./migrations
-COPY alembic.ini ./alembic.ini
 
 EXPOSE 8000
 

@@ -1,23 +1,27 @@
 /**
- * Service Worker — Mull2Five (item 15: PWA offline)
- * Strategia: cache-first per asset statici, network-first per API.
- * In produzione (npm run build) usa vite-plugin-pwa per gestione
- * automatica dei file con hash. Questo SW è ottimizzato per dev/server locale.
+ * Service Worker — Mull2Five.
+ * Strategia: cache-first per gli asset statici (aggiornati in background),
+ * network-first per l'API. Riceve anche le notifiche Web Push.
  */
 
-const CACHE = 'manabind-v1';
+const CACHE = 'mull2five-v1';
 
+/* Solo file che hanno lo stesso nome in sviluppo e nella build. JS e CSS nella
+   build prendono un nome con l'hash (/assets/...): finiscono in cache al primo
+   uso, dal gestore fetch qui sotto. */
 const STATIC = [
   '/', '/index.html', '/login.html', '/event.html', '/my-registrations.html',
-  '/leaderboard.html', '/player.html', '/organizer.html', '/control.html',
-  '/styles.css', '/app.css', '/site.webmanifest', '/icon-192.png',
-  '/js/app.js', '/js/login-public.js', '/js/event.js', '/js/my-registrations.js',
-  '/js/player.js', '/js/organizer.js', '/js/control.js', '/js/i18n.js', '/js/push.js',
+  '/player.html', '/organizer.html', '/control.html',
+  '/site.webmanifest', '/icon-192.png',
 ];
 
 self.addEventListener('install', e => {
+  // Un file mancante non deve bloccare l'installazione. Con addAll bastava un 404
+  // e il service worker non partiva mai, notifiche push comprese.
   e.waitUntil(
-    caches.open(CACHE).then(c => c.addAll(STATIC)).then(() => self.skipWaiting())
+    caches.open(CACHE)
+      .then(c => Promise.allSettled(STATIC.map(url => c.add(url))))
+      .then(() => self.skipWaiting())
   );
 });
 

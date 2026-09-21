@@ -162,3 +162,13 @@ Tutte le voci dell'MVP sono chiuse.
 
 - [ ] Testare refund PayPal con account sandbox reale e webhook `PAYMENT.CAPTURE.COMPLETED`.
 - [x] Aggiunta suite `unittest` persistente invece degli smoke test inline.
+
+## Idee per dopo
+
+Dalle vecchie note di sviluppo (`suggestions.md`, tolto: il resto era già fatto).
+
+- Email: promemoria il giorno prima del torneo; link di pagamento diretto quando si viene promossi dalla lista d'attesa.
+- Calendario mensile nella parte pubblica ("cosa c'è giovedì?"): i dati ci sono già, manca la griglia.
+- Modelli di torneo salvati (oggi c'è "Duplica", con la data spostata di 7 giorni).
+- Early bird e codici sconto sulla quota d'iscrizione.
+- Profilo giocatore: win rate per formato e per archetipo (record e piazzamenti ci sono già).

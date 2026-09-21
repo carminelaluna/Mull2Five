@@ -5,7 +5,7 @@
  */
 import { test, expect } from '@playwright/test';
 
-const TOKEN_KEY = 'manabind-jwt-v1';
+const TOKEN_KEY = 'mull2five-jwt-v1';
 const uniqueEmail = () => `e2e_${Date.now()}_${Math.floor(Math.random() * 1e4)}@test.it`;
 
 test.beforeEach(async ({ page }) => {

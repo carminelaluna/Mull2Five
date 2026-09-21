@@ -43,7 +43,7 @@
       const params    = new URLSearchParams(location.search);
       const paymentId = params.get('payment_id');
       const provider  = params.get('provider') || '';
-      const token     = localStorage.getItem('manabind-jwt-v1');
+      const token     = localStorage.getItem('mull2five-jwt-v1');
 
       document.querySelector('#providerLabel').textContent =
         provider ? `Checkout ${provider}` : 'Checkout';

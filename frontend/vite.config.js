@@ -6,7 +6,7 @@ const BACKEND = 'http://127.0.0.1:8000';
 
 export default defineConfig({
   root: '.',
-  publicDir: 'public',   // assets statici, manifest.json, sw.js, icons/
+  publicDir: 'public',   // asset statici: brand/, icone, site.webmanifest, sw.js
 
   server: {
     port: 5173,

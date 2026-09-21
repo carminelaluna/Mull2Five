@@ -1,5 +1,4 @@
 import { vi, beforeEach } from 'vitest';
-import 'fake-indexeddb/auto';   /* Polyfill IDB per JSDOM — deve essere il primo import */
 
 /* ── Mock localStorage ──────────────────────────────── */
 let _store = {};
@@ -46,8 +45,4 @@ beforeEach(() => {
   _store = {};
   _uuid  = 0;
   vi.clearAllMocks();
-  /* Resetta fake-indexeddb tra i test */
-  if (globalThis.indexedDB?.deleteDatabase) {
-    globalThis.indexedDB.deleteDatabase('manabind-db');
-  }
 });

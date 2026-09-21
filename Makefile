@@ -1,5 +1,4 @@
 .PHONY: install dev docker-up docker-down lint test db-up db-wait db-down \
-        prod-server prod-restart \
         fe-install fe-dev fe-build fe-test fe-test-run fe-e2e \
         load-test load-test-headless
 
@@ -18,7 +17,7 @@ db-up:
 db-wait: db-up
 	@echo "In attesa che PostgreSQL sia pronto..."
 	@for i in $$(seq 1 30); do \
-	  docker exec $(DB_CONTAINER) pg_isready -U arcana -d arcana_events >/dev/null 2>&1 \
+	  docker exec $(DB_CONTAINER) pg_isready -U mull2five -d mull2five >/dev/null 2>&1 \
 	    && echo "PostgreSQL pronto." && exit 0; \
 	  sleep 1; \
 	done; \
@@ -33,23 +32,9 @@ install:
 	python3 -m venv .venv
 	. .venv/bin/activate && pip install --upgrade pip && pip install -e ".[dev]"
 
-# dev e prod-server dipendono da db-wait: il DB è garantito su prima dell'avvio.
+# dev dipende da db-wait: il DB è garantito su prima dell'avvio.
 dev: db-wait
 	. .venv/bin/activate && uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload
-
-# Produzione: 4 worker Uvicorn gestiti da Gunicorn
-prod-server: db-wait
-	. .venv/bin/activate && WEB_CONCURRENCY=4 gunicorn backend.app.main:app \
-	  -w 4 -k uvicorn.workers.UvicornWorker \
-	  --bind 0.0.0.0:8000 \
-	  --timeout 90 \
-	  --graceful-timeout 30 \
-	  --access-logfile -
-
-prod-restart:
-	fuser -k 8000/tcp 2>/dev/null || true
-	sleep 1
-	$(MAKE) prod-server
 
 lint:
 	. .venv/bin/activate && ruff check backend

@@ -38,7 +38,7 @@ fi
 
 mkdir -p "$BACKUP_DIR"
 STAMP="$(date +%Y%m%d_%H%M%S)"
-OUT="$BACKUP_DIR/manabind_${STAMP}.dump"
+OUT="$BACKUP_DIR/mull2five_${STAMP}.dump"
 
 echo "→ Backup in $OUT"
 pg_dump --format=custom --no-owner --no-privileges --dbname="$PG_URL" --file="$OUT"
@@ -51,6 +51,6 @@ if [[ ! -s "$OUT" ]]; then
 fi
 
 echo "→ Retention: rimuovo backup più vecchi di ${RETENTION_DAYS} giorni"
-find "$BACKUP_DIR" -name 'manabind_*.dump' -type f -mtime "+${RETENTION_DAYS}" -print -delete
+find "$BACKUP_DIR" -name 'mull2five_*.dump' -type f -mtime "+${RETENTION_DAYS}" -print -delete
 
 echo "✓ Backup completato ($(du -h "$OUT" | cut -f1))"

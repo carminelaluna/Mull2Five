@@ -11,7 +11,7 @@ import { renderDeck } from './deck-view.js';
 import { esc } from './escape.js';
 
 const API       = '/api';
-const TOKEN_KEY = 'manabind-jwt-v1';
+const TOKEN_KEY = 'mull2five-jwt-v1';
 const token     = localStorage.getItem(TOKEN_KEY);
 if (!token) location.replace('login.html?next=organizer.html');
 

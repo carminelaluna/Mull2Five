@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     frontend_url: AnyHttpUrl = "http://127.0.0.1:8000"
     secret_key: str = Field(default="dev-secret-change-me", min_length=16)
     access_token_minutes: int = 60 * 24 * 7
-    database_url: str = "sqlite:///./arcana_events.db"
+    database_url: str = "sqlite:///./mull2five.db"
     # Cartella della build Vite da servire su "/". La imposta il Dockerfile; in
     # sviluppo resta vuota e le pagine le serve Vite.
     frontend_dist: str | None = None
@@ -36,7 +36,7 @@ class Settings(BaseSettings):
     smtp_port: int = 587
     smtp_username: str | None = None
     smtp_password: str | None = None
-    smtp_from_email: str = "noreply@manabind.local"
+    smtp_from_email: str = "noreply@mull2five.local"
     smtp_use_tls: bool = True
 
     # Redis: cache distribuita + lockout condiviso tra worker/istanze.
@@ -46,7 +46,7 @@ class Settings(BaseSettings):
     # Web Push (VAPID). Genera le chiavi con: `python -m backend.app.core.webpush genkeys`
     vapid_public_key: str | None = None
     vapid_private_key: str | None = None
-    vapid_subject: str = "mailto:noreply@manabind.local"
+    vapid_subject: str = "mailto:noreply@mull2five.local"
 
     # Monitoring: protegge /metrics con un token (se impostato).
     metrics_token: str | None = None
@@ -62,7 +62,7 @@ class Settings(BaseSettings):
     watchdog_interval_secs: int = 60
 
     # Multi-tenant: header che identifica l'organizzazione (negozio) corrente.
-    tenant_header: str = "X-Manabind-Org"
+    tenant_header: str = "X-Mull2Five-Org"
 
 
 @lru_cache

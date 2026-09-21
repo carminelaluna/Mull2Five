@@ -3,15 +3,15 @@ services:
     image: postgres:16-alpine
     environment:
       # Credenziali da .env in produzione; default solo per sviluppo locale.
-      POSTGRES_DB: ${POSTGRES_DB:-arcana_events}
-      POSTGRES_USER: ${POSTGRES_USER:-arcana}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-arcana}
+      POSTGRES_DB: ${POSTGRES_DB:-mull2five}
+      POSTGRES_USER: ${POSTGRES_USER:-mull2five}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mull2five}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-arcana} -d $${POSTGRES_DB:-arcana_events}"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-mull2five} -d $${POSTGRES_DB:-mull2five}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -34,7 +34,7 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-arcana}:${POSTGRES_PASSWORD:-arcana}@db:5432/${POSTGRES_DB:-arcana_events}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-mull2five}:${POSTGRES_PASSWORD:-mull2five}@db:5432/${POSTGRES_DB:-mull2five}
       REDIS_URL: redis://redis:6379/0
       APP_URL: http://127.0.0.1:8000
       FRONTEND_URL: http://127.0.0.1:8000
@@ -52,7 +52,7 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-arcana}:${POSTGRES_PASSWORD:-arcana}@db:5432/${POSTGRES_DB:-arcana_events}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-mull2five}:${POSTGRES_PASSWORD:-mull2five}@db:5432/${POSTGRES_DB:-mull2five}
       BACKUP_DIR: /backups
       RETENTION_DAYS: "14"
     volumes:

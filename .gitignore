@@ -45,3 +45,8 @@ Thumbs.db
 # degli utenti: il repository e pubblico, non devono finirci mai.
 *.db.*
 reports/
+
+# Uscite dei test di carico (il seeder scrive i token, Locust i CSV) e screenshot di QA.
+tests/load/results/
+tests/load/tokens.json
+screenshots/

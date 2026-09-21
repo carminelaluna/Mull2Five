@@ -4,7 +4,7 @@
  * e invia la subscription a /api/push/subscribe. No-op se il browser non supporta
  * le notifiche o se il backend non ha VAPID configurato.
  */
-const TOKEN_KEY = 'manabind-jwt-v1';
+const TOKEN_KEY = 'mull2five-jwt-v1';
 
 export function urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);

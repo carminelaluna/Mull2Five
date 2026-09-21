@@ -28,10 +28,10 @@ def _make_tournament(client, headers, name="Tappa", **overrides):
     return response.json()["id"]
 
 
-def _make_event(client, headers, name="Weekend Arcana"):
+def _make_event(client, headers, name="Weekend di prova"):
     created = client.post("/api/events", headers=headers, json={
         "name": name, "description": "Main event e side event",
-        "venue": "Arcana Games", "starts_on": str(date.today() + timedelta(days=3)),
+        "venue": "Negozio di prova", "starts_on": str(date.today() + timedelta(days=3)),
         "ends_on": str(date.today() + timedelta(days=4)),
     })
     assert created.status_code == 201, created.text
@@ -44,7 +44,7 @@ def _make_event(client, headers, name="Weekend Arcana"):
 def test_event_collects_its_tournaments(client):
     org = _register_user(client, "ev-org@example.com", role="organizer")
     event = _make_event(client, org)
-    assert event["slug"] == "weekend-arcana"
+    assert event["slug"] == "weekend-di-prova"
     assert event["tournament_count"] == 0
 
     main = _make_tournament(client, org, "Main Event")
@@ -59,7 +59,7 @@ def test_event_collects_its_tournaments(client):
     assert {t["name"] for t in public.json()["tournaments"]} == {"Main Event", "Side Event"}
 
     # Il torneo sa a quale evento appartiene.
-    assert client.get(f"/api/tournaments/{main}").json()["event_slug"] == "weekend-arcana"
+    assert client.get(f"/api/tournaments/{main}").json()["event_slug"] == "weekend-di-prova"
 
     detached = client.delete(f"/api/events/{event['id']}/tournaments/{side}", headers=org)
     assert detached.status_code == 200

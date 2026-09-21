@@ -331,7 +331,10 @@ def migrate_decklists_per_format(connection) -> None:
     connection.exec_driver_sql("PRAGMA foreign_keys=ON")
 
 
-DEFAULT_ORG_SLUG = "arcana"
+DEFAULT_ORG_SLUG = "mull2five"
+# Lo slug che il negozio di default aveva prima del rebrand: i database creati
+# allora vengono aggiornati una volta sola, in seed_default_organization.
+LEGACY_DEFAULT_ORG_SLUG = "arcana"
 
 
 def seed_default_organization() -> None:
@@ -359,6 +362,16 @@ def seed_default_organization() -> None:
                 text("SELECT id FROM organizations WHERE slug = :s"), {"s": DEFAULT_ORG_SLUG}
             ).first()
         org_id = row[0]
+        # Rebrand: il negozio di default nasceva con lo slug vecchio, che compare
+        # negli indirizzi pubblici (store.html?s=...). Lo si rinomina se nessun
+        # altro negozio ha già preso quello nuovo.
+        connection.execute(
+            text(
+                "UPDATE organizations SET slug = :new WHERE id = :o AND slug = :old "
+                "AND NOT EXISTS (SELECT 1 FROM organizations WHERE slug = :new)"
+            ),
+            {"new": DEFAULT_ORG_SLUG, "old": LEGACY_DEFAULT_ORG_SLUG, "o": org_id},
+        )
         # Backfill: tutto ciò che non ha ancora un'organizzazione finisce nel default.
         for table in ("users", "tournaments"):
             if table in inspector.get_table_names():

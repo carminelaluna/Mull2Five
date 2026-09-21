@@ -132,7 +132,7 @@ def test_store_profile_splits_upcoming_and_past(client):
     _make(client, org, name="Prossimo", starts_on=str(date.today() + timedelta(days=5)))
     _make(client, org, name="Passato", starts_on=str(date.today() - timedelta(days=5)))
 
-    profile = client.get("/api/organizations/arcana/profile")
+    profile = client.get("/api/organizations/mull2five/profile")
     assert profile.status_code == 200, profile.text
     body = profile.json()
     assert [t["name"] for t in body["upcoming"]] == ["Prossimo"]
@@ -143,7 +143,7 @@ def test_store_profile_splits_upcoming_and_past(client):
 
 def test_organizer_edits_only_his_own_store(client):
     org = _register_user(client, "edit-store@example.com", role="organizer")
-    updated = client.patch("/api/organizations/arcana", headers=org, json={
+    updated = client.patch("/api/organizations/mull2five", headers=org, json={
         "description": "Il negozio di prova", "city": "Milano",
         "latitude": MILANO[0], "longitude": MILANO[1],
     })
@@ -151,8 +151,43 @@ def test_organizer_edits_only_his_own_store(client):
     assert updated.json()["city"] == "Milano"
 
     listed = client.get("/api/organizations?near_lat=45.4642&near_lng=9.19&radius_km=5").json()
-    assert [o["slug"] for o in listed] == ["arcana"]
+    assert [o["slug"] for o in listed] == ["mull2five"]
     assert listed[0]["distance_km"] == 0.0
+
+
+def _default_org_with_slug(db_session, slug):
+    """Un negozio di default come lo lasciava un database di prima del rebrand."""
+    from backend.app.models import Organization
+
+    org = Organization(slug=slug, name="Mull2Five", is_default=True)
+    db_session.add(org)
+    db_session.commit()
+    return org
+
+
+def test_the_old_default_store_slug_is_renamed_once(db_session):
+    """I database creati prima del rebrand avevano il negozio di default su
+    "arcana": all'avvio diventa "mull2five", e ripetere l'avvio non cambia nulla."""
+    from backend.app.db import LEGACY_DEFAULT_ORG_SLUG, seed_default_organization
+
+    org = _default_org_with_slug(db_session, LEGACY_DEFAULT_ORG_SLUG)
+    seed_default_organization()
+    seed_default_organization()
+    db_session.refresh(org)
+    assert org.slug == "mull2five"
+
+
+def test_the_rename_never_steals_a_slug_already_taken(db_session):
+    from backend.app.db import LEGACY_DEFAULT_ORG_SLUG, seed_default_organization
+    from backend.app.models import Organization
+
+    vecchio = _default_org_with_slug(db_session, LEGACY_DEFAULT_ORG_SLUG)
+    db_session.add(Organization(slug="mull2five", name="Un altro negozio", is_default=False))
+    db_session.commit()
+
+    seed_default_organization()
+    db_session.refresh(vecchio)
+    assert vecchio.slug == LEGACY_DEFAULT_ORG_SLUG, "due negozi con lo stesso slug"
 
 
 def test_unknown_store_is_404(client):

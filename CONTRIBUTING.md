@@ -1,4 +1,4 @@
-# Contribuire ad Manabind
+# Contribuire a Mull2Five
 
 ## Setup sviluppo
 
@@ -52,9 +52,8 @@ frontend/                → app online unica (tutto via backend, niente localSt
     organizer.js         → back-office (tornei, iscritti, liste, annunci, penalità…)
     control.js           → console Regia (timer, risultati, genera round)
     event.js / player.js → pagina evento pubblica / profilo giocatore
-    i18n.js              → internazionalizzazione it/en
     push.js              → Web Push (subscribe/unsubscribe)
-  tests/                 → Vitest unit tests (i18n, push)
+  tests/                 → Vitest unit tests (escape, push)
   e2e/                   → Playwright E2E (flusso online register/login)
 ```
 
@@ -117,12 +116,6 @@ cd frontend && npm run e2e
 cd frontend && npm run test:cover
 ```
 
-## Variabili d'ambiente richieste in produzione
+## Messa online
 
-```env
-SECRET_KEY=<min 32 caratteri casuali>     # python -c "import secrets; print(secrets.token_hex(32))"
-DATABASE_URL=postgresql+psycopg://...
-FRONTEND_URL=https://tuo-dominio.it
-APP_URL=https://tuo-dominio.it
-APP_ENV=production
-```
+Variabili d'ambiente, servizi e backup della versione online: vedi `HOSTING.md`.

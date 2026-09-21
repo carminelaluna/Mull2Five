@@ -16,7 +16,7 @@ SQLite non supporta write concorrenti. Per il load test usa PostgreSQL:
 
 ```env
 # .env
-DATABASE_URL=postgresql+psycopg://arcana:arcana@localhost:5432/arcana_events
+DATABASE_URL=postgresql+psycopg://mull2five:mull2five@localhost:5432/mull2five
 ```
 
 Avvia PostgreSQL:
@@ -45,7 +45,7 @@ engine = create_engine(
 
 Per il load test usa **4 worker** invece di 1:
 ```bash
-gunicorn backend.app.main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000
+uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --workers 4
 ```
 
 ### 4. Seed database

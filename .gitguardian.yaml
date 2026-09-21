@@ -14,6 +14,6 @@ secret:
 
   ignored-matches:
     - name: "Password DB di default per sviluppo locale (docker-compose)"
-      match: arcana
+      match: mull2five
     - name: "SECRET_KEY placeholder di sviluppo (config default)"
       match: dev-secret-change-me

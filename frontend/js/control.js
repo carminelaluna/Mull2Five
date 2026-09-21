@@ -9,7 +9,7 @@
 import { mountConsole } from './console.js';
 import { esc } from './escape.js';
 
-const TOKEN_KEY = 'manabind-jwt-v1';
+const TOKEN_KEY = 'mull2five-jwt-v1';
 const token = localStorage.getItem(TOKEN_KEY);
 if (!token) location.replace('login.html?next=control.html');
 
