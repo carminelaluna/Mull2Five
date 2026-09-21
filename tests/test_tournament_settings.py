@@ -56,7 +56,7 @@ def test_settings_change_and_are_logged(client):
     assert "capacity: 8 → 16" in entry["detail"]
 
 
-def test_changing_game_resets_the_match_format(client):
+def test_changing_game_resets_the_match_format(client, all_games):
     org = _register_user(client, "set-org2@example.com", role="organizer")
     tid = _tournament(client, org)
     body = _patch(client, org, tid, game="onepiece", format="Standard").json()

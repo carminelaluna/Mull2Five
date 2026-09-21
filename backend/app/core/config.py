@@ -67,6 +67,11 @@ class Settings(BaseSettings):
     # Il fuso dei negozi: date e orari dei tornei sono locali, non UTC.
     app_timezone: str = "Europe/Rome"
 
+    # I giochi che si possono scegliere, separati da virgola ("all" per tutti).
+    # Gli altri ci sono, con formati e spareggi, ma restano spenti finché non
+    # si accendono qui.
+    enabled_games: str = "mtg"
+
 
 @lru_cache
 def get_settings() -> Settings:

@@ -15,7 +15,7 @@ from backend.app.core.clock import local_today
 from backend.app.core.config import get_settings
 from backend.app.core.tenant import requested_org
 from backend.app.db import get_db
-from backend.app.games import ALLOWED_SCORES, get_game
+from backend.app.games import ALLOWED_SCORES, get_game, is_enabled
 from backend.app.models import (
     Announcement,
     AnnouncementRecipient,
@@ -849,8 +849,8 @@ def _apply_settings(tournament: Tournament, requested: dict, organizer: User, db
             check_location(changes["location_id"], organizer, db)
 
     if "game" in changes:
-        if changes["game"] not in GAMES:
-            raise HTTPException(status_code=422, detail=f"Gioco non supportato: {changes['game']}")
+        if not is_enabled(changes["game"]):
+            raise HTTPException(status_code=422, detail=f"Gioco non disponibile: {changes['game']}")
         # Cambiando gioco si riparte dal suo formato dei match, se non se ne sceglie un altro.
         changes.setdefault("best_of", GAMES[changes["game"]].default_best_of)
 

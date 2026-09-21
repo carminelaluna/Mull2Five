@@ -282,6 +282,10 @@ dialog.deck-view-dialog { max-width: min(1100px, 94vw); width: 100%; }
   background: var(--game-color, var(--muted));
   white-space: nowrap;
 }
+/* Un solo gioco acceso: l'etichetta e la riga "Gioco" si nascondono, e tornano
+   quando games.js trova più giochi nel catalogo. */
+html:not([data-games="many"]) .game-badge,
+html:not([data-games="many"]) .game-detail { display: none; }
 .game-mtg      { --game-color: #e8a13c; }
 .game-lorcana  { --game-color: #b89cf0; }
 .game-swu      { --game-color: #6fb3ff; }

@@ -79,7 +79,7 @@ async function loadEvent() {
           <h3>Dettagli</h3>
           <dl class="info-dl">
             <dt>Data</dt>       <dd>${fmtDate(t.starts_on?.substring(0,10))}${t.start_time ? ' · ' + esc(t.start_time) : ''}</dd>
-            <dt>${esc(tr('Gioco'))}</dt> <dd>${esc(game?.name || gameLabel(t.game))}</dd>
+            <dt class="game-detail">${esc(tr('Gioco'))}</dt> <dd class="game-detail">${esc(game?.name || gameLabel(t.game))}</dd>
             <dt>Formato</dt>    <dd>${esc(t.format)}</dd>
             ${t.structure === 'registration_only'
               ? `<dt>${esc(tr('Formula'))}</dt> <dd>${esc(tr('Solo iscrizioni, senza turni'))}</dd>`

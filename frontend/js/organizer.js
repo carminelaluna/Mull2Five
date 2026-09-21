@@ -362,7 +362,7 @@ function openNewEventDialog() {
       </header>
       <div class="bo-grid">
         <label>Nome<input id="nName" required placeholder="RCQ Modern" /></label>
-        <label>${esc(tr('Gioco'))}<select id="nGame"></select></label>
+        <label id="nGameWrap">${esc(tr('Gioco'))}<select id="nGame"></select></label>
         <label>Formato<input id="nFormat" value="Modern" list="nFormatList" autocomplete="off" />
           <datalist id="nFormatList"></datalist></label>
         <label>Tipo evento<select id="nType">
@@ -450,6 +450,8 @@ async function fillGameChoices() {
   const select = $('#nGame');
   if (!select || !games.length) return;
   select.innerHTML = games.map((g) => `<option value="${esc(g.code)}">${esc(g.name)}</option>`).join('');
+  // Con un gioco solo acceso non c'è niente da scegliere.
+  $('#nGameWrap').style.display = games.length > 1 ? '' : 'none';
   const apply = () => {
     const game = games.find((g) => g.code === select.value) || games[0];
     $('#nFormatList').innerHTML = game.formats.map((f) => `<option value="${esc(f)}"></option>`).join('');
@@ -2111,7 +2113,10 @@ const LOCKED_AFTER_START = new Set([
 async function renderImpostazioni() {
   const t = activeT();
   if (!t) { $('#panel').innerHTML = '<p class="empty">Apri un evento dalla lista.</p>'; return; }
-  const games = await loadGames();
+  // Un torneo di un gioco oggi spento lo tiene: tra le scelte c'è anche il suo.
+  const enabled = await loadGames();
+  const games = enabled.some((g) => g.code === (t.game || 'mtg')) ? enabled
+    : [...enabled, { code: t.game, name: gameLabel(t.game), formats: [], default_best_of: t.best_of || 3 }];
   const started = !['draft', 'published'].includes(t.status);
   const following = followingInSeries(t);
   const lock = (name) => (started && LOCKED_AFTER_START.has(name)
@@ -2128,7 +2133,7 @@ async function renderImpostazioni() {
         <h3>${esc(tr('Generale'))}</h3>
         <div class="bo-grid">
           <label style="grid-column:1/-1">Nome<input id="sName" required value="${esc(t.name)}" /></label>
-          <label>${esc(tr('Gioco'))}<select id="sGame" ${lock('game')}>
+          <label ${games.length > 1 ? '' : 'style="display:none"'}>${esc(tr('Gioco'))}<select id="sGame" ${lock('game')}>
             ${games.map((g) => option(g.code, g.name, t.game || 'mtg')).join('')}</select></label>
           <label>Formato<input id="sFormat" list="sFormatList" value="${esc(t.format)}" ${lock('format')} />
             <datalist id="sFormatList"></datalist></label>

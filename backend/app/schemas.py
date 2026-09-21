@@ -75,10 +75,10 @@ class TournamentCreate(BaseModel):
 
     @model_validator(mode="after")
     def _game_and_match_format(self):
-        from backend.app.games import GAMES
+        from backend.app.games import GAMES, is_enabled
 
-        if self.game not in GAMES:
-            raise ValueError(f"Gioco non supportato: {self.game}")
+        if not is_enabled(self.game):
+            raise ValueError(f"Gioco non disponibile: {self.game}")
         if self.best_of is None:
             self.best_of = GAMES[self.game].default_best_of
         return self

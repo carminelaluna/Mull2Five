@@ -11,10 +11,20 @@ let catalog = null;
 
 /** L'elenco dei giochi, chiesto una volta per pagina. */
 export function loadGames() {
-  catalog ??= fetch('/api/games')
+  catalog ??= Promise.resolve()
+    .then(() => fetch('/api/games'))
     .then((r) => (r.ok ? r.json() : []))
     .catch(() => []);
   return catalog;
+}
+
+/* Con un solo gioco acceso (ENABLED_GAMES) l'etichetta del gioco e la riga
+   "Gioco" non dicono niente: restano nascoste (app.css) finché i giochi accesi
+   non sono più di uno. */
+if (typeof document !== 'undefined') {
+  loadGames().then((games) => {
+    if (games.length > 1) document.documentElement.dataset.games = 'many';
+  });
 }
 
 /** Il gioco con quel codice; un codice mancante (tornei vecchi) vale come Magic. */

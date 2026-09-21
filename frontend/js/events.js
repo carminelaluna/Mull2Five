@@ -114,7 +114,7 @@ function renderFacets(state) {
       <input id="facetName" placeholder="Cerca…" value="${esc(state.name)}" style="width:100%" />
     </div>
     ${radios('Stato', 'stato', STATI, state.stato)}
-    ${checkboxes('Gioco', 'games', _games.map((g) => ({ value: g.code, label: gameLabel(g.code) })), state)}
+    ${_games.length > 1 ? checkboxes('Gioco', 'games', _games.map((g) => ({ value: g.code, label: gameLabel(g.code) })), state) : ''}
     ${checkboxes('Tipo di evento', 'event_types', EVENT_TYPES, state)}
     ${checkboxes('Formato', 'formats', formatChoices(state).map((f) => ({ value: f, label: f })), state)}
     ${checkboxes('Livello (REL)', 'rel', RELS.map((r) => ({ value: r, label: r })), state, { limit: 3 })}

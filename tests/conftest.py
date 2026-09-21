@@ -65,3 +65,13 @@ def client(db_session):
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def all_games(monkeypatch):
+    """Gli altri giochi ci sono ma sono spenti (ENABLED_GAMES=mtg): i test che
+    li riguardano li accendono solo per sé."""
+    from backend.app.core.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "enabled_games", "all")
+

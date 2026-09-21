@@ -27,7 +27,18 @@ def _tournament(client, org, **extra):
     return created.json()
 
 
-def test_the_catalog_lists_the_five_games(client):
+def test_only_magic_is_on_by_default(client):
+    assert [g["code"] for g in client.get("/api/games").json()] == ["mtg"]
+    org = _register_user(client, "games-off@example.com", role="organizer")
+    created = client.post("/api/tournaments", headers=org, json={
+        "name": "Serata Lorcana", "format": "Core Constructed", "game": "lorcana",
+        "starts_on": str(date.today() + timedelta(days=3)), "capacity": 8,
+        "entry_fee_cents": 0, "currency": "EUR", "status": "published", "pay_at_event": True,
+    })
+    assert created.status_code == 422
+
+
+def test_the_catalog_lists_the_five_games(client, all_games):
     games = {g["code"]: g for g in client.get("/api/games").json()}
     assert set(games) == {"mtg", "lorcana", "swu", "onepiece", "pokemon"}
     assert games["onepiece"]["default_best_of"] == 1
@@ -35,7 +46,7 @@ def test_the_catalog_lists_the_five_games(client):
     assert "Premier" in games["swu"]["formats"]
 
 
-def test_match_format_defaults_to_the_game_rules(client):
+def test_match_format_defaults_to_the_game_rules(client, all_games):
     org = _register_user(client, "games-org@example.com", role="organizer")
     assert _tournament(client, org, game="onepiece")["best_of"] == 1
     assert _tournament(client, org, game="lorcana")["best_of"] == 3
@@ -53,7 +64,7 @@ def test_an_unknown_game_is_refused(client):
     assert created.status_code == 422
 
 
-def test_search_filters_by_game(client):
+def test_search_filters_by_game(client, all_games):
     org = _register_user(client, "games-org3@example.com", role="organizer")
     _tournament(client, org, name="Serata Magic", game="mtg")
     _tournament(client, org, name="Serata Lorcana", game="lorcana", format="Core Constructed")
@@ -92,7 +103,7 @@ def _report(client, org, tid, pid, a, b):
                         json={"match_wins_a": a, "match_wins_b": b})
 
 
-def test_best_of_one_refuses_a_two_game_score(client):
+def test_best_of_one_refuses_a_two_game_score(client, all_games):
     org = _register_user(client, "games-org5@example.com", role="organizer")
     tid, pid = _first_pairing(client, org, game="onepiece")
     assert _report(client, org, tid, pid, 2, 1).status_code == 422

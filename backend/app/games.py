@@ -97,8 +97,24 @@ ALLOWED_SCORES: dict[int, frozenset[tuple[int, int]]] = {
 }
 
 
+def enabled_games() -> list[Game]:
+    """I giochi che si possono scegliere per un torneo nuovo (ENABLED_GAMES).
+    Quelli spenti restano nel codice e nei tornei che li usano già."""
+    from backend.app.core.config import get_settings
+
+    wanted = get_settings().enabled_games.strip().lower()
+    if wanted == "all":
+        return list(GAMES.values())
+    codes = {code.strip() for code in wanted.split(",") if code.strip()}
+    return [game for game in GAMES.values() if game.code in codes] or [GAMES[DEFAULT_GAME]]
+
+
+def is_enabled(code: str) -> bool:
+    return any(game.code == code for game in enabled_games())
+
+
 def games_catalog() -> list[dict]:
-    """Quello che il frontend deve sapere dei giochi."""
+    """Quello che il frontend deve sapere dei giochi che si possono scegliere."""
     return [
         {
             "code": game.code,
@@ -109,5 +125,5 @@ def games_catalog() -> list[dict]:
             "tiebreakers": game.tiebreakers,
             "publisher_id_label": game.publisher_id_label,
         }
-        for game in GAMES.values()
+        for game in enabled_games()
     ]

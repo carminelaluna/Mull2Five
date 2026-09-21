@@ -184,7 +184,7 @@ carte dipendono dal gioco; per ultime le lingue, perché toccano ogni stringa; i
 pagamenti ai negozi in fondo, sono il pezzo più grosso.
 
 - [x] 0. Traduzioni: funzione `t()` con il testo italiano come chiave, usata da subito nel codice nuovo
-- [x] 1. Più giochi: formati, spareggi ufficiali per gioco, badge e filtro in ricerca
+- [x] 1. Più giochi: formati, spareggi ufficiali per gioco, badge e filtro in ricerca. Per ora acceso solo Magic: gli altri si accendono con ENABLED_GAMES (es. "mtg,lorcana" o "all")
 - [x] 2. Formato dei match: al meglio di 1/2/3, patte intenzionali sì/no
 - [x] Nome dell'organizzatore nella pagina pubblica del torneo, all'iscrizione e nelle iscrizioni del giocatore
 - [x] 3. Scheda Impostazioni del torneo (oggi dopo la creazione non si modifica quasi niente)
