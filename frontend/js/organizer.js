@@ -310,6 +310,7 @@ function eventCard(t) {
       <div class="bo-event-actions row-actions">
         ${t.status === 'published' && !registrationOnly(t) ? `<button class="mini-button" data-act="start" data-id="${t.id}" type="button">▶ Avvia</button>` : ''}
         ${registrationOnly(t) ? '' : `<a class="mini-button" href="control.html?t=${t.id}" target="_blank" rel="noopener">🖥 Regia a parte</a>`}
+        <button class="mini-button" data-act="edit" data-id="${t.id}" type="button">✏ ${esc(tr('Modifica'))}</button>
         <button class="mini-button" data-act="dup" data-id="${t.id}" type="button">Duplica</button>
         <button class="mini-button" data-act="repeat" data-id="${t.id}" type="button">${esc(tr('Ripeti…'))}</button>
         ${isClosed(t) ? '' : `<button class="mini-button" data-act="close" data-id="${t.id}" type="button">Chiudi</button>`}
@@ -507,6 +508,7 @@ async function createTournament(e) {
 
 async function tournamentAction(act, id) {
   if (act === 'repeat') return openRepeatDialog(id);
+  if (act === 'edit') return openEvent(id, 'impostazioni');
   const confirmMsg = act === 'del' ? 'Eliminare definitivamente il torneo e tutti i dati?' : null;
   if (confirmMsg && !window.confirm(confirmMsg)) return;
   try {
@@ -1907,6 +1909,7 @@ function openSuspendDialog(slug, who, onDone) {
    le tappe. */
 
 let _events = [];
+let _editEvent = false;     // aprendo la manifestazione, portare subito al modulo di modifica
 let _openEventId = null;
 
 async function renderManifestazioni() {
@@ -1929,6 +1932,9 @@ async function renderManifestazioni() {
           <span>${e.tournament_count} tappe</span>
         </div>
       </div>
+      <div class="bo-event-actions row-actions">
+        <button class="mini-button" data-edit-event="${e.id}" type="button">✏ ${esc(tr('Modifica'))}</button>
+      </div>
     </article>`;
 
   $('#panel').innerHTML = `
@@ -1946,7 +1952,11 @@ async function renderManifestazioni() {
 
   $('#evNew').addEventListener('click', openManifestazioneDialog);
   $('#panel').querySelectorAll('[data-open-event]').forEach((c) =>
-    c.addEventListener('click', () => { _openEventId = c.dataset.openEvent; render(); }));
+    c.addEventListener('click', (e) => {
+      _editEvent = Boolean(e.target.closest('[data-edit-event]'));
+      _openEventId = c.dataset.openEvent;
+      render();
+    }));
 }
 
 function openManifestazioneDialog() {
@@ -2045,6 +2055,7 @@ async function renderManifestazione(eventId) {
           <span class="pill ${ev.is_public ? 'ok' : 'warn'}">${ev.is_public ? 'pubblica' : 'privata'}</span></span>
       </div>
       <div class="bo-crumb-actions">
+        <button class="mini-button" id="evEdit" type="button">✏ ${esc(tr('Modifica'))}</button>
         ${ev.is_public ? `<a class="mini-button" href="event-page.html?e=${esc(ev.slug)}" target="_blank" rel="noopener">↗ Pagina pubblica</a>` : ''}
       </div>
     </div>
@@ -2105,6 +2116,13 @@ async function renderManifestazione(eventId) {
   };
 
   $('#evBack').addEventListener('click', () => { _openEventId = null; render(); });
+  // Il modulo sta in fondo, dopo tappe e staff: "Modifica" ci porta e mette il cursore sul nome.
+  const goToEdit = () => {
+    $('#evEditForm').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    $('#evEName').focus({ preventScroll: true });
+  };
+  $('#evEdit').addEventListener('click', goToEdit);
+  if (_editEvent) { _editEvent = false; goToEdit(); }
 
   $('#panel').querySelectorAll('[data-attach]').forEach((b) =>
     b.addEventListener('click', async () => {
