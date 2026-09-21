@@ -113,6 +113,12 @@ pannello) e **non fa backup**: per quello c'è il passo 6.
    (senza, niente notifiche push).
 3. *Health check path*: `/health`. *Auto-Deploy*: a ogni push su `main`.
 
+   Il deploy automatico parte solo se l'app **Render** è installata sul repository
+   (GitHub → *Settings → GitHub Apps*). Collegare GitHub dal pannello di Render
+   basta per creare il servizio e per i deploy a mano, non per ricevere i push:
+   senza l'app il sito resta fermo all'ultimo deploy fatto a mano
+   (*Manual Deploy → Deploy latest commit*).
+
 Piano gratuito: il servizio **si addormenta dopo 15 minuti** senza visite e la prima
 richiesta dopo impiega circa un minuto. Va detto a chi prova.
 
