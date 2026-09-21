@@ -3,19 +3,28 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Torneo — Manabind</title>
-    <link rel="manifest" href="/manifest.json" />
+    <title>Torneo — Mull2Five</title>
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="theme-color" content="#0d0d0f" />
+    <meta property="og:image" content="/og-image-1200x630.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="/og-image-1200x630.png" />
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="app.css" />
   </head>
   <body>
     <header class="public-header">
       <a class="brand" href="index.html">
-        <span class="brand-mark">MB</span>
-        <span><strong>Manabind</strong></span>
+        <img src="/brand/header-logo-orizzontale-su-scuro.svg" alt="Mull2Five" class="brand-logo" />
       </a>
-      <nav class="public-nav">
-        <a href="index.html">← Tutti i tornei</a>
+      <nav class="public-nav" aria-label="Navigazione">
+        <a href="events.html">Eventi</a>
+        <a href="stores.html">Negozi</a>
+        <a href="circuits.html">Circuiti</a>
+        <a href="organizer.html">Organizza</a>
       </nav>
       <div class="public-auth" id="publicAuth"></div>
     </header>
@@ -31,7 +40,7 @@
       <form method="dialog" class="modal" id="registerForm">
         <header>
           <div><span class="eyebrow">Iscrizione</span><h2 id="registerTitle">Iscriviti</h2></div>
-          <button class="icon-button" value="cancel">×</button>
+          <button class="icon-button" value="cancel" formnovalidate>×</button>
         </header>
         <label>Wizards Account (opzionale)
           <input id="regWizards" placeholder="##########" />
@@ -45,7 +54,7 @@
         </label>
         <p id="regError" class="field-error"></p>
         <menu>
-          <button class="secondary" value="cancel">Annulla</button>
+          <button class="secondary" value="cancel" formnovalidate>Annulla</button>
           <button class="primary" id="confirmRegister" type="button">Iscriviti e paga</button>
         </menu>
       </form>

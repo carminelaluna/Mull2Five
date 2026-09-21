@@ -1,8 +1,19 @@
-# Manabind
+# Mull2Five
 
 Piattaforma full-stack per gestione tornei MTG: backend Python, database relazionale,
 login, dashboard utente, dashboard tornei, iscrizioni, decklist, round e pagamenti
 Stripe/PayPal.
+
+## Brand
+
+Palette: lime `#c6ff3d`, nero `#0d0d0f`, bianco. Gli asset stanno in
+`frontend/public/` (favicon, icone PWA, anteprima social) e `frontend/public/brand/`
+(logo orizzontale per l'header, verticale per il login, badge per gli spazi stretti).
+Il nome si scrive sempre `Mull2Five`.
+
+Restano volutamente con il vecchio nome gli identificatori tecnici: chiavi
+localStorage (`manabind-jwt-v1`), header tenant `X-Manabind-Org`, metriche
+Prometheus. Rinominarli sloggherebbe gli utenti.
 
 ## Funzionalità
 
@@ -10,7 +21,9 @@ App **interamente online** (tutto passa dal backend, niente localStorage): acces
 da più PC contemporaneamente, pensata anche per tornei grandi.
 
 ### Giocatori
-- Sfoglia tornei con filtri: nome, formato, data, luogo, distanza GPS (Nominatim + Haversine)
+- Home "Scopri": rail per eventi, negozi e circuiti con filtri rapidi
+- Ricerca eventi a facet: tipo evento, formati multipli, REL, periodo, distanza in km, ricerche salvate
+- Profili negozio e pagine circuito pubbliche, con classifica e soglia di qualificazione
 - Iscrizione + pagamento obbligatorio (Stripe/PayPal/sandbox)
 - "Le mie iscrizioni": pairings, risultati, decklist self-service, QR check-in, storico tornei
 - Notifiche Web Push (annunci, nuovo round) + profilo pubblico condivisibile
@@ -24,7 +37,7 @@ da più PC contemporaneamente, pensata anche per tornei grandi.
 
 ### Infrastruttura
 - Redis (cache + lockout), Web Push (VAPID), Prometheus `/metrics`, alerting email/Telegram + watchdog DB
-- Alembic migrations, backup automatici PostgreSQL (cron/systemd)
+- Alembic migrations, backup PostgreSQL cifrati ogni notte (GitHub Actions)
 - Rate limiting (slowapi), account lockout, JWT expiry, CSP headers
 - GitHub Actions CI/CD; test: pytest (backend) + Vitest + Playwright E2E
 
@@ -32,8 +45,8 @@ da più PC contemporaneamente, pensata anche per tornei grandi.
 
 ## Architettura
 
-**Un solo frontend online** in `frontend/` (Vite multi-page), servito in produzione da
-nginx (`frontend/dist`, `try_files $uri $uri.html`). Backend FastAPI su `/api`.
+**Un solo frontend online** in `frontend/` (Vite multi-page). In produzione la build
+(`frontend/dist`) la serve lo stesso processo FastAPI dell'API, su `/`; l'API sta su `/api`.
 Il vecchio organizer tool offline (localStorage) è stato rimosso: ogni funzione passa
 ora dal backend ed è accessibile da qualunque dispositivo.
 
@@ -167,8 +180,7 @@ make test
 │   ├── vitest.config.js
 │   └── package.json
 ├── deploy/
-│   ├── systemd/manabind.service
-│   └── nginx/manabind.conf
+│   └── prometheus-alerts.yml
 ├── scripts/
 │   └── dev.sh                  # Avvio backend (WSL)
 ├── .env.example
@@ -193,15 +205,6 @@ SECRET_KEY=cambia-questo-valore
 **Docker Compose (PostgreSQL):**
 ```env
 DATABASE_URL=postgresql+psycopg://arcana:arcana@db:5432/arcana_events
-```
-
-**EC2/systemd:**
-- se usi PostgreSQL installato sulla stessa macchina, usa `localhost`/`127.0.0.1`, non `db`;
-- se usi RDS, usa l'endpoint RDS;
-- se usi SQLite, metti il database in una directory scrivibile dal servizio:
-
-```env
-DATABASE_URL=sqlite:////var/lib/manabind/arcana_events.db
 ```
 
 **Backend URL per il proxy Vite:**
@@ -255,61 +258,11 @@ Con `PAYMENT_SANDBOX_MOCK=true` il backend genera una pagina sandbox locale per 
 
 ---
 
-## Deploy Linux
+## Deploy
 
-```bash
-sudo mkdir -p /opt/manabind
-sudo cp -R . /opt/manabind
-cd /opt/manabind
-
-# Build frontend
-npm install && npm run build
-
-# Backend
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e .
-cp .env.example .env   # poi modifica .env
-
-# Se usi SQLite su systemd, in .env imposta:
-# DATABASE_URL=sqlite:////var/lib/manabind/arcana_events.db
-
-# Systemd
-sudo cp deploy/systemd/manabind.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now manabind
-
-# Nginx
-sudo cp deploy/nginx/manabind.conf /etc/nginx/sites-available/manabind
-sudo ln -s /etc/nginx/sites-available/manabind /etc/nginx/sites-enabled/
-sudo nginx -t && sudo systemctl reload nginx
-```
-
-**Nginx** — aggiorna `manabind.conf` per servire il build statico:
-```nginx
-server {
-    root /opt/manabind/frontend/dist;
-    try_files $uri $uri.html $uri/ =404;
-
-    location /api    { proxy_pass http://127.0.0.1:8000; proxy_set_header Host $host; }
-    location /health { proxy_pass http://127.0.0.1:8000; }
-}
-```
-
-Se la home mostra `Impossibile caricare i tornei: Bad Gateway`, Nginx non sta ricevendo
-una risposta valida dal backend. Sul server verifica in quest'ordine:
-
-```bash
-curl -i http://127.0.0.1:8000/health
-sudo systemctl status manabind --no-pager
-sudo journalctl -u manabind -n 120 --no-pager
-sudo tail -n 80 /var/log/nginx/error.log
-```
-
-Cause comuni:
-- `DATABASE_URL` contiene host `db` ma non stai usando Docker Compose: su EC2/systemd usa `127.0.0.1` o l'endpoint RDS.
-- SQLite punta a `/opt/manabind/arcana_events.db` e il servizio `www-data` non può scrivere: usa `/var/lib/manabind/arcana_events.db`.
-- il virtualenv non è stato aggiornato dopo il deploy: riesegui `./scripts/deploy.sh`.
+Versione di prova online: Render (un servizio Docker per API e pagine) e
+Supabase (PostgreSQL), con backup cifrati ogni notte. Passaggi, variabili
+d'ambiente e ripristino in [HOSTING.md](HOSTING.md).
 
 ---
 

@@ -1,9 +1,10 @@
+import { esc } from './escape.js';
+
 const API       = '/api';
 const TOKEN_KEY = 'manabind-jwt-v1';
 const params    = new URLSearchParams(location.search);
 const EMAIL     = params.get('email');   // URL: /player.html?email=xxx@xxx.com
 
-function esc(s) { return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function fmtDate(d) { if (!d) return '—'; const [y,m,dd]=d.split('-'); return `${dd}/${m}/${y}`; }
 function toast(msg) {
   const el = document.querySelector('#toast');

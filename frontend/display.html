@@ -3,10 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Display Torneo — Manabind</title>
+    <title>Display Torneo — Mull2Five</title>
     <style>
       /* Schermo TV: alto contrasto, caratteri grandi, zero interazione */
-      :root { --bg:#11110f; --fg:#f5efe0; --muted:#b9ad99; --accent:#d8b465; --line:#3a352d; }
+      :root { --bg:#0d0d0f; --fg:#ffffff; --muted:#9a9aa5; --accent:#c6ff3d; --line:#2a2a31; }
       * { margin:0; padding:0; box-sizing:border-box; }
       body { background:var(--bg); color:var(--fg); font-family:system-ui,Arial,sans-serif; height:100vh; overflow:hidden; display:flex; flex-direction:column; }
       header { display:flex; justify-content:space-between; align-items:center; padding:24px 48px; border-bottom:2px solid var(--line); }
@@ -14,7 +14,7 @@
       .round-info { text-align:right; }
       .round-label { font-size:clamp(18px,2vw,28px); color:var(--muted); }
       #timer { font-size:clamp(40px,6vw,96px); font-variant-numeric:tabular-nums; color:var(--accent); font-weight:bold; line-height:1; }
-      #timer.expired { color:#e36363; animation:blink 1s step-end infinite; }
+      #timer.expired { color:#ef6a5e; animation:blink 1s step-end infinite; }
       @keyframes blink { 50% { opacity:.25; } }
       main { flex:1; overflow:hidden; padding:24px 48px; }
       h2 { font-size:clamp(20px,2.5vw,36px); color:var(--muted); text-transform:uppercase; letter-spacing:.08em; margin-bottom:16px; }
@@ -26,14 +26,14 @@
       .pts { font-weight:bold; text-align:right; }
       .done { color:var(--muted); }
       .table-extra { color:var(--accent); font-variant-numeric:tabular-nums; font-weight:bold; }
-      .table-extra.over { color:#e36363; }
+      .table-extra.over { color:#ef6a5e; }
       #message { display:flex; align-items:center; justify-content:center; height:100%; font-size:clamp(24px,3vw,48px); color:var(--muted); text-align:center; }
       footer { padding:12px 48px; color:var(--muted); font-size:14px; border-top:1px solid var(--line); display:flex; justify-content:space-between; }
     </style>
   </head>
   <body>
     <header>
-      <h1 id="tournamentName">Manabind</h1>
+      <h1 id="tournamentName">Mull2Five</h1>
       <div class="round-info">
         <div class="round-label" id="roundLabel"></div>
         <div id="timer"></div>
@@ -41,11 +41,13 @@
     </header>
     <main id="content"><div id="message">Collegamento…</div></main>
     <footer>
-      <span>Manabind — display pubblico</span>
+      <span>Mull2Five — display pubblico</span>
       <span id="viewLabel"></span>
     </footer>
 
     <script type="module">
+      import { esc } from './js/escape.js';
+
       /* Uso: display.html?t=ID  (+ opzionale &view=pairings|standings per bloccare la rotazione) */
       const params       = new URLSearchParams(location.search);
       const tournamentId = params.get('t');
@@ -116,9 +118,6 @@
           <tbody>${rows}</tbody></table>`;
       }
 
-      function esc(s) {
-        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-      }
 
       /* Timer del round: countdown da round_ends_at */
       function tickTimer() {

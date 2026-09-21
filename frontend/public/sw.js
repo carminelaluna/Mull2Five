@@ -1,5 +1,5 @@
 /**
- * Service Worker — Manabind (item 15: PWA offline)
+ * Service Worker — Mull2Five (item 15: PWA offline)
  * Strategia: cache-first per asset statici, network-first per API.
  * In produzione (npm run build) usa vite-plugin-pwa per gestione
  * automatica dei file con hash. Questo SW è ottimizzato per dev/server locale.
@@ -10,7 +10,7 @@ const CACHE = 'manabind-v1';
 const STATIC = [
   '/', '/index.html', '/login.html', '/event.html', '/my-registrations.html',
   '/leaderboard.html', '/player.html', '/organizer.html', '/control.html',
-  '/styles.css', '/app.css', '/manifest.json', '/icons/icon.svg',
+  '/styles.css', '/app.css', '/site.webmanifest', '/icon-192.png',
   '/js/app.js', '/js/login-public.js', '/js/event.js', '/js/my-registrations.js',
   '/js/player.js', '/js/organizer.js', '/js/control.js', '/js/i18n.js', '/js/push.js',
 ];
@@ -60,13 +60,13 @@ self.addEventListener('fetch', e => {
    Riceve le notifiche dal backend (annunci, nuovi round) e le mostra anche
    quando la tab è chiusa. Il click apre/focalizza l'app sulla URL indicata. */
 self.addEventListener('push', e => {
-  let data = { title: 'Manabind', body: '', url: '/my-registrations.html' };
+  let data = { title: 'Mull2Five', body: '', url: '/my-registrations.html' };
   try { data = { ...data, ...(e.data ? e.data.json() : {}) }; } catch { /* payload non-JSON */ }
   e.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,
-      icon: '/icons/icon.svg',
-      badge: '/icons/icon.svg',
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
       data: { url: data.url || '/' },
     })
   );

@@ -23,8 +23,8 @@
 .primary-btn {
   padding: 9px 18px;
   border-radius: 8px;
-  background: var(--red);
-  color: white;
+  background: var(--accent);
+  color: var(--accent-ink);
   text-decoration: none;
   font-weight: 800;
 }
@@ -59,6 +59,10 @@
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 16px;
 }
+
+/* Il limite sta sulla scheda, non sulla colonna: con un massimo sulla colonna
+   auto-fill ne calcola meno di quante ne entrano e resta mezza riga vuota. */
+.public-events-grid > .tile { max-width: 420px; }
 
 .public-footer {
   text-align: center;
@@ -101,4 +105,633 @@
   .public-nav { display: none; }
   .search-form-public { grid-template-columns: 1fr; }
   .event-detail-header { flex-direction: column; }
+}
+
+/* ── Vista grafica decklist (deck-view.js) ───────────────────── */
+.deck-sections { display: grid; gap: 20px; }
+.deck-title { margin: 0 0 12px; font-size: 1.05rem; }
+.deck-section h3 { margin: 0 0 10px; font-size: .95rem; }
+.deck-hint { font-size: .8rem; margin-top: 10px; }
+
+.card-image-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.card-tile {
+  position: relative;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--panel-2);
+  aspect-ratio: 488 / 680;   /* proporzioni di una carta Magic */
+}
+.card-tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* Segnaposto mostrato finché Scryfall non risponde: la lista è già leggibile. */
+.card-tile.fallback-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, .08);
+}
+.card-name-fallback { text-align: center; font-size: .8rem; line-height: 1.3; }
+
+.card-qty {
+  position: absolute;
+  top: 6px; left: 6px;
+  z-index: 1;
+  min-width: 22px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, .78);
+  color: #fff;
+  font-size: .78rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+dialog.deck-view-dialog { max-width: min(1100px, 94vw); width: 100%; }
+.deck-view-body { max-height: 74vh; overflow: auto; }
+
+@media (max-width: 560px) {
+  .card-image-grid { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); }
+}
+
+/* ══ Discover & ricerca eventi ═══════════════════════════════
+   Pattern presi dai portali eventi moderni (rail per sezione, chip di
+   filtro rapido, facet a sinistra, riassunto in linguaggio naturale),
+   con la palette lime/nero di Mull2Five invece del viola generico. */
+
+/* ── Intestazione di sezione: titolo grande + "tutti →" a destra ── */
+.rail { margin: 0 0 34px; }
+.rail-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 6px;
+}
+.rail-head h2 {
+  margin: 0;
+  font-size: clamp(1.6rem, 3.4vw, 2.3rem);
+  letter-spacing: -0.02em;
+}
+.rail-all {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+.rail-all:hover { color: var(--accent); }
+
+/* ── Chip di filtro rapido ─────────────────────────────────── */
+.chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+.chip {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--muted);
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.chip:hover { color: var(--ink); border-color: var(--soft); }
+.chip[aria-pressed="true"] {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ── Carosello orizzontale ─────────────────────────────────── */
+.rail-scroll {
+  display: grid;
+  grid-auto-flow: column;
+  /* Larghezza fissa e uguale in ogni rail: in un carosello le schede scorrono,
+     non si adattano al numero. Con 1fr una sola scheda occupava tutta la riga,
+     e con minmax le rail piene risultavano piu strette di quelle vuote. */
+  grid-auto-columns: 288px;
+  justify-content: start;
+  gap: 14px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  scroll-snap-type: x proximity;
+}
+.rail-scroll > * { scroll-snap-align: start; }
+.rail-scroll::-webkit-scrollbar { height: 8px; }
+.rail-scroll::-webkit-scrollbar-thumb { background: var(--line); border-radius: 999px; }
+
+/* ── Scheda evento / negozio ───────────────────────────────── */
+.tile {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  text-decoration: none;
+  color: inherit;
+  transition: background 0.18s ease, border-color 0.18s ease;
+}
+/* Niente salto verticale né contorno lime tutt'intorno: su una scheda larga
+   era un lampeggio. Si accende solo lo sfondo, con un filo di bordo. */
+.tile:hover {
+  background: var(--panel-2);
+  border-color: var(--soft);
+}
+.tile-title { font-weight: 700; line-height: 1.25; }
+.tile-meta { display: flex; flex-wrap: wrap; gap: 6px 10px; color: var(--muted); font-size: 0.82rem; }
+.tile-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+  font-size: 0.82rem;
+}
+
+/* Etichetta del tipo di evento: un colore per tipo, leggibile a colpo d'occhio */
+.type-badge {
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border: 1px solid currentColor;
+}
+.type-locals             { color: var(--teal); }
+.type-prerelease         { color: var(--green); }
+.type-rcq                { color: var(--accent); }
+.type-store_championship { color: var(--warn); }
+.type-premier            { color: var(--danger); }
+.type-other              { color: var(--muted); }
+
+.dist-badge { color: var(--accent); font-size: 0.8rem; white-space: nowrap; }
+
+/* ── Ricerca: facet a sinistra + risultati ─────────────────── */
+.search-layout {
+  display: grid;
+  grid-template-columns: 252px minmax(0, 1fr);
+  gap: 22px;
+  align-items: start;
+}
+.facets {
+  position: sticky;
+  top: 16px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+}
+.facet { border-bottom: 1px solid var(--line); padding: 12px 0; }
+.facet:first-child { padding-top: 0; }
+.facet:last-child { border-bottom: 0; padding-bottom: 0; }
+.facet > h3 {
+  margin: 0 0 8px;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+/* Grid invece di flex: al testo serve una colonna vera, altrimenti come nodo
+   anonimo di un flex si comprime e va a capo su ogni parola. */
+.facet label {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+  padding: 3px 0;
+  font-size: 0.86rem;
+  line-height: 1.35;
+  cursor: pointer;
+}
+.facet label input { margin-top: 2px; }
+.facet input[type="radio"], .facet input[type="checkbox"] { accent-color: var(--accent); }
+.facet-more {
+  background: none;
+  border: 0;
+  color: var(--accent);
+  padding: 4px 0;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+/* Riassunto a frase: le parti variabili sono cliccabili */
+.filter-summary {
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  margin-bottom: 14px;
+  line-height: 1.9;
+  color: var(--muted);
+}
+.filter-summary b {
+  color: var(--ink);
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-weight: 600;
+}
+
+/* ── Tabella risultati ─────────────────────────────────────── */
+.results-table { width: 100%; border-collapse: collapse; }
+.results-table th {
+  text-align: left;
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+}
+.results-table td {
+  padding: 16px 14px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+  line-height: 1.5;
+}
+.results-table tbody tr { cursor: pointer; }
+.results-table tbody tr:hover { background: var(--panel-2); }
+.results-table .col-name { font-weight: 600; font-size: 0.98rem; }
+
+/* La riga sotto (tipo evento, orario, posti) respira invece di incollarsi
+   al titolo: erano due righe di testo a contatto. */
+.results-table .col-sub {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 7px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 400;
+}
+
+/* ── Filtri salvati ────────────────────────────────────────── */
+.saved-filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+.saved-chip { display: inline-flex; align-items: center; gap: 4px; }
+.saved-chip button {
+  background: none;
+  border: 0;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+}
+.saved-chip button:hover { color: var(--danger); }
+
+/* ── Profilo negozio / circuito ────────────────────────────── */
+.profile-head { display: flex; gap: 18px; align-items: flex-start; flex-wrap: wrap; margin-bottom: 22px; }
+.profile-logo {
+  width: 84px;
+  height: 84px;
+  border-radius: 14px;
+  object-fit: cover;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  flex-shrink: 0;
+}
+.profile-head h1 { margin: 0 0 6px; }
+.profile-stats { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 10px; }
+.profile-stat strong { display: block; font-size: 1.5rem; line-height: 1.1; }
+.profile-stat span { color: var(--muted); font-size: 0.8rem; }
+
+/* Tag giocatore */
+.player-tag {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  border: 1px solid currentColor;
+  margin-right: 4px;
+}
+
+@media (max-width: 860px) {
+  .search-layout { grid-template-columns: 1fr; }
+  .facets { position: static; max-height: none; }
+  .results-table thead { display: none; }
+  .results-table tr { display: grid; gap: 2px; padding: 10px 0; }
+  .results-table td { border: 0; padding: 1px 0; }
+  .results-table tr { border-bottom: 1px solid var(--line); }
+}
+
+.rail-sub {
+  margin: 26px 0 12px;
+  font-size: 1.1rem;
+  color: var(--muted);
+  font-weight: 700;
+}
+.rail-sub:first-child { margin-top: 0; }
+
+/* ══ Back-office a due livelli ═══════════════════════════════
+   Tre sezioni in alto, e dentro un evento le sue schede. Niente selettore
+   globale: si entra in un evento e si esce, come in un back-office moderno. */
+
+.bo-nav {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 20px;
+}
+.bo-nav-item {
+  padding: 10px 2px;
+  margin-right: 22px;
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  font-weight: 700;
+  cursor: pointer;
+}
+.bo-nav-item:hover { color: var(--ink); }
+.bo-nav-item.active { color: var(--ink); border-bottom-color: var(--accent); }
+
+.bo-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.bo-head h2 { margin: 0; font-size: clamp(1.4rem, 3vw, 1.9rem); letter-spacing: -0.02em; }
+
+/* Briciola: dove sono, cosa sto guardando, e le scorciatoie di quell'evento. */
+.bo-crumb {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding-bottom: 14px;
+  margin-bottom: 4px;
+}
+.bo-back {
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 12px;
+  color: var(--muted);
+  cursor: pointer;
+  font-weight: 700;
+}
+.bo-back:hover { color: var(--ink); border-color: var(--soft); }
+.bo-crumb-title { flex: 1; min-width: 220px; display: grid; gap: 2px; }
+.bo-crumb-title strong { font-size: 1.25rem; }
+.bo-crumb-title .muted { font-size: 0.84rem; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.bo-crumb-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
+/* Schede evento: cliccabili per intero, coi comandi rapidi a destra. */
+.bo-event-list { display: grid; gap: 10px; }
+.bo-event {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.bo-event:hover { border-color: var(--accent); }
+.bo-event-main { display: grid; gap: 6px; min-width: 240px; flex: 1; }
+.bo-event-name { font-weight: 700; font-size: 1.05rem; }
+.bo-event-actions { flex-shrink: 0; }
+
+.bo-dialog { max-width: min(760px, 94vw); width: 100%; }
+.bo-check { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+/* La regola globale degli input (larghezza piena, padding da campo di testo) vale
+   anche per le checkbox: dentro una riga flex la casella si prendeva tutto lo
+   spazio e spingeva l'etichetta a destra, spezzata su piu righe. */
+.bo-check input[type="checkbox"] {
+  width: auto;
+  flex: none;
+  padding: 0;
+  margin: 0;
+  accent-color: var(--accent);
+}
+.bo-more summary { cursor: pointer; color: var(--muted); font-size: 0.88rem; padding: 6px 0; }
+
+/* Scelta dei destinatari di un annuncio: i tag restano visibili ma spenti finche
+   non si toglie "tutti gli iscritti", cosi si vede subito cosa si puo scegliere. */
+.tag-picker {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px 12px;
+  margin: 0;
+}
+.tag-picker legend { color: var(--muted); font-size: 0.82rem; padding: 0 4px; }
+.tag-picker-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin-top: 6px;
+  padding-left: 22px;
+}
+.tag-picker-list .bo-check:has(input:disabled) { opacity: 0.45; }
+
+.ann-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+.ann-row:last-child { border-bottom: none; }
+/* Casella e spiegazione su tutta la riga: la nota su perche l'email non parte
+   e lunga, e stretta accanto al pulsante andava a capo su quattro righe. */
+.a-email { grid-column: 1 / -1; display: grid; gap: 4px; align-content: start; }
+#aSend { justify-self: start; }
+.a-email small { font-size: 0.8rem; }
+.a-email .mini-button { margin-left: 6px; }
+
+/* Avvisi all'organizzatore: il contatore sulle schede e la striscia dentro il
+   torneo. Il bordo a sinistra distingue un avviso (ambra) da una nota (grigio). */
+.warn-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--warn);
+  background: rgba(232, 161, 60, 0.14);
+  cursor: help;
+}
+.bo-warnings { display: grid; gap: 6px; margin: 0 0 14px; }
+.bo-warning {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--warn);
+  border-radius: 8px;
+  font-size: 0.86rem;
+}
+.bo-warning.info { border-left-color: var(--muted); }
+.bo-warning-icon { color: var(--warn); flex: none; }
+.bo-warning.info .bo-warning-icon { color: var(--muted); }
+.bo-warning-text { flex: 1; }
+.bo-more summary:hover { color: var(--ink); }
+
+@media (max-width: 640px) {
+  .bo-nav { overflow-x: auto; }
+  .bo-nav-item { margin-right: 16px; white-space: nowrap; }
+  .bo-event { flex-direction: column; align-items: stretch; }
+}
+
+/* ══ Console Regia (console.js) ══════════════════════════════
+   Montata sia in control.html sia dentro la pagina dell'evento. */
+.ctl-wrap { max-width: 980px; margin: 0 auto; }
+.ctl-screens:not(:empty) { margin-bottom: 12px; }
+
+.ctl-timer {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  margin-bottom: 16px;
+}
+.ctl-clock {
+  font-size: clamp(36px, 7vw, 72px);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.ctl-clock.warning { color: var(--warn); }
+.ctl-clock.over    { color: var(--danger); }
+
+.ctl-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 12px;
+  border-bottom: 1px solid var(--line);
+}
+.ctl-row:last-child { border-bottom: 0; }
+.ctl-row .names { flex: 1; min-width: 200px; }
+
+.ctl-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+.ctl-tab {
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+}
+.ctl-tab.active {
+  background: var(--teal);
+  border-color: var(--teal);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+.ctl-tab.judge.active { background: var(--accent); border-color: var(--accent); }
+
+.tbl-clock { font-variant-numeric: tabular-nums; font-weight: 700; min-width: 64px; text-align: right; }
+.tbl-clock.over { color: var(--danger); }
+.tbl-extra { color: var(--accent); font-size: 0.8rem; }
+
+.mini-button.warn   { background: rgba(232, 161, 60, 0.18); color: var(--warn);   border: 1px solid var(--warn); }
+.mini-button.danger { background: rgba(239, 106, 94, 0.18); color: var(--danger); border: 1px solid var(--danger); }
+.judge-tools { display: flex; gap: 4px; flex-wrap: wrap; }
+.judge-tools .mini-button { font-size: 0.72rem; min-height: 28px; padding: 3px 7px; }
+
+.noshow-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+}
+.absent-chk { font-size: 0.72rem; color: var(--danger); margin-left: 4px; white-space: nowrap; }
+
+/* Righe dello storico: cliccabili per aprire il dettaglio del torneo. */
+.history-table tbody tr {
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.history-table tbody tr:hover,
+.history-table tbody tr:focus-visible {
+  background: var(--panel-2);
+  outline: none;
+}
+.history-table tbody tr:focus-visible { box-shadow: inset 2px 0 0 var(--accent); }
+
+/* Anteprima della scheda coverage: il canvas e a misura social, qui si
+   rimpicciolisce per stare nella pagina. */
+.cover-frame {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+  background: var(--panel);
+  display: inline-block;
+  max-width: 100%;
+}
+.cover-frame canvas {
+  display: block;
+  max-width: 100%;
+  max-height: 70vh;
+  height: auto;
+  border-radius: 8px;
+}
+
+/* Barra proporzionale sotto l'archetipo nella tabella metagame. */
+.meta-bar {
+  height: 4px;
+  margin-top: 5px;
+  border-radius: 999px;
+  background: var(--accent);
+  opacity: 0.55;
+  min-width: 6px;
+}
+
+/* Stato del tavolo in Regia: il colore dice a colpo d'occhio cosa manca. */
+.ctl-row.status-called    { box-shadow: inset 3px 0 0 var(--warn); }
+.ctl-row.status-attention { box-shadow: inset 3px 0 0 var(--danger); }
+.ctl-row.status-disputed  { box-shadow: inset 3px 0 0 var(--danger); background: rgba(239, 106, 94, .06); }
+.ctl-row.status-done      { opacity: .62; }
+
+.tbl-state {
+  font-size: .72rem;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--warn);
+}
+.mini-button.judge-chip { border-color: var(--soft); color: var(--muted); }
+.mini-button.judge-chip.mine { border-color: var(--accent); color: var(--accent); }
+
+/* Deck check gia fatto: il judge vede subito chi non va ricontrollato. */
+.mini-button.checked { border-color: var(--green); color: var(--green); }
+
+/* Una riga per segmento di formato nella scheda iscrizione del giocatore. */
+.deck-segment {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
 }

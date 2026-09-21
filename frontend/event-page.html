@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Manifestazione — Mull2Five</title>
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="theme-color" content="#0d0d0f" />
+    <meta property="og:image" content="/og-image-1200x630.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="/og-image-1200x630.png" />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="app.css" />
+  </head>
+  <body>
+    <header class="public-header">
+      <a class="brand" href="index.html">
+        <img src="/brand/header-logo-orizzontale-su-scuro.svg" alt="Mull2Five" class="brand-logo" />
+      </a>
+      <nav class="public-nav" aria-label="Navigazione">
+        <a href="events.html" aria-current="page">Eventi</a>
+        <a href="stores.html">Negozi</a>
+        <a href="circuits.html">Circuiti</a>
+        <a href="organizer.html">Organizza</a>
+      </nav>
+      <div class="public-auth" id="publicAuth"></div>
+    </header>
+
+    <main class="public-main">
+      <div id="eventPage"><p class="empty">Caricamento…</p></div>
+    </main>
+
+    <footer class="public-footer">
+      <p>© 2026 Mull2Five · <a href="/docs">API</a></p>
+    </footer>
+
+    <div id="toast" role="status" aria-live="polite"></div>
+    <script type="module" src="js/event-page.js"></script>
+  </body>
+</html>

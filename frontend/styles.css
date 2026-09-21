@@ -1,19 +1,23 @@
 :root {
   color-scheme: dark;
-  --bg: #11110f;
-  --panel: #1c1b18;
-  --panel-2: #24221e;
-  --ink: #f5efe0;
-  --muted: #b9ad99;
-  --soft: #746b5d;
-  --line: #3a352d;
-  --red: #b6483f;
-  --teal: #2c8d89;
-  --green: #68a866;
-  --gold: #c7a65d;
-  --warn: #d18b39;
-  --danger: #db695f;
-  --shadow: 0 20px 60px rgba(0, 0, 0, 0.34);
+  /* Brand Mull2Five: lime #c6ff3d su nero #0d0d0f, bianco per il testo.
+     I grigi sono neutri (non piu caldi): il lime e gia molto saturo, un fondo
+     caldo lo farebbe virare. */
+  --bg: #0d0d0f;
+  --panel: #16161a;
+  --panel-2: #1f1f25;
+  --ink: #ffffff;
+  --muted: #9a9aa5;
+  --soft: #6a6a75;
+  --line: #2a2a31;
+  --accent: #c6ff3d;
+  --accent-dim: rgba(198, 255, 61, 0.14);
+  --accent-ink: #0d0d0f;   /* testo sopra il lime: il nero e l'unico leggibile */
+  --teal: #35c7bf;
+  --green: #7bd66f;
+  --warn: #e8a13c;
+  --danger: #ef6a5e;
+  --shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
@@ -22,12 +26,19 @@
   box-sizing: border-box;
 }
 
+/* I link senza classe non devono cadere sul blu di sistema: su nero stona
+   e non e nemmeno del brand. */
+a {
+  color: var(--accent);
+}
+
 body {
   margin: 0;
   min-width: 320px;
   background:
-    radial-gradient(circle at top left, rgba(182, 72, 63, 0.22), transparent 32rem),
-    linear-gradient(135deg, #11110f 0%, #181816 46%, #101616 100%);
+    radial-gradient(circle at top left, rgba(198, 255, 61, 0.10), transparent 34rem),
+    linear-gradient(140deg, #0d0d0f 0%, #121216 52%, #0d0d0f 100%);
+  background-attachment: fixed;
   color: var(--ink);
 }
 
@@ -55,7 +66,7 @@ button {
   height: 100vh;
   padding: 24px 18px;
   border-right: 1px solid var(--line);
-  background: rgba(17, 17, 15, 0.92);
+  background: rgba(13, 13, 15, 0.92);
   backdrop-filter: blur(16px);
   display: flex;
   flex-direction: column;
@@ -70,15 +81,29 @@ button {
   margin-bottom: 30px;
 }
 
+/* Il logo orizzontale porta gia badge e wordmark: nell'header basta l'SVG.
+   Larghezza minima da brand kit: 120 px. */
+.brand-logo {
+  display: block;
+  height: 34px;
+  width: auto;
+  min-width: 120px;
+}
+
+/* Login e registrazione: il kit prevede la versione verticale, piu alta. */
+.brand-logo-tall {
+  height: 76px;
+  min-width: 0;
+}
+
+/* Solo badge, dove lo spazio non basta per il logo intero (min 24 px). */
 .brand-mark {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 8px;
-  background: linear-gradient(135deg, var(--red), var(--teal));
-  font-weight: 900;
-  letter-spacing: 0;
+  display: block;
+  width: 36px;
+  height: 36px;
+  background: url("/brand/sidebar-icona-badge-su-scuro.svg") center / contain no-repeat;
+  text-indent: -9999px;
+  overflow: hidden;
 }
 
 .brand small,
@@ -219,18 +244,20 @@ menu {
   font-weight: 800;
 }
 
+/* L'azione principale e il lime del brand; sopra ci va il nero, l'unico
+   colore leggibile su una tinta cosi chiara e satura. */
 .primary {
-  background: var(--red);
-  color: white;
+  background: var(--accent);
+  color: var(--accent-ink);
 }
 
 .primary:hover {
-  background: #ca554a;
+  background: #d4ff63;
 }
 
 .secondary {
   border: 1px solid var(--line);
-  background: rgba(245, 239, 224, 0.06);
+  background: rgba(255, 255, 255, 0.05);
   color: var(--ink);
 }
 
@@ -441,7 +468,7 @@ tr:last-child td {
   gap: 12px;
   padding: 12px;
   border-radius: 8px;
-  background: rgba(245, 239, 224, 0.06);
+  background: rgba(255, 255, 255, 0.05);
 }
 
 /* ── Round card con risultati ───────────────────────── */
@@ -479,8 +506,8 @@ tr:last-child td {
 .round-tab-dot { opacity: 0.7; margin-left: 2px; }
 .round-tab.judge-toggle { margin-left: auto; }
 .round-tab.judge-toggle.active {
-  background: var(--accent, #d8b465);
-  border-color: var(--accent, #d8b465);
+  background: var(--accent);
+  border-color: var(--accent);
 }
 .table-clock {
   font-variant-numeric: tabular-nums;
@@ -488,7 +515,7 @@ tr:last-child td {
   margin-right: 6px;
 }
 .table-clock.over { color: var(--danger, #e36363); }
-.table-extra { color: var(--accent, #d8b465); font-size: 0.8rem; margin-right: 6px; }
+.table-extra { color: var(--accent); font-size: 0.8rem; margin-right: 6px; }
 
 .round-card-head {
   display: flex;
@@ -685,7 +712,7 @@ tr:last-child td {
 
 .primary-mini {
   background: var(--teal);
-  color: white;
+  color: var(--accent-ink);
 }
 
 /* ── Classifica ─────────────────────────────────────── */
@@ -814,7 +841,7 @@ dialog::backdrop {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--teal), var(--red));
+  background: linear-gradient(135deg, var(--accent), var(--teal));
   font-weight: 800;
   font-size: 0.82rem;
   flex-shrink: 0;

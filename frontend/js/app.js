@@ -1,140 +1,140 @@
 /**
- * SPA pubblica giocatori — entry point.
- * Usa direttamente l'API backend (non localStorage).
+ * app.js — Home "Scopri": rail per tipo di contenuto invece di una lista piatta.
+ *
+ * Ogni rail ha i suoi chip di filtro rapido e un "tutti →" che porta alla ricerca
+ * completa con i filtri già impostati. Chi sa cosa cerca va dritto su events.html;
+ * chi non lo sa, scorre.
  */
+import {
+  apiGet, askPosition, esc, eventTile, forgetPosition, placeholder,
+  savedPosition, seriesTile, storeTile, updateAuthNav,
+} from './catalog.js';
 
-const API = '/api';
-let _page = 1;
-const PER_PAGE = 12;
+const $ = (s) => document.querySelector(s);
 
-/* ── Helpers ─────────────────────────────────────────── */
+/* Ogni voce è un chip: etichetta + parametri di ricerca. Il primo è il default. */
+const EVENT_RAILS = [
+  { label: 'Tutti',        params: { days: 30 } },
+  { label: 'Questa settimana', params: { days: 7 } },
+  { label: 'RCQ',          params: { event_types: 'rcq', days: 180 } },
+  { label: 'Prerelease',   params: { event_types: 'prerelease', days: 60 } },
+  { label: 'Competitivi',  params: { rel: 'Competitive,Professional', days: 90 } },
+];
 
-async function apiFetch(path, opts = {}) {
-  const token = localStorage.getItem('manabind-jwt-v1');
-  const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-  const r = await fetch(API + path, { ...opts, headers });
-  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.statusText);
-  return r.status === 204 ? null : r.json();
-}
+const STORE_RAILS = [
+  { label: 'Tutti',      params: {} },
+  { label: 'Vicino a me', params: { near: true } },
+  { label: 'Premium',    params: { premium_only: true } },
+];
 
-function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-function fmtDate(d) { if (!d) return '—'; const [y,m,dd]=d.split('-'); return `${dd}/${m}/${y}`; }
-function fmtMoney(v) { return (+v||0).toLocaleString('it-IT',{style:'currency',currency:'EUR'}); }
+let _position = savedPosition();
 
-/* ── Sessione ─────────────────────────────────────────── */
-
-function getSession() {
-  const t = localStorage.getItem('manabind-jwt-v1');
-  if (!t) return null;
-  try { return JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))); }
-  catch { return null; }
-}
-
-function updateAuthNav() {
-  const session = getSession();
-  const el = document.querySelector('#publicAuth');
-  if (!el) return;
-  if (session) {
-    el.innerHTML = `<a class="secondary-link" href="player.html?email=${encodeURIComponent(session.email)}">Profilo</a>
-      <span style="color:var(--muted);font-size:.88rem">${esc(session.email)}</span>
-      <button class="secondary-link" id="logoutBtn" type="button">Esci</button>`;
-    el.querySelector('#logoutBtn').addEventListener('click', () => {
-      localStorage.removeItem('manabind-jwt-v1');
-      location.reload();
-    });
-  } else {
-    el.innerHTML = `<a class="secondary-link" href="login.html">Accedi</a>
-                    <a class="primary-btn"    href="login.html">Registrati</a>`;
+function query(params) {
+  const q = new URLSearchParams({ status: 'published', ...params });
+  if (params.near) {
+    q.delete('near');
+    if (_position) { q.set('near_lat', _position.lat); q.set('near_lng', _position.lng); q.set('radius_km', 100); }
   }
+  return q.toString();
 }
 
-/* ── Tornei ──────────────────────────────────────────── */
+/** Chip di una rail: aria-pressed segna l'attivo, il click ricarica solo quella rail. */
+function renderChips(host, rails, active, onPick) {
+  host.innerHTML = rails.map((r, i) => `
+    <button class="chip" type="button" data-i="${i}" aria-pressed="${i === active}">${esc(r.label)}</button>
+  `).join('');
+  host.querySelectorAll('[data-i]').forEach((btn) =>
+    btn.addEventListener('click', () => onPick(+btn.dataset.i)));
+}
 
-async function loadTournaments() {
-  const name   = document.querySelector('#searchName')?.value.trim() || '';
-  const format = document.querySelector('#searchFormat')?.value || '';
-  const date   = document.querySelector('#searchDate')?.value || '';
-  const city   = document.querySelector('#searchCity')?.value.trim() || '';
-
-  const params = new URLSearchParams();
-  if (name)   params.set('name',   name);
-  if (format) params.set('format', format);
-  if (date)   params.set('date_from', date);
-  if (city)   params.set('venue',  city);
-  params.set('status', 'published');
-
-  const listEl  = document.querySelector('#eventsList');
-  const emptyEl = document.querySelector('#eventsEmpty');
-  listEl.innerHTML = '<p class="empty">Caricamento…</p>';
-
+async function loadEvents(index = 0) {
+  const host = $('#eventsRail');
+  renderChips($('#eventsChips'), EVENT_RAILS, index, loadEvents);
+  placeholder(host, 'Caricamento…');
+  const rail = EVENT_RAILS[index];
   try {
-    const tournaments = await apiFetch('/tournaments?' + params.toString());
-    const data = Array.isArray(tournaments) ? tournaments : (tournaments?.items ?? []);
+    const events = await apiGet('/tournaments?' + query(rail.params));
+    if (!events.length) { placeholder(host, 'Nessun evento in questa selezione.'); return; }
+    host.innerHTML = events.slice(0, 12).map(eventTile).join('');
+  } catch (err) {
+    placeholder(host, `Impossibile caricare gli eventi: ${err.message}`);
+  }
+  const q = new URLSearchParams(rail.params);
+  $('#eventsAll').href = 'events.html?' + q.toString();
+}
 
-    /* Paginazione client-side */
-    const total   = data.length;
-    const start   = (_page - 1) * PER_PAGE;
-    const page    = data.slice(start, start + PER_PAGE);
-
-    if (!page.length) {
-      listEl.innerHTML = '';
-      emptyEl.style.display = '';
+async function loadStores(index = 0) {
+  const host = $('#storesRail');
+  renderChips($('#storesChips'), STORE_RAILS, index, loadStores);
+  placeholder(host, 'Caricamento…');
+  const params = { ...STORE_RAILS[index].params };
+  const q = new URLSearchParams();
+  if (params.premium_only) q.set('premium_only', 'true');
+  if (params.near && _position) {
+    q.set('near_lat', _position.lat); q.set('near_lng', _position.lng); q.set('radius_km', 100);
+  }
+  try {
+    const stores = await apiGet('/organizations?' + q.toString());
+    if (!stores.length) {
+      placeholder(host, params.near && !_position
+        ? 'Concedi la posizione per vedere i negozi vicini.'
+        : 'Nessun negozio in questa selezione.');
       return;
     }
-    emptyEl.style.display = 'none';
-
-    listEl.innerHTML = page.map(t => `
-      <article class="event-card">
-        <div class="event-card-head">
-          <div>
-            <strong>${esc(t.name)}</strong>
-            ${t.venue ? `<small>${esc(t.venue)}</small>` : ''}
-          </div>
-          <span class="badge">${esc(t.format)}</span>
-        </div>
-        <div class="event-card-meta">
-          <span>${fmtDate(t.starts_on?.substring(0,10))}${t.start_time ? ' · ' + esc(t.start_time) : ''}</span>
-          <span>${fmtMoney((t.entry_fee_cents||0)/100)} entry</span>
-          <span>${Math.max(t.capacity - (t.registered_players||0), 0)} posti</span>
-          <span class="badge">${esc(t.rules_enforcement_level || 'Regular')}</span>
-        </div>
-        <a class="primary" href="event.html?id=${t.id}" style="text-align:center;text-decoration:none;display:block;padding:10px;border-radius:8px">
-          Dettagli e iscrizione →
-        </a>
-      </article>`).join('');
-
-    /* Controlli pagina */
-    const totalPages = Math.ceil(total / PER_PAGE);
-    const pagEl = document.querySelector('#eventsPagination');
-    pagEl.innerHTML = totalPages <= 1 ? '' : `
-      <button class="secondary" ${_page <= 1 ? 'disabled' : ''} id="prevPage">← Prec</button>
-      <span class="page-info">${_page} / ${totalPages}</span>
-      <button class="secondary" ${_page >= totalPages ? 'disabled' : ''} id="nextPage">Succ →</button>`;
-    pagEl.querySelector('#prevPage')?.addEventListener('click', () => { _page--; loadTournaments(); });
-    pagEl.querySelector('#nextPage')?.addEventListener('click', () => { _page++; loadTournaments(); });
-
+    host.innerHTML = stores.slice(0, 12).map(storeTile).join('');
   } catch (err) {
-    listEl.innerHTML = `<p class="empty">Impossibile caricare i tornei: ${esc(err.message)}</p>`;
+    placeholder(host, `Impossibile caricare i negozi: ${err.message}`);
   }
 }
 
-/* ── Init ────────────────────────────────────────────── */
-
-document.addEventListener('DOMContentLoaded', async () => {
+async function loadSeries() {
+  const host = $('#seriesRail');
+  placeholder(host, 'Caricamento…');
   try {
-    const i18n = await import('./i18n.js');
-    i18n.initI18n();
-  } catch { /* i18n opzionale */ }
+    const series = await apiGet('/seasons/public');
+    if (!series.length) {
+      // Senza circuiti la rail sparisce: meglio niente che una sezione vuota.
+      $('#seriesSection').style.display = 'none';
+      return;
+    }
+    host.innerHTML = series.slice(0, 12).map(seriesTile).join('');
+  } catch {
+    $('#seriesSection').style.display = 'none';
+  }
+}
+
+/* ── Posizione ─────────────────────────────────────────────── */
+
+function renderGeo() {
+  const el = $('#geoBar');
+  el.innerHTML = _position
+    ? `<span class="dist-badge">📍 Posizione attiva</span>
+       <button class="chip" id="geoForget" type="button">Dimentica</button>`
+    : `<button class="chip" id="geoAsk" type="button">📍 Usa la mia posizione</button>
+       <span style="color:var(--muted);font-size:.82rem">per ordinare eventi e negozi per distanza</span>`;
+  $('#geoAsk')?.addEventListener('click', async () => {
+    try {
+      _position = await askPosition();
+      renderGeo();
+      loadEvents(0);
+      loadStores(1);
+    } catch (err) {
+      el.insertAdjacentHTML('beforeend', `<span style="color:var(--danger);font-size:.82rem">${esc(err.message)}</span>`);
+    }
+  });
+  $('#geoForget')?.addEventListener('click', () => {
+    forgetPosition();
+    _position = null;
+    renderGeo();
+    loadEvents(0);
+    loadStores(0);
+  });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
   updateAuthNav();
-  loadTournaments();
-
-  document.querySelector('#searchForm')?.addEventListener('submit', e => {
-    e.preventDefault(); _page = 1; loadTournaments();
-  });
-
-  /* Real-time search */
-  ['#searchName','#searchFormat','#searchDate','#searchCity'].forEach(id => {
-    document.querySelector(id)?.addEventListener('input', () => { _page = 1; loadTournaments(); });
-  });
+  renderGeo();
+  loadEvents(0);
+  loadStores(_position ? 1 : 0);
+  loadSeries();
 });

@@ -3,21 +3,28 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Back-office — Manabind</title>
-    <link rel="manifest" href="/manifest.json" />
+    <title>Back-office — Mull2Five</title>
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="theme-color" content="#0d0d0f" />
+    <meta property="og:image" content="/og-image-1200x630.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="/og-image-1200x630.png" />
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="app.css" />
     <style>
       .bo-wrap { max-width: 1000px; margin: 0 auto; }
       .bo-tabs { display:flex; gap:6px; flex-wrap:wrap; margin:16px 0; }
-      .bo-tab { padding:8px 16px; border:1px solid var(--line,#3a352d); border-radius:8px;
-                background:transparent; color:var(--ink,#f5efe0); cursor:pointer; }
+      .bo-tab { padding:8px 16px; border:1px solid var(--line,#2a2a31); border-radius:8px;
+                background:transparent; color:var(--ink,#ffffff); cursor:pointer; }
       .bo-tab.active { background:var(--teal,#3e8e7e); border-color:var(--teal,#3e8e7e); color:#0f1110; font-weight:600; }
       .bo-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; }
       table.bo { width:100%; border-collapse:collapse; }
-      table.bo th, table.bo td { padding:8px 10px; border-bottom:1px solid var(--line,#3a352d); text-align:left; font-size:.92rem; }
-      table.bo th { color:var(--muted,#b9ad99); text-transform:uppercase; font-size:.72rem; letter-spacing:.06em; }
-      .pill { font-size:.72rem; padding:2px 7px; border-radius:999px; border:1px solid var(--line,#3a352d); }
+      table.bo th, table.bo td { padding:8px 10px; border-bottom:1px solid var(--line,#2a2a31); text-align:left; font-size:.92rem; }
+      table.bo th { color:var(--muted,#9a9aa5); text-transform:uppercase; font-size:.72rem; letter-spacing:.06em; }
+      .pill { font-size:.72rem; padding:2px 7px; border-radius:999px; border:1px solid var(--line,#2a2a31); }
       .pill.ok { background:rgba(62,142,126,.18); border-color:var(--teal,#3e8e7e); }
       .pill.warn { background:rgba(224,162,60,.16); border-color:var(--warn,#e0a23c); }
       .row-actions { display:flex; gap:6px; flex-wrap:wrap; }
@@ -25,30 +32,49 @@
   </head>
   <body>
     <header class="public-header">
-      <a class="brand" href="index.html"><span class="brand-mark">MB</span><span><strong>Manabind</strong></span></a>
-      <nav class="public-nav"><a href="index.html">Tornei</a><a href="control.html">Regia</a></nav>
+      <a class="brand" href="index.html">
+        <img src="/brand/header-logo-orizzontale-su-scuro.svg" alt="Mull2Five" class="brand-logo" />
+      </a>
+      <nav class="public-nav" aria-label="Navigazione">
+        <a href="events.html">Eventi</a>
+        <a href="stores.html">Negozi</a>
+        <a href="circuits.html">Circuiti</a>
+        <a href="organizer.html" aria-current="page">Organizza</a>
+      </nav>
       <div class="public-auth" id="publicAuth"></div>
     </header>
 
     <main class="public-main bo-wrap">
-      <div class="section-heading" style="margin-bottom:4px">
-        <div><span class="eyebrow">Back-office organizzatore</span><h1>Gestione torneo (online)</h1></div>
-        <select id="activeTournament" aria-label="Torneo attivo"></select>
-      </div>
-      <p class="muted" id="activeHint" style="margin-top:0"></p>
+      <!-- Livello 0: i tuoi eventi. Livello 1: dentro un evento.
+           Niente selettore globale nascosto: si entra e si esce da un evento. -->
+      <nav class="bo-nav" id="boNav" aria-label="Sezioni">
+        <button class="bo-nav-item active" data-section="eventi" type="button">Eventi</button>
+        <button class="bo-nav-item" data-section="manifestazioni" type="button">Manifestazioni</button>
+        <button class="bo-nav-item" data-section="community" type="button">Community</button>
+        <button class="bo-nav-item" data-section="negozio" type="button">Negozio</button>
+      </nav>
 
-      <div class="bo-tabs">
-        <button class="bo-tab active" data-tab="tornei" type="button">Tornei</button>
-        <button class="bo-tab" data-tab="iscritti" type="button">Iscritti</button>
-        <button class="bo-tab" data-tab="liste" type="button">Liste</button>
-        <button class="bo-tab" data-tab="annunci" type="button">Annunci</button>
-        <button class="bo-tab" data-tab="penalita" type="button">Penalità</button>
-        <button class="bo-tab" data-tab="classifica" type="button">Classifica</button>
-        <button class="bo-tab" data-tab="report" type="button">Report</button>
-      </div>
-
-      <section id="panel"></section>
+      <div id="boCrumb" class="bo-crumb" style="display:none"></div>
+      <div class="bo-tabs" id="boEventTabs" style="display:none"></div>
+      <div id="boWarnings" class="bo-warnings" style="display:none" aria-live="polite"></div>
+      <div id="panel"></div>
     </main>
+
+    <dialog id="newEventDialog" class="bo-dialog"></dialog>
+    <!-- Modale di servizio della sezione Giocatori: walk-in, lista, penalità. -->
+    <dialog id="boDialog" class="bo-dialog"></dialog>
+
+    <!-- Vista grafica della lista, condivisa con le pagine pubbliche. -->
+    <dialog id="deckViewDialog" class="deck-view-dialog">
+      <form method="dialog" class="modal">
+        <header>
+          <div><span class="eyebrow">Decklist</span><h2 id="deckViewTitle">Lista</h2></div>
+          <button class="icon-button" value="cancel" formnovalidate>&times;</button>
+        </header>
+        <div id="deckViewBody" class="deck-view-body"></div>
+        <menu><button class="secondary" value="cancel" formnovalidate>Chiudi</button></menu>
+      </form>
+    </dialog>
 
     <div id="toast" role="status" aria-live="polite"></div>
     <script type="module" src="js/organizer.js"></script>

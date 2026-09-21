@@ -1,0 +1,21 @@
+# Nell'immagine va solo ciò che serve: niente dipendenze locali (node_modules
+# di Windows non girano su Linux), database, backup o segreti.
+.git
+.github
+.venv
+.venv-win
+**/node_modules
+frontend/dist
+**/__pycache__
+*.db
+*.db-*
+*.db.*
+.env
+.env.*
+!.env.example
+backups
+reports
+screenshots
+tests
+.pytest_cache
+.ruff_cache

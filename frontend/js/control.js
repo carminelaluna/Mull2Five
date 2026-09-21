@@ -1,13 +1,16 @@
 /**
- * control.js — Console "Regia torneo" online (organizzatore o staff/judge).
+ * control.js — Regia a tutto schermo.
  *
- * Tutto passa dal backend: timer round (restart/extend), estensione per-tavolo,
- * inserimento risultati, generazione round. Lo stato è condiviso su ogni device:
- * gli schermi pubblici (display.html, timer.html?t=ID) si aggiornano da soli.
+ * La console vera sta in console.js: qui restano solo il guardiano della
+ * sessione e la scelta del torneo. Questa pagina serve in sala — su un secondo
+ * schermo e ai judge, che nel back-office non entrano — mentre l'organizzatore
+ * trova la stessa console dentro la pagina dell'evento.
  */
-const API       = '/api';
+import { mountConsole } from './console.js';
+import { esc } from './escape.js';
+
 const TOKEN_KEY = 'manabind-jwt-v1';
-const token     = localStorage.getItem(TOKEN_KEY);
+const token = localStorage.getItem(TOKEN_KEY);
 if (!token) location.replace('login.html?next=control.html');
 
 function decodeJwt(t) {
@@ -16,278 +19,49 @@ function decodeJwt(t) {
 }
 const session = decodeJwt(token);
 if (!session || session.exp < Date.now() / 1000) {
-  localStorage.removeItem(TOKEN_KEY); location.replace('login.html?next=control.html');
+  localStorage.removeItem(TOKEN_KEY);
+  location.replace('login.html?next=control.html');
 }
 
-async function apiFetch(path, opts = {}) {
-  const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, ...(opts.headers || {}) };
-  const r = await fetch(API + path, { ...opts, headers });
-  if (r.status === 401) { localStorage.removeItem(TOKEN_KEY); location.replace('login.html'); return; }
-  if (!r.ok) {
-    const detail = (await r.json().catch(() => ({}))).detail;
-    if (r.status === 404 && (!detail || detail === 'Not Found')) {
-      throw new Error('Endpoint non trovato: riavvia il backend (potrebbe eseguire una versione vecchia).');
-    }
-    throw new Error(detail || r.statusText);
-  }
-  return r.status === 204 ? null : r.json();
+const $ = (s) => document.querySelector(s);
+
+let _console = null;
+
+function open(tid) {
+  _console?.destroy();
+  _console = mountConsole($('#consoleHost'), tid);
 }
 
-const $   = (s) => document.querySelector(s);
-const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-function toast(msg) {
-  const el = $('#toast'); el.textContent = msg; el.classList.add('show');
-  clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('show'), 3000);
-}
-
-/* Mappa "score" mostrato → corpo richiesta risultato */
-const SCORES = ['2-0', '2-1', '1-1', '1-2', '0-2'];
-function scoreToBody(score) {
-  const [a, b] = score.split('-').map(Number);
-  return { match_wins_a: a, match_wins_b: b, draws: 0 };
-}
-function fmt(sec) {
-  const neg = sec < 0, abs = Math.floor(Math.abs(sec));
-  return `${neg ? '-' : ''}${Math.floor(abs / 60)}:${String(abs % 60).padStart(2, '0')}`;
-}
-
-let _tid = null;
-let _rounds = [];
-let _activeRoundId = null;
-let _judge = false;
-const _editing = new Set();   // pairingId in modifica
-
-/* ── Bootstrap ───────────────────────────────────────── */
 async function init() {
   $('#publicAuth').innerHTML =
     `<span style="color:var(--muted);font-size:.85rem">${esc(session.email)}</span>
      <button class="secondary-link" id="logoutBtn" type="button">Esci</button>`;
-  $('#logoutBtn').addEventListener('click', () => { localStorage.removeItem(TOKEN_KEY); location.replace('index.html'); });
+  $('#logoutBtn').addEventListener('click', () => {
+    localStorage.removeItem(TOKEN_KEY);
+    location.replace('index.html');
+  });
 
   let mine = [];
-  try { mine = await apiFetch('/tournaments/mine'); } catch { mine = []; }
-  const running = mine.filter(t => ['running', 'published'].includes(t.status));
+  try {
+    const r = await fetch('/api/tournaments/mine', { headers: { Authorization: `Bearer ${token}` } });
+    mine = r.ok ? await r.json() : [];
+  } catch { mine = []; }
+
+  const running = mine.filter((t) => ['running', 'published'].includes(t.status));
   const list = running.length ? running : mine;
-  if (!list.length) { $('#ctlTables').innerHTML = '<p class="empty">Nessun torneo gestibile su questo account.</p>'; return; }
-
-  $('#tournamentSelect').innerHTML = list.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join('');
-  const urlTid = new URLSearchParams(location.search).get('t');
-  _tid = urlTid && list.some(t => String(t.id) === urlTid) ? urlTid : String(list[0].id);
-  $('#tournamentSelect').value = _tid;
-  $('#tournamentSelect').addEventListener('change', (e) => { _tid = e.target.value; _activeRoundId = null; refresh(); });
-
-  // Controlli timer round
-  $('#ctlRestart').addEventListener('click', async () => {
-    await call(() => apiFetch(`/tournaments/${_tid}/timer/restart`, { method: 'POST', body: JSON.stringify({ minutes: +$('#ctlMinutes').value || 50 }) }), 'Timer avviato.');
-  });
-  $('#ctlStop').addEventListener('click', () => call(
-    () => apiFetch(`/tournaments/${_tid}/timer/stop`, { method: 'POST' }), 'Timer fermato.'));
-  $('#ctlExtend5').addEventListener('click',  () => call(() => apiExtend(5),  '+5 minuti al round.'));
-  $('#ctlExtend10').addEventListener('click', () => call(() => apiExtend(10), '+10 minuti al round.'));
-  $('#ctlGenRound').addEventListener('click', genRound);
-
-  refresh();
-  setInterval(refresh, 4000);   // riallinea con il backend (modifiche di altri)
-  setInterval(tick, 250);       // countdown locale fluido
-}
-
-function apiExtend(min) {
-  return apiFetch(`/tournaments/${_tid}/timer/extend`, { method: 'POST', body: JSON.stringify({ minutes: min }) });
-}
-
-/* Genera il round successivo. Se i turni svizzeri previsti sono finiti, il
-   backend risponde 409 EXTRA_SWISS_ROUND: chiediamo conferma e riproviamo con
-   ?force=true (il timer NON parte da solo). */
-async function genRound(force = false) {
-  try {
-    const rnd = await apiFetch(`/tournaments/${_tid}/rounds${force ? '?force=true' : ''}`, { method: 'POST' });
-    if (rnd?.id) _activeRoundId = rnd.id;   // passa subito alla tab del nuovo round
-    toast('Round generato.');
-    await refresh();
-  } catch (e) {
-    if (!force && String(e.message).includes('EXTRA_SWISS_ROUND')) {
-      const msg = e.message.replace(/^EXTRA_SWISS_ROUND:\s*/, '');
-      if (window.confirm(`⚠️ ${msg}\n\nVuoi comunque generare un turno aggiuntivo?`)) {
-        return genRound(true);
-      }
-      return;   // annullato
-    }
-    toast('Errore: ' + e.message);
-  }
-}
-
-async function call(fn, okMsg) {
-  try { await fn(); toast(okMsg); await refresh(); }
-  catch (e) { toast('Errore: ' + e.message); }
-}
-
-/* ── Refresh dati ────────────────────────────────────── */
-async function refresh() {
-  if (!_tid) return;
-  try {
-    _rounds = (await apiFetch(`/tournaments/${_tid}/rounds`) || []).sort((a, b) => a.number - b.number);
-  } catch { _rounds = []; }
-  if (!_rounds.some(r => String(r.id) === String(_activeRoundId))) _activeRoundId = _rounds.at(-1)?.id ?? null;
-  render();
-  renderScreenLinks();
-}
-
-function renderScreenLinks() {
-  const base = location.origin;
-  $('#screenLinks').innerHTML = `
-    <a class="secondary-link" href="timer.html?t=${_tid}" target="_blank" rel="noopener">🖥 Timer schermo</a> ·
-    <a class="secondary-link" href="display.html?t=${_tid}" target="_blank" rel="noopener">📺 Display abbinamenti</a>
-    <small style="color:var(--muted);margin-left:8px">${base}/display.html?t=${_tid}</small>`;
-}
-
-function activeRound() { return _rounds.find(r => String(r.id) === String(_activeRoundId)); }
-
-function render() {
-  const round = activeRound();
-  $('#ctlTabs').innerHTML = _rounds.map(r =>
-    `<button class="ctl-tab${String(r.id) === String(_activeRoundId) ? ' active' : ''}" data-round="${r.id}" type="button">Round ${r.number}</button>`
-  ).join('') + `<button class="ctl-tab judge${_judge ? ' active' : ''}" id="judgeToggle" type="button">⚖ Judge</button>`;
-
-  $('#ctlTabs').querySelectorAll('[data-round]').forEach(b =>
-    b.addEventListener('click', () => { _activeRoundId = b.dataset.round; render(); }));
-  $('#judgeToggle').addEventListener('click', () => { _judge = !_judge; render(); });
-
-  if (!round) { $('#ctlTables').innerHTML = '<p class="empty">Nessun round. Avvia il torneo e genera il primo round.</p>'; $('#ctlRoundLabel').textContent = ''; return; }
-  $('#ctlRoundLabel').textContent = `Round ${round.number}`;
-
-  const pairings = round.pairings
-    .filter(p => !_judge || (p.player_b && !p.result))
-    .sort((a, b) => a.table_number - b.table_number);
-
-  // #37 No-show: l'ultimo round senza risultati può essere rigenerato segnando assenti.
-  const isLatest = String(round.id) === String(_rounds.at(-1)?.id);
-  const noResults = !round.pairings.some(p => p.result && p.player_b);
-  const noShowBar = (!_judge && isLatest && noResults)
-    ? `<div class="noshow-bar">
-         <button class="mini-button" id="regenRoundBtn" type="button">♻ Segna assenti &amp; rigenera</button>
-         <small style="color:var(--muted)">Spunta gli assenti, poi rigenera gli abbinamenti.</small>
-       </div>` : '';
-
-  $('#ctlTables').innerHTML = noShowBar + (pairings.length
-    ? pairings.map(p => renderRow(round, p, !_judge && isLatest && noResults)).join('')
-    : '<p class="empty" style="margin:0">Tutti i tavoli hanno un risultato. ✓</p>');
-
-  const regenBtn = $('#regenRoundBtn');
-  if (regenBtn) regenBtn.addEventListener('click', () => {
-    const ids = [...$('#ctlTables').querySelectorAll('input[data-absent]:checked')].map(c => +c.dataset.absent);
-    if (!ids.length && !window.confirm('Nessun assente selezionato: rigenerare comunque gli abbinamenti?')) return;
-    call(() => apiFetch(`/tournaments/${_tid}/rounds/regenerate`, {
-      method: 'POST', body: JSON.stringify({ drop_registration_ids: ids }),
-    }), 'Round rigenerato.');
-  });
-
-  // Handlers risultato
-  $('#ctlTables').querySelectorAll('[data-action="result"]').forEach(sel =>
-    sel.addEventListener('change', () => submitResult(p_id(sel), sel.value, sel.dataset.correct === '1')));
-  $('#ctlTables').querySelectorAll('[data-action="edit"]').forEach(btn =>
-    btn.addEventListener('click', () => { _editing.add(btn.dataset.pid); render(); }));
-  $('#ctlTables').querySelectorAll('[data-action="extend-table"]').forEach(btn =>
-    btn.addEventListener('click', () => call(
-      () => apiFetch(`/tournaments/${_tid}/pairings/${btn.dataset.pid}/extend`, { method: 'PATCH', body: JSON.stringify({ minutes: +btn.dataset.min }) }),
-      `+${btn.dataset.min} minuti al tavolo.`)));
-  // #47 penalità rapide judge
-  $('#ctlTables').querySelectorAll('[data-action="penalty"]').forEach(btn =>
-    btn.addEventListener('click', () => {
-      const kindLbl = btn.dataset.kind === 'game_loss' ? 'Game Loss' : 'Warning';
-      call(() => apiFetch(`/tournaments/${_tid}/penalties`, {
-        method: 'POST',
-        body: JSON.stringify({ registration_id: +btn.dataset.rid, round_id: activeRound()?.id || null, kind: btn.dataset.kind }),
-      }), `${kindLbl} assegnato.`);
-    }));
-}
-
-function p_id(el) { return el.dataset.pid; }
-
-function renderRow(round, p, allowNoShow = false) {
-  const isBye = !p.player_b;
-  // #37 caselle "assente" per segnare i no-show prima di rigenerare il round
-  const absentBox = (id, name) => allowNoShow
-    ? `<label class="absent-chk"><input type="checkbox" data-absent="${id}"> ass.</label>`
-    : '';
-  const finalScore = p.result && p.result !== '' ? `${p.match_wins_a}-${p.match_wins_b}` : '';
-  const editing = _editing.has(String(p.id));
-
-  let control;
-  if (isBye) {
-    control = '<span class="badge ok">BYE · 2 – 0</span>';
-  } else if (finalScore && !editing) {
-    control = `<span class="badge ok">${finalScore.replace('-', ' – ')} 🔒</span>
-      <button class="mini-button" data-action="edit" data-pid="${p.id}" type="button">Modifica</button>`;
-  } else {
-    // Se sto correggendo un risultato già bloccato uso l'endpoint /correct (con audit log),
-    // che è consentito anche a torneo concluso; altrimenti il normale /result.
-    const correct = finalScore ? ' data-correct="1"' : '';
-    const opts = ['<option value="">— in corso</option>']
-      .concat(SCORES.map(s => `<option value="${s}"${finalScore === s ? ' selected' : ''}>${s.replace('-', ' – ')}</option>`));
-    control = `<select data-action="result" data-pid="${p.id}"${correct}>${opts.join('')}</select>`;
+  if (!list.length) {
+    $('#consoleHost').innerHTML = '<p class="empty">Nessun torneo gestibile su questo account.</p>';
+    return;
   }
 
-  // ── #47 Pannello judge: penalità rapide per tavolo ──
-  let judgeTools = '';
-  if (_judge && !isBye) {
-    judgeTools = `<span class="judge-tools">
-      <button class="mini-button warn" data-action="penalty" data-rid="${p.player_a_registration_id}" data-kind="warning" type="button">⚠ ${esc(p.player_a)}</button>
-      <button class="mini-button warn" data-action="penalty" data-rid="${p.player_b_registration_id}" data-kind="warning" type="button">⚠ ${esc(p.player_b)}</button>
-      <button class="mini-button danger" data-action="penalty" data-rid="${p.player_a_registration_id}" data-kind="game_loss" type="button">GL ${esc(p.player_a)}</button>
-      <button class="mini-button danger" data-action="penalty" data-rid="${p.player_b_registration_id}" data-kind="game_loss" type="button">GL ${esc(p.player_b)}</button>
-    </span>`;
-  }
+  const select = $('#tournamentSelect');
+  select.innerHTML = list.map((t) => `<option value="${t.id}">${esc(t.name)}</option>`).join('');
+  const wanted = new URLSearchParams(location.search).get('t');
+  const tid = wanted && list.some((t) => String(t.id) === wanted) ? wanted : String(list[0].id);
+  select.value = tid;
+  select.addEventListener('change', (e) => open(e.target.value));
 
-  // Timer per-tavolo (round.ends_at + extra)
-  let tableClock = '';
-  if (!isBye && !finalScore) {
-    const extra = p.extra_seconds || 0;
-    const clockSpan = round.ends_at
-      ? `<span class="tbl-clock" data-ends="${round.ends_at}" data-extra="${extra}"></span>` : '';
-    const extraLbl = extra ? `<span class="tbl-extra">+${Math.round(extra / 60)}′</span>` : '';
-    tableClock = `${clockSpan}${extraLbl}
-      <button class="mini-button" data-action="extend-table" data-pid="${p.id}" data-min="2" type="button">+2′</button>
-      <button class="mini-button" data-action="extend-table" data-pid="${p.id}" data-min="5" type="button">+5′</button>`;
-  }
-
-  return `<div class="ctl-row">
-    <span class="table-num">T${p.table_number}</span>
-    <span class="names"><strong>${esc(p.player_a)}</strong>${absentBox(p.player_a_registration_id, p.player_a)} vs <strong>${esc(p.player_b || 'BYE')}</strong>${p.player_b ? absentBox(p.player_b_registration_id, p.player_b) : ''}</span>
-    ${tableClock}
-    ${judgeTools}
-    <span>${control}</span>
-  </div>`;
-}
-
-async function submitResult(pairingId, score, isCorrection = false) {
-  if (!score) return;
-  _editing.delete(String(pairingId));
-  // #39 la correzione di un risultato già bloccato passa da /correct (audit log,
-  // consentito anche a torneo concluso); l'inserimento normale resta su /result.
-  const path = isCorrection ? `/pairings/${pairingId}/correct` : `/pairings/${pairingId}/result`;
-  await call(
-    () => apiFetch(`/tournaments/${_tid}${path}`, { method: 'PATCH', body: JSON.stringify(scoreToBody(score)) }),
-    isCorrection ? 'Risultato corretto.' : 'Risultato registrato.');
-}
-
-/* ── Tick: countdown round + per-tavolo ──────────────── */
-function tick() {
-  const round = activeRound();
-  if (round?.ends_at) {
-    const rem = (new Date(round.ends_at) - Date.now()) / 1000;
-    const el = $('#ctlClock');
-    el.textContent = fmt(rem);
-    el.className = 'ctl-clock ' + (rem <= 0 ? 'over' : rem <= 300 ? 'warning' : '');
-  } else {
-    $('#ctlClock').textContent = '--:--';
-    $('#ctlClock').className = 'ctl-clock';
-  }
-  document.querySelectorAll('.tbl-clock[data-ends]').forEach(span => {
-    const end = new Date(span.dataset.ends).getTime() + (+span.dataset.extra) * 1000;
-    const rem = (end - Date.now()) / 1000;
-    span.textContent = fmt(rem);
-    span.classList.toggle('over', rem <= 0);
-  });
+  open(tid);
 }
 
 document.addEventListener('DOMContentLoaded', init);

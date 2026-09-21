@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
+from typing import Literal
 
 from pydantic import BaseModel, EmailStr, Field, model_validator
 
@@ -34,8 +35,11 @@ class UserOut(BaseModel):
 class TournamentCreate(BaseModel):
     name: str = Field(min_length=3, max_length=180)
     format: str
+    event_type: Literal["locals", "prerelease", "rcq", "store_championship", "premier", "other"] = "locals"
     rules_enforcement_level: str = "Competitive"
     venue: str = ""
+    latitude: float | None = Field(default=None, ge=-90, le=90)
+    longitude: float | None = Field(default=None, ge=-180, le=180)
     starts_on: date
     start_time: str | None = Field(default=None, pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
     capacity: int = Field(gt=1)
@@ -76,8 +80,17 @@ class TournamentOut(BaseModel):
     organizer_id: int
     name: str
     format: str
+    event_type: str = "locals"
     rules_enforcement_level: str
     venue: str
+    latitude: float | None = None
+    longitude: float | None = None
+    # Popolato solo dalla ricerca per distanza.
+    distance_km: float | None = None
+    event_slug: str | None = None
+    event_name: str | None = None
+    organization_slug: str | None = None
+    organization_name: str | None = None
     starts_on: date
     start_time: str | None = None
     capacity: int
@@ -89,6 +102,12 @@ class TournamentOut(BaseModel):
     top_cut_size: int
     decklist_required: bool
     decklist_deadline: datetime | None
+    # Calcolati dal modello: il giocatore deve sapere entro quando può modificare.
+    decklist_locks_at: datetime | None = None
+    decklist_locked: bool = False
+    # I segmenti per cui serve una lista: "" e la principale, poi i formati
+    # dichiarati sui round. Un torneo a formato unico ha solo [""].
+    decklist_formats: list[str] = [""]
     check_in_required: bool
     self_check_in_enabled: bool
     late_registration_enabled: bool
@@ -151,12 +170,61 @@ class SeasonCreate(BaseModel):
 class SeasonOut(BaseModel):
     id: int
     name: str
+    slug: str | None = None
+    description: str = ""
+    starts_on: date | None = None
+    ends_on: date | None = None
     points_win: int
     points_draw: int
+    points_participation: int = 0
+    points_champion_bonus: int = 0
+    qualification_threshold: int | None = None
+    is_public: bool = True
     is_active: bool
     tournament_count: int = 0
+    organization_slug: str | None = None
 
     model_config = {"from_attributes": True}
+
+
+class SeasonUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=2, max_length=120)
+    description: str | None = None
+    starts_on: date | None = None
+    ends_on: date | None = None
+    points_win: int | None = Field(default=None, ge=0, le=100)
+    points_draw: int | None = Field(default=None, ge=0, le=100)
+    points_participation: int | None = Field(default=None, ge=0, le=100)
+    points_champion_bonus: int | None = Field(default=None, ge=0, le=100)
+    qualification_threshold: int | None = Field(default=None, ge=0)
+    is_public: bool | None = None
+
+
+class SeriesPublicOut(BaseModel):
+    season: SeasonOut
+    tournaments: list[TournamentOut] = []
+    leaderboard: list[LeaderboardRowOut] = []
+
+
+class PlayerTagIn(BaseModel):
+    name: str = Field(min_length=1, max_length=60)
+    color: str = Field(default="#d8b465", pattern=r"^#[0-9a-fA-F]{6}$")
+    description: str = Field(default="", max_length=240)
+
+
+class PlayerTagOut(BaseModel):
+    id: int
+    name: str
+    color: str
+    description: str = ""
+    player_count: int = 0
+
+    model_config = {"from_attributes": True}
+
+
+class TagAssignIn(BaseModel):
+    """Assegnazione singola o in blocco: la UI manda sempre una lista."""
+    user_ids: list[int] = Field(min_length=1, max_length=500)
 
 
 class LeaderboardRowOut(BaseModel):
@@ -171,6 +239,11 @@ class LeaderboardRowOut(BaseModel):
 
 class StaffIn(BaseModel):
     email: EmailStr
+    role: Literal["head_judge", "judge"] = "judge"
+
+
+class StaffRoleIn(BaseModel):
+    role: Literal["head_judge", "judge"]
 
 
 class StaffOut(BaseModel):
@@ -178,6 +251,13 @@ class StaffOut(BaseModel):
     user_id: int
     display_name: str
     email: str
+    role: str
+
+
+class TournamentRoleOut(BaseModel):
+    """Che cosa sei su questo torneo: serve alla UI per decidere cosa mostrare."""
+    role: Literal["organizer", "head_judge", "judge", "player", "none"]
+    can_manage_judges: bool
 
 
 class PlayerHistoryRowOut(BaseModel):
@@ -206,13 +286,108 @@ class VapidKeyOut(BaseModel):
     enabled: bool = False
 
 
+class EventCreate(BaseModel):
+    name: str = Field(min_length=3, max_length=180)
+    description: str = ""
+    venue: str = ""
+    starts_on: date
+    ends_on: date | None = None
+    is_public: bool = True
+
+
+class EventUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=3, max_length=180)
+    description: str | None = None
+    venue: str | None = None
+    starts_on: date | None = None
+    ends_on: date | None = None
+    is_public: bool | None = None
+
+
+class EventOut(BaseModel):
+    id: int
+    slug: str
+    name: str
+    description: str = ""
+    venue: str = ""
+    starts_on: date
+    ends_on: date | None = None
+    is_public: bool = True
+    organization_slug: str | None = None
+    tournament_count: int = 0
+
+    model_config = {"from_attributes": True}
+
+
+class WarningOut(BaseModel):
+    """Qualcosa che il sistema accetta ma che quasi sempre e una svista.
+    `warn` va risolto, `info` e una nota: solo i primi contano nei badge."""
+    code: str
+    level: str = Field(pattern="^(warn|info)$")
+    message: str
+    tournament_id: int | None = None
+
+
+class EventOwnerOut(EventOut):
+    """La manifestazione vista da chi la organizza. Gli avvisi stanno qui e non
+    su EventOut, che e anche la risposta pubblica: cosi non possono uscire."""
+    warnings: list[WarningOut] = []
+
+
+class EventPublicOut(BaseModel):
+    event: EventOut
+    tournaments: list[TournamentOut] = []
+
+
+class Day2In(BaseModel):
+    """Chi passa alla seconda giornata. La lista sostituisce quella precedente:
+    ripetere la chiamata con l'elenco giusto corregge un import sbagliato."""
+    registration_ids: list[int] = Field(max_length=2000)
+
+
+class Day2ConversionRow(BaseModel):
+    archetype: str
+    players: int
+    day2: int
+    conversion: float
+
+
 class OrganizationOut(BaseModel):
     id: int
     slug: str
     name: str
     is_default: bool = False
+    description: str = ""
+    city: str = ""
+    address: str = ""
+    website: str = ""
+    logo_url: str = ""
+    latitude: float | None = None
+    longitude: float | None = None
+    is_premium: bool = False
+    upcoming_count: int = 0
+    past_count: int = 0
+    distance_km: float | None = None
 
     model_config = {"from_attributes": True}
+
+
+class OrganizationUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=2, max_length=160)
+    description: str | None = None
+    city: str | None = None
+    address: str | None = None
+    website: str | None = None
+    logo_url: str | None = None
+    latitude: float | None = Field(default=None, ge=-90, le=90)
+    longitude: float | None = Field(default=None, ge=-180, le=180)
+
+
+class StoreProfileOut(BaseModel):
+    """Pagina pubblica del negozio: anagrafica piu cosa c'e in calendario."""
+    organization: OrganizationOut
+    upcoming: list[TournamentOut] = []
+    past: list[TournamentOut] = []
 
 
 class PublicStandingRow(BaseModel):
@@ -317,8 +492,11 @@ class RegistrationOut(BaseModel):
     checked_in: bool
     dropped: bool
     waitlisted: bool = False
+    day2: bool = False
     player: UserOut
     decklist_status: str = "missing"
+    # Segmenti gia consegnati: "" e la lista principale.
+    decklist_formats: list[str] = []
     payment_status: str = "pending"
 
     model_config = {"from_attributes": True}
@@ -334,6 +512,7 @@ class OrganizerRegistrationOut(RegistrationOut):
     payment_id: int | None = None
     payment_provider: str | None = None
     decklist_revision_count: int = 0
+    tags: list[PlayerTagOut] = []
 
 
 class TournamentControlsIn(BaseModel):
@@ -345,9 +524,38 @@ class TournamentControlsIn(BaseModel):
     late_registration_enabled: bool | None = None
     registration_mode: str | None = Field(default=None, pattern="^(open|closed)$")
     round_timer_minutes: int | None = Field(default=None, ge=1, le=120)
+    email_notifications_enabled: bool | None = None
     refund_policy: str | None = None
     email_notifications_enabled: bool | None = None
     legal_validation_enabled: bool | None = None
+
+
+class TableAssignIn(BaseModel):
+    """user_id nullo libera il tavolo."""
+    user_id: int | None = None
+
+
+class TableStatusIn(BaseModel):
+    status: Literal["playing", "called", "attention"]
+
+
+class DeckCheckIn(BaseModel):
+    registration_id: int
+    result: Literal["ok", "minor", "major", "not_found"] = "ok"
+    note: str = Field(default="", max_length=500)
+
+
+class DeckCheckOut(BaseModel):
+    id: int
+    registration_id: int
+    player_name: str = ""
+    round_number: int | None = None
+    judge_name: str = ""
+    result: str
+    note: str = ""
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
 
 
 class ManualPairingIn(BaseModel):
@@ -360,6 +568,8 @@ class AnnouncementCreate(BaseModel):
     title: str = Field(min_length=2, max_length=180)
     body: str = Field(min_length=2)
     send_email: bool = False
+    # Lista vuota: a tutti gli iscritti. Con dei tag, solo a chi ne porta almeno uno.
+    tag_ids: list[int] = Field(default_factory=list)
 
 
 class AnnouncementOut(BaseModel):
@@ -368,9 +578,22 @@ class AnnouncementOut(BaseModel):
     title: str
     body: str
     send_email: bool
+    targeted: bool = False
+    audience: str = ""
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class AnnouncementAudienceOut(BaseModel):
+    """Quanti leggeranno un annuncio, prima di scriverlo: mandare a un
+    sottoinsieme senza sapere quanto e grande e un errore facile."""
+    recipients: int
+    total: int
+    label: str
+    # Se "Invia anche via email" partira davvero: "ok", "tournament_off" (spenta
+    # sul torneo, si accende da qui) o "no_smtp" (manca il server di posta).
+    email_status: str = "ok"
 
 
 class PenaltyCreate(BaseModel):
@@ -440,11 +663,16 @@ class BracketMatchOut(BaseModel):
 class DecklistCreate(BaseModel):
     raw_text: str = Field(min_length=5)
     archetype: str = ""
+    # Vuoto = lista principale. Valorizzato sui segmenti di un evento misto.
+    format: str = Field(default="", max_length=80)
 
 
 class DecklistOut(BaseModel):
     id: int
     registration_id: int
+    format: str = ""
+    # Il giocatore deve poter rileggere la propria lista per correggerla e vederla.
+    raw_text: str = ""
     main_count: int
     side_count: int
     status: str
@@ -487,6 +715,9 @@ class PairingOut(BaseModel):
     match_wins_b: int = 0
     draws: int = 0
     extra_seconds: int = 0
+    assigned_judge_id: int | None = None
+    assigned_judge_name: str = ""
+    table_status: str = "playing"
     report_id: int | None = None
     report_status: str = ""
     report_score: str = ""
@@ -494,11 +725,17 @@ class PairingOut(BaseModel):
     report_reporter_name: str = ""
 
 
+class RoundFormatIn(BaseModel):
+    format: str | None = Field(default=None, max_length=80)
+
+
 class RoundOut(BaseModel):
     id: int
     tournament_id: int
     number: int
     phase: str
+    # Nullo = il formato del torneo. Valorizzato sui segmenti a formato diverso.
+    format: str | None = None
     is_published: bool
     starts_at: datetime | None
     ends_at: datetime | None

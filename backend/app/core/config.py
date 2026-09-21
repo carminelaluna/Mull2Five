@@ -7,13 +7,16 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
-    app_name: str = "Manabind"
+    app_name: str = "Mull2Five"
     app_env: str = "development"
     app_url: AnyHttpUrl = "http://127.0.0.1:8000"
     frontend_url: AnyHttpUrl = "http://127.0.0.1:8000"
     secret_key: str = Field(default="dev-secret-change-me", min_length=16)
     access_token_minutes: int = 60 * 24 * 7
     database_url: str = "sqlite:///./arcana_events.db"
+    # Cartella della build Vite da servire su "/". La imposta il Dockerfile; in
+    # sviluppo resta vuota e le pagine le serve Vite.
+    frontend_dist: str | None = None
 
     google_client_id: str | None = None
     google_client_secret: str | None = None

@@ -1,11 +1,13 @@
 import asyncio
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
@@ -17,7 +19,17 @@ from backend.app.core.limiter import limiter
 from backend.app.core.monitoring import metrics_middleware, metrics_response
 from backend.app.core.redis import redis_is_real
 from backend.app.db import create_all, engine
-from backend.app.routers import admin, auth, organizations, payments, push, seasons, tournaments
+from backend.app.routers import (
+    admin,
+    auth,
+    events,
+    organizations,
+    payments,
+    push,
+    seasons,
+    tags,
+    tournaments,
+)
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
@@ -157,6 +169,8 @@ app.include_router(seasons.router, prefix="/api")
 app.include_router(admin.router, prefix="/api")
 app.include_router(push.router, prefix="/api")
 app.include_router(organizations.router, prefix="/api")
+app.include_router(tags.router, prefix="/api")
+app.include_router(events.router, prefix="/api")
 
 
 @app.get("/health")
@@ -185,10 +199,21 @@ def metrics(request: Request):
     return metrics_response()
 
 
-@app.get("/")
-def root() -> dict:
-    return {
-        "message": "Manabind API",
-        "docs":     "/docs",
-        "frontend": "http://localhost:5173",
-    }
+# In produzione le pagine del sito le serve questo stesso processo: un indirizzo
+# solo per pagine e API, senza CORS e senza proxy davanti. In sviluppo
+# FRONTEND_DIST non c'è, le pagine le serve Vite e la radice resta il JSON di sempre.
+if settings.frontend_dist:
+    _frontend_dist = Path(settings.frontend_dist)
+    if not _frontend_dist.is_dir():
+        # Meglio non partire che partire senza pagine: il deploy fallisce e lo dice.
+        raise RuntimeError(f"FRONTEND_DIST={_frontend_dist} non esiste: manca la build del frontend")
+    # Montata per ultima, così /api, /health e /docs restano alle loro rotte.
+    app.mount("/", StaticFiles(directory=_frontend_dist, html=True), name="frontend")
+else:
+    @app.get("/")
+    def root() -> dict:
+        return {
+            "message": "Mull2Five API",
+            "docs":     "/docs",
+            "frontend": "http://localhost:5173",
+        }

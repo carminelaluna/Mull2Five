@@ -1,10 +1,10 @@
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, time, timedelta
 from enum import StrEnum
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, Date, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from backend.app.db import Base
+from backend.app.db import Base, UtcDateTime
 
 
 class UserRole(StrEnum):
@@ -13,12 +13,36 @@ class UserRole(StrEnum):
     ADMIN = "admin"
 
 
+class StaffRole(StrEnum):
+    """Incarico sul singolo torneo, indipendente dal ruolo dell'account: lo stesso
+    utente può essere capojudge a un torneo, judge a un altro e giocatore a un terzo."""
+    HEAD_JUDGE = "head_judge"
+    JUDGE = "judge"
+
+
 class TournamentStatus(StrEnum):
     DRAFT = "draft"
     PUBLISHED = "published"
     RUNNING = "running"
     COMPLETED = "completed"
     CANCELLED = "cancelled"
+
+
+class EventType(StrEnum):
+    """Tassonomia con cui il giocatore filtra: risponde a "che serata e?", non
+    a "che formato si gioca?" (quello resta il campo format)."""
+    LOCALS = "locals"
+    PRERELEASE = "prerelease"
+    RCQ = "rcq"
+    STORE_CHAMPIONSHIP = "store_championship"
+    PREMIER = "premier"
+    OTHER = "other"
+
+
+class RulesEnforcementLevel(StrEnum):
+    REGULAR = "Regular"
+    COMPETITIVE = "Competitive"
+    PROFESSIONAL = "Professional"
 
 
 class TournamentStructure(StrEnum):
@@ -48,14 +72,73 @@ class DecklistStatus(StrEnum):
     INVALID = "invalid"
 
 
+class TableStatus(StrEnum):
+    """Stato che il judge imposta a mano sul tavolo. Quello che si puo dedurre
+    dai dati (risultato presente, tempo extra, referto in conflitto) resta
+    dedotto: qui ci va solo cio che il software non puo sapere da solo."""
+    PLAYING = "playing"
+    CALLED = "called"        # chiamato a referto
+    ATTENTION = "attention"  # richiede un judge
+
+
+class DeckCheckResult(StrEnum):
+    OK = "ok"
+    MINOR = "minor"          # discrepanza lieve, lista corretta
+    MAJOR = "major"          # errore che comporta penalita
+    NOT_FOUND = "not_found"  # lista non consegnata
+
+
 class ResultReportStatus(StrEnum):
     PENDING = "pending"
     CONFIRMED = "confirmed"
     CONFLICT = "conflict"
 
 
+DECKLIST_LOCK_MINUTES = 30   # default: liste chiuse 30 minuti prima dell'inizio
+
+
 def now_utc() -> datetime:
     return datetime.now(UTC)
+
+
+class Event(Base):
+    """Contenitore di tornei che si svolgono insieme: un weekend con main event
+    e side event, una convention. Chi ha un ruolo qui ce l'ha su tutti i tornei
+    dentro, cosi lo staff si nomina una volta sola per tutto il fine settimana."""
+    __tablename__ = "events"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    organization_id: Mapped[int | None] = mapped_column(
+        ForeignKey("organizations.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    organizer_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    slug: Mapped[str] = mapped_column(String(120), unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(180))
+    description: Mapped[str] = mapped_column(Text, default="", server_default="")
+    venue: Mapped[str] = mapped_column(String(180), default="", server_default="")
+    starts_on: Mapped[date] = mapped_column(Date)
+    ends_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+    is_public: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1")
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
+
+    organizer: Mapped["User"] = relationship()
+    tournaments: Mapped[list["Tournament"]] = relationship(back_populates="event")
+
+
+class EventStaff(Base):
+    """Staff nominato sull'intero evento. Vale su ogni torneo che contiene:
+    a un weekend non si rinomina lo stesso capojudge dieci volte."""
+    __tablename__ = "event_staff"
+    __table_args__ = (UniqueConstraint("event_id", "user_id"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    event_id: Mapped[int] = mapped_column(ForeignKey("events.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    role: Mapped[str] = mapped_column(String(32), default=StaffRole.JUDGE)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
+
+    user: Mapped["User"] = relationship()
+    event: Mapped[Event] = relationship()
 
 
 class Organization(Base):
@@ -68,7 +151,17 @@ class Organization(Base):
     slug: Mapped[str] = mapped_column(String(80), unique=True, index=True)
     name: Mapped[str] = mapped_column(String(160))
     is_default: Mapped[bool] = mapped_column(Boolean, default=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+    # Profilo pubblico del negozio: senza questi la pagina store non ha nulla da dire.
+    # server_default perché la riga di default nasce da una INSERT grezza in db.py.
+    description: Mapped[str] = mapped_column(Text, default="", server_default="")
+    city: Mapped[str] = mapped_column(String(120), default="", server_default="")
+    address: Mapped[str] = mapped_column(String(240), default="", server_default="")
+    website: Mapped[str] = mapped_column(String(240), default="", server_default="")
+    logo_url: Mapped[str] = mapped_column(String(400), default="", server_default="")
+    latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    is_premium: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
 
 
 class User(Base):
@@ -83,7 +176,7 @@ class User(Base):
     role: Mapped[str] = mapped_column(String(32), default=UserRole.PLAYER)
     password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
 
     oauth_accounts: Mapped[list["OAuthAccount"]] = relationship(back_populates="user")
     tournaments: Mapped[list["Tournament"]] = relationship(back_populates="organizer")
@@ -100,7 +193,7 @@ class PushSubscription(Base):
     endpoint: Mapped[str] = mapped_column(Text, unique=True)
     p256dh: Mapped[str] = mapped_column(String(255))
     auth: Mapped[str] = mapped_column(String(255))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
 
     user: Mapped[User] = relationship(back_populates="push_subscriptions")
 
@@ -113,7 +206,7 @@ class OAuthAccount(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     provider: Mapped[str] = mapped_column(String(32))
     provider_user_id: Mapped[str] = mapped_column(String(255))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
 
     user: Mapped[User] = relationship(back_populates="oauth_accounts")
 
@@ -128,8 +221,12 @@ class Tournament(Base):
     )
     name: Mapped[str] = mapped_column(String(180), index=True)
     format: Mapped[str] = mapped_column(String(80))
+    event_type: Mapped[str] = mapped_column(String(40), default=EventType.LOCALS, index=True)
     rules_enforcement_level: Mapped[str] = mapped_column(String(40), default="Competitive")
     venue: Mapped[str] = mapped_column(String(180), default="")
+    # Coordinate del luogo: se assenti vale la posizione del negozio.
+    latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     starts_on: Mapped[date] = mapped_column(Date)
     start_time: Mapped[str | None] = mapped_column(String(5), nullable=True)  # "HH:MM"
     capacity: Mapped[int] = mapped_column(Integer)
@@ -140,7 +237,7 @@ class Tournament(Base):
     swiss_rounds: Mapped[int] = mapped_column(Integer, default=0)
     top_cut_size: Mapped[int] = mapped_column(Integer, default=8)
     decklist_required: Mapped[bool] = mapped_column(Boolean, default=True)
-    decklist_deadline: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    decklist_deadline: Mapped[datetime | None] = mapped_column(UtcDateTime(timezone=True), nullable=True)
     check_in_required: Mapped[bool] = mapped_column(Boolean, default=False)
     self_check_in_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     late_registration_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -161,9 +258,44 @@ class Tournament(Base):
     season_id: Mapped[int | None] = mapped_column(
         ForeignKey("seasons.id", ondelete="SET NULL"), nullable=True
     )
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+    event_id: Mapped[int | None] = mapped_column(
+        ForeignKey("events.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
+
+    @property
+    def starts_at(self) -> datetime | None:
+        """Data e ora di inizio. None senza un orario valido: la sola data non
+        basta a dire quando si comincia."""
+        if not self.start_time:
+            return None
+        try:
+            hh, mm = (int(part) for part in self.start_time.split(":"))
+        except (ValueError, TypeError):
+            return None
+        return datetime.combine(self.starts_on, time(hh, mm), tzinfo=UTC)
+
+    @property
+    def decklist_locks_at(self) -> datetime | None:
+        """Istante in cui le liste si chiudono: la deadline esplicita, altrimenti 30
+        minuti prima dell'orario di inizio. None se l'organizzatore non ha fissato
+        nulla — in quel caso a chiudere è solo l'avvio del torneo."""
+        if self.decklist_deadline:
+            deadline = self.decklist_deadline
+            return deadline if deadline.tzinfo else deadline.replace(tzinfo=UTC)
+        start = self.starts_at
+        return start - timedelta(minutes=DECKLIST_LOCK_MINUTES) if start else None
+
+    @property
+    def decklist_locked(self) -> bool:
+        """A torneo avviato o concluso le liste sono sempre chiuse."""
+        if self.status in {TournamentStatus.RUNNING, TournamentStatus.COMPLETED, TournamentStatus.CANCELLED}:
+            return True
+        locks_at = self.decklist_locks_at
+        return bool(locks_at and datetime.now(UTC) > locks_at)
 
     organizer: Mapped[User] = relationship(back_populates="tournaments")
+    event: Mapped[Event | None] = relationship(back_populates="tournaments")
     registrations: Mapped[list["Registration"]] = relationship(back_populates="tournament")
     rounds: Mapped[list["Round"]] = relationship(back_populates="tournament")
     announcements: Mapped[list["Announcement"]] = relationship(back_populates="tournament")
@@ -182,31 +314,52 @@ class Registration(Base):
     checked_in: Mapped[bool] = mapped_column(Boolean, default=False)
     dropped: Mapped[bool] = mapped_column(Boolean, default=False)
     waitlisted: Mapped[bool] = mapped_column(Boolean, default=False)
-    promoted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+    promoted_at: Mapped[datetime | None] = mapped_column(UtcDateTime(timezone=True), nullable=True)
+    day2: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
 
     tournament: Mapped[Tournament] = relationship(back_populates="registrations")
     player: Mapped[User] = relationship(back_populates="registrations")
-    decklist: Mapped["Decklist"] = relationship(back_populates="registration", uselist=False)
+    decklists: Mapped[list["Decklist"]] = relationship(
+        back_populates="registration", cascade="all, delete-orphan"
+    )
+
+    @property
+    def decklist(self) -> "Decklist | None":
+        """La lista principale. Tutto il codice che non sa nulla di segmenti
+        continua a leggere `registration.decklist` e trova quella giusta."""
+        return next((d for d in self.decklists if not d.format), None)
+
+    def decklist_for(self, fmt: str) -> "Decklist | None":
+        return next((d for d in self.decklists if d.format == (fmt or "")), None)
     decklist_revisions: Mapped[list["DecklistRevision"]] = relationship(back_populates="registration")
     payment: Mapped["Payment"] = relationship(back_populates="registration", uselist=False)
 
 
 class Decklist(Base):
+    """Una lista per segmento di formato.
+
+    `format` vuoto e la lista principale, il caso normale di un torneo a formato
+    unico. In un evento misto ce n'e una per porzione ("Booster Draft", "Modern").
+    Vuoto e non NULL di proposito: in SQL NULL != NULL, quindi con NULL il vincolo
+    di unicita non impedirebbe due liste principali sulla stessa iscrizione.
+    """
     __tablename__ = "decklists"
+    __table_args__ = (UniqueConstraint("registration_id", "format"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     registration_id: Mapped[int] = mapped_column(
-        ForeignKey("registrations.id", ondelete="CASCADE"), unique=True
+        ForeignKey("registrations.id", ondelete="CASCADE"), index=True
     )
+    format: Mapped[str] = mapped_column(String(80), default="", server_default="")
     raw_text: Mapped[str] = mapped_column(Text)
     main_count: Mapped[int] = mapped_column(Integer, default=0)
     side_count: Mapped[int] = mapped_column(Integer, default=0)
     status: Mapped[str] = mapped_column(String(32), default=DecklistStatus.SUBMITTED)
     validation_errors: Mapped[str] = mapped_column(Text, default="")
-    submitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+    submitted_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
 
-    registration: Mapped[Registration] = relationship(back_populates="decklist")
+    registration: Mapped[Registration] = relationship(back_populates="decklists")
 
 
 class DecklistRevision(Base):
@@ -220,7 +373,7 @@ class DecklistRevision(Base):
     side_count: Mapped[int] = mapped_column(Integer, default=0)
     status: Mapped[str] = mapped_column(String(32), default=DecklistStatus.SUBMITTED)
     validation_errors: Mapped[str] = mapped_column(Text, default="")
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
 
     registration: Mapped[Registration] = relationship(back_populates="decklist_revisions")
     edited_by: Mapped[User] = relationship()
@@ -241,9 +394,9 @@ class Payment(Base):
     provider_payment_id: Mapped[str] = mapped_column(String(255), default="")
     checkout_url: Mapped[str] = mapped_column(Text, default="")
     refund_reason: Mapped[str] = mapped_column(Text, default="")
-    refund_requested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
-    paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    refund_requested_at: Mapped[datetime | None] = mapped_column(UtcDateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
+    paid_at: Mapped[datetime | None] = mapped_column(UtcDateTime(timezone=True), nullable=True)
 
     registration: Mapped[Registration] = relationship(back_populates="payment")
 
@@ -256,10 +409,13 @@ class Round(Base):
     tournament_id: Mapped[int] = mapped_column(ForeignKey("tournaments.id", ondelete="CASCADE"))
     number: Mapped[int] = mapped_column(Integer)
     phase: Mapped[str] = mapped_column(String(32), default="swiss")
+    # Segmento a formato diverso (draft ai primi turni, constructed dopo).
+    # Nullo significa: il formato del torneo.
+    format: Mapped[str | None] = mapped_column(String(80), nullable=True)
     is_published: Mapped[bool] = mapped_column(Boolean, default=True)
-    starts_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+    starts_at: Mapped[datetime | None] = mapped_column(UtcDateTime(timezone=True), nullable=True)
+    ends_at: Mapped[datetime | None] = mapped_column(UtcDateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
 
     tournament: Mapped[Tournament] = relationship(back_populates="rounds")
     pairings: Mapped[list["Pairing"]] = relationship(back_populates="round")
@@ -280,8 +436,17 @@ class Pairing(Base):
     # Secondi extra concessi a questo tavolo (es. ruling del judge): si sommano
     # alla scadenza del round per ottenere la fine effettiva del singolo tavolo.
     extra_seconds: Mapped[int] = mapped_column(Integer, default=0)
+    # Chi segue questo tavolo a fine round: il team vede la sala coperta a
+    # colpo d'occhio invece di chiedersi chi sta guardando cosa.
+    assigned_judge_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    table_status: Mapped[str] = mapped_column(
+        String(20), default=TableStatus.PLAYING, server_default="playing"
+    )
 
     round: Mapped[Round] = relationship(back_populates="pairings")
+    assigned_judge: Mapped["User | None"] = relationship(foreign_keys=[assigned_judge_id])
     player_a: Mapped[Registration] = relationship(foreign_keys=[player_a_registration_id])
     player_b: Mapped[Registration | None] = relationship(foreign_keys=[player_b_registration_id])
 
@@ -297,8 +462,8 @@ class PairingResultReport(Base):
     draws: Mapped[int] = mapped_column(Integer, default=0)
     status: Mapped[str] = mapped_column(String(32), default=ResultReportStatus.PENDING)
     note: Mapped[str] = mapped_column(Text, default="")
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
-    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
+    resolved_at: Mapped[datetime | None] = mapped_column(UtcDateTime(timezone=True), nullable=True)
 
     pairing: Mapped[Pairing] = relationship()
     reporter: Mapped[Registration] = relationship()
@@ -313,10 +478,42 @@ class Announcement(Base):
     title: Mapped[str] = mapped_column(String(180))
     body: Mapped[str] = mapped_column(Text)
     send_email: Mapped[bool] = mapped_column(Boolean, default=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+    # Mirato o no: e questo a decidere chi legge, non il numero di destinatari.
+    # Un annuncio mandato a un tag che nessuno porta ha zero destinatari e resta
+    # privato; se lo si deducesse dalle righe, diventerebbe pubblico.
+    targeted: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
+    # I nomi dei tag destinatari, congelati al momento dell'invio. E una riga di
+    # storia, non una chiave: se il tag viene rinominato o cancellato, resta
+    # scritto a chi era stato mandato.
+    audience: Mapped[str] = mapped_column(String(240), default="", server_default="")
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
 
     tournament: Mapped[Tournament] = relationship(back_populates="announcements")
     author: Mapped[User] = relationship()
+    recipients: Mapped[list["AnnouncementRecipient"]] = relationship(
+        back_populates="announcement", cascade="all, delete-orphan"
+    )
+
+
+class AnnouncementRecipient(Base):
+    """Chi doveva ricevere un annuncio mirato. Esiste solo per gli annunci con
+    destinatari scelti: senza righe, l'annuncio e per tutti gli iscritti, e chi si
+    iscrive dopo lo vede comunque.
+
+    La platea si fissa all'invio invece di ricalcolarla dai tag a ogni lettura,
+    altrimenti togliere un tag nasconderebbe a un giocatore un messaggio che ha
+    gia ricevuto per email, e cancellarlo renderebbe pubblico un annuncio che
+    pubblico non era."""
+    __tablename__ = "announcement_recipients"
+    __table_args__ = (UniqueConstraint("announcement_id", "user_id"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    announcement_id: Mapped[int] = mapped_column(
+        ForeignKey("announcements.id", ondelete="CASCADE"), index=True
+    )
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+
+    announcement: Mapped[Announcement] = relationship(back_populates="recipients")
 
 
 class Penalty(Base):
@@ -330,39 +527,111 @@ class Penalty(Base):
     kind: Mapped[str] = mapped_column(String(40), default="warning")
     note: Mapped[str] = mapped_column(Text, default="")
     is_private: Mapped[bool] = mapped_column(Boolean, default=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
 
     registration: Mapped[Registration] = relationship()
     judge: Mapped[User] = relationship()
     round: Mapped[Round | None] = relationship()
 
 
+class DeckCheck(Base):
+    """Esito di un controllo lista. Sopravvive alla rigenerazione di un round:
+    e un atto del torneo, non uno stato del turno."""
+    __tablename__ = "deck_checks"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tournament_id: Mapped[int] = mapped_column(ForeignKey("tournaments.id", ondelete="CASCADE"), index=True)
+    registration_id: Mapped[int] = mapped_column(ForeignKey("registrations.id", ondelete="CASCADE"), index=True)
+    round_id: Mapped[int | None] = mapped_column(ForeignKey("rounds.id", ondelete="SET NULL"), nullable=True)
+    judge_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    result: Mapped[str] = mapped_column(String(20), default=DeckCheckResult.OK)
+    note: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
+
+    registration: Mapped[Registration] = relationship()
+    judge: Mapped[User] = relationship()
+
+
 class Season(Base):
-    """Stagione del negozio: raggruppa tornei e somma i punti per la leaderboard."""
+    """Circuito del negozio: raggruppa tornei e somma i punti per la leaderboard.
+
+    Nato come "stagione" interna, ha ora una pagina pubblica propria (slug) con
+    periodo, descrizione e soglia di qualificazione.
+    """
     __tablename__ = "seasons"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     organizer_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    organization_id: Mapped[int | None] = mapped_column(
+        ForeignKey("organizations.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     name: Mapped[str] = mapped_column(String(120))
+    slug: Mapped[str | None] = mapped_column(String(120), unique=True, index=True, nullable=True)
+    description: Mapped[str] = mapped_column(Text, default="")
+    starts_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+    ends_on: Mapped[date | None] = mapped_column(Date, nullable=True)
     points_win: Mapped[int] = mapped_column(Integer, default=3)
     points_draw: Mapped[int] = mapped_column(Integer, default=1)
+    # Punti bonus a chi vince il torneo, e soglia sopra cui si e qualificati.
+    points_participation: Mapped[int] = mapped_column(Integer, default=0)
+    points_champion_bonus: Mapped[int] = mapped_column(Integer, default=0)
+    qualification_threshold: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    is_public: Mapped[bool] = mapped_column(Boolean, default=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
 
     organizer: Mapped[User] = relationship()
     tournaments: Mapped[list[Tournament]] = relationship()
 
 
+class PlayerTag(Base):
+    """Etichetta che il negozio applica ai propri giocatori (es. "Commander",
+    "Nuovo", "Judge"): serve a filtrare gli iscritti e a mandare annunci mirati."""
+    __tablename__ = "player_tags"
+    __table_args__ = (UniqueConstraint("organization_id", "name"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    organization_id: Mapped[int] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(60))
+    color: Mapped[str] = mapped_column(String(9), default="#d8b465")
+    description: Mapped[str] = mapped_column(String(240), default="")
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
+
+    assignments: Mapped[list["PlayerTagAssignment"]] = relationship(
+        back_populates="tag", cascade="all, delete-orphan"
+    )
+
+
+class PlayerTagAssignment(Base):
+    """Un tag su un giocatore. L'etichetta vale dentro il negozio che l'ha creata:
+    lo stesso utente puo essere "Habitue" da un tenant e sconosciuto da un altro."""
+    __tablename__ = "player_tag_assignments"
+    __table_args__ = (UniqueConstraint("tag_id", "user_id"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tag_id: Mapped[int] = mapped_column(ForeignKey("player_tags.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    assigned_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
+
+    tag: Mapped[PlayerTag] = relationship(back_populates="assignments")
+    user: Mapped[User] = relationship(foreign_keys=[user_id])
+
+
 class TournamentStaff(Base):
-    """Staff/judge invitato su un singolo torneo: può inserire risultati e penalità,
-    non può eliminare il torneo né vedere i pagamenti."""
+    """Staff giudicante di un singolo torneo. Sia il capojudge sia il judge possono
+    inserire risultati, dare penalità ed estendere il tempo di un tavolo; nessuno dei
+    due può eliminare il torneo o vedere i pagamenti (restano a load_owned_tournament).
+    In più il capojudge nomina e rimuove i judge sotto di lui: è l'organizzatore a
+    nominare lui, e ce n'è al massimo uno per torneo."""
     __tablename__ = "tournament_staff"
     __table_args__ = (UniqueConstraint("tournament_id", "user_id"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     tournament_id: Mapped[int] = mapped_column(ForeignKey("tournaments.id", ondelete="CASCADE"))
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+    role: Mapped[str] = mapped_column(String(32), default=StaffRole.JUDGE)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
 
     user: Mapped[User] = relationship()
     tournament: Mapped[Tournament] = relationship()
@@ -378,7 +647,7 @@ class AuditLog(Base):
     editor_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     action: Mapped[str] = mapped_column(String(64))
     detail: Mapped[str] = mapped_column(Text, default="")
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
 
     editor: Mapped[User] = relationship()
 
@@ -392,6 +661,6 @@ class InviteCode(Base):
     code: Mapped[str] = mapped_column(String(80))
     max_uses: Mapped[int] = mapped_column(Integer, default=1)
     used_count: Mapped[int] = mapped_column(Integer, default=0)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
 
     tournament: Mapped[Tournament] = relationship(back_populates="invite_codes")

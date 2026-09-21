@@ -21,7 +21,14 @@ export default defineConfig({
     rollupOptions: {
       input: {
         /* App online — frontend unico (rimosso il tool offline) */
-        index:              'index.html',          // home pubblica giocatori
+        index:              'index.html',          // home "Scopri" a rail
+        events:             'events.html',         // ricerca eventi con facet
+        stores:             'stores.html',         // elenco negozi
+        store:              'store.html',          // profilo negozio
+        series:             'series.html',         // pagina circuito
+        circuits:           'circuits.html',       // elenco circuiti
+        coverage:           'coverage.html',       // scheda social del torneo
+        'event-page':       'event-page.html',     // programma di una manifestazione
         login:              'login.html',
         history:            'history.html',
         event:              'event.html',

@@ -3,10 +3,12 @@
  * Elenca i tornei conclusi; cliccando un torneo mostra vincitore, classifica e
  * decklist (solo se rese pubbliche dall'organizzatore). Endpoint pubblici.
  */
+import { renderDeck } from './deck-view.js';
+import { esc } from './escape.js';
+
 const API = '/api';
 const TOKEN_KEY = 'manabind-jwt-v1';
 
-const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const fmtDate = (d) => { if (!d) return '—'; const [y, m, dd] = d.split('-'); return `${dd}/${m}/${y}`; };
 function toast(msg) {
   const el = document.querySelector('#toast'); if (!el) return;
@@ -103,18 +105,53 @@ async function showResults(tid) {
       <tbody>${rows}</tbody>
     </table>
     ${r.decklists_public ? '' : '<p class="muted" style="margin-top:8px;font-size:.85rem">Le decklist di questo torneo non sono pubbliche.</p>'}
-    <pre id="histDeck" style="display:none;white-space:pre-wrap;background:rgba(0,0,0,.25);padding:12px;border-radius:8px;margin-top:12px;max-height:340px;overflow:auto"></pre>
+    <p style="margin:12px 0 0"><a class="secondary-link" href="coverage.html?t=${tid}">🖼 Scheda da pubblicare ↗</a></p>
   </div>`;
   box.querySelectorAll('[data-deck]').forEach(b => b.addEventListener('click', () => {
     const s = r.standings.find(x => String(x.registration_id) === b.dataset.deck);
-    const pre = document.querySelector('#histDeck');
-    pre.style.display = 'block';
-    pre.textContent = `${s.name}${s.archetype ? ' — ' + s.archetype : ''}\n\n${s.decklist}`;
-    pre.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    showDeck(s);
   }));
 
   // #46 Bracket Top 8 (se gli abbinamenti sono pubblici)
   loadBracket(tid, box);
+  loadMeta(tid, box);
+}
+
+/* Metagame del torneo: quanti hanno giocato cosa e come e andata. */
+async function loadMeta(tid, box) {
+  let rows = [];
+  try { rows = (await apiGet(`/tournaments/${tid}/public-meta`)) || []; } catch { return; }
+  if (!rows.length) return;
+  const max = Math.max(...rows.map(r => r.players));
+  const body = rows.map(r => `
+    <tr>
+      <td style="min-width:160px">
+        <strong>${esc(r.archetype)}</strong>
+        <div class="meta-bar" style="width:${Math.round(r.players / max * 100)}%"></div>
+      </td>
+      <td>${r.players}</td>
+      <td>${r.wins}/${r.losses}/${r.draws}</td>
+      <td>${r.win_rate}%</td>
+    </tr>`).join('');
+  const panel = document.createElement('div');
+  panel.className = 'panel';
+  panel.style.marginTop = '12px';
+  panel.innerHTML = `<h3 style="margin-top:0">Metagame</h3>
+    <table class="data-table" style="width:100%">
+      <thead><tr><th>Archetipo</th><th>Giocatori</th><th>V/S/P</th><th>Win rate</th></tr></thead>
+      <tbody>${body}</tbody>
+    </table>`;
+  box.appendChild(panel);
+}
+
+/* Lista di un piazzato, con le immagini delle carte. */
+async function showDeck(standing) {
+  const body = document.querySelector('#deckViewBody');
+  document.querySelector('#deckViewTitle').textContent =
+    `${standing.name}${standing.archetype ? ' — ' + standing.archetype : ''}`;
+  body.innerHTML = '<p class="empty">Caricamento lista…</p>';
+  document.querySelector('#deckViewDialog').showModal();
+  await renderDeck(body, standing.decklist || '');
 }
 
 /* #46 Bracket pubblico Top 8: mostrato sotto la classifica se pairings_public. */
@@ -143,8 +180,11 @@ async function loadBracket(tid, box) {
   box.appendChild(panel);
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   updateAuthNav();
-  loadHistory();
+  await loadHistory();
   document.querySelector('#histSearch').addEventListener('input', draw);
+  // history.html?t=ID apre subito quel torneo: ci si arriva da "Le mie iscrizioni".
+  const wanted = new URLSearchParams(location.search).get('t');
+  if (wanted) showResults(wanted);
 });

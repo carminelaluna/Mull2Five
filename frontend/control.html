@@ -3,69 +3,38 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Regia torneo — Manabind</title>
-    <link rel="manifest" href="/manifest.json" />
+    <title>Regia torneo — Mull2Five</title>
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="theme-color" content="#0d0d0f" />
+    <meta property="og:image" content="/og-image-1200x630.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="/og-image-1200x630.png" />
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="app.css" />
-    <style>
-      .ctl-wrap { max-width: 900px; margin: 0 auto; }
-      .ctl-timer { display:flex; align-items:center; gap:16px; flex-wrap:wrap;
-                   padding:16px; border:1px solid var(--line,#3a352d); border-radius:10px; margin-bottom:16px; }
-      .ctl-clock { font-size:clamp(36px,7vw,72px); font-weight:800; font-variant-numeric:tabular-nums; line-height:1; }
-      .ctl-clock.warning { color:var(--warn,#e0a23c); }
-      .ctl-clock.over    { color:var(--danger,#e36363); }
-      .ctl-row { display:flex; align-items:center; gap:10px; flex-wrap:wrap;
-                 padding:10px 12px; border-bottom:1px solid var(--line,#3a352d); }
-      .ctl-row .names { flex:1; min-width:200px; }
-      .ctl-tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; }
-      .ctl-tab { padding:6px 12px; border:1px solid var(--line,#3a352d); border-radius:8px;
-                 background:transparent; color:var(--ink,#f5efe0); cursor:pointer; }
-      .ctl-tab.active { background:var(--teal,#3e8e7e); border-color:var(--teal,#3e8e7e); color:#0f1110; font-weight:600; }
-      .ctl-tab.judge.active { background:var(--accent,#d8b465); border-color:var(--accent,#d8b465); }
-      .tbl-clock { font-variant-numeric:tabular-nums; font-weight:700; min-width:64px; text-align:right; }
-      .tbl-clock.over { color:var(--danger,#e36363); }
-      .tbl-extra { color:var(--accent,#d8b465); font-size:.8rem; }
-      .mini-button.warn   { background:rgba(224,162,60,.18); color:var(--warn,#e0a23c); border:1px solid var(--warn,#e0a23c); }
-      .mini-button.danger { background:rgba(227,99,99,.18); color:var(--danger,#e36363); border:1px solid var(--danger,#e36363); }
-      .judge-tools { display:flex; gap:4px; flex-wrap:wrap; }
-      .judge-tools .mini-button { font-size:.72rem; min-height:28px; padding:3px 7px; }
-      .noshow-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap;
-                    padding:8px 12px; margin-bottom:8px; border:1px dashed var(--line,#3a352d); border-radius:8px; }
-      .absent-chk { font-size:.72rem; color:var(--danger,#e36363); margin-left:4px; white-space:nowrap; }
-    </style>
   </head>
   <body>
     <header class="public-header">
-      <a class="brand" href="index.html"><span class="brand-mark">MB</span><span><strong>Manabind</strong></span></a>
-      <nav class="public-nav"><a href="index.html">Tornei</a><a href="organizer.html">Back-office</a></nav>
+      <a class="brand" href="index.html">
+        <img src="/brand/header-logo-orizzontale-su-scuro.svg" alt="Mull2Five" class="brand-logo" />
+      </a>
+      <nav class="public-nav" aria-label="Navigazione">
+        <a href="events.html">Eventi</a>
+        <a href="stores.html">Negozi</a>
+        <a href="circuits.html">Circuiti</a>
+        <a href="organizer.html">Organizza</a>
+      </nav>
       <div class="public-auth" id="publicAuth"></div>
     </header>
 
     <main class="public-main ctl-wrap">
       <div class="section-heading" style="margin-bottom:16px">
-        <div><span class="eyebrow">Regia torneo</span><h1>Console organizzatore</h1></div>
+        <div><span class="eyebrow">Regia torneo</span><h1>Console</h1></div>
         <select id="tournamentSelect" aria-label="Torneo"></select>
       </div>
-
-      <div id="screenLinks" style="margin-bottom:12px"></div>
-
-      <!-- Timer del round -->
-      <div class="ctl-timer">
-        <span class="ctl-clock" id="ctlClock">--:--</span>
-        <label>min <input id="ctlMinutes" type="number" min="1" max="180" value="50" style="width:64px" /></label>
-        <button class="primary"   id="ctlRestart" type="button">▶ Avvia / Reset</button>
-        <button class="secondary" id="ctlStop"     type="button">⏹ Stop</button>
-        <button class="secondary" id="ctlExtend5"  type="button">+5′ round</button>
-        <button class="secondary" id="ctlExtend10" type="button">+10′ round</button>
-        <span id="ctlRoundLabel" style="color:var(--muted,#b9ad99)"></span>
-      </div>
-
-      <div class="ctl-tabs" id="ctlTabs"></div>
-      <div class="panel" id="ctlTables"><p class="empty">Caricamento…</p></div>
-
-      <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
-        <button class="secondary" id="ctlGenRound" type="button">Genera round successivo</button>
-      </div>
+      <div id="consoleHost"></div>
     </main>
 
     <div id="toast" role="status" aria-live="polite"></div>

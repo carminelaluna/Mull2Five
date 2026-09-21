@@ -1,3 +1,6 @@
+import { renderDeck } from './deck-view.js';
+import { esc } from './escape.js';
+
 const API       = '/api';
 const TOKEN_KEY = 'manabind-jwt-v1';
 
@@ -24,7 +27,6 @@ async function apiFetch(path, opts = {}) {
   return r.status === 204 ? null : r.json();
 }
 
-function esc(s) { return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function fmtDate(d) { if (!d) return '—'; const [y,m,dd]=d.split('-'); return `${dd}/${m}/${y}`; }
 function fmtMoney(v) { return (+v||0).toLocaleString('it-IT',{style:'currency',currency:'EUR'}); }
 function toast(msg) {
@@ -33,6 +35,7 @@ function toast(msg) {
   clearTimeout(el._t); el._t = setTimeout(()=>el.classList.remove('show'), 3200);
 }
 
+let _activeFormat = '';   // segmento della lista in modifica
 let _activeTournamentId = null;
 let _activePairingId    = null;
 let _activeIsA          = true;   // sono il giocatore A del pairing?
@@ -53,7 +56,7 @@ async function loadRegistrations() {
   const container = document.querySelector('#registrationsList');
   try {
     /* Cerca tutti i tornei e poi la mia iscrizione */
-    const tournaments = await apiFetch('/tournaments?status=published,running,closed');
+    const tournaments = await apiFetch('/tournaments?status=published,running,completed');
     const data = Array.isArray(tournaments) ? tournaments : (tournaments?.items ?? []);
 
     /* Recupera le mie iscrizioni per ogni torneo */
@@ -77,7 +80,10 @@ async function loadRegistrations() {
 
     /* Event handlers */
     container.querySelectorAll('[data-action="upload-deck"]').forEach(btn => {
-      btn.addEventListener('click', () => openDeckDialog(btn.dataset.tournamentId, btn.dataset.regId));
+      btn.addEventListener('click', () => openDeckDialog(btn.dataset.tournamentId, btn.dataset.regId, btn.dataset.edit === '1', btn.dataset.format || ''));
+    });
+    container.querySelectorAll('[data-action="view-deck"]').forEach(btn => {
+      btn.addEventListener('click', () => showMyDeck(btn.dataset.tournamentId, btn.dataset.name, btn.dataset.format || ''));
     });
     container.querySelectorAll('[data-action="submit-result"]').forEach(btn => {
       btn.addEventListener('click', () => openResultDialog(
@@ -138,12 +144,39 @@ async function buildCard(t, reg) {
      Caricamento consentito solo prima dell'inizio (le liste si bloccano a torneo
      avviato e, di default, 30 min prima dell'orario di inizio). */
   const hasDeck = reg.decklist_status && reg.decklist_status !== 'missing';
-  const deckOpen = t.status === 'published';
-  const deckBadge = hasDeck
-    ? `<span class="badge ok">Lista inviata ✓</span>`
-    : deckOpen
-      ? `<button class="ghost" data-action="upload-deck" data-tournament-id="${t.id}" data-reg-id="${reg.id}" type="button">Carica lista</button>`
-      : '<span class="badge warn">Liste chiuse</span>';
+  // decklist_locked arriva dal backend: tiene conto della deadline esplicita, del
+  // default (30' prima dell'inizio) e dello stato del torneo.
+  const deckOpen = !t.decklist_locked;
+  // Un torneo a formato unico ha un solo segmento (""). In un evento misto ne
+  // ha uno per porzione, e ognuna vuole la sua lista.
+  const segmenti = (t.decklist_formats?.length ? t.decklist_formats : ['']);
+  const misto = segmenti.length > 1;
+  const inviate = new Set(reg.decklist_formats || (hasDeck ? [''] : []));
+
+  const rigaSegmento = (fmt) => {
+    const etichetta = fmt || (misto ? 'Costruito' : '');
+    const ok = inviate.has(fmt);
+    const parti = [];
+    if (etichetta) parti.push(`<strong style="font-size:.82rem">${esc(etichetta)}</strong>`);
+    if (ok) {
+      parti.push('<span class="badge ok">Inviata ✓</span>');
+      parti.push(`<button class="ghost" data-action="view-deck" data-tournament-id="${t.id}" data-name="${esc(t.name)}" data-format="${esc(fmt)}" type="button">Vedi</button>`);
+    }
+    if (deckOpen) {
+      parti.push(`<button class="ghost" data-action="upload-deck" data-tournament-id="${t.id}" data-reg-id="${reg.id}" data-format="${esc(fmt)}" data-edit="${ok ? '1' : ''}" type="button">${ok ? 'Modifica' : 'Carica'}</button>`);
+    } else if (!ok) {
+      parti.push('<span class="badge warn">Liste chiuse</span>');
+    }
+    return `<span class="deck-segment">${parti.join(' ')}</span>`;
+  };
+
+  const deckParts = segmenti.map(rigaSegmento);
+  if (deckOpen && t.decklist_locks_at) {
+    deckParts.push(`<span class="badge">Modificabile fino al ${fmtDeadline(t.decklist_locks_at)}</span>`);
+  } else if (!deckOpen && inviate.size) {
+    deckParts.push('<span class="badge warn">Liste chiuse: non più modificabili</span>');
+  }
+  const deckBadge = deckParts.join(' ');
 
   /* Pairings round corrente */
   let pairingsHtml = '';
@@ -155,7 +188,7 @@ async function buildCard(t, reg) {
 
   /* Standings */
   let standingsHtml = '';
-  if (t.status === 'running' || t.status === 'closed') {
+  if (t.status === 'running' || t.status === 'completed') {
     try {
       const standings = await apiFetch(`/tournaments/${t.id}/standings`);
       const me = standings?.find(s => s.registration_id === reg.id);
@@ -168,8 +201,8 @@ async function buildCard(t, reg) {
     } catch {}
   }
 
-  const statusLabel = { published:'Aperto', running:'In corso', closed:'Chiuso', cancelled:'Annullato' }[t.status] || t.status;
-  const statusCls   = { running:'ok', closed:'', published:'warn' }[t.status] || '';
+  const statusLabel = { published:'Aperto', running:'In corso', completed:'Concluso', cancelled:'Annullato' }[t.status] || t.status;
+  const statusCls   = { running:'ok', completed:'', published:'warn' }[t.status] || '';
 
   /* Waitlist e drop */
   const waitlistBadge = reg.waitlisted
@@ -178,12 +211,12 @@ async function buildCard(t, reg) {
     ? '<span class="badge">Ritirato</span>' : '';
   const canDrop = !reg.dropped && (t.status === 'published' || t.status === 'running');
   const dropBtn = canDrop
-    ? `<button class="ghost" data-action="self-drop" data-tournament-id="${t.id}" data-name="${esc(t.name)}" type="button" style="color:var(--danger,#e36363)">Ritirati</button>`
+    ? `<button class="ghost" data-action="self-drop" data-tournament-id="${t.id}" data-name="${esc(t.name)}" type="button" style="color:var(--danger,#ef6a5e)">Ritirati</button>`
     : '';
   // #43 Annulla iscrizione self-service: solo prima dell'inizio (torneo pubblicato).
   const canCancel = !reg.dropped && t.status === 'published';
   const cancelBtn = canCancel
-    ? `<button class="ghost" data-action="self-cancel" data-tournament-id="${t.id}" data-name="${esc(t.name)}" type="button" style="color:var(--danger,#e36363)">Annulla iscrizione</button>`
+    ? `<button class="ghost" data-action="self-cancel" data-tournament-id="${t.id}" data-name="${esc(t.name)}" type="button" style="color:var(--danger,#ef6a5e)">Annulla iscrizione</button>`
     : '';
 
   return `<article class="panel reg-card">
@@ -202,7 +235,9 @@ async function buildCard(t, reg) {
       <span>${fmtDate(t.starts_on?.substring(0,10))}</span>
       <span>Entry: ${fmtMoney((t.entry_fee_cents || 0) / 100)}</span>
       ${payBadge} ${deckBadge} ${dropBtn} ${cancelBtn}
-      <a class="secondary-link" href="/api/tournaments/${t.id}/ical">📅 Aggiungi al calendario</a>
+      ${t.status === 'completed'
+        ? `<a class="secondary-link" href="history.html?t=${t.id}">📊 Risultati e liste</a>`
+        : `<a class="secondary-link" href="/api/tournaments/${t.id}/ical">📅 Aggiungi al calendario</a>`}
     </div>
     ${payActions}
     ${standingsHtml}
@@ -242,7 +277,7 @@ function renderMyPairing(t, round, reg) {
     resultCell = `<div class="result-confirm" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
         <span class="badge warn">L'avversario ha inserito: ${esc(myScore || score)}</span>
         <button class="primary" data-action="confirm-result" data-tournament-id="${t.id}" data-pairing-id="${mine.id}" type="button">Conferma</button>
-        <button class="ghost" data-action="reject-result" data-tournament-id="${t.id}" data-pairing-id="${mine.id}" type="button" style="color:var(--danger,#e36363)">Contesta / Chiama Judge</button>
+        <button class="ghost" data-action="reject-result" data-tournament-id="${t.id}" data-pairing-id="${mine.id}" type="button" style="color:var(--danger,#ef6a5e)">Contesta / Chiama Judge</button>
       </div>`;
   } else if (iReported && status === 'pending') {
     resultCell = `<span class="badge warn">Risultato inviato${myScore ? ': ' + esc(myScore) : ''} — in attesa di conferma dell'avversario</span>`;
@@ -271,15 +306,48 @@ function invertResult(r) {
 }
 
 /* ── Decklist upload ─────────────────────────────────── */
-function openDeckDialog(tournamentId, regId) {
+function fmtDeadline(iso) {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime())
+    ? '—'
+    : d.toLocaleString('it-IT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+
+async function openDeckDialog(tournamentId, regId, isEdit = false, fmt = '') {
+  _activeFormat = fmt;
   _activeTournamentId = tournamentId;
-  document.querySelector('#deckDialogTitle').textContent = 'Carica lista';
+  document.querySelector('#deckDialogTitle').textContent =
+    `${isEdit ? 'Modifica lista' : 'Carica lista'}${fmt ? ' — ' + fmt : ''}`;
   document.querySelector('#deckText').value              = '';
   document.querySelector('#deckArchetype').value         = '';
   document.querySelector('#deckError').textContent       = '';
   const file = document.querySelector('#deckFile');
   if (file) file.value = '';
   document.querySelector('#deckDialog').showModal();
+  if (!isEdit) return;
+  // In modifica si riparte dalla lista gia inviata, non da un foglio bianco.
+  try {
+    const deck = await apiFetch(`/tournaments/${tournamentId}/decklist?format=${encodeURIComponent(fmt)}`);
+    document.querySelector('#deckText').value = deck?.raw_text || '';
+  } catch {
+    document.querySelector('#deckError').textContent =
+      'Non sono riuscito a rileggere la lista attuale: reincollala per intero.';
+  }
+}
+
+async function showMyDeck(tournamentId, tournamentName, fmt = '') {
+  const dialog = document.querySelector('#deckViewDialog');
+  const body   = document.querySelector('#deckViewBody');
+  document.querySelector('#deckViewTitle').textContent =
+    `${tournamentName || 'La mia lista'}${fmt ? ' — ' + fmt : ''}`;
+  body.innerHTML = '<p class="empty">Caricamento lista…</p>';
+  dialog.showModal();
+  try {
+    const deck = await apiFetch(`/tournaments/${tournamentId}/decklist?format=${encodeURIComponent(fmt)}`);
+    await renderDeck(body, deck?.raw_text || '');
+  } catch (err) {
+    body.innerHTML = `<p class="empty">${esc(err.message)}</p>`;
+  }
 }
 
 async function submitDeck() {
@@ -292,10 +360,10 @@ async function submitDeck() {
   try {
     await apiFetch(`/tournaments/${_activeTournamentId}/decklist`, {
       method: 'POST',
-      body: JSON.stringify({ raw_text: raw, archetype }),
+      body: JSON.stringify({ raw_text: raw, archetype, format: _activeFormat }),
     });
     document.querySelector('#deckDialog').close();
-    toast('Lista inviata con successo ✓');
+    toast('Lista salvata ✓');
     await loadRegistrations();
   } catch (err) {
     errEl.textContent = err.message;
@@ -513,16 +581,20 @@ async function setupPushToggle() {
   });
 }
 
-/* ── Storico tornei (tornei conclusi a cui ho partecipato) ── */
+/* ── Storico tornei (tornei conclusi a cui ho partecipato) ──
+   La tabella e un indice: piazzamento e record stanno li, il resto — i round
+   giocati, con avversario e punteggio — si apre cliccando la riga. */
+let _history = [];
+
 async function loadHistory() {
   const box = document.querySelector('#historyList');
   if (!box) return;
   try {
-    const rows = await apiFetch('/tournaments/me/history') || [];
-    if (!rows.length) { box.innerHTML = '<p class="empty">Nessun torneo concluso ancora.</p>'; return; }
-    box.innerHTML = `<table class="data-table" style="width:100%">
+    _history = await apiFetch('/tournaments/me/history') || [];
+    if (!_history.length) { box.innerHTML = '<p class="empty">Nessun torneo concluso ancora.</p>'; return; }
+    box.innerHTML = `<table class="data-table history-table" style="width:100%">
       <thead><tr><th>Torneo</th><th>Data</th><th>Formato</th><th>Piazzamento</th><th>Record</th><th>Punti</th></tr></thead>
-      <tbody>${rows.map(r => `<tr>
+      <tbody>${_history.map(r => `<tr data-tid="${r.tournament_id}" tabindex="0" role="button">
         <td><strong>${esc(r.tournament_name)}</strong></td>
         <td>${fmtDate(typeof r.starts_on === 'string' ? r.starts_on : '')}</td>
         <td>${esc(r.format)}</td>
@@ -530,7 +602,82 @@ async function loadHistory() {
         <td>${esc(r.record || '—')}</td>
         <td><strong>${r.points}</strong></td>
       </tr>`).join('')}</tbody></table>`;
+
+    box.querySelectorAll('[data-tid]').forEach(tr => {
+      const open = () => showTournamentDetail(+tr.dataset.tid);
+      tr.addEventListener('click', open);
+      // Con tabindex la riga e raggiungibile da tastiera: deve anche attivarsi.
+      tr.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
+      });
+    });
   } catch (err) {
     box.innerHTML = `<p class="empty">Errore storico: ${esc(err.message)}</p>`;
   }
+}
+
+function matchRow(round, pairing, myRegId) {
+  const isA = pairing.player_a_registration_id === myRegId;
+  const opponent = (isA ? pairing.player_b : pairing.player_a) || null;
+  if (!opponent) {
+    return `<tr><td>${round.number}</td><td>—</td><td class="muted">BYE</td>
+      <td><span class="badge ok">Vittoria</span></td></tr>`;
+  }
+  const mine = isA ? pairing.match_wins_a : pairing.match_wins_b;
+  const theirs = isA ? pairing.match_wins_b : pairing.match_wins_a;
+  let esito = '<span class="muted">—</span>';
+  if (pairing.result) {
+    const cls = mine > theirs ? 'ok' : mine < theirs ? 'warn' : '';
+    const label = mine > theirs ? 'Vittoria' : mine < theirs ? 'Sconfitta' : 'Pareggio';
+    esito = `<span class="badge ${cls}">${label} ${mine} – ${theirs}</span>`;
+  }
+  return `<tr>
+    <td>${round.number}</td>
+    <td>T${pairing.table_number}</td>
+    <td><strong>${esc(opponent)}</strong></td>
+    <td>${esito}</td>
+  </tr>`;
+}
+
+async function showTournamentDetail(tid) {
+  const row = _history.find(r => r.tournament_id === tid);
+  const body = document.querySelector('#historyBody');
+  document.querySelector('#historyTitle').textContent = row?.tournament_name || 'Torneo';
+  document.querySelector('#historyFull').href = `history.html?t=${tid}`;
+  body.innerHTML = '<p class="empty">Caricamento…</p>';
+  document.querySelector('#historyDialog').showModal();
+
+  const stats = `<div class="profile-stats" style="margin-bottom:18px">
+    <div class="profile-stat"><strong>${row?.placement ? row.placement + 'º' : '—'}</strong><span>piazzamento</span></div>
+    <div class="profile-stat"><strong>${esc(row?.record || '—')}</strong><span>V / S / P</span></div>
+    <div class="profile-stat"><strong>${row?.points ?? 0}</strong><span>punti</span></div>
+    <div class="profile-stat"><strong>${esc(row?.format || '—')}</strong><span>formato</span></div>
+  </div>`;
+
+  let rounds = [];
+  let reg = null;
+  try {
+    [rounds, reg] = await Promise.all([
+      apiFetch(`/tournaments/${tid}/my-pairings`),
+      apiFetch(`/tournaments/${tid}/my-registration`),
+    ]);
+  } catch (err) {
+    body.innerHTML = stats + `<p class="empty">Non riesco a caricare i round: ${esc(err.message)}</p>`;
+    return;
+  }
+
+  const rows = (rounds || [])
+    .sort((a, b) => a.number - b.number)
+    .flatMap(round => (round.pairings || [])
+      .filter(p => p.player_a_registration_id === reg.id || p.player_b_registration_id === reg.id)
+      .map(p => matchRow(round, p, reg.id)))
+    .join('');
+
+  body.innerHTML = stats + (rows
+    ? `<h3 style="margin:0 0 8px">I tuoi match</h3>
+       <table class="data-table" style="width:100%">
+         <thead><tr><th>Round</th><th>Tavolo</th><th>Avversario</th><th>Esito</th></tr></thead>
+         <tbody>${rows}</tbody>
+       </table>`
+    : '<p class="empty">Nessun match registrato per questo torneo.</p>');
 }

@@ -40,3 +40,8 @@ dist/
 # OS
 .DS_Store
 Thumbs.db
+
+# Copie di database (es. il backup prima di una migrazione) e report con dati
+# degli utenti: il repository e pubblico, non devono finirci mai.
+*.db.*
+reports/

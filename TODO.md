@@ -1,4 +1,4 @@
-# Manabind TODO
+# Mull2Five TODO
 
 Funzioni derivate dall'analisi di Melee.gg e adattate al progetto.
 
@@ -54,6 +54,109 @@ Funzioni derivate dall'analisi di Melee.gg e adattate al progetto.
 - [x] Aggiunti template email HTML brandizzati per annunci evento.
 - [x] Avanzamento top cut/eliminazione basato sui vincitori del round bracket precedente.
 - [x] Controlli anti-conflitto nella modifica manuale pairings.
+
+## Gerarchia giudicante (V2)
+
+- [x] Incarico per-torneo su `TournamentStaff.role`: capojudge o judge, indipendente dal ruolo dell'account.
+- [x] L'organizzatore nomina il capojudge (uno solo per torneo), promuove e degrada.
+- [x] Il capojudge nomina e rimuove i judge sotto di lui; non puo nominarsi un pari grado ne rimuovere se stesso.
+- [x] Lo staff trova il torneo in `/tournaments/mine`, vede i pairing non pubblicati, rilegge penalita e annunci.
+- [x] `GET /tournaments/{id}/my-role` per far decidere alla UI quali controlli mostrare.
+- [ ] UI: sezione nomina capojudge in organizer.html e nomina judge per il capojudge.
+- [x] UI: control.html adatta i controlli al ruolo (`canRunRounds`, chiusura al solo organizzatore).
+- [x] Top decklist pubbliche e statistiche archetipi (`/public-meta` e vista grafica nello storico).
+
+## Correzioni segnalate dal campo
+
+- [x] Timer: i datetime tornavano naive da SQLite e il browser li leggeva come ora locale (round da 50' che partiva da -70). `UtcDateTime` li marca UTC all'uscita dal DB.
+- [x] Giocatore: puo rileggere e correggere la propria lista fino alla scadenza (`GET /tournaments/{id}/decklist`, `raw_text` in `DecklistOut`).
+- [x] Scadenza liste visibile al giocatore e impostabile dal back-office (`decklist_locks_at`, `decklist_locked`).
+- [x] Tasto "Chiudi torneo" nella console regia, visibile al solo organizzatore.
+- [x] Torneo chiuso: niente nuovi round ne timer, lato API e lato UI.
+- [x] Vista grafica delle liste con immagini Scryfall, ripresa dal tool rimosso in V2 (`js/deck-view.js`): giocatore, storico e back-office.
+- [x] Tornei conclusi di nuovo visibili al giocatore: il frontend filtrava su `closed`, lo stato reale e `completed`.
+- [x] Toggle "liste pubbliche" e scadenza liste esposti nel back-office (l'endpoint `/controls` non era mai chiamato).
+
+## Scoperta eventi e community
+
+- [x] Tassonomia tipi evento (serate, prerelease, RCQ, store championship, premier) con filtro dedicato.
+- [x] Ricerca eventi a facet: formati multipli, REL, finestra temporale, distanza in km, ricerche salvate.
+- [x] Home "Scopri" a rail per eventi, negozi e circuiti, con chip di filtro rapido.
+- [x] Profili pubblici dei negozi (`store.html`) con anagrafica, coordinate, calendario e albo d'oro.
+- [x] Circuiti pubblici (`series.html`): periodo, struttura punti, soglia di qualificazione, classifica.
+- [x] Tag giocatore per negozio, con assegnazione in blocco dagli iscritti.
+- [x] Back-office: tab Negozio (profilo + geocoding Nominatim) e tab Tag.
+- [x] Conventions: realizzate come contenitore `Event` (in interfaccia "Manifestazioni").
+- [ ] API pubblica con API key e database decklist consultabile.
+- [x] Annunci mirati per tag: scelta dei tag nel modulo con il conteggio dei destinatari
+      prima dell'invio, filtro su email, push e lettura in pagina. La platea si fissa
+      all'invio (`announcement_recipients`): togliere o cancellare un tag dopo non
+      allarga ne restringe chi legge.
+
+## Navigazione e permessi
+
+- [x] Generazione e rigenerazione round aperte al capojudge; chiusura torneo resta all'organizzatore.
+- [x] Navigazione pubblica da 6 voci a 4: Eventi, Negozi, Circuiti, Organizza.
+- [x] Storico assorbito nella ricerca eventi come filtro di stato (niente pagina a parte).
+- [x] "Classifica stagionale" sostituita da Circuiti: schede invece di un menu a tendina.
+- [x] Back-office da 9 tab a due livelli: Eventi/Community/Negozio, e dentro un evento 5 sezioni.
+- [x] Via il selettore globale "torneo attivo": si entra in un evento e si esce.
+- [x] Classifica e report uniti in "Risultati"; form di creazione spostato in una modale.
+- [x] Iscritti, Liste e Penalità unite nella sezione Giocatori: una riga per persona, schede dell'evento da 6 a 4.
+- [x] Console Regia estratta in `js/console.js` e montata dentro la pagina dell'evento; `control.html` resta come versione a tutto schermo per secondo monitor e judge.
+- [x] Storico tornei del giocatore: righe cliccabili che aprono statistiche e match round per round del singolo torneo.
+
+## Coverage (spunti dal blog judge FAB)
+
+- [x] Metagame pubblico sui tornei conclusi (`/public-meta`), con barre nello storico.
+- [x] Pagina `coverage.html`: scheda con vincitore, top 8 e metagame, export PNG in tre formati social.
+- [x] Corretto l'ordine dei campi del record in `meta_stats`: sconfitte lette come pareggi, win rate gonfiato.
+- [x] Eventi a formato misto: `Round.format`, una decklist per segmento, UI su giocatore e back-office.
+- [ ] Pod di draft con round interni al pod e ri-podding: valutato, rimandato.
+
+## Gestione sala (spunti da Purple Fox)
+
+- [x] Judge assegnato al tavolo: "Prendo io" / libera, col tavolo evidenziato se e il tuo.
+- [x] Stato del tavolo (in gioco / chiamato / serve judge); quello deducibile — risultato, conflitto — resta dedotto.
+- [x] Deck check registrati per torneo: esito, nota, judge e round; sopravvivono alla rigenerazione del round.
+- [x] Contenitore Event: tappe, pagina pubblica, staff con ruoli ereditati su tutti i tornei dentro.
+- [x] Flag Day 2 per iscrizione con tasso di conversione per archetipo.
+- [x] `Round.format`: segmenti a formato diverso dentro lo stesso torneo (nullo = formato del torneo).
+- [x] Piu decklist per iscrizione, una per segmento di formato. Unicita spostata su
+      `(registration_id, format)`; su SQLite la tabella viene ricostruita e le righe ricopiate,
+      su PostgreSQL bastano due ALTER. `format` vuoto = lista principale.
+- [x] UI per le liste di segmento: una riga per segmento sulla scheda iscrizione, selettore
+      nel caricamento da banco, colonna che dice quali segmenti mancano.
+- [x] UI dell'Event in back-office (sezione "Manifestazioni"): creazione, tappe, staff, anagrafica.
+- [x] UI staff del singolo torneo (scheda Staff dentro l'evento): nomina per email,
+      promozione e degrado del capojudge, rimozione. I permessi del backend sono
+      rispecchiati in interfaccia: il capojudge nomina judge ma non promuove.
+- [x] Pagina pubblica della manifestazione (`event-page.html?e=slug`): programma raggruppato per giornata.
+- [x] Avvisi all'organizzatore (`services/warnings.py`): tappa fuori periodo, torneo mai
+      partito, Stripe/PayPal attivi senza credenziali sul server, scadenza liste dopo
+      l'inizio, liste mancanti nelle 48 ore prima, nessun capojudge a REL Competitive o
+      superiore, email accese senza SMTP; sulla manifestazione anche pagina pubblica
+      senza tappe. Contatore sulle schede (solo gli avvisi, non le note), striscia dentro
+      il torneo, badge "fuori periodo" sulle tappe. Un periodo con la fine prima
+      dell'inizio ora si rifiuta, e la data di fine si puo svuotare.
+- [x] La casella "Invia anche via email" degli annunci non mandava mai niente: il torneo
+      doveva avere le notifiche accese e nessuna schermata le accendeva. Ora il modulo
+      dice se l'email partira e permette di accenderle.
+- [x] Deck check dalla console: pulsante per giocatore nella vista Judge, con esito, nota, storico e segno di gia controllato.
+
+## Verso l'MVP — piano operativo
+
+Tutte le voci dell'MVP sono chiuse.
+
+### Fuori MVP, valutati e rimandati
+
+- Pod di draft con round interni al pod e ri-podding (serve solo al limited oltre i 16 giocatori).
+- API pubblica con API key e database decklist consultabile.
+
+### Non fattibile da qui
+
+- Test refund PayPal: servono credenziali sandbox reali e un webhook pubblico.
+  Va fatto da te, in un ambiente con `PAYPAL_CLIENT_ID`/`SECRET` configurati.
 
 ## Da monitorare
 

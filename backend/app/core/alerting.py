@@ -84,7 +84,7 @@ def send_alert(key: str, subject: str, message: str, *, level: str = "error") ->
             return False
         if not _should_send(key, s.alert_throttle_secs):
             return False
-        full_subject = f"[Manabind {level.upper()}] {subject}"
+        full_subject = f"[Mull2Five {level.upper()}] {subject}"
         logger.warning("ALERT %s: %s — %s", level, subject, message)
         # Fire-and-forget: non blocchiamo il chiamante.
         try:

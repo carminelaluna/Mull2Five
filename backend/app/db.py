@@ -1,10 +1,29 @@
 import os
 from collections.abc import Generator
+from datetime import UTC, datetime
 
-from sqlalchemy import create_engine, event, inspect, text
+from sqlalchemy import DateTime, TypeDecorator, create_engine, event, inspect, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from backend.app.core.config import get_settings
+
+
+class UtcDateTime(TypeDecorator):
+    """DateTime che torna sempre timezone-aware in UTC.
+
+    SQLite non conserva il fuso: scrive l'ora di muro e la rilegge naive. Pydantic
+    la serializza senza offset e il browser la interpreta come ora locale — un round
+    da 50 minuti avviato da Roma partiva da -70 (50 meno le 2 ore di CEST).
+    Su PostgreSQL le `timestamptz` arrivano già aware e passano di qui intatte.
+    """
+
+    impl = DateTime
+    cache_ok = True
+
+    def process_result_value(self, value: datetime | None, dialect) -> datetime | None:
+        if value is not None and value.tzinfo is None:
+            return value.replace(tzinfo=UTC)
+        return value
 
 settings = get_settings()
 
@@ -24,8 +43,15 @@ _WORKERS = int(os.environ.get("WEB_CONCURRENCY", 1))
 # Esempio: 4 worker → 20/worker → pool_size=10, max_overflow=10 → 80 connessioni totali
 
 _per_worker   = max(5, 80 // _WORKERS)   # connessioni budget per worker
-_pool_size    = _per_worker // 2          # pool sempre aperto
-_max_overflow = _per_worker - _pool_size  # burst temporaneo
+
+# DB_POOL_SIZE sostituisce il calcolo: un PostgreSQL gestito (Supabase, piano
+# gratuito) regge molte meno delle 80 connessioni previste qui.
+if "DB_POOL_SIZE" in os.environ:
+    _pool_size    = int(os.environ["DB_POOL_SIZE"])
+    _max_overflow = int(os.environ.get("DB_MAX_OVERFLOW", _pool_size))
+else:
+    _pool_size    = _per_worker // 2          # pool sempre aperto
+    _max_overflow = _per_worker - _pool_size  # burst temporaneo
 
 engine = create_engine(
     settings.database_url,
@@ -128,6 +154,11 @@ def migrate_existing_schema() -> None:
             add_column(connection, columns, "tournaments", "pay_paypal",   "BOOLEAN", "0")
             add_nullable_column(connection, columns, "tournaments", "organization_id", "INTEGER")
             add_nullable_column(connection, columns, "tournaments", "start_time", "VARCHAR(5)")
+            # I tornei preesistenti sono serate di negozio finche non si dice altro.
+            add_column(connection, columns, "tournaments", "event_type", "VARCHAR(40)", "'locals'")
+            add_nullable_column(connection, columns, "tournaments", "latitude",  "FLOAT")
+            add_nullable_column(connection, columns, "tournaments", "longitude", "FLOAT")
+            add_nullable_column(connection, columns, "tournaments", "event_id", "INTEGER")
 
         if "users" in inspector.get_table_names():
             columns = {col["name"] for col in inspector.get_columns("users")}
@@ -138,6 +169,7 @@ def migrate_existing_schema() -> None:
             add_column(connection, columns, "registrations", "dropped",    "BOOLEAN", "0")
             add_column(connection, columns, "registrations", "waitlisted", "BOOLEAN", "0")
             add_nullable_column(connection, columns, "registrations", "promoted_at", "DATETIME")
+            add_column(connection, columns, "registrations", "day2", "BOOLEAN", "0")
 
         if "rounds" in inspector.get_table_names():
             columns = {col["name"] for col in inspector.get_columns("rounds")}
@@ -153,6 +185,49 @@ def migrate_existing_schema() -> None:
             add_column(connection, columns, "pairings", "draws",        "INTEGER", "0")
             add_column(connection, columns, "pairings", "extra_seconds","INTEGER", "0")
 
+        if "organizations" in inspector.get_table_names():
+            columns = {col["name"] for col in inspector.get_columns("organizations")}
+            add_column(connection, columns, "organizations", "description", "TEXT", "''")
+            add_column(connection, columns, "organizations", "city",        "VARCHAR(120)", "''")
+            add_column(connection, columns, "organizations", "address",     "VARCHAR(240)", "''")
+            add_column(connection, columns, "organizations", "website",     "VARCHAR(240)", "''")
+            add_column(connection, columns, "organizations", "logo_url",    "VARCHAR(400)", "''")
+            add_nullable_column(connection, columns, "organizations", "latitude",  "FLOAT")
+            add_nullable_column(connection, columns, "organizations", "longitude", "FLOAT")
+            add_column(connection, columns, "organizations", "is_premium",  "BOOLEAN", "0")
+
+        if "seasons" in inspector.get_table_names():
+            columns = {col["name"] for col in inspector.get_columns("seasons")}
+            add_nullable_column(connection, columns, "seasons", "organization_id", "INTEGER")
+            add_nullable_column(connection, columns, "seasons", "slug", "VARCHAR(120)")
+            add_column(connection, columns, "seasons", "description", "TEXT", "''")
+            add_nullable_column(connection, columns, "seasons", "starts_on", "DATE")
+            add_nullable_column(connection, columns, "seasons", "ends_on", "DATE")
+            add_column(connection, columns, "seasons", "points_participation",  "INTEGER", "0")
+            add_column(connection, columns, "seasons", "points_champion_bonus", "INTEGER", "0")
+            add_nullable_column(connection, columns, "seasons", "qualification_threshold", "INTEGER")
+            add_column(connection, columns, "seasons", "is_public", "BOOLEAN", "1")
+
+        if "rounds" in inspector.get_table_names():
+            columns = {col["name"] for col in inspector.get_columns("rounds")}
+            add_nullable_column(connection, columns, "rounds", "format", "VARCHAR(80)")
+
+        if "tournament_staff" in inspector.get_table_names():
+            columns = {col["name"] for col in inspector.get_columns("tournament_staff")}
+            # Lo staff pre-esistente era piatto: diventa judge, il capojudge lo
+            # nomina l'organizzatore.
+            add_column(connection, columns, "tournament_staff", "role", "VARCHAR(32)", "'judge'")
+
+        if "pairings" in inspector.get_table_names():
+            columns = {col["name"] for col in inspector.get_columns("pairings")}
+            add_nullable_column(connection, columns, "pairings", "assigned_judge_id", "INTEGER")
+            add_column(connection, columns, "pairings", "table_status", "VARCHAR(20)", "'playing'")
+
+        if "announcements" in inspector.get_table_names():
+            columns = {col["name"] for col in inspector.get_columns("announcements")}
+            add_column(connection, columns, "announcements", "targeted", "BOOLEAN", "0")
+            add_column(connection, columns, "announcements", "audience", "VARCHAR(240)", "''")
+
         if "payments" in inspector.get_table_names():
             columns = {col["name"] for col in inspector.get_columns("payments")}
             add_column(connection, columns, "payments", "refund_reason", "TEXT", "''")
@@ -165,6 +240,95 @@ def migrate_existing_schema() -> None:
         _ensure_index(connection, "idx_rounds_tournament",        "rounds",        "tournament_id")
         _ensure_index(connection, "idx_payments_registration",    "payments",      "registration_id")
         _ensure_index(connection, "idx_decklists_registration",   "decklists",     "registration_id")
+        migrate_decklists_per_format(connection)
+        _ensure_index(connection, "idx_tournament_staff_user",    "tournament_staff", "user_id")
+        _ensure_index(connection, "idx_tournaments_event_type",   "tournaments",   "event_type")
+        _ensure_index(connection, "idx_announcement_recipients_user",
+                      "announcement_recipients", "user_id")
+
+        if not _is_sqlite:
+            enable_row_level_security(connection)
+
+
+def enable_row_level_security(connection) -> None:
+    """RLS attiva su ogni tabella dello schema, senza nessuna policy.
+
+    Supabase espone lo schema public via REST ai ruoli anon e authenticated:
+    senza RLS chi ha la chiave pubblica del progetto leggerebbe le tabelle,
+    utenti compresi. Con la RLS attiva e nessuna policy quei ruoli non vedono
+    niente. L'app non ne risente: si collega col ruolo che ha creato le
+    tabelle, e il proprietario la RLS non la subisce (salvo FORCE).
+    Su un PostgreSQL qualunque non cambia nulla, e ripeterla è innocuo.
+    """
+    for table in inspect(connection).get_table_names():
+        connection.execute(text(f'ALTER TABLE "{table}" ENABLE ROW LEVEL SECURITY'))
+
+
+def migrate_decklists_per_format(connection) -> None:
+    """Toglie lo unique su decklists.registration_id per permettere una lista
+    per segmento di formato.
+
+    SQLite non sa eliminare un vincolo dichiarato nella CREATE TABLE: l'unica
+    strada e ricostruire la tabella e ricopiare le righe. Su PostgreSQL basta
+    scambiare i vincoli. In entrambi i casi le liste esistenti diventano la
+    lista principale (format vuoto), che e quello che gia erano.
+    """
+    inspector = inspect(connection)
+    if "decklists" not in inspector.get_table_names():
+        return
+    columns = {col["name"] for col in inspector.get_columns("decklists")}
+    if "format" in columns:
+        return   # gia migrata
+
+    if not _is_sqlite:
+        connection.execute(text(
+            "ALTER TABLE decklists ADD COLUMN format VARCHAR(80) NOT NULL DEFAULT ''"))
+        # Nome che PostgreSQL genera da solo per un unique=True di colonna.
+        connection.execute(text(
+            "ALTER TABLE decklists DROP CONSTRAINT IF EXISTS decklists_registration_id_key"))
+        connection.execute(text(
+            "ALTER TABLE decklists ADD CONSTRAINT uq_decklists_registration_format "
+            "UNIQUE (registration_id, format)"))
+        return
+
+    # SQLite: tabella nuova, copia, scambio. Le foreign key restano spente per
+    # tutta l'operazione, altrimenti eliminare la vecchia tabella le farebbe
+    # scattare sulle righe che la referenziano.
+    connection.exec_driver_sql("PRAGMA foreign_keys=OFF")
+    connection.exec_driver_sql("""
+        CREATE TABLE decklists_migrated (
+            id INTEGER NOT NULL PRIMARY KEY,
+            registration_id INTEGER NOT NULL,
+            format VARCHAR(80) NOT NULL DEFAULT '',
+            raw_text TEXT NOT NULL,
+            main_count INTEGER NOT NULL,
+            side_count INTEGER NOT NULL,
+            status VARCHAR(32) NOT NULL,
+            validation_errors TEXT NOT NULL,
+            submitted_at DATETIME NOT NULL,
+            UNIQUE (registration_id, format),
+            FOREIGN KEY(registration_id) REFERENCES registrations (id) ON DELETE CASCADE
+        )
+    """)
+    connection.exec_driver_sql("""
+        INSERT INTO decklists_migrated
+            (id, registration_id, format, raw_text, main_count, side_count,
+             status, validation_errors, submitted_at)
+        SELECT id, registration_id, '', raw_text, main_count, side_count,
+               status, validation_errors, submitted_at
+        FROM decklists
+    """)
+    copiate = connection.exec_driver_sql("SELECT COUNT(*) FROM decklists_migrated").scalar()
+    originali = connection.exec_driver_sql("SELECT COUNT(*) FROM decklists").scalar()
+    if copiate != originali:
+        # Meglio interrompere con la tabella vecchia intatta che perdere liste.
+        raise RuntimeError(
+            f"Migrazione decklists interrotta: copiate {copiate} righe su {originali}")
+    connection.exec_driver_sql("DROP TABLE decklists")
+    connection.exec_driver_sql("ALTER TABLE decklists_migrated RENAME TO decklists")
+    connection.exec_driver_sql(
+        "CREATE INDEX IF NOT EXISTS idx_decklists_registration ON decklists (registration_id)")
+    connection.exec_driver_sql("PRAGMA foreign_keys=ON")
 
 
 DEFAULT_ORG_SLUG = "arcana"
@@ -189,7 +353,7 @@ def seed_default_organization() -> None:
                     "INSERT INTO organizations (slug, name, is_default, created_at) "
                     "VALUES (:s, :n, :d, CURRENT_TIMESTAMP)"
                 ),
-                {"s": DEFAULT_ORG_SLUG, "n": "Manabind", "d": True if not _is_sqlite else 1},
+                {"s": DEFAULT_ORG_SLUG, "n": "Mull2Five", "d": True if not _is_sqlite else 1},
             )
             row = connection.execute(
                 text("SELECT id FROM organizations WHERE slug = :s"), {"s": DEFAULT_ORG_SLUG}

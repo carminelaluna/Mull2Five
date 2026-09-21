@@ -1,3 +1,5 @@
+import { esc } from './escape.js';
+
 const API = '/api';
 const params = new URLSearchParams(location.search);
 const TOURNAMENT_ID = params.get('id');
@@ -11,7 +13,6 @@ async function apiFetch(path, opts = {}) {
   return r.status === 204 ? null : r.json();
 }
 
-function esc(s) { return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function fmtDate(d) { if (!d) return '—'; const [y,m,dd]=d.split('-'); return `${dd}/${m}/${y}`; }
 function fmtMoney(v) { return (+v||0).toLocaleString('it-IT',{style:'currency',currency:'EUR'}); }
 function toast(msg) {
@@ -40,7 +41,7 @@ async function loadEvent() {
     const isReg  = !!myReg;
     const canReg = session && !isReg && spots > 0 && t.registration_mode === 'open';
 
-    document.title = `${t.name} — Manabind`;
+    document.title = `${t.name} — Mull2Five`;
     document.querySelector('#eventDetail').innerHTML = `
       <div class="event-detail-header">
         <div>

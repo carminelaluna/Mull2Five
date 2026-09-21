@@ -40,7 +40,7 @@ def _registration_confirmed(player_name: str, tournament: "Tournament") -> tuple
         f"Data: {tournament.starts_on.strftime('%d/%m/%Y') if tournament.starts_on else 'TBD'}\n"
         f"Formato: {tournament.format}\n"
         f"Luogo: {tournament.venue or 'TBD'}\n\n"
-        f"Buona fortuna!\n\nManabind"
+        f"Buona fortuna!\n\nMull2Five"
     )
     html = event_announcement_html(tournament.name, "Iscrizione confermata ✓", body)
     return subject, body, html
@@ -52,7 +52,7 @@ def _pairings_ready(player_name: str, tournament: "Tournament", round_number: in
         f"Ciao {player_name},\n\n"
         f"Gli abbinamenti del Round {round_number} di {tournament.name} sono pronti.\n"
         f"Controlla i pairings sul sito e siediti al tuo tavolo.\n\n"
-        f"In bocca al lupo!\n\nManabind"
+        f"In bocca al lupo!\n\nMull2Five"
     )
     html = event_announcement_html(tournament.name, f"Round {round_number} — Abbinamenti pronti", body)
     return subject, body, html
@@ -64,7 +64,7 @@ def _tournament_started(player_name: str, tournament: "Tournament") -> tuple[str
         f"Ciao {player_name},\n\n"
         f"{tournament.name} è ufficialmente iniziato.\n"
         f"Assicurati di avere la tua decklist con te.\n\n"
-        f"Manabind"
+        f"Mull2Five"
     )
     html = event_announcement_html(tournament.name, "Il torneo è iniziato!", body)
     return subject, body, html
@@ -75,7 +75,7 @@ def _payment_confirmed(player_name: str, tournament: "Tournament", amount: float
     body = (
         f"Ciao {player_name},\n\n"
         f"Il tuo pagamento di €{amount:.2f} per {tournament.name} è stato ricevuto.\n\n"
-        f"Manabind"
+        f"Mull2Five"
     )
     html = event_announcement_html(tournament.name, "Pagamento confermato ✓", body)
     return subject, body, html
@@ -116,10 +116,21 @@ def notify_tournament_started(tournament: "Tournament", registrations: list) -> 
             fire_email(reg.player.email, subject, body, html)
 
 
-def push_to_tournament(db, tournament_id: int, title: str, body: str, url: str = "") -> int:
-    """Invia una notifica Web Push a tutti gli iscritti del torneo che hanno
-    una subscription attiva. Rimuove gli endpoint scaduti. Ritorna il numero inviato.
-    No-op se Web Push non è configurato."""
+def push_to_tournament(
+    db,
+    tournament_id: int,
+    title: str,
+    body: str,
+    url: str = "",
+    user_ids: list[int] | None = None,
+) -> int:
+    """Invia una notifica Web Push agli iscritti del torneo che hanno una
+    subscription attiva. Rimuove gli endpoint scaduti. Ritorna il numero inviato.
+    No-op se Web Push non è configurato.
+
+    `user_ids` restringe a una platea già scelta da chi chiama (un annuncio
+    mirato); `None` vuol dire tutti gli iscritti. Una lista vuota non è lo stesso:
+    è una platea scelta che non contiene nessuno, e non manda niente."""
     from sqlalchemy import select
 
     from backend.app.core.webpush import push_enabled, send_push
@@ -127,12 +138,17 @@ def push_to_tournament(db, tournament_id: int, title: str, body: str, url: str =
 
     if not push_enabled():
         return 0
+    if user_ids is not None and not user_ids:
+        return 0
 
-    subs = db.scalars(
+    stmt = (
         select(PushSubscription)
         .join(Registration, Registration.player_id == PushSubscription.user_id)
         .where(Registration.tournament_id == tournament_id)
-    ).all()
+    )
+    if user_ids is not None:
+        stmt = stmt.where(PushSubscription.user_id.in_(user_ids))
+    subs = db.scalars(stmt).all()
 
     payload = {"title": title, "body": body, "url": url}
     sent = 0

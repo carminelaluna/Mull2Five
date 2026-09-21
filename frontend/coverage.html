@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Coverage torneo — Mull2Five</title>
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="theme-color" content="#0d0d0f" />
+    <meta property="og:image" content="/og-image-1200x630.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="/og-image-1200x630.png" />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="app.css" />
+  </head>
+  <body>
+    <header class="public-header">
+      <a class="brand" href="index.html">
+        <img src="/brand/header-logo-orizzontale-su-scuro.svg" alt="Mull2Five" class="brand-logo" />
+      </a>
+      <nav class="public-nav" aria-label="Navigazione">
+        <a href="events.html">Eventi</a>
+        <a href="stores.html">Negozi</a>
+        <a href="circuits.html">Circuiti</a>
+        <a href="organizer.html">Organizza</a>
+      </nav>
+      <div class="public-auth" id="publicAuth"></div>
+    </header>
+
+    <main class="public-main">
+      <div id="coverPage">
+        <div class="section-heading" style="margin-bottom:8px">
+          <div><span class="eyebrow">Coverage</span><h1 id="coverTitle">Torneo</h1></div>
+        </div>
+        <p class="muted" style="margin-top:0;max-width:62ch">
+          Vincitore, top 8 e metagame in un'immagine pronta da pubblicare.
+          Scegli il formato, scarica il png.
+        </p>
+
+        <div id="coverTools" style="display:none">
+          <div class="chips" id="coverSizes"></div>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
+            <button class="primary" id="coverDownload" type="button">⬇ Scarica PNG</button>
+            <span class="muted" id="coverMeta" style="font-size:.85rem"></span>
+            <a class="secondary-link" id="coverLink" href="#">Risultati completi ↗</a>
+          </div>
+          <div class="cover-frame"><canvas id="coverCanvas"></canvas></div>
+        </div>
+      </div>
+    </main>
+
+    <footer class="public-footer">
+      <p>© 2026 Mull2Five · <a href="/docs">API</a></p>
+    </footer>
+
+    <div id="toast" role="status" aria-live="polite"></div>
+    <script type="module" src="js/coverage.js"></script>
+  </body>
+</html>

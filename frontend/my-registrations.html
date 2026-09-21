@@ -3,20 +3,28 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Le mie iscrizioni — Manabind</title>
-    <link rel="manifest" href="/manifest.json" />
+    <title>Le mie iscrizioni — Mull2Five</title>
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="theme-color" content="#0d0d0f" />
+    <meta property="og:image" content="/og-image-1200x630.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="/og-image-1200x630.png" />
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="app.css" />
   </head>
   <body>
     <header class="public-header">
       <a class="brand" href="index.html">
-        <span class="brand-mark">MB</span>
-        <span><strong>Manabind</strong></span>
+        <img src="/brand/header-logo-orizzontale-su-scuro.svg" alt="Mull2Five" class="brand-logo" />
       </a>
-      <nav class="public-nav">
-        <a href="index.html">Tornei</a>
-        <a href="my-registrations.html" style="color:var(--ink)">Le mie iscrizioni</a>
+      <nav class="public-nav" aria-label="Navigazione">
+        <a href="events.html">Eventi</a>
+        <a href="stores.html">Negozi</a>
+        <a href="circuits.html">Circuiti</a>
+        <a href="organizer.html">Organizza</a>
       </nav>
       <div class="public-auth" id="publicAuth"></div>
     </header>
@@ -47,7 +55,7 @@
       <form method="dialog" class="modal">
         <header>
           <div><span class="eyebrow">Decklist</span><h2 id="deckDialogTitle">Carica lista</h2></div>
-          <button class="icon-button" value="cancel">×</button>
+          <button class="icon-button" value="cancel" formnovalidate>×</button>
         </header>
         <label>Carica da file (.txt/.dec)
           <input id="deckFile" type="file" accept=".txt,.dec,.csv,text/plain" />
@@ -60,18 +68,45 @@
         </label>
         <p class="field-error" id="deckError"></p>
         <menu>
-          <button class="secondary" value="cancel">Annulla</button>
+          <button class="secondary" value="cancel" formnovalidate>Annulla</button>
           <button class="primary" id="submitDeck" type="button">Invia lista</button>
         </menu>
       </form>
     </dialog>
 
+
+    <!-- Dialog: dettaglio di un torneo dello storico -->
+    <dialog id="historyDialog" class="deck-view-dialog">
+      <form method="dialog" class="modal">
+        <header>
+          <div><span class="eyebrow">Torneo concluso</span><h2 id="historyTitle">Dettaglio</h2></div>
+          <button class="icon-button" value="cancel" formnovalidate>&times;</button>
+        </header>
+        <div id="historyBody" class="deck-view-body"></div>
+        <menu>
+          <a class="secondary-link" id="historyFull" href="#" target="_blank" rel="noopener">Classifica completa e liste ↗</a>
+          <button class="secondary" value="cancel" formnovalidate>Chiudi</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <!-- Dialog: vista grafica decklist -->
+    <dialog id="deckViewDialog" class="deck-view-dialog">
+      <form method="dialog" class="modal">
+        <header>
+          <div><span class="eyebrow">Decklist</span><h2 id="deckViewTitle">Lista</h2></div>
+          <button class="icon-button" value="cancel" formnovalidate>&times;</button>
+        </header>
+        <div id="deckViewBody" class="deck-view-body"></div>
+        <menu><button class="secondary" value="cancel" formnovalidate>Chiudi</button></menu>
+      </form>
+    </dialog>
     <!-- Dialog: inserisci risultato -->
     <dialog id="resultDialog">
       <form method="dialog" class="modal">
         <header>
           <div><span class="eyebrow">Risultato</span><h2>Il mio risultato</h2></div>
-          <button class="icon-button" value="cancel">×</button>
+          <button class="icon-button" value="cancel" formnovalidate>×</button>
         </header>
         <p id="resultDescription" style="color:var(--muted)"></p>
         <label>Risultato dal mio punto di vista
@@ -89,7 +124,7 @@
         </label>
         <p class="field-error" id="resultError"></p>
         <menu>
-          <button class="secondary" value="cancel">Annulla</button>
+          <button class="secondary" value="cancel" formnovalidate>Annulla</button>
           <button class="primary" id="submitResult" type="button">Invia risultato</button>
         </menu>
       </form>

@@ -33,16 +33,16 @@ def event_announcement_html(event_name: str, title: str, body: str) -> str:
     return f"""\
 <!doctype html>
 <html>
-  <body style="margin:0;background:#11110f;color:#f5efe0;font-family:Arial,sans-serif;">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#11110f;padding:24px;">
+  <body style="margin:0;background:#0d0d0f;color:#f5efe0;font-family:Arial,sans-serif;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#0d0d0f;padding:24px;">
       <tr>
         <td>
           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;margin:auto;background:#1e1d1a;border:1px solid #3a352d;border-radius:8px;">
             <tr>
               <td style="padding:24px;">
-                <p style="margin:0 0 8px;color:#b9ad99;font-size:12px;font-weight:bold;letter-spacing:.08em;text-transform:uppercase;">Manabind</p>
+                <p style="margin:0 0 8px;color:#9a9aa5;font-size:12px;font-weight:bold;letter-spacing:.08em;text-transform:uppercase;">Mull2Five</p>
                 <h1 style="margin:0 0 8px;font-size:24px;line-height:1.2;">{escaped_title}</h1>
-                <p style="margin:0 0 20px;color:#b9ad99;">{escaped_event}</p>
+                <p style="margin:0 0 20px;color:#9a9aa5;">{escaped_event}</p>
                 <div style="font-size:16px;line-height:1.55;white-space:pre-wrap;">{escaped_body}</div>
               </td>
             </tr>

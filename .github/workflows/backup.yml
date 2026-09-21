@@ -1,0 +1,52 @@
+# Backup del database, cifrato. Ogni notte e a richiesta (Actions → Backup → Run workflow).
+#
+# Il repository è pubblico e gli artifact li scarica chiunque abbia un account
+# GitHub: il dump contiene dati personali, quindi esce da pg_dump già cifrato e
+# in chiaro non tocca mai il disco. Senza BACKUP_PASSPHRASE non si legge.
+#
+# Segreti richiesti (Settings → Secrets and variables → Actions):
+#   BACKUP_DATABASE_URL  session pooler di Supabase, con postgresql:// (senza +psycopg)
+#   BACKUP_PASSPHRASE    tenuta anche in un password manager
+#
+# Ripristino: vedi HOSTING.md, passo 6.
+name: Backup
+
+on:
+  schedule:
+    - cron: "30 2 * * *"      # 02:30 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dump cifrato
+        env:
+          DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+          PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          if [ -z "$DATABASE_URL" ] || [ -z "$PASSPHRASE" ]; then
+            echo "::error::Mancano i segreti BACKUP_DATABASE_URL o BACKUP_PASSPHRASE"
+            exit 1
+          fi
+          stamp="$(date -u +%Y-%m-%d_%H%M)"
+          echo "STAMP=$stamp" >> "$GITHUB_ENV"
+          # Solo lo schema public, quello dell'app: gli schemi di Supabase (auth,
+          # storage...) non sono nostri e in un ripristino entrerebbero in conflitto.
+          # pg_dump 17 legge anche server più vecchi, non più nuovi.
+          docker run --rm -e DATABASE_URL postgres:17 \
+            sh -c 'pg_dump --format=custom --schema=public --no-owner --no-privileges "$DATABASE_URL"' \
+          | gpg --batch --yes --pinentry-mode loopback --symmetric --cipher-algo AES256 \
+                --passphrase-fd 3 --output "mull2five-$stamp.dump.gpg" 3<<<"$PASSPHRASE"
+          ls -l "mull2five-$stamp.dump.gpg"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mull2five-${{ env.STAMP }}
+          path: mull2five-*.dump.gpg
+          retention-days: 30
+          if-no-files-found: error

@@ -3,24 +3,28 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Manabind — Trova il tuo torneo MTG</title>
-    <link rel="manifest" href="/manifest.json" />
-    <meta name="theme-color" content="#b6483f" />
+    <title>Mull2Five — Scopri Magic vicino a te</title>
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="theme-color" content="#0d0d0f" />
+    <meta property="og:image" content="/og-image-1200x630.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="/og-image-1200x630.png" />
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="app.css" />
   </head>
   <body>
     <header class="public-header">
       <a class="brand" href="index.html">
-        <span class="brand-mark">MB</span>
-        <span><strong>Manabind</strong></span>
+        <img src="/brand/header-logo-orizzontale-su-scuro.svg" alt="Mull2Five" class="brand-logo" />
       </a>
       <nav class="public-nav" aria-label="Navigazione">
-        <a href="index.html" data-i18n="nav.tournaments">Tornei</a>
-        <a href="history.html">Storico</a>
-        <a href="leaderboard.html" data-i18n="nav.leaderboard">Classifica stagionale</a>
-        <a href="my-registrations.html" data-i18n="nav.my">Le mie iscrizioni</a>
-        <a href="organizer.html" data-i18n="nav.organize">Organizza</a>
+        <a href="events.html">Eventi</a>
+        <a href="stores.html">Negozi</a>
+        <a href="circuits.html">Circuiti</a>
+        <a href="organizer.html">Organizza</a>
       </nav>
       <div class="public-auth" id="publicAuth">
         <a class="secondary-link" href="login.html" data-i18n="auth.login">Accedi</a>
@@ -31,45 +35,42 @@
     <main class="public-main">
       <section class="public-hero">
         <div class="public-hero-copy">
-          <span class="eyebrow" data-i18n="home.eyebrow">MTG Tournament Platform</span>
-          <h1 data-i18n="home.title">Trova e partecipa ai tornei Magic vicino a te.</h1>
-          <p data-i18n="home.subtitle">Iscriviti, paga l'entry fee, carica la decklist e segui i tuoi pairings — tutto in un posto.</p>
+          <span class="eyebrow">Mull2Five</span>
+          <h1>Scopri Magic vicino a te.</h1>
+          <p>Eventi, negozi e circuiti della tua zona — iscrizione, decklist e pairing in un posto solo.</p>
+          <div class="chips" id="geoBar" style="margin-top:14px"></div>
         </div>
       </section>
 
-      <!-- Filtri ricerca -->
-      <section class="public-search panel">
-        <form id="searchForm" class="search-form-public">
-          <label>
-            <input id="searchName" placeholder="Nome torneo…" />
-          </label>
-          <label>
-            <select id="searchFormat">
-              <option value="">Tutti i formati</option>
-              <option>Modern</option><option>Standard</option><option>Pioneer</option>
-              <option>Legacy</option><option>Commander</option><option>Sealed</option><option>Draft</option>
-            </select>
-          </label>
-          <label>
-            <input id="searchDate" type="date" />
-          </label>
-          <label>
-            <input id="searchCity" placeholder="Città…" />
-          </label>
-          <button class="primary" type="submit" data-i18n="search.submit">Cerca</button>
-        </form>
+      <section class="rail">
+        <div class="rail-head">
+          <h2>Eventi</h2>
+          <a class="rail-all" id="eventsAll" href="events.html">Tutti gli eventi →</a>
+        </div>
+        <div class="chips" id="eventsChips"></div>
+        <div class="rail-scroll" id="eventsRail"></div>
       </section>
 
-      <!-- Lista tornei -->
-      <section class="public-events">
-        <div id="eventsList" class="public-events-grid"></div>
-        <p id="eventsEmpty" class="empty" style="display:none">Nessun torneo trovato.</p>
-        <div id="eventsPagination" class="pagination"></div>
+      <section class="rail">
+        <div class="rail-head">
+          <h2>Negozi</h2>
+          <a class="rail-all" href="stores.html">Tutti i negozi →</a>
+        </div>
+        <div class="chips" id="storesChips"></div>
+        <div class="rail-scroll" id="storesRail"></div>
+      </section>
+
+      <section class="rail" id="seriesSection">
+        <div class="rail-head">
+          <h2>Circuiti</h2>
+          <a class="rail-all" href="circuits.html">Tutti i circuiti →</a>
+        </div>
+        <div class="rail-scroll" id="seriesRail"></div>
       </section>
     </main>
 
     <footer class="public-footer">
-      <p>© 2026 Manabind · <a href="/docs">API</a></p>
+      <p>© 2026 Mull2Five · <a href="/docs">API</a></p>
     </footer>
 
     <script type="module" src="js/app.js"></script>
