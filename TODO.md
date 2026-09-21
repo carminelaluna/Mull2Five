@@ -195,7 +195,7 @@ pagamenti ai negozi in fondo, sono il pezzo più grosso.
 - [x] 8. Campi di iscrizione personalizzati: testo, scelta, casella; risposte nella scheda Giocatori e nel CSV degli iscritti
 - [x] 9. Eventi di sola iscrizione: iscritti, pagamenti e presenze senza turni né classifica
 - [x] 10. Import degli iscritti da file: CSV con virgole o punti e virgola, anteprima riga per riga, poi l'import
-- [ ] 11. Togli chi non ha pagato; prize out nel registro
+- [x] 11. Togli chi non ha pagato (con anteprima, prima dell'avvio); premi consegnati segnati in classifica e nel registro
 - [ ] 12. Bye assegnati e sconfitte ai ritardatari
 - [ ] 13. Account ospite e minori con genitore
 - [ ] 14. Posti fissi e pod di draft

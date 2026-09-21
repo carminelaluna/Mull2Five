@@ -175,6 +175,9 @@ def migrate_existing_schema() -> None:
             add_column(connection, columns, "registrations", "dropped",    "BOOLEAN", "0")
             add_column(connection, columns, "registrations", "waitlisted", "BOOLEAN", "0")
             add_nullable_column(connection, columns, "registrations", "promoted_at", "DATETIME")
+            add_column(connection, columns, "registrations", "prize_note", "VARCHAR(240)", "''")
+            add_nullable_column(connection, columns, "registrations", "prize_given_at", "TIMESTAMP WITH TIME ZONE")
+            add_nullable_column(connection, columns, "registrations", "prize_given_by_id", "INTEGER")
             add_column(connection, columns, "registrations", "day2", "BOOLEAN", "0")
 
         if "rounds" in inspector.get_table_names():

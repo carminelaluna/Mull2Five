@@ -214,6 +214,18 @@ class RegistrationCreate(BaseModel):
     answers: dict[int, str | bool] = {}
 
 
+class PrizeIn(BaseModel):
+    """Premio consegnato (given) o annullato; note dice cosa: "3 buste", "20 € di credito"."""
+    given: bool
+    note: str = Field(default="", max_length=240)
+
+
+class DropUnpaidOut(BaseModel):
+    # Chi viene tolto (o verrebbe tolto, in anteprima), e quanti salgono dalla lista d'attesa.
+    dropped: list[str]
+    promoted: int = 0
+
+
 class ImportIn(BaseModel):
     """Una lista di giocatori da iscrivere, così come esce da un foglio di calcolo."""
     csv_text: str = Field(min_length=1, max_length=200_000)
@@ -722,6 +734,8 @@ class OrganizerRegistrationOut(RegistrationOut):
     tags: list[PlayerTagOut] = []
     # Le risposte alle domande del torneo, per id della domanda.
     answers: dict[int, str] = {}
+    prize_note: str = ""
+    prize_given_at: datetime | None = None
 
 
 class TournamentControlsIn(BaseModel):

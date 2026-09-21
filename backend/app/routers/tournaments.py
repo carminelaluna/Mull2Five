@@ -64,6 +64,7 @@ from backend.app.schemas import (
     DeckCheckOut,
     DecklistCreate,
     DecklistOut,
+    DropUnpaidOut,
     ImportIn,
     ImportOut,
     ImportRowOut,
@@ -82,6 +83,7 @@ from backend.app.schemas import (
     PlayerCardOut,
     PlayerHistoryRowOut,
     PlayerPublicProfileOut,
+    PrizeIn,
     PublicDisplayOut,
     PublicPairingOut,
     PublicResultsOut,
@@ -1622,6 +1624,85 @@ def set_drop(
     return organizer_registration_out(registration)
 
 
+@router.post("/{tournament_id}/drop-unpaid", response_model=DropUnpaidOut)
+def drop_unpaid(
+    tournament_id: int,
+    dry_run: bool = True,
+    organizer: User = Depends(require_organizer),
+    db: Session = Depends(get_db),
+) -> DropUnpaidOut:
+    """Prima dell'inizio, toglie chi occupa un posto senza aver pagato: i posti
+    tornano liberi e salgono quelli in lista d'attesa. Con dry_run dice solo chi."""
+    from backend.app.core.cache import cache_invalidate
+
+    tournament = load_owned_tournament(tournament_id, organizer, db)
+    if tournament.status not in {TournamentStatus.DRAFT, TournamentStatus.PUBLISHED}:
+        raise HTTPException(status_code=409, detail="Solo prima dell'inizio del torneo")
+    if not tournament.entry_fee_cents:
+        raise HTTPException(status_code=409, detail="Il torneo è gratuito: non c'è niente da pagare")
+    unpaid = [
+        registration for registration in db.scalars(
+            select(Registration).where(
+                Registration.tournament_id == tournament.id,
+                Registration.waitlisted.is_(False),
+                Registration.dropped.is_(False),
+            ).options(joinedload(Registration.player), joinedload(Registration.payment))
+        ).unique().all()
+        if not registration.payment or registration.payment.status != PaymentStatus.PAID
+    ]
+    names = sorted(r.player.display_name for r in unpaid)
+    if dry_run or not unpaid:
+        return DropUnpaidOut(dropped=names)
+    for registration in unpaid:
+        registration.dropped = True
+    _write_audit(db, tournament.id, organizer.id, "unpaid_dropped", ", ".join(names)[:1000])
+    db.commit()
+
+    def waiting() -> int:
+        return db.scalar(select(func.count(Registration.id)).where(
+            Registration.tournament_id == tournament.id, Registration.waitlisted.is_(True),
+        )) or 0
+
+    before = waiting()
+    for _ in range(min(len(unpaid), before)):
+        promote_from_waitlist(tournament, db)   # uno per posto liberato
+    cache_invalidate(f"registrations:{tournament.id}")
+    cache_invalidate("tournaments:")
+    return DropUnpaidOut(dropped=names, promoted=before - waiting())
+
+
+@router.put("/{tournament_id}/registrations/{registration_id}/prize", response_model=OrganizerRegistrationOut)
+def set_prize(
+    tournament_id: int,
+    registration_id: int,
+    payload: PrizeIn,
+    organizer: User = Depends(require_organizer),
+    db: Session = Depends(get_db),
+) -> OrganizerRegistrationOut:
+    """Segna il premio consegnato, o lo annulla. Resta scritto nel registro chi
+    l'ha dato e quando: a fine serata si ritrova se qualcuno è rimasto senza."""
+    from backend.app.core.cache import cache_invalidate
+
+    tournament = load_owned_tournament(tournament_id, organizer, db)
+    registration = load_registration_for_tournament(tournament_id, registration_id, db)
+    name = registration.player.display_name
+    if payload.given:
+        registration.prize_note = payload.note.strip()
+        registration.prize_given_at = datetime.now(UTC)
+        registration.prize_given_by_id = organizer.id
+        _write_audit(db, tournament.id, organizer.id, "prize_given",
+                     f"{name}: {registration.prize_note or 'premio'}")
+    elif registration.prize_given_at:
+        _write_audit(db, tournament.id, organizer.id, "prize_revoked",
+                     f"{name}: {registration.prize_note or 'premio'}")
+        registration.prize_note = ""
+        registration.prize_given_at = None
+        registration.prize_given_by_id = None
+    db.commit()
+    cache_invalidate(f"registrations:{tournament.id}")
+    return organizer_registration_out(load_registration_for_tournament(tournament_id, registration_id, db))
+
+
 @router.post("/{tournament_id}/registrations/{registration_id}/mark-paid", response_model=OrganizerRegistrationOut)
 def mark_registration_paid(
     tournament_id: int,
@@ -3109,6 +3190,8 @@ def organizer_registration_out(
         decklist_revision_count=len(registration.decklist_revisions),
         tags=(tags or {}).get(registration.player_id, []),
         answers=(answers or {}).get(registration.id, {}),
+        prize_note=registration.prize_note or "",
+        prize_given_at=registration.prize_given_at,
     )
 
 

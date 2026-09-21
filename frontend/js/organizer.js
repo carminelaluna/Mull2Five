@@ -705,6 +705,8 @@ function drawGiocatori(t) {
         <div class="row-actions">
           <button class="secondary" id="gCsv" type="button">${esc(tr('Esporta CSV'))}</button>
           <button class="secondary" id="gImport" type="button">${esc(tr('Importa da file'))}</button>
+          ${['draft', 'published'].includes(t.status) && t.entry_fee_cents > 0
+            ? `<button class="secondary" id="gUnpaid" type="button">${esc(tr('Togli chi non ha pagato'))}</button>` : ''}
           <button class="primary" id="gWalkIn" type="button">+ Iscrivi al banco</button>
         </div>
       </div>
@@ -746,6 +748,7 @@ function drawGiocatori(t) {
   $('#gWalkIn').addEventListener('click', () => openWalkInDialog(t.id));
   $('#gCsv').addEventListener('click', () => downloadPlayersCsv(t));
   $('#gImport').addEventListener('click', () => openImportDialog(t));
+  $('#gUnpaid')?.addEventListener('click', () => dropUnpaid(t));
   $('#ctlSaveControls').addEventListener('click', () => saveDecklistControls(t.id));
   $('#gFilter').addEventListener('input', (e) => {
     const q = e.target.value.toLowerCase();
@@ -766,6 +769,26 @@ function drawGiocatori(t) {
       }, () => renderWarnings(t));
       return regAction(t.id, act, regId, btn.dataset.val);
     }));
+}
+
+/* Prima dell'inizio, chi occupa un posto senza aver pagato lo lascia a chi
+   aspetta. Prima si vede chi, poi si conferma. */
+async function dropUnpaid(t) {
+  try {
+    const plan = await apiFetch(`/tournaments/${t.id}/drop-unpaid`, { method: 'POST' });
+    if (!plan.dropped.length) { toast(tr('Hanno pagato tutti.')); return; }
+    const question = (plan.dropped.length === 1
+      ? tr('Togliere 1 iscritto che non ha pagato?')
+      : tr('Togliere {n} iscritti che non hanno pagato?', { n: plan.dropped.length }))
+      + '\n\n' + plan.dropped.join(', ')
+      + '\n\n' + tr("I posti liberati vanno a chi è in lista d'attesa.");
+    if (!confirm(question)) return;
+    const done = await apiFetch(`/tournaments/${t.id}/drop-unpaid?dry_run=false`, { method: 'POST' });
+    toast(tr('Iscrizioni tolte: {n}.', { n: done.dropped.length })
+      + (done.promoted ? ' ' + tr("Entrano dalla lista d'attesa: {p}.", { p: done.promoted }) : ''));
+    await loadTournaments();
+    renderGiocatori();
+  } catch (err) { toast('Errore: ' + err.message); }
 }
 
 /* ── Import da file ─────────────────────────────────────
@@ -1227,7 +1250,15 @@ async function renderClassifica({ prepend = false } = {}) {
   const t = activeT();
   if (!t) { $('#panel').innerHTML = '<p class="empty">Apri un evento.</p>'; return; }
   let standings = [];
-  try { standings = (await apiFetch(`/tournaments/${t.id}/standings`)) || []; } catch (err) { toast('Errore: ' + err.message); }
+  let regs = [];
+  try {
+    [standings, regs] = await Promise.all([
+      apiFetch(`/tournaments/${t.id}/standings`).then((s) => s || []),
+      // I premi non stanno nella classifica pubblica: vengono dagli iscritti.
+      t.can_manage ? fetchAllRegs(t.id).catch(() => []) : [],
+    ]);
+  } catch (err) { toast('Errore: ' + err.message); }
+  const prizeOf = new Map(regs.map((r) => [r.id, r]));
   // Ogni gioco ha i suoi spareggi, nell'ordine in cui contano.
   const columns = tiebreakerColumns((await gameInfo(t.game))?.tiebreakers);
   const rows = standings.map(s => `
@@ -1237,12 +1268,42 @@ async function renderClassifica({ prepend = false } = {}) {
       <td>${s.points}</td>
       <td>${esc(s.record)}</td>
       ${columns.map((c) => `<td>${s[c.key] ?? 0}%</td>`).join('')}
-    </tr>`).join('') || `<tr><td colspan="${4 + columns.length}" class="muted">Nessun dato (genera round e inserisci risultati).</td></tr>`;
+      ${t.can_manage ? `<td>${prizeCell(prizeOf.get(s.registration_id))}</td>` : ''}
+    </tr>`).join('') || `<tr><td colspan="${5 + columns.length}" class="muted">Nessun dato (genera round e inserisci risultati).</td></tr>`;
   const html = `<div class="panel" style="margin-bottom:16px"><h3>Classifica</h3>
     <table class="bo"><thead><tr><th>#</th><th>Giocatore</th><th>Punti</th><th>V/S/P</th>
-      ${columns.map((c) => `<th>${esc(c.label)}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`;
+      ${columns.map((c) => `<th>${esc(c.label)}</th>`).join('')}${t.can_manage ? `<th>${esc(tr('Premio'))}</th>` : ''}</tr></thead><tbody>${rows}</tbody></table></div>`;
   if (prepend) $('#panel').insertAdjacentHTML('afterbegin', html);
   else $('#panel').innerHTML = html;
+  $('#panel').querySelectorAll('[data-prize]').forEach((b) => b.addEventListener('click', () => togglePrize(t, b)));
+}
+
+/* Il premio consegnato: cosa e quando. Chi l'ha dato resta nel registro. */
+function prizeCell(reg) {
+  if (!reg) return '';
+  if (reg.prize_given_at) {
+    return `<span class="pill ok">✓ ${esc(reg.prize_note || tr('consegnato'))}</span>
+      <button class="mini-button" data-prize="${reg.id}" data-given="1" type="button">${esc(tr('Annulla'))}</button>`;
+  }
+  return `<button class="mini-button" data-prize="${reg.id}" type="button">${esc(tr('Consegna'))}</button>`;
+}
+
+async function togglePrize(t, button) {
+  const given = button.dataset.given !== '1';
+  let note = '';
+  if (given) {
+    note = prompt(tr('Cosa gli consegni? (es. "3 buste", "20 € di credito")'), '');
+    if (note === null) return;
+  } else if (!confirm(tr('Annullare la consegna del premio?'))) {
+    return;
+  }
+  try {
+    await apiFetch(`/tournaments/${t.id}/registrations/${button.dataset.prize}/prize`, {
+      method: 'PUT', body: JSON.stringify({ given, note: note.trim() }),
+    });
+    toast(given ? tr('Premio segnato come consegnato.') : tr('Consegna annullata.'));
+    renderRisultati();
+  } catch (err) { toast('Errore: ' + err.message); }
 }
 
 /* ── REPORT ──────────────────────────────────────────── */

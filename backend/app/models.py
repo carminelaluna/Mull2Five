@@ -309,7 +309,9 @@ class User(Base):
 
     oauth_accounts: Mapped[list["OAuthAccount"]] = relationship(back_populates="user")
     tournaments: Mapped[list["Tournament"]] = relationship(back_populates="organizer")
-    registrations: Mapped[list["Registration"]] = relationship(back_populates="player")
+    registrations: Mapped[list["Registration"]] = relationship(
+        back_populates="player", foreign_keys="Registration.player_id"
+    )
     push_subscriptions: Mapped[list["PushSubscription"]] = relationship(back_populates="user")
 
 
@@ -459,6 +461,13 @@ class Registration(Base):
     player_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     archetype: Mapped[str] = mapped_column(String(120), default="")
     wizards_account: Mapped[str] = mapped_column(String(80), default="")
+    # Il premio consegnato a fine torneo: cosa, quando e da chi. Ogni consegna e
+    # ogni annullamento finiscono anche nel registro del torneo.
+    prize_note: Mapped[str] = mapped_column(String(240), default="", server_default="")
+    prize_given_at: Mapped[datetime | None] = mapped_column(UtcDateTime(timezone=True), nullable=True)
+    prize_given_by_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
     checked_in: Mapped[bool] = mapped_column(Boolean, default=False)
     dropped: Mapped[bool] = mapped_column(Boolean, default=False)
     waitlisted: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -467,7 +476,8 @@ class Registration(Base):
     created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
 
     tournament: Mapped[Tournament] = relationship(back_populates="registrations")
-    player: Mapped[User] = relationship(back_populates="registrations")
+    # player_id, non prize_given_by_id: anche chi consegna il premio è un utente.
+    player: Mapped[User] = relationship(back_populates="registrations", foreign_keys=[player_id])
     decklists: Mapped[list["Decklist"]] = relationship(
         back_populates="registration", cascade="all, delete-orphan"
     )
