@@ -36,6 +36,8 @@ class TournamentCreate(BaseModel):
     name: str = Field(min_length=3, max_length=180)
     format: str
     game: str = "mtg"
+    # Una delle sedi del negozio: il torneo ne eredita indirizzo e coordinate.
+    location_id: int | None = None
     # Vuoto: quello del regolamento del gioco (One Piece al meglio di 1, gli altri di 3).
     best_of: int | None = Field(default=None, ge=1, le=3)
     allow_intentional_draws: bool = True
@@ -92,6 +94,8 @@ class TournamentCreate(BaseModel):
 class TournamentUpdate(BaseModel):
     """Modifiche dalla scheda Impostazioni. I campi non inviati restano com'erano."""
     name: str | None = Field(default=None, min_length=3, max_length=180)
+    # 0 toglie la sede; null la lascia com'è.
+    location_id: int | None = Field(default=None, ge=0)
     format: str | None = Field(default=None, min_length=1, max_length=80)
     game: str | None = None
     best_of: int | None = Field(default=None, ge=1, le=3)
@@ -128,6 +132,8 @@ class TournamentOut(BaseModel):
     # Chi organizza, come persona: il negozio (organization_name) non basta a
     # sapere a chi rivolgersi.
     organizer_name: str | None = None
+    location_id: int | None = None
+    location_name: str | None = None
     event_type: str = "locals"
     rules_enforcement_level: str
     venue: str
@@ -431,9 +437,27 @@ class OrganizationUpdate(BaseModel):
     longitude: float | None = Field(default=None, ge=-180, le=180)
 
 
+class LocationIn(BaseModel):
+    name: str = Field(min_length=2, max_length=120)
+    address: str = Field(default="", max_length=240)
+    city: str = Field(default="", max_length=120)
+    latitude: float | None = Field(default=None, ge=-90, le=90)
+    longitude: float | None = Field(default=None, ge=-180, le=180)
+    notes: str = ""
+
+
+class LocationOut(LocationIn):
+    id: int
+    organization_id: int
+    label: str = ""
+
+    model_config = {"from_attributes": True}
+
+
 class StoreProfileOut(BaseModel):
     """Pagina pubblica del negozio: anagrafica piu cosa c'e in calendario."""
     organization: OrganizationOut
+    locations: list[LocationOut] = []
     upcoming: list[TournamentOut] = []
     past: list[TournamentOut] = []
 

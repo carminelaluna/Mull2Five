@@ -8,7 +8,7 @@ from typing import Annotated
 
 import stripe
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from sqlalchemy import Select, delete, func, select
+from sqlalchemy import Select, delete, func, or_, select
 from sqlalchemy.orm import Session, joinedload, selectinload  # noqa: F401
 
 from backend.app.core.config import get_settings
@@ -26,6 +26,7 @@ from backend.app.models import (
     Event,
     EventStaff,
     InviteCode,
+    Location,
     Organization,
     Pairing,
     PairingResultReport,
@@ -166,6 +167,15 @@ def tournament_out(tournament: Tournament, registered: int, db: Session) -> Tour
     org = db.get(Organization, tournament.organization_id) if tournament.organization_id else None
     event = db.get(Event, tournament.event_id) if tournament.event_id else None
     organizer = db.get(User, tournament.organizer_id)
+    location = tournament.location
+    # La sede presta al torneo quello che non ha di suo: il luogo scritto e le
+    # coordinate, così compare anche nella ricerca per distanza.
+    inherited = {"venue": tournament.place}
+    if location:
+        inherited["location_name"] = location.name
+        if tournament.latitude is None and location.latitude is not None:
+            inherited["latitude"] = location.latitude
+            inherited["longitude"] = location.longitude
     # I segmenti nascono dai round: dichiarare un formato su un turno significa
     # che per quella porzione serve una lista a parte.
     segments = db.scalars(
@@ -176,12 +186,24 @@ def tournament_out(tournament: Tournament, registered: int, db: Session) -> Tour
     return TournamentOut.model_validate(tournament).model_copy(update={
         "registered_players": registered,
         "organizer_name": organizer.display_name if organizer else None,
+        **inherited,
         "organization_slug": org.slug if org else None,
         "organization_name": org.name if org else None,
         "event_slug": event.slug if event else None,
         "event_name": event.name if event else None,
         "decklist_formats": [""] + sorted(f for f in segments if f),
     })
+
+
+def check_location(location_id: int | None, organizer: User, db: Session) -> None:
+    """La sede dev'essere del negozio di chi organizza: non si gioca a casa d'altri."""
+    if not location_id:
+        return
+    from backend.app.routers.tags import org_id_for
+
+    location = db.get(Location, location_id)
+    if not location or location.organization_id != org_id_for(organizer, db):
+        raise HTTPException(status_code=404, detail="Sede non trovata")
 
 
 def tournament_with_counts(stmt: Select[tuple[Tournament]], db: Session) -> list[TournamentOut]:
@@ -275,7 +297,11 @@ def list_tournaments(
         today = datetime.now(UTC).date()
         stmt = stmt.where(Tournament.starts_on >= today, Tournament.starts_on <= today + timedelta(days=days))
     if venue:
-        stmt = stmt.where(Tournament.venue.ilike(f"%{venue}%"))
+        pattern = f"%{venue}%"
+        at_location = select(Location.id).where(or_(
+            Location.name.ilike(pattern), Location.address.ilike(pattern), Location.city.ilike(pattern)
+        ))
+        stmt = stmt.where(or_(Tournament.venue.ilike(pattern), Tournament.location_id.in_(at_location)))
     if date_from:
         stmt = stmt.where(Tournament.starts_on >= date_from)
     if date_to:
@@ -438,6 +464,7 @@ def duplicate_tournament(
         allow_intentional_draws=src.allow_intentional_draws,
         rules_enforcement_level=src.rules_enforcement_level,
         venue=src.venue,
+        location_id=src.location_id,
         starts_on=src.starts_on + timedelta(days=7),
         start_time=src.start_time,
         capacity=src.capacity,
@@ -480,6 +507,7 @@ def create_tournament(
     organizer: User = Depends(require_organizer),
     db: Session = Depends(get_db),
 ) -> TournamentOut:
+    check_location(payload.location_id, organizer, db)
     tournament = Tournament(
         **payload.model_dump(),
         organizer_id=organizer.id,
@@ -490,7 +518,7 @@ def create_tournament(
     db.refresh(tournament)
     from backend.app.core.cache import cache_invalidate
     cache_invalidate("tournaments:")
-    return TournamentOut.model_validate(tournament).model_copy(update={"registered_players": 0})
+    return tournament_out(tournament, 0, db)
 
 
 @router.get("/{tournament_id}", response_model=TournamentOut)
@@ -581,6 +609,14 @@ def update_tournament(
         locked = sorted(set(changes) & LOCKED_AFTER_START)
         if locked:
             raise HTTPException(status_code=409, detail=f"A torneo avviato non si cambiano: {', '.join(locked)}")
+
+    if "location_id" in changes:
+        if changes["location_id"] == 0:
+            changes["location_id"] = None
+            if tournament.location_id is None:
+                changes.pop("location_id")
+        else:
+            check_location(changes["location_id"], organizer, db)
 
     if "game" in changes:
         if changes["game"] not in GAMES:
@@ -2409,7 +2445,7 @@ def _tournament_to_vevent(tournament: Tournament) -> str:
         f"UID:mull2five-tournament-{tournament.id}@mull2five\r\n"
         f"DTSTART;VALUE=DATE:{start}\r\n"
         f"SUMMARY:{_ical_escape(tournament.name)} ({_ical_escape(tournament.format)})\r\n"
-        f"LOCATION:{_ical_escape(tournament.venue)}\r\n"
+        f"LOCATION:{_ical_escape(tournament.place)}\r\n"
         f"DESCRIPTION:{_ical_escape(tournament.description or tournament.format)}\r\n"
         "END:VEVENT\r\n"
     )

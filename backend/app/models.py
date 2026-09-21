@@ -164,6 +164,31 @@ class Organization(Base):
     created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
 
 
+class Location(Base):
+    """Una sede del negozio: dove si gioca. Un negozio con due punti vendita, o che
+    affitta una sala per gli eventi grandi, ne ha più d'una; il torneo sceglie la
+    sua e ne eredita indirizzo e coordinate (per la ricerca per distanza)."""
+    __tablename__ = "locations"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    organization_id: Mapped[int] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), index=True
+    )
+    name: Mapped[str] = mapped_column(String(120))
+    address: Mapped[str] = mapped_column(String(240), default="", server_default="")
+    city: Mapped[str] = mapped_column(String(120), default="", server_default="")
+    latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # Accessibilità, parcheggio, piano: quello che serve sapere prima di arrivare.
+    notes: Mapped[str] = mapped_column(Text, default="", server_default="")
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
+
+    @property
+    def label(self) -> str:
+        """Come si scrive la sede sotto il nome del torneo."""
+        return ", ".join(part for part in (self.name, self.address, self.city) if part)
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -267,7 +292,17 @@ class Tournament(Base):
     event_id: Mapped[int | None] = mapped_column(
         ForeignKey("events.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    location_id: Mapped[int | None] = mapped_column(
+        ForeignKey("locations.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
+
+    location: Mapped["Location | None"] = relationship()
+
+    @property
+    def place(self) -> str:
+        """Dove si gioca: il luogo scritto a mano vince, altrimenti la sede scelta."""
+        return self.venue or (self.location.label if self.location else "")
 
     @property
     def starts_at(self) -> datetime | None:

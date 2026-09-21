@@ -10,8 +10,14 @@ from sqlalchemy.orm import Session
 
 from backend.app.core.tenant import resolve_org
 from backend.app.db import get_db
-from backend.app.models import Organization, Tournament, TournamentStatus, User, UserRole
-from backend.app.schemas import OrganizationOut, OrganizationUpdate, StoreProfileOut
+from backend.app.models import Location, Organization, Tournament, TournamentStatus, User, UserRole
+from backend.app.schemas import (
+    LocationIn,
+    LocationOut,
+    OrganizationOut,
+    OrganizationUpdate,
+    StoreProfileOut,
+)
 from backend.app.security import require_admin, require_organizer
 
 router = APIRouter(prefix="/organizations", tags=["organizations"])
@@ -93,7 +99,13 @@ def store_profile(slug: str, db: Session = Depends(get_db)) -> StoreProfileOut:
     past = tournament_with_counts(
         base.where(Tournament.starts_on < today).order_by(Tournament.starts_on.desc()).limit(20), db
     )
-    return StoreProfileOut(organization=_org_out(org, db), upcoming=upcoming, past=past)
+    return StoreProfileOut(organization=_org_out(org, db), upcoming=upcoming, past=past,
+                           locations=_locations_of(org, db))
+
+
+def can_manage_store(user: User, org: Organization) -> bool:
+    """Chi può curare il negozio: il suo organizzatore, o un admin."""
+    return user.role == UserRole.ADMIN or user.organization_id == org.id
 
 
 @router.patch("/{slug}", response_model=OrganizationOut)
@@ -107,7 +119,7 @@ def update_organization(
     org = db.scalar(select(Organization).where(Organization.slug == slug))
     if not org:
         raise HTTPException(status_code=404, detail="Negozio non trovato")
-    if user.role != UserRole.ADMIN and user.organization_id != org.id:
+    if not can_manage_store(user, org):
         raise HTTPException(status_code=403, detail="Puoi modificare solo il tuo negozio")
     for field, value in payload.model_dump(exclude_unset=True).items():
         if value is not None:
@@ -115,6 +127,14 @@ def update_organization(
     db.commit()
     db.refresh(org)
     return _org_out(org, db)
+
+
+@router.get("/mine", response_model=OrganizationOut)
+def my_organization(user: User = Depends(require_organizer), db: Session = Depends(get_db)) -> OrganizationOut:
+    """Il negozio per cui lavora chi è collegato: quello che cura dal backoffice."""
+    from backend.app.routers.tags import org_id_for
+
+    return _org_out(db.get(Organization, org_id_for(user, db)), db)
 
 
 @router.get("/current", response_model=OrganizationOut)
@@ -142,3 +162,99 @@ def create_organization(
     db.commit()
     db.refresh(org)
     return org
+
+
+# ── Sedi ──────────────────────────────────────────────────────
+
+
+def _store(slug: str, db: Session) -> Organization:
+    org = db.scalar(select(Organization).where(Organization.slug == slug))
+    if not org:
+        raise HTTPException(status_code=404, detail="Negozio non trovato")
+    return org
+
+
+def _managed_store(slug: str, user: User, db: Session) -> Organization:
+    org = _store(slug, db)
+    if not can_manage_store(user, org):
+        raise HTTPException(status_code=403, detail="Puoi modificare solo il tuo negozio")
+    return org
+
+
+def _locations_of(org: Organization, db: Session) -> list[Location]:
+    return list(db.scalars(
+        select(Location).where(Location.organization_id == org.id).order_by(Location.name)
+    ).all())
+
+
+def _store_location(org: Organization, location_id: int, db: Session) -> Location:
+    location = db.get(Location, location_id)
+    if not location or location.organization_id != org.id:
+        raise HTTPException(status_code=404, detail="Sede non trovata")
+    return location
+
+
+@router.get("/{slug}/locations", response_model=list[LocationOut])
+def list_locations(slug: str, db: Session = Depends(get_db)) -> list[Location]:
+    """Le sedi del negozio: pubbliche, come l'indirizzo."""
+    return _locations_of(_store(slug, db), db)
+
+
+@router.post("/{slug}/locations", response_model=LocationOut, status_code=201)
+def create_location(
+    slug: str,
+    payload: LocationIn,
+    user: User = Depends(require_organizer),
+    db: Session = Depends(get_db),
+) -> Location:
+    org = _managed_store(slug, user, db)
+    location = Location(organization_id=org.id, **payload.model_dump())
+    db.add(location)
+    db.commit()
+    db.refresh(location)
+    return location
+
+
+@router.put("/{slug}/locations/{location_id}", response_model=LocationOut)
+def update_location(
+    slug: str,
+    location_id: int,
+    payload: LocationIn,
+    user: User = Depends(require_organizer),
+    db: Session = Depends(get_db),
+) -> Location:
+    location = _store_location(_managed_store(slug, user, db), location_id, db)
+    for field, value in payload.model_dump().items():
+        setattr(location, field, value)
+    db.commit()
+    db.refresh(location)
+    _forget_tournaments()
+    return location
+
+
+@router.delete("/{slug}/locations/{location_id}", status_code=204)
+def delete_location(
+    slug: str,
+    location_id: int,
+    user: User = Depends(require_organizer),
+    db: Session = Depends(get_db),
+) -> None:
+    """Toglie una sede. I tornei che la usavano tengono scritto dove si sono
+    giocati: lo storico non deve perdere il luogo."""
+    location = _store_location(_managed_store(slug, user, db), location_id, db)
+    for tournament in db.scalars(select(Tournament).where(Tournament.location_id == location.id)).all():
+        if not tournament.venue:
+            tournament.venue = location.label[:180]
+            if tournament.latitude is None:
+                tournament.latitude, tournament.longitude = location.latitude, location.longitude
+        tournament.location_id = None
+    db.delete(location)
+    db.commit()
+    _forget_tournaments()
+
+
+def _forget_tournaments() -> None:
+    """Le liste in cache mostrano ancora la sede vecchia: via."""
+    from backend.app.core.cache import cache_invalidate
+
+    cache_invalidate("tournaments:")

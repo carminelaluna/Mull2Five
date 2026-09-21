@@ -759,3 +759,20 @@ dialog.deck-view-dialog { max-width: min(1100px, 94vw); width: 100%; }
   border: 1px solid var(--line);
   border-radius: 8px;
 }
+
+/* Sedi del negozio, sulla sua pagina pubblica */
+.location-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+.location-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  font-size: .9rem;
+}

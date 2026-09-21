@@ -39,7 +39,7 @@ def _registration_confirmed(player_name: str, tournament: "Tournament") -> tuple
         f"La tua iscrizione a {tournament.name} è stata confermata.\n\n"
         f"Data: {tournament.starts_on.strftime('%d/%m/%Y') if tournament.starts_on else 'TBD'}\n"
         f"Formato: {tournament.format}\n"
-        f"Luogo: {tournament.venue or 'TBD'}\n\n"
+        f"Luogo: {tournament.place or 'TBD'}\n\n"
         f"Buona fortuna!\n\nMull2Five"
     )
     html = event_announcement_html(tournament.name, "Iscrizione confermata ✓", body)

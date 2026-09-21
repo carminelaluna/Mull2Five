@@ -160,6 +160,7 @@ def migrate_existing_schema() -> None:
             add_nullable_column(connection, columns, "tournaments", "longitude", "FLOAT")
             add_nullable_column(connection, columns, "tournaments", "event_id", "INTEGER")
             add_column(connection, columns, "tournaments", "game", "VARCHAR(20)", "'mtg'")
+            add_nullable_column(connection, columns, "tournaments", "location_id", "INTEGER")
             add_column(connection, columns, "tournaments", "best_of", "INTEGER", "3")
             add_column(connection, columns, "tournaments", "allow_intentional_draws", "BOOLEAN", "1")
 

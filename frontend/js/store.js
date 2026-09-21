@@ -14,6 +14,26 @@ function section(title, items, emptyLabel) {
   </section>`;
 }
 
+/* Le sedi del negozio: nome, indirizzo, note per chi arriva e mappa. */
+function locationsSection(locations) {
+  if (!locations.length) return '';
+  const cards = locations.map((loc) => {
+    const map = loc.latitude != null && loc.longitude != null
+      ? `https://www.openstreetmap.org/?mlat=${loc.latitude}&mlon=${loc.longitude}`
+      : null;
+    return `<div class="location-card">
+      <strong>${esc(loc.name)}</strong>
+      ${loc.address || loc.city ? `<span>${esc([loc.address, loc.city].filter(Boolean).join(', '))}</span>` : ''}
+      ${loc.notes ? `<span class="muted">${esc(loc.notes)}</span>` : ''}
+      ${map ? `<a class="secondary-link" href="${esc(map)}" target="_blank" rel="noopener">Mappa ↗</a>` : ''}
+    </div>`;
+  }).join('');
+  return `<section class="rail">
+    <div class="rail-head"><h2>Dove giochiamo</h2></div>
+    <div class="location-list">${cards}</div>
+  </section>`;
+}
+
 async function load() {
   const slug = new URLSearchParams(location.search).get('s');
   const host = $('#storeProfile');
@@ -55,6 +75,7 @@ async function load() {
         </div>
       </div>
     </div>
+    ${locationsSection(data.locations || [])}
     ${section('Prossimi eventi', data.upcoming, 'Nessun evento in calendario.')}
     ${section('Eventi passati', data.past, 'Nessun evento concluso.')}`;
 }

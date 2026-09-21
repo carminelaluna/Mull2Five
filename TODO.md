@@ -188,7 +188,7 @@ pagamenti ai negozi in fondo, sono il pezzo più grosso.
 - [x] 2. Formato dei match: al meglio di 1/2/3, patte intenzionali sì/no
 - [x] Nome dell'organizzatore nella pagina pubblica del torneo, all'iscrizione e nelle iscrizioni del giocatore
 - [x] 3. Scheda Impostazioni del torneo (oggi dopo la creazione non si modifica quasi niente)
-- [ ] 4. Più sedi per negozio
+- [x] 4. Più sedi per negozio: ogni torneo sceglie la sede e ne prende indirizzo e coordinate
 - [ ] 5. Staff del negozio (più account sugli stessi tornei)
 - [ ] 6. Sospensioni dei giocatori
 - [ ] 7. Tornei ricorrenti

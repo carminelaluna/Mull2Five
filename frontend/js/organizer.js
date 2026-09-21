@@ -338,7 +338,8 @@ function openNewEventDialog() {
         <label>Livello (REL)<select id="nRel">
           ${RELS.map(r => `<option ${r === 'Competitive' ? 'selected' : ''}>${esc(r)}</option>`).join('')}
         </select></label>
-        <label style="grid-column:1/-1">Luogo<input id="nVenue" placeholder="Nome e citta" /></label>
+        <label style="grid-column:1/-1;display:none" id="nLocationWrap">${esc(tr('Sede'))}<select id="nLocation"></select></label>
+        <label style="grid-column:1/-1" id="nVenueWrap">Luogo<input id="nVenue" placeholder="Nome e citta" /></label>
         <label>Data<input id="nDate" type="date" required /></label>
         <label>Orario inizio<input id="nTime" type="time" required value="20:00" /></label>
         <label>Capienza<input id="nCap" type="number" min="2" value="64" /></label>
@@ -368,6 +369,44 @@ function openNewEventDialog() {
   dlg.showModal();
   $('#nSubmit').addEventListener('click', createTournament);
   fillGameChoices();
+  fillLocationChoices('#nLocation', '#nLocationWrap', '#nVenueWrap', null);
+}
+
+/* ── Sedi ─────────────────────────────────────────────────
+   Il negozio di chi è collegato e i posti dove gioca. Il torneo sceglie una
+   sede e ne eredita indirizzo e coordinate; "Altro luogo" lascia scrivere a mano. */
+let _myStore = null;
+function myStore() {
+  _myStore ??= apiFetch('/organizations/mine').catch((err) => { _myStore = null; throw err; });
+  return _myStore;
+}
+
+async function myLocations() {
+  const store = await myStore();
+  return apiFetch(`/organizations/${encodeURIComponent(store.slug)}/locations`);
+}
+
+async function fillLocationChoices(selectSel, wrapSel, venueWrapSel, current) {
+  let locations = [];
+  try { locations = await myLocations(); } catch { return; }
+  const select = $(selectSel);
+  if (!select || !locations.length) return;   // nessuna sede: resta solo il luogo scritto
+  select.innerHTML = `<option value="">${esc(tr('Altro luogo (scrivilo sotto)'))}</option>`
+    + locations.map((loc) => `<option value="${loc.id}"${loc.id === current ? ' selected' : ''}>${esc(loc.label)}</option>`).join('');
+  // Un negozio con una sola sede la propone già scelta per i tornei nuovi.
+  if (current === null && locations.length === 1) select.value = String(locations[0].id);
+  $(wrapSel).style.display = '';
+  const sync = () => { $(venueWrapSel).style.display = select.value ? 'none' : ''; };
+  select.addEventListener('change', sync);
+  sync();
+}
+
+/* Coordinate da un indirizzo. Nominatim: servizio pubblico OSM, nessuna chiave;
+   una richiesta per clic, come chiedono le sue regole d'uso. */
+async function geocode(query) {
+  const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`);
+  const [hit] = await r.json();
+  return hit ? { lat: (+hit.lat).toFixed(4), lng: (+hit.lon).toFixed(4) } : null;
 }
 
 /* Scegliere il gioco cambia l'elenco dei formati proposti e il formato dei match
@@ -403,7 +442,9 @@ async function createTournament(e) {
     status: 'published',
     event_type: $('#nType').value,
     rules_enforcement_level: $('#nRel').value,
-    venue: $('#nVenue').value.trim(),
+    // Con una sede scelta il luogo viene da lì: niente testo che lo copra.
+    location_id: +$('#nLocation').value || null,
+    venue: $('#nLocation').value ? '' : $('#nVenue').value.trim(),
     decklist_required: $('#nDeck').checked,
     pay_at_event: $('#nAtEvent').checked,
     pay_stripe: $('#nStripe').checked,
@@ -1067,9 +1108,12 @@ document.addEventListener('DOMContentLoaded', init);
    ricerca per distanza: senza, il negozio non compare in "vicino a me". */
 async function renderNegozio() {
   $('#panel').innerHTML = '<p class="empty">Caricamento profilo…</p>';
-  let orgs = [];
-  try { orgs = await apiFetch('/organizations'); } catch (err) { toast('Errore: ' + err.message); }
-  const org = orgs[0];
+  let org = null;
+  let locations = [];
+  try {
+    org = await myStore();
+    locations = await myLocations();
+  } catch (err) { toast('Errore: ' + err.message); }
   if (!org) { $('#panel').innerHTML = '<p class="empty">Nessun negozio configurato.</p>'; return; }
 
   $('#panel').innerHTML = `<div class="panel">
@@ -1093,18 +1137,18 @@ async function renderNegozio() {
       </div>
       <button class="primary" type="submit" style="grid-column:1/-1">Salva profilo</button>
     </form>
-  </div>`;
+  </div>
+  ${locationsPanel(locations)}`;
+  bindLocationsPanel(org, locations);
 
   $('#sGeocode').addEventListener('click', async () => {
     const q = [$('#sAddr').value, $('#sCity').value].filter(Boolean).join(', ');
     if (!q) { toast('Inserisci prima indirizzo o città.'); return; }
     try {
-      // Nominatim: servizio pubblico OSM, nessuna chiave. Una richiesta per clic.
-      const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(q)}`);
-      const [hit] = await r.json();
+      const hit = await geocode(q);
       if (!hit) { toast('Indirizzo non trovato.'); return; }
-      $('#sLat').value = (+hit.lat).toFixed(4);
-      $('#sLng').value = (+hit.lon).toFixed(4);
+      $('#sLat').value = hit.lat;
+      $('#sLng').value = hit.lng;
       toast('Coordinate trovate: controlla e salva.');
     } catch { toast('Geocoding non disponibile: inserisci le coordinate a mano.'); }
   });
@@ -1123,6 +1167,95 @@ async function renderNegozio() {
         }),
       });
       toast('Profilo salvato.');
+      _myStore = null;
+    } catch (err) { toast('Errore: ' + err.message); }
+  });
+}
+
+function locationsPanel(locations) {
+  const rows = locations.map((loc) => `
+    <tr>
+      <td><strong>${esc(loc.name)}</strong>${loc.notes ? `<div class="muted" style="font-size:.82rem">${esc(loc.notes)}</div>` : ''}</td>
+      <td class="muted">${esc([loc.address, loc.city].filter(Boolean).join(', ') || '—')}</td>
+      <td>${loc.latitude != null ? esc(tr('Sì')) : `<span class="muted">${esc(tr('No: non esce nella ricerca per distanza'))}</span>`}</td>
+      <td class="row-actions">
+        <button class="mini-button" data-edit-loc="${loc.id}" type="button">${esc(tr('Modifica'))}</button>
+        <button class="mini-button" data-drop-loc="${loc.id}" type="button" style="color:var(--danger,#ef6a5e)">${esc(tr('Elimina'))}</button>
+      </td>
+    </tr>`).join('')
+    || `<tr><td colspan="4" class="muted">${esc(tr("Nessuna sede: i tornei usano l'indirizzo del negozio o il luogo scritto a mano."))}</td></tr>`;
+  return `<div class="panel" style="margin-top:16px">
+    <h3>${esc(tr('Sedi'))}</h3>
+    <p class="muted" style="margin-top:0;font-size:.85rem">${esc(tr('Dove si gioca: un secondo punto vendita, una sala per gli eventi grandi. Ogni torneo sceglie la sua sede e ne prende indirizzo e posizione sulla mappa.'))}</p>
+    <table class="bo"><thead><tr><th>${esc(tr('Sede'))}</th><th>${esc(tr('Indirizzo'))}</th><th>${esc(tr('Coordinate'))}</th><th></th></tr></thead>
+      <tbody>${rows}</tbody></table>
+    <form id="locForm" class="bo-grid" style="margin-top:12px">
+      <input type="hidden" id="lId" />
+      <label>${esc(tr('Nome'))}<input id="lName" required minlength="2" maxlength="120" placeholder="${esc(tr('Sala eventi'))}" /></label>
+      <label>${esc(tr('Città'))}<input id="lCity" maxlength="120" /></label>
+      <label style="grid-column:1/-1">${esc(tr('Indirizzo'))}<input id="lAddr" maxlength="240" /></label>
+      <label>${esc(tr('Latitudine'))}<input id="lLat" type="number" step="0.0001" /></label>
+      <label>${esc(tr('Longitudine'))}<input id="lLng" type="number" step="0.0001" /></label>
+      <label style="grid-column:1/-1">${esc(tr('Note per chi arriva'))}<input id="lNotes" placeholder="${esc(tr('Piano, parcheggio, accessibilità'))}" /></label>
+      <div style="grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap">
+        <button class="secondary" id="lGeocode" type="button">Trova coordinate dall'indirizzo</button>
+        <button class="primary" id="lSave" type="submit">${esc(tr('Aggiungi sede'))}</button>
+        <button class="secondary" id="lCancel" type="button" style="display:none">${esc(tr('Annulla'))}</button>
+      </div>
+    </form>
+  </div>`;
+}
+
+function bindLocationsPanel(org, locations) {
+  const base = `/organizations/${encodeURIComponent(org.slug)}/locations`;
+  const num = (id) => ($(id).value === '' ? null : +$(id).value);
+  const fill = (loc) => {
+    $('#lId').value = loc?.id ?? '';
+    $('#lName').value = loc?.name ?? '';
+    $('#lCity').value = loc?.city ?? '';
+    $('#lAddr').value = loc?.address ?? '';
+    $('#lLat').value = loc?.latitude ?? '';
+    $('#lLng').value = loc?.longitude ?? '';
+    $('#lNotes').value = loc?.notes ?? '';
+    $('#lSave').textContent = loc ? tr('Salva sede') : tr('Aggiungi sede');
+    $('#lCancel').style.display = loc ? '' : 'none';
+  };
+  $('#panel').querySelectorAll('[data-edit-loc]').forEach((b) => b.addEventListener('click', () => {
+    fill(locations.find((loc) => String(loc.id) === b.dataset.editLoc));
+    $('#lName').focus();
+  }));
+  $('#panel').querySelectorAll('[data-drop-loc]').forEach((b) => b.addEventListener('click', async () => {
+    const loc = locations.find((l) => String(l.id) === b.dataset.dropLoc);
+    if (!confirm(tr('Eliminare la sede "{nome}"? I tornei che la usavano tengono scritto dove si sono giocati.', { nome: loc.name }))) return;
+    try {
+      await apiFetch(`${base}/${loc.id}`, { method: 'DELETE' });
+      toast(tr('Sede eliminata.'));
+      renderNegozio();
+    } catch (err) { toast('Errore: ' + err.message); }
+  }));
+  $('#lCancel').addEventListener('click', () => fill(null));
+  $('#lGeocode').addEventListener('click', async () => {
+    const q = [$('#lAddr').value, $('#lCity').value].filter(Boolean).join(', ');
+    if (!q) { toast('Inserisci prima indirizzo o città.'); return; }
+    try {
+      const hit = await geocode(q);
+      if (!hit) { toast('Indirizzo non trovato.'); return; }
+      $('#lLat').value = hit.lat;
+      $('#lLng').value = hit.lng;
+    } catch { toast('Geocoding non disponibile: inserisci le coordinate a mano.'); }
+  });
+  $('#locForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = $('#lId').value;
+    const body = {
+      name: $('#lName').value.trim(), city: $('#lCity').value.trim(),
+      address: $('#lAddr').value.trim(), notes: $('#lNotes').value.trim(),
+      latitude: num('#lLat'), longitude: num('#lLng'),
+    };
+    try {
+      await apiFetch(id ? `${base}/${id}` : base, { method: id ? 'PUT' : 'POST', body: JSON.stringify(body) });
+      toast(id ? tr('Sede salvata.') : tr('Sede aggiunta.'));
+      renderNegozio();
     } catch (err) { toast('Errore: ' + err.message); }
   });
 }
@@ -1540,7 +1673,8 @@ async function renderImpostazioni() {
         <div class="bo-grid">
           <label>Data<input id="sDate" type="date" value="${esc(String(t.starts_on).slice(0, 10))}" ${lock('starts_on')} /></label>
           <label>Orario inizio<input id="sTime" type="time" value="${esc(t.start_time || '')}" ${lock('start_time')} /></label>
-          <label style="grid-column:1/-1">Luogo<input id="sVenue" value="${esc(t.venue || '')}" /></label>
+          <label style="grid-column:1/-1;display:none" id="sLocationWrap">${esc(tr('Sede'))}<select id="sLocation"></select></label>
+          <label style="grid-column:1/-1" id="sVenueWrap">Luogo<input id="sVenue" value="${esc(t.venue || '')}" /></label>
         </div>
       </div>
 
@@ -1593,6 +1727,7 @@ async function renderImpostazioni() {
   };
   $('#sGame').addEventListener('change', () => syncFormats(true));
   syncFormats(false);
+  fillLocationChoices('#sLocation', '#sLocationWrap', '#sVenueWrap', t.location_id ?? undefined);
 
   $('#setForm').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -1606,7 +1741,9 @@ async function renderImpostazioni() {
       description: $('#sDesc').value.trim(),
       starts_on: $('#sDate').value,
       start_time: $('#sTime').value || null,
-      venue: $('#sVenue').value.trim(),
+      // 0 toglie la sede; con una sede il luogo scritto si svuota e vale il suo.
+      location_id: +$('#sLocation').value || 0,
+      venue: $('#sLocation').value ? '' : $('#sVenue').value.trim(),
       capacity: +$('#sCap').value,
       entry_fee_cents: Math.round((+$('#sFee').value || 0) * 100),
       pay_at_event: $('#sAtEvent').checked,
