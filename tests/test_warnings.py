@@ -8,7 +8,9 @@ from datetime import date, datetime, timedelta
 
 import pytest
 
-TODAY = date.today()
+from backend.app.core.clock import local_today
+
+TODAY = local_today()
 
 
 def _register_user(client, email, role="player"):

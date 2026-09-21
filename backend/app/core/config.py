@@ -64,6 +64,9 @@ class Settings(BaseSettings):
     # Multi-tenant: header che identifica l'organizzazione (negozio) corrente.
     tenant_header: str = "X-Mull2Five-Org"
 
+    # Il fuso dei negozi: date e orari dei tornei sono locali, non UTC.
+    app_timezone: str = "Europe/Rome"
+
 
 @lru_cache
 def get_settings() -> Settings:

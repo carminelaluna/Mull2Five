@@ -3,6 +3,7 @@ test_timer_and_lifecycle.py — Fuso orario del timer, lock delle liste e stato
 del torneo dopo la chiusura.
 """
 from datetime import UTC, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 
 def _register_user(client, email, role="player", name=None):
@@ -118,7 +119,8 @@ def test_decklist_locks_at_falls_back_to_start_time(client):
     tid = _make_tournament(client, org, starts_on="2027-07-01", start_time="20:30")
 
     locks_at = client.get(f"/api/tournaments/{tid}").json()["decklist_locks_at"]
-    assert datetime.fromisoformat(locks_at) == datetime(2027, 7, 1, 20, 0, tzinfo=UTC)
+    # L'orario del torneo è quello del negozio, non UTC.
+    assert datetime.fromisoformat(locks_at) == datetime(2027, 7, 1, 20, 0, tzinfo=ZoneInfo("Europe/Rome"))
 
 
 def test_player_can_rewrite_his_list_until_the_deadline(client):

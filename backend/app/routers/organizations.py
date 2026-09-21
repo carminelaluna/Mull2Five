@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import case, select
 from sqlalchemy.orm import Session
 
+from backend.app.core.clock import local_today
 from backend.app.core.tenant import resolve_org
 from backend.app.db import get_db
 from backend.app.models import (
@@ -55,11 +56,9 @@ def _slugify(name: str) -> str:
 
 
 def _org_out(org: Organization, db: Session) -> OrganizationOut:
-    from datetime import UTC, datetime
-
     from sqlalchemy import func
 
-    today = datetime.now(UTC).date()
+    today = local_today()
     counts = db.execute(
         select(
             func.sum(case((Tournament.starts_on >= today, 1), else_=0)),
@@ -107,14 +106,12 @@ def list_organizations(
 @router.get("/{slug}/profile", response_model=StoreProfileOut)
 def store_profile(slug: str, db: Session = Depends(get_db)) -> StoreProfileOut:
     """Pagina pubblica del negozio: anagrafica, prossimi eventi e albo d'oro."""
-    from datetime import UTC, datetime
-
     from backend.app.routers.tournaments import tournament_with_counts
 
     org = db.scalar(select(Organization).where(Organization.slug == slug))
     if not org:
         raise HTTPException(status_code=404, detail="Negozio non trovato")
-    today = datetime.now(UTC).date()
+    today = local_today()
     base = select(Tournament).where(
         Tournament.organization_id == org.id,
         Tournament.status != TournamentStatus.CANCELLED,
@@ -476,10 +473,6 @@ def remove_member(
 # ── Sospensioni ──────────────────────────────────────────────
 
 
-def _today() -> date:
-    return datetime.now(UTC).date()
-
-
 def _suspension_out(suspension: Suspension, today: date) -> SuspensionOut:
     return SuspensionOut(
         id=suspension.id, user_id=suspension.user_id,
@@ -494,7 +487,7 @@ def _suspension_out(suspension: Suspension, today: date) -> SuspensionOut:
 def list_suspensions(slug: str, user: User = Depends(require_organizer), db: Session = Depends(get_db)) -> list[SuspensionOut]:
     """Tutte, anche quelle finite o revocate: lo storico serve a decidere la prossima."""
     org = _managed_store(slug, user, db)
-    today = _today()
+    today = local_today()
     rows = [_suspension_out(s, today) for s in db.scalars(
         select(Suspension).where(Suspension.organization_id == org.id).order_by(Suspension.created_at.desc())
     ).all()]
@@ -515,7 +508,7 @@ def suspend_player(
               else db.scalar(select(User).where(User.email == payload.email.lower())))
     if not person:
         raise HTTPException(status_code=404, detail="Nessun account con questa email")
-    today = _today()
+    today = local_today()
     if payload.ends_on and payload.ends_on < today:
         raise HTTPException(status_code=422, detail="La fine della sospensione è già passata")
     if store_role(person.id, org.id, db):
@@ -543,7 +536,7 @@ def lift_suspension(
     suspension = db.get(Suspension, suspension_id)
     if not suspension or suspension.organization_id != org.id:
         raise HTTPException(status_code=404, detail="Sospensione non trovata")
-    today = _today()
+    today = local_today()
     if not suspension.is_active(today):
         raise HTTPException(status_code=409, detail="Non è più in corso")
     suspension.lifted_at = datetime.now(UTC)

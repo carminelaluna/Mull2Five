@@ -3,6 +3,8 @@ test_suspensions.py — Sospensioni: un negozio tiene fuori un giocatore dai suo
 """
 from datetime import date, timedelta
 
+from backend.app.core.clock import local_today
+
 
 def _register_user(client, email, role="player"):
     client.post("/api/auth/register", json={
@@ -23,7 +25,7 @@ def _owner(client, email, store="Carte Pavia"):
 def _tournament(client, headers):
     created = client.post("/api/tournaments", headers=headers, json={
         "name": "Serata", "format": "Modern",
-        "starts_on": str(date.today() + timedelta(days=5)), "start_time": "20:00",
+        "starts_on": str(local_today() + timedelta(days=5)), "start_time": "20:00",
         "capacity": 16, "entry_fee_cents": 0, "currency": "EUR", "status": "published",
         "pay_at_event": True, "decklist_required": False,
     })
@@ -48,7 +50,7 @@ def test_a_suspended_player_cannot_register_at_that_store(client):
     elsewhere = _tournament(client, other)
 
     player = _register_user(client, "susp-p1@example.com")
-    until = date.today() + timedelta(days=30)
+    until = local_today() + timedelta(days=30)
     assert _suspend(client, owner, slug, "susp-p1@example.com", ends_on=str(until)).status_code == 201
 
     refused = _enroll(client, player, tid)
@@ -88,7 +90,7 @@ def test_an_expired_suspension_no_longer_blocks(client, db_session):
     org = db_session.scalar(select(Organization).where(Organization.slug == slug))
     user = db_session.scalar(select(User).where(User.email == "susp-p3@example.com"))
     db_session.add(Suspension(organization_id=org.id, user_id=user.id, reason="Vecchia storia",
-                              ends_on=date.today() - timedelta(days=1)))
+                              ends_on=local_today() - timedelta(days=1)))
     db_session.commit()
     assert _enroll(client, player, tid).status_code == 201
 
@@ -125,7 +127,7 @@ def test_what_cannot_be_suspended(client):
 
     _register_user(client, "susp-p6@example.com")
     assert _suspend(client, owner, slug, "susp-p6@example.com",
-                    ends_on=str(date.today() - timedelta(days=1))).status_code == 422
+                    ends_on=str(local_today() - timedelta(days=1))).status_code == 422
     assert _suspend(client, owner, slug, "susp-p6@example.com").status_code == 201
     assert _suspend(client, owner, slug, "susp-p6@example.com").status_code == 409
     assert _suspend(client, owner, slug, "nessuno@example.com").status_code == 404

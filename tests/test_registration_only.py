@@ -3,6 +3,8 @@ test_registration_only.py — Eventi di sola iscrizione: si raccolgono iscritti,
 """
 from datetime import date, timedelta
 
+from backend.app.core.clock import local_today
+
 
 def _register_user(client, email, role="player"):
     client.post("/api/auth/register", json={
@@ -27,7 +29,7 @@ def _event(client, org, starts_on):
 
 def test_players_register_but_there_are_no_rounds(client):
     org = _register_user(client, "regonly-org@example.com", role="organizer")
-    tid = _event(client, org, date.today() + timedelta(days=2))
+    tid = _event(client, org, local_today() + timedelta(days=2))
     for i in range(3):
         player = _register_user(client, f"regonly-p{i}@example.com")
         assert client.post(f"/api/tournaments/{tid}/registrations", headers=player,
@@ -40,7 +42,7 @@ def test_players_register_but_there_are_no_rounds(client):
 
 def test_warnings_speak_about_closing(client):
     org = _register_user(client, "regonly-org2@example.com", role="organizer")
-    tid = _event(client, org, date.today() - timedelta(days=1))
+    tid = _event(client, org, local_today() - timedelta(days=1))
     codes = {w["code"]: w["message"] for w in client.get(f"/api/tournaments/{tid}/warnings", headers=org).json()}
     assert "chiudilo" in codes["missed_start"] and "avvialo" not in codes["missed_start"]
     # Senza turni non serve un capojudge, anche a REL Competitive.

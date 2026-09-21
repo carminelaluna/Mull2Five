@@ -18,6 +18,7 @@ from datetime import UTC, date, datetime, time, timedelta
 from sqlalchemy import case, func, or_, select
 from sqlalchemy.orm import Session
 
+from backend.app.core.clock import local_today, local_zone
 from backend.app.core.config import get_settings
 from backend.app.models import (
     Decklist,
@@ -112,7 +113,7 @@ def build_context(tournaments: list[Tournament], db: Session) -> WarningContext:
     ).all()
     ctx.decklists = {tid: (int(total), int(missing or 0)) for tid, total, missing in rows}
 
-    today = datetime.now(UTC).date()
+    today = local_today()
     suspended = db.execute(
         select(Registration.tournament_id, User.display_name)
         .join(User, User.id == Registration.player_id)
@@ -154,7 +155,7 @@ def tournament_warnings(
             f"({_period_label(event)}). Nel programma pubblico compare lo stesso.")
 
     registration_only = tournament.structure == TournamentStructure.REGISTRATION_ONLY
-    if not_started and tournament.starts_on < now.date():
+    if not_started and tournament.starts_on < now.astimezone(local_zone()).date():
         add("missed_start", "warn",
             f"L'evento c'è stato il {_d(tournament.starts_on)}: chiudilo per metterlo nello storico."
             if registration_only else
@@ -187,7 +188,7 @@ def tournament_warnings(
 
     total, missing = ctx.decklists.get(tournament.id, (0, 0))
     if not_started and tournament.decklist_required and missing:
-        reference = starts_at or datetime.combine(tournament.starts_on, time(0), tzinfo=UTC)
+        reference = starts_at or datetime.combine(tournament.starts_on, time(0), tzinfo=local_zone())
         if now >= reference - MISSING_DECKLISTS_WINDOW:
             add("missing_decklists", "warn",
                 f"{missing} iscritti su {total} non hanno ancora caricato la lista.")

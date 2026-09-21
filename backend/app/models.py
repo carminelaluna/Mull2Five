@@ -4,6 +4,7 @@ from enum import StrEnum
 from sqlalchemy import Boolean, Date, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from backend.app.core.clock import local_zone
 from backend.app.db import Base, UtcDateTime
 
 
@@ -420,7 +421,7 @@ class Tournament(Base):
             hh, mm = (int(part) for part in self.start_time.split(":"))
         except (ValueError, TypeError):
             return None
-        return datetime.combine(self.starts_on, time(hh, mm), tzinfo=UTC)
+        return datetime.combine(self.starts_on, time(hh, mm), tzinfo=local_zone())
 
     @property
     def decklist_locks_at(self) -> datetime | None:

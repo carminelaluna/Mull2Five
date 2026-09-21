@@ -3,6 +3,7 @@ test_series.py — Tornei ricorrenti: le date, la serie, le modifiche a tutta la
 """
 from datetime import date, timedelta
 
+from backend.app.core.clock import local_today
 from backend.app.routers.tournaments import series_dates
 
 
@@ -41,7 +42,7 @@ def _register_user(client, email, role="player"):
 def _tournament(client, headers, **extra):
     body = {
         "name": "Venerdì Modern", "format": "Modern", "event_type": "locals",
-        "starts_on": str(date.today() + timedelta(days=3)), "start_time": "20:30",
+        "starts_on": str(local_today() + timedelta(days=3)), "start_time": "20:30",
         "capacity": 16, "entry_fee_cents": 500, "currency": "EUR", "status": "published",
         "pay_at_event": True, "decklist_required": False,
     }
@@ -84,7 +85,7 @@ def test_repeat_needs_count_or_until(client):
     assert client.post(f"/api/tournaments/{tid}/repeat", headers=org,
                        json={"frequency": "weekly"}).status_code == 422
     assert client.post(f"/api/tournaments/{tid}/repeat", headers=org, json={
-        "frequency": "weekly", "until": str(date.today()),
+        "frequency": "weekly", "until": str(local_today()),
     }).status_code == 422   # nessuna data dopo la prima
 
 

@@ -2,7 +2,7 @@ import csv
 import io
 import math
 import random
-from datetime import UTC, date, datetime, time, timedelta
+from datetime import UTC, date, datetime, timedelta
 from math import asin, cos, radians, sin, sqrt
 from typing import Annotated
 
@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import Select, delete, func, or_, select
 from sqlalchemy.orm import Session, joinedload, selectinload  # noqa: F401
 
+from backend.app.core.clock import local_today
 from backend.app.core.config import get_settings
 from backend.app.core.tenant import requested_org
 from backend.app.db import get_db
@@ -63,10 +64,10 @@ from backend.app.schemas import (
     DeckCheckOut,
     DecklistCreate,
     DecklistOut,
-    InviteCodeCreate,
     ImportIn,
     ImportOut,
     ImportRowOut,
+    InviteCodeCreate,
     InviteCodeOut,
     ManualPairingIn,
     MetaStatRow,
@@ -122,8 +123,8 @@ from backend.app.services.payments import (
     create_stripe_checkout,
     refund_paypal_capture,
 )
-from backend.app.services.stores import active_suspension, managed_tournaments, store_role
 from backend.app.services.player_import import parse_players_csv
+from backend.app.services.stores import active_suspension, managed_tournaments, store_role
 from backend.app.services.warnings import build_context, tournament_warnings
 
 router = APIRouter(prefix="/tournaments", tags=["tournaments"])
@@ -421,7 +422,7 @@ def list_tournaments(
             store_ids = db.scalars(select(Organization.id).where(Organization.slug.in_(slugs))).all()
             stmt = stmt.where(Tournament.organization_id.in_(store_ids or [0]))
     if days:
-        today = datetime.now(UTC).date()
+        today = local_today()
         stmt = stmt.where(Tournament.starts_on >= today, Tournament.starts_on <= today + timedelta(days=days))
     if venue:
         pattern = f"%{venue}%"
@@ -1309,14 +1310,8 @@ def cancel_registration(
     payment = registration.payment
     if payment and payment.status == PaymentStatus.PAID:
         # Calcola le ore mancanti all'inizio (se c'è un orario).
-        within_policy = True
-        if tournament.start_time:
-            try:
-                hh, mm = (int(x) for x in tournament.start_time.split(":"))
-                start_dt = datetime.combine(tournament.starts_on, time(hh, mm), tzinfo=UTC)
-                within_policy = datetime.now(UTC) <= start_dt - timedelta(hours=CANCEL_REFUND_HOURS)
-            except (ValueError, TypeError):
-                within_policy = True
+        start_dt = tournament.starts_at
+        within_policy = start_dt is None or datetime.now(UTC) <= start_dt - timedelta(hours=CANCEL_REFUND_HOURS)
         if within_policy:
             payment.status = PaymentStatus.REFUNDED
             payment.refund_reason = "Annullamento self-service"
@@ -1719,6 +1714,11 @@ def add_walk_in(
     from backend.app.core.cache import cache_invalidate
     cache_invalidate(f"registrations:{tournament_id}")
     cache_invalidate("tournaments:")
+    return organizer_registration_out(
+        load_registration_for_tournament(tournament_id, registration.id, db)
+    )
+
+
 IMPORT_LIMIT = 500
 
 
@@ -1806,11 +1806,6 @@ def import_registrations(
         cache_invalidate(f"registrations:{tournament.id}")
         cache_invalidate("tournaments:")
     return ImportOut(rows=rows, added=added, waitlisted=waiting, skipped=len(rows) - added - waiting)
-
-
-    return organizer_registration_out(
-        load_registration_for_tournament(tournament_id, registration.id, db)
-    )
 
 
 @router.patch("/{tournament_id}/controls", response_model=TournamentOut)
