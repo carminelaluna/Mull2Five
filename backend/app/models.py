@@ -20,6 +20,13 @@ class StaffRole(StrEnum):
     JUDGE = "judge"
 
 
+class StoreRole(StrEnum):
+    """Ruolo nello staff del negozio. Il titolare decide chi ne fa parte; gli
+    organizzatori creano e gestiscono tutti i tornei del negozio."""
+    OWNER = "owner"
+    ORGANIZER = "organizer"
+
+
 class TournamentStatus(StrEnum):
     DRAFT = "draft"
     PUBLISHED = "published"
@@ -187,6 +194,22 @@ class Location(Base):
     def label(self) -> str:
         """Come si scrive la sede sotto il nome del torneo."""
         return ", ".join(part for part in (self.name, self.address, self.city) if part)
+
+
+class StoreMember(Base):
+    """Chi lavora per il negozio: più account sugli stessi tornei."""
+    __tablename__ = "store_members"
+    __table_args__ = (UniqueConstraint("organization_id", "user_id"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    organization_id: Mapped[int] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), index=True
+    )
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    role: Mapped[str] = mapped_column(String(32), default=StoreRole.ORGANIZER)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
+
+    user: Mapped["User"] = relationship()
 
 
 class User(Base):

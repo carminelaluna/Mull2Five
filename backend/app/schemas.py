@@ -134,6 +134,9 @@ class TournamentOut(BaseModel):
     organizer_name: str | None = None
     location_id: int | None = None
     location_name: str | None = None
+    # Solo in /tournaments/mine: chi chiama lo gestisce (suo, o del suo negozio),
+    # non ci arbitra soltanto.
+    can_manage: bool = False
     event_type: str = "locals"
     rules_enforcement_level: str
     venue: str
@@ -422,8 +425,39 @@ class OrganizationOut(BaseModel):
     upcoming_count: int = 0
     past_count: int = 0
     distance_km: float | None = None
+    # Solo in /organizations/mine: il ruolo di chi chiama nello staff.
+    my_role: str | None = None
 
     model_config = {"from_attributes": True}
+
+
+class StoreCreate(BaseModel):
+    name: str = Field(min_length=2, max_length=120)
+    city: str = Field(default="", max_length=120)
+
+
+class StoreMembershipOut(BaseModel):
+    slug: str
+    name: str
+    role: str
+    current: bool = False
+
+
+class StoreMemberIn(BaseModel):
+    email: EmailStr
+    role: Literal["owner", "organizer"] = "organizer"
+
+
+class StoreMemberRoleIn(BaseModel):
+    role: Literal["owner", "organizer"]
+
+
+class StoreMemberOut(BaseModel):
+    user_id: int
+    display_name: str
+    email: str
+    role: str
+    created_at: datetime
 
 
 class OrganizationUpdate(BaseModel):

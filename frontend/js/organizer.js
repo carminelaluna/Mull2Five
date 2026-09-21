@@ -36,7 +36,9 @@ async function apiFetch(path, opts = {}) {
     if (r.status === 404 && (!detail || detail === 'Not Found')) {
       throw new Error('Endpoint non trovato: riavvia il backend (potrebbe eseguire una versione vecchia).');
     }
-    throw new Error(detail || r.statusText);
+    const err = new Error(detail || r.statusText);
+    err.status = r.status;
+    throw err;
   }
   return r.status === 204 ? null : r.json();
 }
@@ -177,7 +179,7 @@ const WARNING_ACTIONS = {
 async function renderWarnings(t) {
   const box = $('#boWarnings');
   // Gli avvisi sono di chi organizza: un judge nel back-office non li vede.
-  if (!t || isClosed(t) || String(t.organizer_id) !== String(session.sub)) {
+  if (!t || isClosed(t) || !t.can_manage) {
     box.style.display = 'none';
     box.innerHTML = '';
     return;
@@ -1109,14 +1111,22 @@ document.addEventListener('DOMContentLoaded', init);
 async function renderNegozio() {
   $('#panel').innerHTML = '<p class="empty">Caricamento profilo…</p>';
   let org = null;
-  let locations = [];
   try {
     org = await myStore();
-    locations = await myLocations();
-  } catch (err) { toast('Errore: ' + err.message); }
+  } catch (err) {
+    if (err.status === 404) return renderNoStore();
+    toast('Errore: ' + err.message);
+  }
   if (!org) { $('#panel').innerHTML = '<p class="empty">Nessun negozio configurato.</p>'; return; }
+  const slug = encodeURIComponent(org.slug);
+  const [locations, members, stores] = await Promise.all([
+    myLocations().catch(() => []),
+    apiFetch(`/organizations/${slug}/members`).catch(() => []),
+    apiFetch('/organizations/memberships').catch(() => []),
+  ]);
 
-  $('#panel').innerHTML = `<div class="panel">
+  $('#panel').innerHTML = `${storeSwitcher(stores)}
+  <div class="panel">
     <h3>Profilo pubblico — ${esc(org.name)}</h3>
     <p class="muted" style="margin-top:0;font-size:.85rem">
       Visibile su <a class="secondary-link" href="store.html?s=${esc(org.slug)}" target="_blank" rel="noopener">store.html?s=${esc(org.slug)}</a>
@@ -1138,8 +1148,11 @@ async function renderNegozio() {
       <button class="primary" type="submit" style="grid-column:1/-1">Salva profilo</button>
     </form>
   </div>
-  ${locationsPanel(locations)}`;
+  ${locationsPanel(locations)}
+  ${staffPanel(org, members)}`;
+  bindStoreSwitcher();
   bindLocationsPanel(org, locations);
+  bindStaffPanel(org, members);
 
   $('#sGeocode').addEventListener('click', async () => {
     const q = [$('#sAddr').value, $('#sCity').value].filter(Boolean).join(', ');
@@ -1170,6 +1183,139 @@ async function renderNegozio() {
       _myStore = null;
     } catch (err) { toast('Errore: ' + err.message); }
   });
+}
+
+/* ── Negozio e staff ──────────────────────────────────────
+   Far parte di un negozio è esplicito: chi non ne ha uno lo apre (e ne è il
+   titolare) o si fa aggiungere dal titolare di uno che c'è già. */
+const STORE_ROLES = { owner: 'Titolare', organizer: 'Organizzatore' };
+const storeRoleLabel = (role) => tr(STORE_ROLES[role] || role);
+
+/** Dopo aver cambiato negozio cambiano i tornei in lista e quello attivo. */
+async function storeChanged() {
+  _myStore = null;
+  await loadTournaments();
+  renderNegozio();
+}
+
+async function renderNoStore() {
+  const stores = await apiFetch('/organizations/memberships').catch(() => []);
+  $('#panel').innerHTML = `${storeSwitcher(stores, true)}
+  <div class="panel">
+    <h3>${esc(tr('Il tuo negozio'))}</h3>
+    <p class="muted" style="margin-top:0">${esc(tr('Non fai ancora parte di un negozio: i tuoi tornei per ora escono sotto Mull2Five. Apri il tuo negozio per avere una pagina tua, le tue sedi e uno staff che gestisce i tornei con te. I tornei che hai già creato vengono con te.'))}</p>
+    <p class="muted">${esc(tr('Lavori per un negozio che è già qui? Chiedi al titolare di aggiungerti allo staff con la tua email.'))}</p>
+    <form id="newStore" class="bo-grid">
+      <label>${esc(tr('Nome del negozio'))}<input id="nsName" required minlength="2" maxlength="120" /></label>
+      <label>${esc(tr('Città'))}<input id="nsCity" maxlength="120" /></label>
+      <button class="primary" type="submit" style="grid-column:1/-1">${esc(tr('Apri il negozio'))}</button>
+    </form>
+  </div>`;
+  bindStoreSwitcher();
+  $('#newStore').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    try {
+      await apiFetch('/organizations/mine', { method: 'POST', body: JSON.stringify({
+        name: $('#nsName').value.trim(), city: $('#nsCity').value.trim(),
+      })});
+      toast(tr('Negozio aperto: ne sei il titolare.'));
+      storeChanged();
+    } catch (err) { toast('Errore: ' + err.message); }
+  });
+}
+
+/** Chi lavora per più negozi sceglie per quale: i tornei nuovi nascono lì. */
+function storeSwitcher(stores, always = false) {
+  if (stores.length < (always ? 1 : 2)) return '';
+  return `<div class="panel" style="margin-bottom:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+    <span>${esc(tr('Stai lavorando per'))}</span>
+    <select id="storePick">
+      ${always && !stores.some((s) => s.current) ? `<option value="">${esc(tr('— nessun negozio —'))}</option>` : ''}
+      ${stores.map((s) => `<option value="${esc(s.slug)}"${s.current ? ' selected' : ''}>${esc(s.name)} · ${esc(storeRoleLabel(s.role))}</option>`).join('')}
+    </select>
+  </div>`;
+}
+
+function bindStoreSwitcher() {
+  $('#storePick')?.addEventListener('change', async (e) => {
+    if (!e.target.value) return;
+    try {
+      await apiFetch(`/organizations/${encodeURIComponent(e.target.value)}/use`, { method: 'POST' });
+      storeChanged();
+    } catch (err) { toast('Errore: ' + err.message); }
+  });
+}
+
+function staffPanel(org, members) {
+  const owner = org.my_role === 'owner';
+  const rows = members.map((m) => {
+    const me = String(m.user_id) === String(session.sub);
+    const role = owner
+      ? `<select data-member-role="${m.user_id}">${Object.keys(STORE_ROLES).map((r) =>
+          `<option value="${r}"${r === m.role ? ' selected' : ''}>${esc(storeRoleLabel(r))}</option>`).join('')}</select>`
+      : esc(storeRoleLabel(m.role));
+    const action = me
+      ? `<button class="mini-button" data-member-drop="${m.user_id}" data-self="1" type="button">${esc(tr('Esci dallo staff'))}</button>`
+      : owner ? `<button class="mini-button" data-member-drop="${m.user_id}" type="button" style="color:var(--danger,#ef6a5e)">${esc(tr('Togli'))}</button>` : '';
+    return `<tr>
+      <td>${esc(m.display_name)}${me ? ` <span class="muted">(${esc(tr('tu'))})</span>` : ''}</td>
+      <td class="muted">${esc(m.email)}</td>
+      <td>${role}</td>
+      <td class="row-actions">${action}</td>
+    </tr>`;
+  }).join('');
+  return `<div class="panel" style="margin-top:16px">
+    <h3>${esc(tr('Staff del negozio'))}</h3>
+    <p class="muted" style="margin-top:0;font-size:.85rem">${esc(tr("Chi fa parte dello staff crea e gestisce tutti i tornei del negozio; chi ne fa parte lo decide il titolare. Per i judge di un solo torneo c'è la scheda Staff del torneo."))}</p>
+    <table class="bo"><thead><tr><th>${esc(tr('Nome'))}</th><th>Email</th><th>${esc(tr('Ruolo'))}</th><th></th></tr></thead>
+      <tbody>${rows}</tbody></table>
+    ${owner ? `<form id="memberForm" class="bo-grid" style="margin-top:12px">
+      <label>Email<input id="mEmail" type="email" required placeholder="${esc(tr('email del suo account'))}" /></label>
+      <label>${esc(tr('Ruolo'))}<select id="mRole">
+        ${Object.keys(STORE_ROLES).map((r) => `<option value="${r}"${r === 'organizer' ? ' selected' : ''}>${esc(storeRoleLabel(r))}</option>`).join('')}
+      </select></label>
+      <button class="primary" type="submit" style="grid-column:1/-1">${esc(tr('Aggiungi allo staff'))}</button>
+      <p class="muted" style="grid-column:1/-1;margin:0;font-size:.82rem">${esc(tr('Deve avere già un account. Se era solo giocatore, diventa organizzatore.'))}</p>
+    </form>` : ''}
+  </div>`;
+}
+
+function bindStaffPanel(org, members) {
+  const base = `/organizations/${encodeURIComponent(org.slug)}/members`;
+  $('#memberForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    try {
+      await apiFetch(base, { method: 'POST', body: JSON.stringify({
+        email: $('#mEmail').value.trim(), role: $('#mRole').value,
+      })});
+      toast(tr('Aggiunto allo staff.'));
+      renderNegozio();
+    } catch (err) { toast('Errore: ' + err.message); }
+  });
+  $('#panel').querySelectorAll('[data-member-role]').forEach((sel) => sel.addEventListener('change', async () => {
+    try {
+      await apiFetch(`${base}/${sel.dataset.memberRole}`, { method: 'PATCH', body: JSON.stringify({ role: sel.value }) });
+      toast(tr('Ruolo aggiornato.'));
+      if (String(sel.dataset.memberRole) === String(session.sub)) _myStore = null;
+    } catch (err) {
+      toast('Errore: ' + err.message);
+    }
+    renderNegozio();
+  }));
+  $('#panel').querySelectorAll('[data-member-drop]').forEach((b) => b.addEventListener('click', async () => {
+    const self = b.dataset.self === '1';
+    const member = members.find((m) => String(m.user_id) === b.dataset.memberDrop);
+    const question = self
+      ? tr('Uscire dallo staff di {negozio}? Non gestirai più i suoi tornei.', { negozio: org.name })
+      : tr('Togliere {nome} dallo staff? I tornei che ha creato restano al negozio.', { nome: member?.display_name || '' });
+    if (!confirm(question)) return;
+    try {
+      await apiFetch(`${base}/${b.dataset.memberDrop}`, { method: 'DELETE' });
+      if (self) { storeChanged(); return; }
+      toast(tr('Tolto dallo staff.'));
+      renderNegozio();
+    } catch (err) { toast('Errore: ' + err.message); }
+  }));
 }
 
 function locationsPanel(locations) {

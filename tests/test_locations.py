@@ -17,11 +17,18 @@ def _register_user(client, email, role="player"):
     return {"Authorization": f"Bearer {login.json()['access_token']}"}
 
 
-def _location(client, org, **extra):
+def _organizer_with_store(client, email, store="Carte Bergamo"):
+    headers = _register_user(client, email, role="organizer")
+    created = client.post("/api/organizations/mine", headers=headers, json={"name": store})
+    assert created.status_code == 201, created.text
+    return headers, created.json()["slug"]
+
+
+def _location(client, org, slug, **extra):
     body = {"name": "Sala grande", "address": "Via Roma 1", "city": "Bergamo",
             "latitude": BERGAMO[0], "longitude": BERGAMO[1]}
     body.update(extra)
-    created = client.post("/api/organizations/mull2five/locations", headers=org, json=body)
+    created = client.post(f"/api/organizations/{slug}/locations", headers=org, json=body)
     assert created.status_code == 201, created.text
     return created.json()
 
@@ -40,20 +47,20 @@ def _tournament(client, org, **extra):
 
 
 def test_the_store_lists_its_locations_publicly(client):
-    org = _register_user(client, "loc-org@example.com", role="organizer")
-    _location(client, org, name="Negozio")
-    _location(client, org, name="Auditorium")
-    names = [loc["name"] for loc in client.get("/api/organizations/mull2five/locations").json()]
+    org, slug = _organizer_with_store(client, "loc-org@example.com")
+    _location(client, org, slug, name="Negozio")
+    _location(client, org, slug, name="Auditorium")
+    names = [loc["name"] for loc in client.get(f"/api/organizations/{slug}/locations").json()]
     assert names == ["Auditorium", "Negozio"]
-    profile = client.get("/api/organizations/mull2five/profile").json()
+    profile = client.get(f"/api/organizations/{slug}/profile").json()
     assert [loc["label"] for loc in profile["locations"]] == [
         "Auditorium, Via Roma 1, Bergamo", "Negozio, Via Roma 1, Bergamo",
     ]
 
 
 def test_a_tournament_inherits_place_and_coordinates(client):
-    org = _register_user(client, "loc-org2@example.com", role="organizer")
-    sala = _location(client, org)
+    org, slug = _organizer_with_store(client, "loc-org2@example.com")
+    sala = _location(client, org, slug)
     created = _tournament(client, org, location_id=sala["id"])
     assert created["venue"] == "Sala grande, Via Roma 1, Bergamo"
     assert created["location_name"] == "Sala grande"
@@ -68,15 +75,15 @@ def test_a_tournament_inherits_place_and_coordinates(client):
 
 
 def test_a_written_venue_wins_over_the_location(client):
-    org = _register_user(client, "loc-org3@example.com", role="organizer")
-    sala = _location(client, org)
+    org, slug = _organizer_with_store(client, "loc-org3@example.com")
+    sala = _location(client, org, slug)
     created = _tournament(client, org, location_id=sala["id"], venue="Sala piccola, primo piano")
     assert created["venue"] == "Sala piccola, primo piano"
 
 
 def test_the_location_can_be_changed_and_removed(client):
-    org = _register_user(client, "loc-org4@example.com", role="organizer")
-    sala = _location(client, org)
+    org, slug = _organizer_with_store(client, "loc-org4@example.com")
+    sala = _location(client, org, slug)
     tid = _tournament(client, org)["id"]
     patched = client.patch(f"/api/tournaments/{tid}", headers=org, json={"location_id": sala["id"]})
     assert patched.json()["location_name"] == "Sala grande"
@@ -86,10 +93,10 @@ def test_the_location_can_be_changed_and_removed(client):
 
 
 def test_deleting_a_location_keeps_where_past_tournaments_were_played(client):
-    org = _register_user(client, "loc-org5@example.com", role="organizer")
-    sala = _location(client, org)
+    org, slug = _organizer_with_store(client, "loc-org5@example.com")
+    sala = _location(client, org, slug)
     tid = _tournament(client, org, location_id=sala["id"])["id"]
-    deleted = client.delete(f"/api/organizations/mull2five/locations/{sala['id']}", headers=org)
+    deleted = client.delete(f"/api/organizations/{slug}/locations/{sala['id']}", headers=org)
     assert deleted.status_code == 204
     body = client.get(f"/api/tournaments/{tid}").json()
     assert body["location_id"] is None
@@ -97,22 +104,10 @@ def test_deleting_a_location_keeps_where_past_tournaments_were_played(client):
     assert body["latitude"] == BERGAMO[0]
 
 
-def test_another_store_cannot_use_or_edit_my_locations(client, db_session):
-    from sqlalchemy import select
-
-    from backend.app.models import Organization, User
-
-    other = Organization(slug="altro-negozio", name="Altro Negozio")
-    db_session.add(other)
-    db_session.commit()
-
-    mine = _register_user(client, "loc-mine@example.com", role="organizer")
-    sala = _location(client, mine)
-
-    theirs = _register_user(client, "loc-theirs@example.com", role="organizer")
-    rival = db_session.scalar(select(User).where(User.email == "loc-theirs@example.com"))
-    rival.organization_id = other.id
-    db_session.commit()
+def test_another_store_cannot_use_or_edit_my_locations(client):
+    mine, slug = _organizer_with_store(client, "loc-mine@example.com")
+    sala = _location(client, mine, slug)
+    theirs, _ = _organizer_with_store(client, "loc-theirs@example.com", store="Altro Negozio")
 
     refused = client.post("/api/tournaments", headers=theirs, json={
         "name": "Nella sala altrui", "format": "Modern", "location_id": sala["id"],
@@ -120,21 +115,6 @@ def test_another_store_cannot_use_or_edit_my_locations(client, db_session):
         "entry_fee_cents": 0, "currency": "EUR", "status": "published", "pay_at_event": True,
     })
     assert refused.status_code == 404
-    edit = client.put(f"/api/organizations/mull2five/locations/{sala['id']}", headers=theirs,
+    edit = client.put(f"/api/organizations/{slug}/locations/{sala['id']}", headers=theirs,
                       json={"name": "Presa"})
     assert edit.status_code == 403
-
-
-def test_the_backoffice_opens_the_organizers_own_store(client, db_session):
-    from sqlalchemy import select
-
-    from backend.app.models import Organization, User
-
-    other = Organization(slug="secondo-negozio", name="Secondo Negozio")
-    db_session.add(other)
-    db_session.commit()
-    headers = _register_user(client, "loc-second@example.com", role="organizer")
-    user = db_session.scalar(select(User).where(User.email == "loc-second@example.com"))
-    user.organization_id = other.id
-    db_session.commit()
-    assert client.get("/api/organizations/mine", headers=headers).json()["slug"] == "secondo-negozio"

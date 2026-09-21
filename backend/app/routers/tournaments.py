@@ -12,7 +12,7 @@ from sqlalchemy import Select, delete, func, or_, select
 from sqlalchemy.orm import Session, joinedload, selectinload  # noqa: F401
 
 from backend.app.core.config import get_settings
-from backend.app.core.tenant import resolve_org
+from backend.app.core.tenant import requested_org
 from backend.app.db import get_db
 from backend.app.games import ALLOWED_SCORES, get_game
 from backend.app.models import (
@@ -112,6 +112,7 @@ from backend.app.services.payments import (
     create_stripe_checkout,
     refund_paypal_capture,
 )
+from backend.app.services.stores import managed_tournaments, store_role
 from backend.app.services.warnings import build_context, tournament_warnings
 
 router = APIRouter(prefix="/tournaments", tags=["tournaments"])
@@ -234,7 +235,7 @@ def tournament_with_counts(stmt: Select[tuple[Tournament]], db: Session) -> list
 
 @router.get("", response_model=list[TournamentOut])
 def list_tournaments(
-    org: Organization | None = Depends(resolve_org),
+    org: Organization | None = Depends(requested_org),
     name: str | None = None,
     format: str | None = None,
     formats: str | None = None,
@@ -252,7 +253,8 @@ def list_tournaments(
     status: str | None = None,
     db: Session = Depends(get_db),
 ) -> list[TournamentOut]:
-    """Elenco pubblico tornei del negozio (tenant), con filtri di ricerca.
+    """Elenco pubblico dei tornei di tutti i negozi, o di uno solo se la
+    richiesta lo chiede (header del tenant o ?org=), con filtri di ricerca.
 
     I parametri a valori multipli (`status`, `formats`, `event_types`, `games`, `rel`,
     `stores`) accettano una lista separata da virgola. `days` è una finestra
@@ -317,7 +319,11 @@ def list_tournaments(
 def my_tournaments(
     user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ) -> list[TournamentOut]:
-    organizer_stmt = select(Tournament).where(Tournament.organizer_id == user.id)
+    # I propri, quelli del negozio e quelli dentro i propri eventi.
+    organizer_stmt = select(Tournament).where(or_(
+        managed_tournaments(user, db),
+        Tournament.event_id.in_(select(Event.id).where(Event.organizer_id == user.id)),
+    ))
     registered_stmt = (
         select(Tournament)
         .join(Registration)
@@ -332,12 +338,16 @@ def my_tournaments(
         .where(TournamentStaff.user_id == user.id)
         .distinct()
     )
-    ids = {item.id for item in db.scalars(organizer_stmt).all()}
+    managed = {item.id for item in db.scalars(organizer_stmt).all()}
+    ids = set(managed)
     ids.update(item.id for item in db.scalars(registered_stmt).all())
     ids.update(item.id for item in db.scalars(staff_stmt).all())
     if not ids:
         return []
-    return tournament_with_counts(select(Tournament).where(Tournament.id.in_(ids)), db)
+    return [
+        t.model_copy(update={"can_manage": t.id in managed})
+        for t in tournament_with_counts(select(Tournament).where(Tournament.id.in_(ids)), db)
+    ]
 
 
 @router.get("/me/history", response_model=list[PlayerHistoryRowOut])
@@ -2549,7 +2559,7 @@ def my_warnings(
     eventi mostra il contatore su ogni scheda."""
     tournaments = db.scalars(
         select(Tournament).where(
-            Tournament.organizer_id == organizer.id,
+            managed_tournaments(organizer, db),
             Tournament.status.not_in([TournamentStatus.COMPLETED, TournamentStatus.CANCELLED]),
         )
     ).all()
@@ -2575,7 +2585,7 @@ def my_reports(
 ) -> list[TournamentReportOut]:
     """Report incassi/presenze per tutti i tornei dell'organizzatore."""
     tournaments = db.scalars(
-        select(Tournament).where(Tournament.organizer_id == organizer.id)
+        select(Tournament).where(managed_tournaments(organizer, db))
     ).all()
     reports = []
     for tournament in tournaments:
@@ -2808,8 +2818,11 @@ def load_tournament_for_staff(tournament_id: int, user: User, db: Session) -> To
 
 
 def owns_tournament(tournament: Tournament, user: User, db: Session) -> bool:
-    """Proprietario del torneo, o di tutto l'evento che lo contiene."""
+    """Proprietario del torneo, dell'evento che lo contiene, o nello staff del
+    negozio che lo organizza."""
     if tournament.organizer_id == user.id:
+        return True
+    if store_role(user.id, tournament.organization_id, db):
         return True
     if not tournament.event_id:
         return False
@@ -3394,8 +3407,10 @@ def assign_table(
     """
     pairing = _load_pairing_for_staff(tournament_id, pairing_id, user, db)
     if payload.user_id is not None and not is_tournament_staff(tournament_id, payload.user_id, db):
-        owner = db.scalar(select(Tournament.organizer_id).where(Tournament.id == tournament_id))
-        if payload.user_id != owner:
+        owner, store = db.execute(
+            select(Tournament.organizer_id, Tournament.organization_id).where(Tournament.id == tournament_id)
+        ).one()
+        if payload.user_id != owner and not store_role(payload.user_id, store, db):
             raise HTTPException(status_code=422, detail="Il tavolo si assegna a chi è nello staff")
     pairing.assigned_judge_id = payload.user_id
     db.commit()

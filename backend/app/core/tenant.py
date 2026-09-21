@@ -25,3 +25,14 @@ def resolve_org(request: Request, db: Session = Depends(get_db)) -> Organization
         if org:
             return org
     return db.scalar(select(Organization).where(Organization.is_default == True))  # noqa: E712
+
+
+def requested_org(request: Request, db: Session = Depends(get_db)) -> Organization | None:
+    """Il negozio solo se la richiesta lo chiede. La ricerca pubblica copre tutti
+    i negozi: ripiegare sul default nasconderebbe i tornei di tutti gli altri."""
+    settings = get_settings()
+    slug = request.headers.get(settings.tenant_header) or request.query_params.get("org")
+    if not slug:
+        return None
+    return db.scalar(select(Organization).where(Organization.slug == slug))
+

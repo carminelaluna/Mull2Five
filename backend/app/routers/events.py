@@ -9,7 +9,7 @@ tutte le tappe: vedi `staff_role` in routers/tournaments.py.
 import re
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, joinedload
 
 from backend.app.db import get_db
@@ -33,6 +33,7 @@ from backend.app.schemas import (
     StaffOut,
 )
 from backend.app.security import get_current_user, require_organizer
+from backend.app.services.stores import store_ids, store_role
 from backend.app.services.warnings import event_warnings
 
 router = APIRouter(prefix="/events", tags=["events"])
@@ -85,7 +86,8 @@ def load_owned_event(event_id: int, user: User, db: Session) -> Event:
     event = db.get(Event, event_id)
     if not event:
         raise HTTPException(status_code=404, detail="Evento non trovato")
-    if event.organizer_id != user.id and user.role != UserRole.ADMIN:
+    if (event.organizer_id != user.id and user.role != UserRole.ADMIN
+            and not store_role(user.id, event.organization_id, db)):
         raise HTTPException(status_code=404, detail="Evento non trovato")
     return event
 
@@ -119,8 +121,12 @@ def my_events(
     organizer: User = Depends(require_organizer),
     db: Session = Depends(get_db),
 ) -> list[EventOwnerOut]:
+    # I propri e quelli dei negozi per cui si lavora.
+    stores = store_ids(organizer, db)
+    mine = Event.organizer_id == organizer.id
     events = db.scalars(
-        select(Event).where(Event.organizer_id == organizer.id).order_by(Event.starts_on.desc())
+        select(Event).where(or_(mine, Event.organization_id.in_(stores)) if stores else mine)
+        .order_by(Event.starts_on.desc())
     ).all()
     return [_event_owner_out(e, db) for e in events]
 
@@ -293,7 +299,7 @@ def my_event_role(
     event = db.get(Event, event_id)
     if not event:
         raise HTTPException(status_code=404, detail="Evento non trovato")
-    if event.organizer_id == user.id:
+    if event.organizer_id == user.id or store_role(user.id, event.organization_id, db):
         return {"role": "organizer"}
     role = db.scalar(
         select(EventStaff.role).where(

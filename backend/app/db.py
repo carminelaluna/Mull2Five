@@ -106,6 +106,7 @@ def create_all() -> None:
             Base.metadata.create_all(bind=engine)
             migrate_existing_schema()
             seed_default_organization()
+            seed_store_owners()
             return
         except OperationalError as exc:
             last_error = exc
@@ -339,6 +340,26 @@ DEFAULT_ORG_SLUG = "mull2five"
 # Lo slug che il negozio di default aveva prima del rebrand: i database creati
 # allora vengono aggiornati una volta sola, in seed_default_organization.
 LEGACY_DEFAULT_ORG_SLUG = "arcana"
+
+
+def seed_store_owners() -> None:
+    """Prima dello staff, far parte di un negozio voleva dire averlo come
+    organization_id. Chi organizzava così per un negozio vero ne diventa
+    titolare, una volta sola: solo i negozi ancora senza staff. Il negozio di
+    default resta fuori: alla registrazione ci finiscono tutti."""
+    with engine.begin() as connection:
+        if not _is_sqlite:
+            connection.execute(text("SELECT pg_advisory_xact_lock(727275)"))
+        connection.execute(
+            text(
+                "INSERT INTO store_members (organization_id, user_id, role, created_at) "
+                "SELECT u.organization_id, u.id, 'owner', CURRENT_TIMESTAMP "
+                "FROM users u JOIN organizations o ON o.id = u.organization_id "
+                "WHERE o.is_default = :no AND u.role IN ('organizer', 'admin') "
+                "AND NOT EXISTS (SELECT 1 FROM store_members m WHERE m.organization_id = o.id)"
+            ),
+            {"no": False if not _is_sqlite else 0},
+        )
 
 
 def seed_default_organization() -> None:

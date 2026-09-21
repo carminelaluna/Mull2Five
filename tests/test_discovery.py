@@ -143,7 +143,12 @@ def test_store_profile_splits_upcoming_and_past(client):
 
 def test_organizer_edits_only_his_own_store(client):
     org = _register_user(client, "edit-store@example.com", role="organizer")
-    updated = client.patch("/api/organizations/mull2five", headers=org, json={
+    # Il negozio di default non è di nessuno: ci finiscono tutti alla registrazione.
+    assert client.patch("/api/organizations/mull2five", headers=org,
+                        json={"description": "Preso"}).status_code == 403
+
+    slug = client.post("/api/organizations/mine", headers=org, json={"name": "Negozio di prova"}).json()["slug"]
+    updated = client.patch(f"/api/organizations/{slug}", headers=org, json={
         "description": "Il negozio di prova", "city": "Milano",
         "latitude": MILANO[0], "longitude": MILANO[1],
     })
@@ -151,7 +156,7 @@ def test_organizer_edits_only_his_own_store(client):
     assert updated.json()["city"] == "Milano"
 
     listed = client.get("/api/organizations?near_lat=45.4642&near_lng=9.19&radius_km=5").json()
-    assert [o["slug"] for o in listed] == ["mull2five"]
+    assert [o["slug"] for o in listed] == ["negozio-di-prova"]
     assert listed[0]["distance_km"] == 0.0
 
 

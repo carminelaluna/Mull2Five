@@ -189,7 +189,7 @@ pagamenti ai negozi in fondo, sono il pezzo più grosso.
 - [x] Nome dell'organizzatore nella pagina pubblica del torneo, all'iscrizione e nelle iscrizioni del giocatore
 - [x] 3. Scheda Impostazioni del torneo (oggi dopo la creazione non si modifica quasi niente)
 - [x] 4. Più sedi per negozio: ogni torneo sceglie la sede e ne prende indirizzo e coordinate
-- [ ] 5. Staff del negozio (più account sugli stessi tornei)
+- [x] 5. Staff del negozio: titolare e organizzatori gestiscono tutti i tornei del negozio; ogni organizzatore può aprire il suo negozio
 - [ ] 6. Sospensioni dei giocatori
 - [ ] 7. Tornei ricorrenti
 - [ ] 8. Campi di iscrizione personalizzati
