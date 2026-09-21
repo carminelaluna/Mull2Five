@@ -191,7 +191,7 @@ pagamenti ai negozi in fondo, sono il pezzo più grosso.
 - [x] 4. Più sedi per negozio: ogni torneo sceglie la sede e ne prende indirizzo e coordinate
 - [x] 5. Staff del negozio: titolare e organizzatori gestiscono tutti i tornei del negozio; ogni organizzatore può aprire il suo negozio
 - [x] 6. Sospensioni dei giocatori: per negozio, con motivo e scadenza; bloccano le iscrizioni e segnalano chi era già iscritto
-- [ ] 7. Tornei ricorrenti
+- [x] 7. Tornei ricorrenti: ripeti ogni settimana, ogni due o ogni mese; le modifiche possono andare a tutta la serie
 - [ ] 8. Campi di iscrizione personalizzati
 - [ ] 9. Eventi di sola iscrizione
 - [ ] 10. Import degli iscritti da file

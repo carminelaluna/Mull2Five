@@ -41,6 +41,7 @@ from backend.app.models import (
     Round,
     StaffRole,
     Tournament,
+    TournamentSeries,
     TournamentStaff,
     TournamentStatus,
     TournamentStructure,
@@ -84,6 +85,8 @@ from backend.app.schemas import (
     RegenerateRoundIn,
     RegistrationCreate,
     RegistrationOut,
+    RepeatIn,
+    RepeatPreviewOut,
     RoundFormatIn,
     RoundOut,
     StaffIn,
@@ -474,17 +477,14 @@ def player_public_history(
     )
 
 
-@router.post("/{tournament_id}/duplicate", response_model=TournamentOut, status_code=201)
-def duplicate_tournament(
-    tournament_id: int,
-    organizer: User = Depends(require_organizer),
-    db: Session = Depends(get_db),
-) -> TournamentOut:
-    """Duplica un torneo (stesse impostazioni, data +7 giorni, senza iscritti né round).
-    Utile per gli eventi ricorrenti (es. FNM ogni venerdì)."""
-    src = load_owned_tournament(tournament_id, organizer, db)
-    copy = Tournament(
+def _copy_tournament(src: Tournament, organizer: User, starts_on: date, series_id: int | None = None) -> Tournament:
+    """Lo stesso torneo in un'altra data: impostazioni sì, iscritti e round no."""
+    return Tournament(
         organizer_id=organizer.id,
+        organization_id=src.organization_id,
+        event_type=src.event_type,
+        series_id=series_id,
+        starts_on=starts_on,
         name=src.name,
         format=src.format,
         game=src.game,
@@ -493,7 +493,6 @@ def duplicate_tournament(
         rules_enforcement_level=src.rules_enforcement_level,
         venue=src.venue,
         location_id=src.location_id,
-        starts_on=src.starts_on + timedelta(days=7),
         start_time=src.start_time,
         capacity=src.capacity,
         entry_fee_cents=src.entry_fee_cents,
@@ -521,12 +520,111 @@ def duplicate_tournament(
         pay_stripe=src.pay_stripe,
         pay_paypal=src.pay_paypal,
     )
+
+
+# Una serie si crea al massimo un anno avanti: oltre, è più facile ripeterla dopo.
+SERIES_LIMIT = 52
+
+
+def _nth_weekday(year: int, month: int, weekday: int, nth: int) -> date:
+    """L'n-esimo giorno della settimana del mese; nth=-1 è l'ultimo."""
+    if nth == -1:
+        last = date(year + month // 12, month % 12 + 1, 1) - timedelta(days=1)
+        return last - timedelta(days=(last.weekday() - weekday) % 7)
+    first = date(year, month, 1)
+    return first + timedelta(days=(weekday - first.weekday()) % 7 + 7 * (nth - 1))
+
+
+def series_dates(start: date, frequency: str, count: int | None = None, until: date | None = None) -> list[date]:
+    """Le date dopo `start`: ogni settimana, ogni due, o ogni mese nello stesso
+    giorno della settimana. Il secondo venerdì resta il secondo venerdì; il
+    quinto diventa l'ultimo, perché non tutti i mesi ce l'hanno."""
+    limit = min(count or SERIES_LIMIT, SERIES_LIMIT)
+    nth = (start.day - 1) // 7 + 1
+    out: list[date] = []
+    step = 1
+    while len(out) < limit:
+        if frequency == "monthly":
+            month_index = start.month - 1 + step
+            day = _nth_weekday(start.year + month_index // 12, month_index % 12 + 1,
+                               start.weekday(), -1 if nth == 5 else nth)
+        else:
+            day = start + timedelta(weeks=step * (2 if frequency == "biweekly" else 1))
+        if until and day > until:
+            break
+        out.append(day)
+        step += 1
+    return out
+
+
+def _repeat_plan(src: Tournament, payload: RepeatIn, db: Session) -> tuple[list[date], list[date]]:
+    """Le date da creare e quelle in cui la serie ha già un torneo."""
+    dates = series_dates(src.starts_on, payload.frequency, payload.count, payload.until)
+    taken: set[date] = set()
+    if src.series_id:
+        taken = set(db.scalars(select(Tournament.starts_on).where(
+            Tournament.series_id == src.series_id, Tournament.status != TournamentStatus.CANCELLED,
+        )).all())
+    return [d for d in dates if d not in taken], [d for d in dates if d in taken]
+
+
+@router.post("/{tournament_id}/repeat/preview", response_model=RepeatPreviewOut)
+def preview_repeat(
+    tournament_id: int,
+    payload: RepeatIn,
+    organizer: User = Depends(require_organizer),
+    db: Session = Depends(get_db),
+) -> RepeatPreviewOut:
+    """Le date che «Ripeti» creerebbe, per vederle prima di confermare."""
+    src = load_owned_tournament(tournament_id, organizer, db)
+    new, taken = _repeat_plan(src, payload, db)
+    return RepeatPreviewOut(dates=new, already_there=taken)
+
+
+@router.post("/{tournament_id}/repeat", response_model=list[TournamentOut], status_code=201)
+def repeat_tournament(
+    tournament_id: int,
+    payload: RepeatIn,
+    organizer: User = Depends(require_organizer),
+    db: Session = Depends(get_db),
+) -> list[TournamentOut]:
+    """Ripete il torneo: ogni copia ha le stesse impostazioni, la sua data e
+    nessun iscritto. Stanno tutte nella stessa serie, per modificarle insieme."""
+    from backend.app.core.cache import cache_invalidate
+
+    src = load_owned_tournament(tournament_id, organizer, db)
+    new_dates, _ = _repeat_plan(src, payload, db)
+    if not new_dates:
+        raise HTTPException(status_code=422, detail="Nessuna data nuova da creare")
+    if src.series_id is None:
+        series = TournamentSeries(name=src.name, frequency=payload.frequency,
+                                  organizer_id=src.organizer_id, organization_id=src.organization_id)
+        db.add(series)
+        db.flush()
+        src.series_id = series.id
+    copies = [_copy_tournament(src, organizer, day, src.series_id) for day in new_dates]
+    db.add_all(copies)
+    db.commit()
+    cache_invalidate("tournaments:")
+    return [tournament_out(copy, 0, db) for copy in copies]
+
+
+@router.post("/{tournament_id}/duplicate", response_model=TournamentOut, status_code=201)
+def duplicate_tournament(
+    tournament_id: int,
+    organizer: User = Depends(require_organizer),
+    db: Session = Depends(get_db),
+) -> TournamentOut:
+    """Duplica un torneo (stesse impostazioni, data +7 giorni, senza iscritti né round).
+    Utile per gli eventi ricorrenti (es. FNM ogni venerdì)."""
+    src = load_owned_tournament(tournament_id, organizer, db)
+    copy = _copy_tournament(src, organizer, src.starts_on + timedelta(days=7))
     db.add(copy)
     db.commit()
     db.refresh(copy)
     from backend.app.core.cache import cache_invalidate
     cache_invalidate("tournaments:")
-    return TournamentOut.model_validate(copy).model_copy(update={"registered_players": 0})
+    return tournament_out(copy, 0, db)
 
 
 @router.post("", response_model=TournamentOut, status_code=201)
@@ -613,25 +711,22 @@ LOCKED_AFTER_START = frozenset({
 })
 
 
-@router.patch("/{tournament_id}", response_model=TournamentOut)
-def update_tournament(
-    tournament_id: int,
-    payload: TournamentUpdate,
-    organizer: User = Depends(require_organizer),
-    db: Session = Depends(get_db),
-) -> TournamentOut:
-    """Modifica le impostazioni del torneo. Ogni cambio finisce nel registro."""
-    from backend.app.core.cache import cache_invalidate
+SERIES_OWN_FIELDS = frozenset({"starts_on"})   # ogni torneo della serie ha la sua data
+
+
+def _apply_settings(tournament: Tournament, requested: dict, organizer: User, db: Session) -> dict:
+    """Valida e applica le modifiche; ritorna quelle vere, già scritte nel
+    registro. Ogni controllo viene prima di toccare il torneo: se uno fallisce,
+    il torneo resta com'era."""
     from backend.app.games import GAMES
 
-    tournament = load_owned_tournament(tournament_id, organizer, db)
     changes = {
-        key: value for key, value in payload.model_dump(exclude_unset=True).items()
+        key: value for key, value in requested.items()
         # null vuol dire "non toccare", tranne per l'orario, che si può togliere
         if (value is not None or key == "start_time") and getattr(tournament, key) != value
     }
     if not changes:
-        return tournament_out(tournament, _registered_count(tournament.id, db), db)
+        return changes
 
     if tournament.status not in {TournamentStatus.DRAFT, TournamentStatus.PUBLISHED}:
         locked = sorted(set(changes) & LOCKED_AFTER_START)
@@ -677,18 +772,74 @@ def update_tournament(
         if already_paid:
             raise HTTPException(status_code=409, detail="Qualcuno ha già pagato: la quota non si cambia più")
 
+    if not changes:
+        return changes
     detail = "; ".join(f"{key}: {getattr(tournament, key)!s} → {value!s}" for key, value in changes.items())
     for key, value in changes.items():
         setattr(tournament, key, value)
     _write_audit(db, tournament.id, organizer.id, "tournament_updated", detail[:1000])
-    db.commit()
-    if "capacity" in changes:
-        promote_from_waitlist(tournament, db)   # più posti: chi aspettava entra
-    db.refresh(tournament)
-    cache_invalidate("tournaments")
-    cache_invalidate(f"public-display:{tournament.id}")
-    cache_invalidate(f"registrations:{tournament.id}")
-    return tournament_out(tournament, _registered_count(tournament.id, db), db)
+    return changes
+
+
+def _following_in_series(tournament: Tournament, db: Session) -> list[Tournament]:
+    """I tornei della serie dopo questo, finché non sono iniziati."""
+    return list(db.scalars(
+        select(Tournament).where(
+            Tournament.series_id == tournament.series_id,
+            Tournament.id != tournament.id,
+            Tournament.starts_on > tournament.starts_on,
+            Tournament.status.in_([TournamentStatus.DRAFT, TournamentStatus.PUBLISHED]),
+        ).order_by(Tournament.starts_on)
+    ).all())
+
+
+@router.patch("/{tournament_id}", response_model=TournamentOut)
+def update_tournament(
+    tournament_id: int,
+    payload: TournamentUpdate,
+    series: bool = False,
+    organizer: User = Depends(require_organizer),
+    db: Session = Depends(get_db),
+) -> TournamentOut:
+    """Modifica le impostazioni del torneo. Ogni cambio finisce nel registro.
+
+    Con ?series=true le stesse modifiche vanno anche ai tornei successivi della
+    serie non ancora iniziati. La data resta la loro; chi non può prenderle
+    (capienza sotto gli iscritti, quota già pagata) resta com'era e viene elencato."""
+    from backend.app.core.cache import cache_invalidate
+
+    tournament = load_owned_tournament(tournament_id, organizer, db)
+    changes = _apply_settings(tournament, payload.model_dump(exclude_unset=True), organizer, db)
+    touched = [tournament] if changes else []
+    updated: int | None = None
+    skipped: list[str] = []
+    if series and tournament.series_id and changes:
+        # Solo quello che è cambiato qui: il form manda tutti i campi, e gli
+        # altri tornei della serie possono avere le loro differenze.
+        wanted = {key: (0 if key == "location_id" and value is None else value)
+                  for key, value in changes.items() if key not in SERIES_OWN_FIELDS}
+        updated = 0
+        for other in _following_in_series(tournament, db):
+            if not owns_tournament(other, organizer, db):
+                continue
+            try:
+                if _apply_settings(other, wanted, organizer, db):
+                    updated += 1
+                    touched.append(other)
+            except HTTPException as exc:
+                skipped.append(f"{other.starts_on:%d/%m}: {exc.detail}")
+    if touched:
+        db.commit()
+        for changed in touched:
+            if "capacity" in changes:
+                promote_from_waitlist(changed, db)   # più posti: chi aspettava entra
+            cache_invalidate(f"public-display:{changed.id}")
+            cache_invalidate(f"registrations:{changed.id}")
+        cache_invalidate("tournaments")
+        db.refresh(tournament)
+    return tournament_out(tournament, _registered_count(tournament.id, db), db).model_copy(
+        update={"series_updated": updated, "series_skipped": skipped}
+    )
 
 
 def _registered_count(tournament_id: int, db: Session) -> int:

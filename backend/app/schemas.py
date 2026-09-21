@@ -91,6 +91,25 @@ class TournamentCreate(BaseModel):
         return self
 
 
+class RepeatIn(BaseModel):
+    """Ripetere un torneo: quanto spesso, e quante volte oppure fino a quando."""
+    frequency: Literal["weekly", "biweekly", "monthly"]
+    count: int | None = Field(default=None, ge=1, le=52)
+    until: date | None = None
+
+    @model_validator(mode="after")
+    def _how_long(self) -> RepeatIn:
+        if (self.count is None) == (self.until is None):
+            raise ValueError("Indica quante volte oppure fino a quando")
+        return self
+
+
+class RepeatPreviewOut(BaseModel):
+    dates: list[date]
+    # Date in cui la serie ha già un torneo: non si creano due volte.
+    already_there: list[date] = []
+
+
 class TournamentUpdate(BaseModel):
     """Modifiche dalla scheda Impostazioni. I campi non inviati restano com'erano."""
     name: str | None = Field(default=None, min_length=3, max_length=180)
@@ -137,6 +156,10 @@ class TournamentOut(BaseModel):
     # Solo in /tournaments/mine: chi chiama lo gestisce (suo, o del suo negozio),
     # non ci arbitra soltanto.
     can_manage: bool = False
+    series_id: int | None = None
+    # Solo nella risposta di una modifica estesa alla serie.
+    series_updated: int | None = None
+    series_skipped: list[str] = []
     event_type: str = "locals"
     rules_enforcement_level: str
     venue: str

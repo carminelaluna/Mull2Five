@@ -241,6 +241,23 @@ class Suspension(Base):
         return self.lifted_at is None and (self.ends_on is None or self.ends_on >= today)
 
 
+class TournamentSeries(Base):
+    """Tornei che si ripetono (il venerdì sera, il primo sabato del mese): ogni
+    data resta un torneo a sé, la serie serve a crearli e a modificarli insieme."""
+    __tablename__ = "tournament_series"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(180))
+    frequency: Mapped[str] = mapped_column(String(20))
+    organizer_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    organization_id: Mapped[int | None] = mapped_column(
+        ForeignKey("organizations.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -346,6 +363,9 @@ class Tournament(Base):
     )
     location_id: Mapped[int | None] = mapped_column(
         ForeignKey("locations.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    series_id: Mapped[int | None] = mapped_column(
+        ForeignKey("tournament_series.id", ondelete="SET NULL"), nullable=True, index=True
     )
     created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
 

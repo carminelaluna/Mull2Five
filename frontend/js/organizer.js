@@ -264,8 +264,24 @@ function renderRegia() {
    La prima cosa che vedi sono i tuoi eventi, non un form da quindici campi:
    quello sta in una modale dietro "Nuovo evento". */
 
+/** Quale della serie è: "Serie 3/8", contando le date dei tornei che si vedono. */
+function seriesInfo(t) {
+  if (!t.series_id) return null;
+  const serie = _tournaments.filter((x) => x.series_id === t.series_id)
+    .sort((a, b) => String(a.starts_on).localeCompare(String(b.starts_on)));
+  return { position: serie.findIndex((x) => x.id === t.id) + 1, total: serie.length };
+}
+
+/** I tornei della serie dopo questo, non ancora iniziati: le modifiche possono andare anche a loro. */
+function followingInSeries(t) {
+  if (!t.series_id) return [];
+  return _tournaments.filter((x) => x.series_id === t.series_id && x.id !== t.id
+    && String(x.starts_on) > String(t.starts_on) && ['draft', 'published'].includes(x.status));
+}
+
 function eventCard(t) {
   const posti = Math.max((t.capacity || 0) - (t.registered_players || 0), 0);
+  const serie = seriesInfo(t);
   return `
     <article class="bo-event" data-open="${t.id}">
       <div class="bo-event-main">
@@ -274,6 +290,7 @@ function eventCard(t) {
           <span class="game-badge game-${esc(t.game || 'mtg')}">${esc(gameLabel(t.game))}</span>
           <span class="pill ${t.status === 'running' ? 'ok' : 'warn'}">${esc(statusLabel(t.status))}</span>
           ${warnChip(_warnings[t.id])}
+          ${serie ? `<span class="pill">${esc(tr('Serie {n}/{tot}', { n: serie.position, tot: serie.total }))}</span>` : ''}
         </div>
         <div class="bo-event-name">${esc(t.name)}</div>
         <div class="tile-meta">
@@ -286,6 +303,7 @@ function eventCard(t) {
         ${t.status === 'published' ? `<button class="mini-button" data-act="start" data-id="${t.id}" type="button">▶ Avvia</button>` : ''}
         <a class="mini-button" href="control.html?t=${t.id}" target="_blank" rel="noopener">🖥 Regia a parte</a>
         <button class="mini-button" data-act="dup" data-id="${t.id}" type="button">Duplica</button>
+        <button class="mini-button" data-act="repeat" data-id="${t.id}" type="button">${esc(tr('Ripeti…'))}</button>
         ${isClosed(t) ? '' : `<button class="mini-button" data-act="close" data-id="${t.id}" type="button">Chiudi</button>`}
         ${isClosed(t) ? '' : `<button class="mini-button" data-act="del" data-id="${t.id}" type="button" style="color:var(--danger)">Elimina</button>`}
       </div>
@@ -476,6 +494,7 @@ async function createTournament(e) {
 }
 
 async function tournamentAction(act, id) {
+  if (act === 'repeat') return openRepeatDialog(id);
   const confirmMsg = act === 'del' ? 'Eliminare definitivamente il torneo e tutti i dati?' : null;
   if (confirmMsg && !window.confirm(confirmMsg)) return;
   try {
@@ -492,6 +511,70 @@ async function tournamentAction(act, id) {
     toast('Fatto.');
     await loadTournaments(); render();
   } catch (err) { toast('Errore: ' + err.message); }
+}
+
+/* ── SERIE ──────────────────────────────────────────────
+   Ripetere un torneo crea un torneo per data, con le stesse impostazioni.
+   Prima di confermare si vedono le date: niente sorprese a fine mese. */
+const FREQUENCIES = [
+  { value: 'weekly', label: 'Ogni settimana' },
+  { value: 'biweekly', label: 'Ogni due settimane' },
+  { value: 'monthly', label: 'Ogni mese, stesso giorno della settimana' },
+];
+
+function openRepeatDialog(id) {
+  const src = _tournaments.find((x) => String(x.id) === String(id));
+  const dlg = $('#boDialog');
+  dlg.innerHTML = `
+    <form method="dialog" class="modal">
+      <header><div><span class="eyebrow">${esc(tr('Serie'))}</span><h2>${esc(tr('Ripeti {nome}', { nome: src?.name || '' }))}</h2></div>
+        <button class="icon-button" value="cancel" formnovalidate>&times;</button></header>
+      <div class="bo-grid">
+        <label style="grid-column:1/-1">${esc(tr('Quanto spesso'))}<select id="rpFreq">
+          ${FREQUENCIES.map((f) => `<option value="${f.value}">${esc(tr(f.label))}</option>`).join('')}</select></label>
+        <label>${esc(tr('Quante volte'))}<input id="rpCount" type="number" min="1" max="52" value="4" /></label>
+        <label>${esc(tr('Oppure fino al'))}<input id="rpUntil" type="date" /></label>
+      </div>
+      <div id="rpPreview" class="muted" style="margin-top:10px;font-size:.88rem"></div>
+      <menu>
+        <button class="secondary" value="cancel" formnovalidate>${esc(tr('Annulla'))}</button>
+        <button class="primary" id="rpSubmit" type="button">${esc(tr('Crea i tornei'))}</button>
+      </menu>
+    </form>`;
+  dlg.showModal();
+
+  // Una data di fine vince sul numero: sono due modi di dire la stessa cosa.
+  const body = () => ({
+    frequency: $('#rpFreq').value,
+    ...($('#rpUntil').value ? { until: $('#rpUntil').value } : { count: +$('#rpCount').value || 1 }),
+  });
+  let ask = 0;
+  const preview = async () => {
+    const mine = ++ask;
+    try {
+      const plan = await apiFetch(`/tournaments/${id}/repeat/preview`, { method: 'POST', body: JSON.stringify(body()) });
+      if (mine !== ask) return;
+      $('#rpPreview').innerHTML = plan.dates.length
+        ? `${esc(tr('Nuovi tornei ({n}):', { n: plan.dates.length }))} ${plan.dates.map((d) => esc(fmtDate(d))).join(', ')}`
+          + (plan.already_there.length ? `<br>${esc(tr('Già in serie, saltati: {date}', { date: plan.already_there.map((d) => fmtDate(d)).join(', ') }))}` : '')
+        : esc(tr('Nessuna data nuova con queste scelte.'));
+      $('#rpSubmit').disabled = !plan.dates.length;
+    } catch (err) {
+      if (mine === ask) $('#rpPreview').textContent = err.message;
+    }
+  };
+  ['#rpFreq', '#rpCount', '#rpUntil'].forEach((sel) => $(sel).addEventListener('input', preview));
+  preview();
+
+  $('#rpSubmit').addEventListener('click', async () => {
+    try {
+      const created = await apiFetch(`/tournaments/${id}/repeat`, { method: 'POST', body: JSON.stringify(body()) });
+      dlg.close();
+      toast(tr('Creati {n} tornei della serie.', { n: created.length }));
+      await loadTournaments();
+      render();
+    } catch (err) { toast('Errore: ' + err.message); }
+  });
 }
 
 /* ── ISCRITTI ────────────────────────────────────────── */
@@ -1886,6 +1969,7 @@ async function renderImpostazioni() {
   if (!t) { $('#panel').innerHTML = '<p class="empty">Apri un evento dalla lista.</p>'; return; }
   const games = await loadGames();
   const started = !['draft', 'published'].includes(t.status);
+  const following = followingInSeries(t);
   const lock = (name) => (started && LOCKED_AFTER_START.has(name)
     ? `disabled title="${esc(tr('Non si cambia a torneo avviato'))}"` : '');
   const checked = (v) => (v ? 'checked' : '');
@@ -1955,6 +2039,8 @@ async function renderImpostazioni() {
       </div>
 
       <div class="settings-actions">
+        ${following.length ? `<label class="bo-check" style="margin-right:auto"><input id="sSeries" type="checkbox" />
+          ${esc(tr('Applica le modifiche anche ai {n} tornei successivi della serie', { n: following.length }))}</label>` : ''}
         <button class="primary" type="submit" id="sSave">${esc(tr('Salva le modifiche'))}</button>
       </div>
     </form>`;
@@ -2007,8 +2093,14 @@ async function renderImpostazioni() {
     const save = $('#sSave');
     save.disabled = true;
     try {
-      await apiFetch(`/tournaments/${t.id}`, { method: 'PATCH', body: JSON.stringify(body) });
-      toast(tr('Impostazioni salvate.'));
+      const series = $('#sSeries')?.checked;
+      const saved = await apiFetch(`/tournaments/${t.id}${series ? '?series=true' : ''}`, { method: 'PATCH', body: JSON.stringify(body) });
+      if (series && saved.series_updated != null) {
+        toast(tr('Salvato, anche su {n} tornei della serie.', { n: saved.series_updated })
+          + (saved.series_skipped.length ? ' ' + tr('Non cambiati: {elenco}', { elenco: saved.series_skipped.join('; ') }) : ''));
+      } else {
+        toast(tr('Impostazioni salvate.'));
+      }
       await loadTournaments();
       render();
     } catch (err) {
