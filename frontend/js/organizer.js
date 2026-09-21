@@ -702,6 +702,7 @@ function drawGiocatori(t) {
         <h3 style="margin:0">Giocatori (${_players.length})</h3>
         <div class="row-actions">
           <button class="secondary" id="gCsv" type="button">${esc(tr('Esporta CSV'))}</button>
+          <button class="secondary" id="gImport" type="button">${esc(tr('Importa da file'))}</button>
           <button class="primary" id="gWalkIn" type="button">+ Iscrivi al banco</button>
         </div>
       </div>
@@ -742,6 +743,7 @@ function drawGiocatori(t) {
 
   $('#gWalkIn').addEventListener('click', () => openWalkInDialog(t.id));
   $('#gCsv').addEventListener('click', () => downloadPlayersCsv(t));
+  $('#gImport').addEventListener('click', () => openImportDialog(t));
   $('#ctlSaveControls').addEventListener('click', () => saveDecklistControls(t.id));
   $('#gFilter').addEventListener('input', (e) => {
     const q = e.target.value.toLowerCase();
@@ -762,6 +764,94 @@ function drawGiocatori(t) {
       }, () => renderWarnings(t));
       return regAction(t.id, act, regId, btn.dataset.val);
     }));
+}
+
+/* ── Import da file ─────────────────────────────────────
+   Preiscrizioni raccolte altrove, un torneo spostato da un'altra piattaforma.
+   Prima l'anteprima riga per riga, poi l'import: niente sorprese. */
+const IMPORT_OUTCOMES = {
+  added: { label: 'Iscritto', cls: 'ok' },
+  waitlisted: { label: "Lista d'attesa", cls: 'warn' },
+  already: { label: 'Già iscritto', cls: '' },
+  error: { label: 'Errore', cls: 'danger' },
+};
+
+/* Excel in italiano salva i CSV in Windows-1252, non in UTF-8: se il file non
+   è UTF-8 valido lo si rilegge così, altrimenti le lettere accentate si rompono. */
+async function readTextFile(file) {
+  const bytes = await file.arrayBuffer();
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  } catch {
+    return new TextDecoder('windows-1252').decode(bytes);
+  }
+}
+
+function openImportDialog(t) {
+  const dlg = $('#boDialog');
+  dlg.innerHTML = `
+    <form method="dialog" class="modal">
+      <header><div><span class="eyebrow">${esc(tr('Iscrizioni'))}</span><h2>${esc(tr('Importa da file'))}</h2></div>
+        <button class="icon-button" value="cancel" formnovalidate>&times;</button></header>
+      <p class="muted" style="margin-top:0;font-size:.85rem">${esc(tr("Un CSV da un foglio di calcolo, con virgole o punti e virgola: serve almeno la colonna dell'email; nome, ID editore e pagato si riconoscono dall'intestazione. Chi non ha un account lo riceve, come al banco."))}</p>
+      <div class="bo-grid">
+        <label style="grid-column:1/-1">${esc(tr('File'))}<input id="imFile" type="file" accept=".csv,.txt,text/csv,text/plain" /></label>
+        <label style="grid-column:1/-1">${esc(tr('Oppure incolla qui'))}<textarea id="imText" style="min-height:110px" placeholder="email;nome;id editore&#10;mario@example.com;Mario Rossi;1234567890"></textarea></label>
+        <label class="bo-check" style="grid-column:1/-1"><input id="imPaid" type="checkbox" /> ${esc(tr('Segna tutti come pagati al banco'))}</label>
+      </div>
+      <div id="imPreview" style="margin-top:12px"></div>
+      <menu>
+        <button class="secondary" value="cancel" formnovalidate>${esc(tr('Annulla'))}</button>
+        <button class="secondary" id="imCheck" type="button">${esc(tr('Anteprima'))}</button>
+        <button class="primary" id="imGo" type="button" disabled>${esc(tr('Importa'))}</button>
+      </menu>
+    </form>`;
+  dlg.showModal();
+
+  $('#imFile').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (file) $('#imText').value = await readTextFile(file);
+    $('#imGo').disabled = true;
+  });
+  $('#imText').addEventListener('input', () => { $('#imGo').disabled = true; });
+
+  const send = (dryRun) => apiFetch(`/tournaments/${t.id}/import`, {
+    method: 'POST',
+    body: JSON.stringify({ csv_text: $('#imText').value, mark_paid: $('#imPaid').checked, dry_run: dryRun }),
+  });
+
+  $('#imCheck').addEventListener('click', async () => {
+    if (!$('#imText').value.trim()) { toast(tr('Scegli un file o incolla la lista.')); return; }
+    try {
+      const plan = await send(true);
+      const rows = plan.rows.map((r) => {
+        const o = IMPORT_OUTCOMES[r.outcome];
+        return `<tr><td>${r.line}</td><td>${esc(r.name)}<br><small class="muted">${esc(r.email)}</small></td>
+          <td><span class="pill ${o.cls}">${esc(tr(o.label))}</span>${r.detail ? `<br><small class="muted">${esc(r.detail)}</small>` : ''}</td></tr>`;
+      }).join('');
+      $('#imPreview').innerHTML = `
+        <p style="margin:0 0 8px">${esc(tr("{n} da iscrivere, {w} in lista d'attesa, {s} saltati.", { n: plan.added, w: plan.waitlisted, s: plan.skipped }))}</p>
+        <div style="max-height:280px;overflow:auto"><table class="bo">
+          <thead><tr><th>${esc(tr('Riga'))}</th><th>${esc(tr('Giocatore'))}</th><th>${esc(tr('Esito'))}</th></tr></thead>
+          <tbody>${rows}</tbody></table></div>`;
+      const total = plan.added + plan.waitlisted;
+      $('#imGo').disabled = !total;
+      $('#imGo').textContent = total ? tr('Importa {n}', { n: total }) : tr('Importa');
+    } catch (err) { $('#imPreview').innerHTML = `<p class="field-error">${esc(err.message)}</p>`; }
+  });
+
+  $('#imGo').addEventListener('click', async () => {
+    $('#imGo').disabled = true;
+    try {
+      const done = await send(false);
+      dlg.close();
+      toast(tr("Importati {n} giocatori ({w} in lista d'attesa).", { n: done.added + done.waitlisted, w: done.waitlisted }));
+      renderGiocatori();
+    } catch (err) {
+      toast('Errore: ' + err.message);
+      $('#imGo').disabled = false;
+    }
+  });
 }
 
 /* ── Modali ──────────────────────────────────────────── */

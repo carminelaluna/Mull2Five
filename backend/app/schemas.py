@@ -214,6 +214,30 @@ class RegistrationCreate(BaseModel):
     answers: dict[int, str | bool] = {}
 
 
+class ImportIn(BaseModel):
+    """Una lista di giocatori da iscrivere, così come esce da un foglio di calcolo."""
+    csv_text: str = Field(min_length=1, max_length=200_000)
+    # Tutti come pagati al banco, oltre a chi lo è già segnato nel file.
+    mark_paid: bool = False
+    # Vero: dice solo cosa succederebbe, riga per riga.
+    dry_run: bool = True
+
+
+class ImportRowOut(BaseModel):
+    line: int
+    email: str
+    name: str
+    outcome: Literal["added", "waitlisted", "already", "error"]
+    detail: str = ""
+
+
+class ImportOut(BaseModel):
+    rows: list[ImportRowOut]
+    added: int
+    waitlisted: int
+    skipped: int
+
+
 class RegistrationFieldIn(BaseModel):
     id: int | None = None       # presente: la domanda esiste già e tiene le sue risposte
     label: str = Field(min_length=1, max_length=160)

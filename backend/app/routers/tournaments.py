@@ -64,6 +64,9 @@ from backend.app.schemas import (
     DecklistCreate,
     DecklistOut,
     InviteCodeCreate,
+    ImportIn,
+    ImportOut,
+    ImportRowOut,
     InviteCodeOut,
     ManualPairingIn,
     MetaStatRow,
@@ -120,6 +123,7 @@ from backend.app.services.payments import (
     refund_paypal_capture,
 )
 from backend.app.services.stores import active_suspension, managed_tournaments, store_role
+from backend.app.services.player_import import parse_players_csv
 from backend.app.services.warnings import build_context, tournament_warnings
 
 router = APIRouter(prefix="/tournaments", tags=["tournaments"])
@@ -1715,6 +1719,95 @@ def add_walk_in(
     from backend.app.core.cache import cache_invalidate
     cache_invalidate(f"registrations:{tournament_id}")
     cache_invalidate("tournaments:")
+IMPORT_LIMIT = 500
+
+
+@router.post("/{tournament_id}/import", response_model=ImportOut)
+def import_registrations(
+    tournament_id: int,
+    payload: ImportIn,
+    organizer: User = Depends(require_organizer),
+    db: Session = Depends(get_db),
+) -> ImportOut:
+    """Iscrive una lista di giocatori da un file: preiscrizioni raccolte altrove,
+    un torneo spostato da un'altra piattaforma. Valgono le regole del banco: chi
+    non ha un account lo riceve, chi è sospeso resta fuori, oltre la capienza si
+    va in lista d'attesa. Con dry_run dice cosa succederebbe, riga per riga,
+    senza toccare niente."""
+    from email_validator import EmailNotValidError, validate_email
+
+    tournament = load_owned_tournament(tournament_id, organizer, db)
+    if tournament.status in {TournamentStatus.COMPLETED, TournamentStatus.CANCELLED}:
+        raise HTTPException(status_code=409, detail="Closed tournaments cannot accept registrations")
+    try:
+        players = parse_players_csv(payload.csv_text)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if len(players) > IMPORT_LIMIT:
+        raise HTTPException(status_code=422, detail=f"Al massimo {IMPORT_LIMIT} righe per volta")
+
+    active = db.scalar(select(func.count(Registration.id)).where(
+        Registration.tournament_id == tournament.id, Registration.waitlisted.is_(False),
+    )) or 0
+    already = set(db.scalars(
+        select(User.email).join(Registration, Registration.player_id == User.id)
+        .where(Registration.tournament_id == tournament.id)
+    ).all())
+    rows: list[ImportRowOut] = []
+    for item in players:
+        email = item.email.strip().lower()
+        row = ImportRowOut(line=item.line, email=email, name=(item.name or email.split("@")[0])[:160],
+                           outcome="added")
+        rows.append(row)
+        if not email:
+            row.outcome, row.detail = "error", "Manca l'email"
+            continue
+        try:
+            validate_email(email, check_deliverability=False)
+        except EmailNotValidError:
+            row.outcome, row.detail = "error", "Email non valida"
+            continue
+        if email in already:
+            row.outcome, row.detail = "already", "Già iscritto"
+            continue
+        already.add(email)   # la stessa email due volte nel file conta una
+        player = db.scalar(select(User).where(User.email == email))
+        if player and active_suspension(player.id, tournament.organization_id, db):
+            row.outcome, row.detail = "error", "Sospeso dagli eventi del negozio"
+            continue
+        waitlisted = active >= tournament.capacity
+        if waitlisted:
+            row.outcome = "waitlisted"
+        else:
+            active += 1
+        if payload.dry_run:
+            continue
+        if not player:
+            player = User(email=email, display_name=row.name, role=UserRole.PLAYER,
+                          password_hash=None, is_active=True)
+            db.add(player)
+            db.flush()
+        registration = Registration(tournament_id=tournament.id, player_id=player.id,
+                                    wizards_account=item.publisher_id[:80], waitlisted=waitlisted)
+        db.add(registration)
+        db.flush()
+        if (payload.mark_paid or item.paid) and not waitlisted:
+            db.add(Payment(registration_id=registration.id, provider="cash", status=PaymentStatus.PAID,
+                           amount_cents=tournament.entry_fee_cents, currency=tournament.currency,
+                           paid_at=datetime.now(UTC)))
+
+    added = sum(r.outcome == "added" for r in rows)
+    waiting = sum(r.outcome == "waitlisted" for r in rows)
+    if not payload.dry_run and (added or waiting):
+        _write_audit(db, tournament.id, organizer.id, "registrations_imported",
+                     f"{added} iscritti, {waiting} in lista d'attesa, {len(rows) - added - waiting} saltati")
+        db.commit()
+        from backend.app.core.cache import cache_invalidate
+        cache_invalidate(f"registrations:{tournament.id}")
+        cache_invalidate("tournaments:")
+    return ImportOut(rows=rows, added=added, waitlisted=waiting, skipped=len(rows) - added - waiting)
+
+
     return organizer_registration_out(
         load_registration_for_tournament(tournament_id, registration.id, db)
     )

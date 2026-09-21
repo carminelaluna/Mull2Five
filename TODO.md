@@ -194,7 +194,7 @@ pagamenti ai negozi in fondo, sono il pezzo più grosso.
 - [x] 7. Tornei ricorrenti: ripeti ogni settimana, ogni due o ogni mese; le modifiche possono andare a tutta la serie
 - [x] 8. Campi di iscrizione personalizzati: testo, scelta, casella; risposte nella scheda Giocatori e nel CSV degli iscritti
 - [x] 9. Eventi di sola iscrizione: iscritti, pagamenti e presenze senza turni né classifica
-- [ ] 10. Import degli iscritti da file
+- [x] 10. Import degli iscritti da file: CSV con virgole o punti e virgola, anteprima riga per riga, poi l'import
 - [ ] 11. Togli chi non ha pagato; prize out nel registro
 - [ ] 12. Bye assegnati e sconfitte ai ritardatari
 - [ ] 13. Account ospite e minori con genitore
