@@ -13,12 +13,14 @@ test.beforeEach(async ({ page }) => {
   await page.evaluate(() => localStorage.clear());
 });
 
-test('home pubblica si carica e mostra brand + ricerca', async ({ page }) => {
+test('home pubblica si carica e mostra brand + rail eventi', async ({ page }) => {
   await page.goto('/index.html');
-  await expect(page.locator('.brand')).toContainText('Manabind');
-  await expect(page.locator('#searchForm')).toBeVisible();
-  // La lista tornei (o l'empty state) viene popolata dal backend.
-  await expect(page.locator('#eventsList, #eventsEmpty')).toHaveCount(2);
+  // Dal rebrand il marchio è un'immagine: il nome sta nell'alt, non nel testo.
+  await expect(page.locator('.brand img')).toHaveAttribute('alt', 'Mull2Five');
+  await expect(page.locator('h1')).toContainText('Scopri Magic');
+  // La rail la riempie il backend: finito il caricamento c'è una scheda evento
+  // (con i posti liberi) o il messaggio di lista vuota, mai un errore.
+  await expect(page.locator('#eventsRail')).toContainText(/Nessun evento in questa selezione|posti/);
 });
 
 test('login mostra i tab Accedi / Registrati', async ({ page }) => {
@@ -58,9 +60,10 @@ test('registrazione come Organizzatore → back-office accessibile', async ({ pa
 
   // Un organizzatore viene portato direttamente al back-office.
   await page.waitForURL('**/organizer.html', { timeout: 15_000 });
-  // Il selettore torneo attivo e la tab Iscritti devono essere presenti.
-  await expect(page.locator('#activeTournament')).toBeVisible();
-  await expect(page.locator('.bo-tab[data-tab="iscritti"]')).toBeVisible();
+  // Si apre sulla lista dei suoi eventi, vuota per un account appena creato.
+  await expect(page.locator('.bo-nav-item[data-section="eventi"]')).toHaveClass(/active/);
+  await expect(page.locator('#boNew')).toBeVisible();
+  await expect(page.locator('#panel')).toContainText('Nessun evento in corso');
 });
 
 test('login con credenziali appena registrate', async ({ page }) => {
