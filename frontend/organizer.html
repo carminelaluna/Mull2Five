@@ -29,6 +29,29 @@
       .pill.warn { background:rgba(224,162,60,.16); border-color:var(--warn,#e0a23c); }
       .pill.danger { background:rgba(239,106,94,.16); border-color:var(--danger,#ef6a5e); }
       .row-actions { display:flex; gap:6px; flex-wrap:wrap; }
+      /* Una cella resta una cella: con display:flex il td si stacca dalla riga e
+         bordo e altezza non coincidono più con le altre colonne. */
+      table.bo td { vertical-align:middle; }
+      td.row-actions { display:table-cell; white-space:nowrap; }
+      td.row-actions > * + * { margin-left:6px; }
+      /* Celle a due piani: lo stato sopra, le azioni sotto, alla stessa altezza in
+         ogni colonna, così etichette e pulsanti stanno sulla stessa linea. */
+      table.bo.players td { vertical-align:top; }
+      .cell { display:grid; grid-template-rows:24px auto; row-gap:6px; }
+      .cell-top, .cell-bottom { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+      .cell-top { min-height:24px; }
+      .cell-bottom { min-height:34px; }
+      .cell-bottom select { width:auto; min-height:34px; padding:4px 8px; }
+      .cell-note { font-size:.8rem; margin-top:4px; }
+      /* Nei moduli a griglia, i campi brevi in coppia occupano mezza riga ciascuno:
+         a una colonna sola lascerebbero un vuoto a destra. */
+      .bo-grid .span-2 { grid-column:span 2; }
+      @media (max-width: 640px) { .bo-grid .span-2 { grid-column:1 / -1; } }
+      /* Barre di comandi: etichetta e menu su una riga, menu larghi quanto il contenuto. */
+      .toolbar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+      .toolbar label { display:flex; align-items:center; gap:6px; white-space:nowrap; margin:0; }
+      .toolbar select { width:auto; min-width:180px; }
+      input[type="color"] { width:64px; height:38px; padding:2px; cursor:pointer; }
     </style>
   </head>
   <body>

@@ -639,6 +639,16 @@ function answersLine(r) {
   return parts.length ? `<br><small class="muted">${parts.join(' · ')}</small>` : '';
 }
 
+const PAYMENT_LABELS = {
+  paid: 'Pagato', confirmed: 'Pagato', pending: 'Da pagare', failed: 'Non riuscito',
+  refunded: 'Rimborsato', refund_requested: 'Rimborso richiesto',
+};
+const DECK_LABELS = { missing: 'Mancante', submitted: 'Consegnata', valid: 'Valida', invalid: 'Non valida' };
+
+/* Una cella della tabella giocatori: lo stato sopra, le azioni sotto, le note in fondo. */
+const cell = (top, bottom = '', note = '') =>
+  `<div class="cell"><div class="cell-top">${top}</div><div class="cell-bottom">${bottom}</div></div>${note}`;
+
 function playerRow(r) {
   const name = r.player?.display_name || r.player_email;
   const paid = ['paid', 'confirmed'].includes(r.payment_status);
@@ -648,51 +658,64 @@ function playerRow(r) {
   const tags = (r.tags || []).map(x =>
     `<span class="player-tag" style="color:${esc(x.color)}">${esc(x.name)}</span>`).join('');
 
+  // Segmenti di lista mancanti ed errori: note sotto, fuori dai due piani.
+  const deckNotes = (() => {
+    const notes = [];
+    const attesi = activeT()?.decklist_formats || [''];
+    if (attesi.length > 1) {
+      const avute = new Set(r.decklist_formats || []);
+      const mancanti = attesi.filter((f) => !avute.has(f)).map((f) => f || 'Costruito');
+      notes.push(mancanti.length
+        ? `<div class="cell-note" style="color:var(--warn)">manca: ${esc(mancanti.join(', '))}</div>`
+        : '<div class="cell-note" style="color:var(--green)">tutti i segmenti</div>');
+    }
+    if (r.decklist_errors) notes.push(`<div class="cell-note" style="color:var(--danger)">${esc(r.decklist_errors)}</div>`);
+    return notes.join('');
+  })();
+  const answers = answersLine(r).replace('<br>', '');
+
   return `<tr data-reg="${r.id}">
     <td>
-      <strong>${esc(name)}</strong>
-      ${r.waitlisted ? '<span class="pill warn">attesa</span>' : ''}${r.dropped ? '<span class="pill">drop</span>' : ''}
-      ${r.byes && !_byesEditable ? `<span class="pill ok">${esc(tr('{n} bye', { n: r.byes }))}</span>` : ''}
-      <br><small class="muted">${esc(r.player_email)}</small>
-      ${answersLine(r)}
-      ${tags ? `<br>${tags}` : ''}
+      ${cell(
+        `<strong>${esc(name)}</strong>
+         ${r.waitlisted ? '<span class="pill warn">attesa</span>' : ''}${r.dropped ? '<span class="pill">drop</span>' : ''}
+         ${r.byes && !_byesEditable ? `<span class="pill ok">${esc(tr('{n} bye', { n: r.byes }))}</span>` : ''}`,
+        `<small class="muted">${esc(r.player_email)}</small>`,
+        `${answers ? `<div class="cell-note">${answers}</div>` : ''}${tags ? `<div class="cell-note">${tags}</div>` : ''}`,
+      )}
     </td>
     <td>
-      <span class="pill ${paid ? 'ok' : 'warn'}">${esc(r.payment_status)}</span>
-      ${paid ? '' : '<br><button class="mini-button" data-act="pay" type="button">Segna pagato</button>'}
+      ${cell(
+        `<span class="pill ${paid ? 'ok' : 'warn'}">${esc(tr(PAYMENT_LABELS[r.payment_status] || r.payment_status))}</span>`,
+        paid ? '' : `<button class="mini-button" data-act="pay" type="button">${esc(tr('Segna pagato'))}</button>`,
+      )}
     </td>
     <td>
-      <button class="mini-button" data-act="checkin" data-val="${!r.checked_in}" type="button">
-        ${r.checked_in ? '✓ presente' : 'Check-in'}
-      </button>
+      ${cell(
+        r.checked_in ? `<span class="pill ok">${esc(tr('Presente'))}</span>` : '<span class="muted">—</span>',
+        `<button class="mini-button" data-act="checkin" data-val="${!r.checked_in}" type="button">${esc(r.checked_in ? tr('Annulla') : tr('Check-in'))}</button>`,
+      )}
     </td>
     <td>
-      <span class="pill ${DECK_BADGE[deck] || 'warn'}">${esc(deck)}</span>
-      ${(() => {
-        const attesi = activeT()?.decklist_formats || [''];
-        if (attesi.length < 2) return '';
-        const avute = new Set(r.decklist_formats || []);
-        const mancanti = attesi.filter((f) => !avute.has(f)).map((f) => f || 'Costruito');
-        return mancanti.length
-          ? `<br><small style="color:var(--warn)">manca: ${esc(mancanti.join(', '))}</small>`
-          : '<br><small style="color:var(--green)">tutti i segmenti</small>';
-      })()}
-      ${r.decklist_errors ? `<br><small style="color:var(--danger)">${esc(r.decklist_errors)}</small>` : ''}
-      <br>${hasDeck ? '<button class="mini-button" data-act="deck-view" type="button">Vedi</button>' : ''}
-      <button class="mini-button" data-act="deck-edit" type="button">${hasDeck ? 'Modifica' : 'Carica'}</button>
+      ${cell(
+        `<span class="pill ${DECK_BADGE[deck] || 'warn'}">${esc(tr(DECK_LABELS[deck] || deck))}</span>`,
+        `${hasDeck ? `<button class="mini-button" data-act="deck-view" type="button">${esc(tr('Vedi'))}</button>` : ''}
+         <button class="mini-button" data-act="deck-edit" type="button">${esc(hasDeck ? tr('Modifica') : tr('Carica'))}</button>`,
+        deckNotes,
+      )}
     </td>
     <td>
-      ${pen.length ? `<span class="pill warn">${pen.length}</span>` : '<span class="muted">—</span>'}
-      <br><button class="mini-button" data-act="penalty" type="button">Gestisci</button>
+      ${cell(
+        pen.length ? `<span class="pill warn">${pen.length}</span>` : '<span class="muted">—</span>',
+        `<button class="mini-button" data-act="penalty" type="button">${esc(tr('Gestisci'))}</button>`,
+      )}
     </td>
-    <td class="row-actions">
-      <button class="mini-button" data-act="drop" data-val="${!r.dropped}" type="button">
-        ${r.dropped ? 'Reintegra' : 'Drop'}
-      </button>
-      ${_suspendSlug && r.player_id ? `<button class="mini-button" data-act="suspend" type="button">${esc(tr('Sospendi'))}</button>` : ''}
-      ${_byesEditable ? `<select data-byes style="width:auto" title="${esc(tr('Bye assegnati: salta i primi turni e li vince'))}">
-        ${[0, 1, 2, 3].map((n) => `<option value="${n}"${(r.byes || 0) === n ? ' selected' : ''}>${esc(tr('{n} bye', { n }))}</option>`).join('')}
-      </select>` : ''}
+    <td>
+      ${cell('', `<button class="mini-button" data-act="drop" data-val="${!r.dropped}" type="button">${esc(r.dropped ? tr('Reintegra') : tr('Drop'))}</button>
+        ${_suspendSlug && r.player_id ? `<button class="mini-button" data-act="suspend" type="button">${esc(tr('Sospendi'))}</button>` : ''}
+        ${_byesEditable ? `<select data-byes title="${esc(tr('Bye assegnati: salta i primi turni e li vince'))}">
+          ${[0, 1, 2, 3].map((n) => `<option value="${n}"${(r.byes || 0) === n ? ' selected' : ''}>${esc(tr('{n} bye', { n }))}</option>`).join('')}
+        </select>` : ''}`)}
     </td>
   </tr>`;
 }
@@ -745,7 +768,7 @@ function drawGiocatori(t) {
       </details>
 
       <input id="gFilter" placeholder="Filtra per nome, email o tag…" style="width:100%;margin-bottom:10px" />
-      <table class="bo">
+      <table class="bo players">
         <thead><tr>
           <th>Giocatore</th><th>Pagamento</th><th>Check-in</th><th>Lista</th><th>Penalità</th><th></th>
         </tr></thead>
@@ -1451,8 +1474,8 @@ async function renderNegozio() {
       Visibile su <a class="secondary-link" href="store.html?s=${esc(org.slug)}" target="_blank" rel="noopener">store.html?s=${esc(org.slug)}</a>
     </p>
     <form id="storeForm" class="bo-grid">
-      <label>Nome<input id="sName" value="${esc(org.name)}" /></label>
-      <label>Città<input id="sCity" value="${esc(org.city)}" /></label>
+      <label class="span-2">Nome<input id="sName" value="${esc(org.name)}" /></label>
+      <label class="span-2">Città<input id="sCity" value="${esc(org.city)}" /></label>
       <label style="grid-column:1/-1">Indirizzo<input id="sAddr" value="${esc(org.address)}" /></label>
       <label style="grid-column:1/-1">Descrizione
         <textarea id="sDesc" style="min-height:90px">${esc(org.description)}</textarea></label>
@@ -1525,8 +1548,8 @@ async function renderNoStore() {
     <p class="muted" style="margin-top:0">${esc(tr('Non fai ancora parte di un negozio: i tuoi tornei per ora escono sotto Mull2Five. Apri il tuo negozio per avere una pagina tua, le tue sedi e uno staff che gestisce i tornei con te. I tornei che hai già creato vengono con te.'))}</p>
     <p class="muted">${esc(tr('Lavori per un negozio che è già qui? Chiedi al titolare di aggiungerti allo staff con la tua email.'))}</p>
     <form id="newStore" class="bo-grid">
-      <label>${esc(tr('Nome del negozio'))}<input id="nsName" required minlength="2" maxlength="120" /></label>
-      <label>${esc(tr('Città'))}<input id="nsCity" maxlength="120" /></label>
+      <label class="span-2">${esc(tr('Nome del negozio'))}<input id="nsName" required minlength="2" maxlength="120" /></label>
+      <label class="span-2">${esc(tr('Città'))}<input id="nsCity" maxlength="120" /></label>
       <button class="primary" type="submit" style="grid-column:1/-1">${esc(tr('Apri il negozio'))}</button>
     </form>
   </div>`;
@@ -1589,7 +1612,7 @@ function staffPanel(org, members) {
     <table class="bo"><thead><tr><th>${esc(tr('Nome'))}</th><th>Email</th><th>${esc(tr('Ruolo'))}</th><th></th></tr></thead>
       <tbody>${rows}</tbody></table>
     ${owner ? `<form id="memberForm" class="bo-grid" style="margin-top:12px">
-      <label>Email<input id="mEmail" type="email" required placeholder="${esc(tr('email del suo account'))}" /></label>
+      <label class="span-2">Email<input id="mEmail" type="email" required placeholder="${esc(tr('email del suo account'))}" /></label>
       <label>${esc(tr('Ruolo'))}<select id="mRole">
         ${Object.keys(STORE_ROLES).map((r) => `<option value="${r}"${r === 'organizer' ? ' selected' : ''}>${esc(storeRoleLabel(r))}</option>`).join('')}
       </select></label>
@@ -1656,11 +1679,11 @@ function locationsPanel(locations) {
       <tbody>${rows}</tbody></table>
     <form id="locForm" class="bo-grid" style="margin-top:12px">
       <input type="hidden" id="lId" />
-      <label>${esc(tr('Nome'))}<input id="lName" required minlength="2" maxlength="120" placeholder="${esc(tr('Sala eventi'))}" /></label>
-      <label>${esc(tr('Città'))}<input id="lCity" maxlength="120" /></label>
+      <label class="span-2">${esc(tr('Nome'))}<input id="lName" required minlength="2" maxlength="120" placeholder="${esc(tr('Sala eventi'))}" /></label>
+      <label class="span-2">${esc(tr('Città'))}<input id="lCity" maxlength="120" /></label>
       <label style="grid-column:1/-1">${esc(tr('Indirizzo'))}<input id="lAddr" maxlength="240" /></label>
-      <label>${esc(tr('Latitudine'))}<input id="lLat" type="number" step="0.0001" /></label>
-      <label>${esc(tr('Longitudine'))}<input id="lLng" type="number" step="0.0001" /></label>
+      <label class="span-2">${esc(tr('Latitudine'))}<input id="lLat" type="number" step="0.0001" /></label>
+      <label class="span-2">${esc(tr('Longitudine'))}<input id="lLng" type="number" step="0.0001" /></label>
       <label style="grid-column:1/-1">${esc(tr('Note per chi arriva'))}<input id="lNotes" placeholder="${esc(tr('Piano, parcheggio, accessibilità'))}" /></label>
       <div style="grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap">
         <button class="secondary" id="lGeocode" type="button">Trova coordinate dall'indirizzo</button>
@@ -1752,7 +1775,7 @@ async function renderTag() {
 
   const regRows = regs.map(r => `
     <tr>
-      <td><label style="display:flex;align-items:center;gap:6px">
+      <td><label class="bo-check">
         <input type="checkbox" data-player="${r.player_id}" /> ${esc(r.player?.display_name || r.player_email)}
       </label></td>
       <td>${(r.tags || []).map(x => `<span class="player-tag" style="color:${esc(x.color)}">${esc(x.name)}</span>`).join('') || '<span class="muted">—</span>'}</td>
@@ -1764,7 +1787,7 @@ async function renderTag() {
       <table class="bo"><thead><tr><th>Tag</th><th>Descrizione</th><th>Giocatori</th><th></th></tr></thead>
         <tbody>${tagRows}</tbody></table>
       <form id="newTag" class="bo-grid" style="margin-top:12px">
-        <label>Nome<input id="tgName" required maxlength="60" placeholder="Habitué" /></label>
+        <label class="span-2">Nome<input id="tgName" required maxlength="60" placeholder="Habitué" /></label>
         <label>Colore<input id="tgColor" type="color" value="#c6ff3d" /></label>
         <label style="grid-column:1/-1">Descrizione<input id="tgDesc" maxlength="240" placeholder="A cosa serve questo tag" /></label>
         <button class="primary" type="submit" style="grid-column:1/-1">Crea tag</button>
@@ -1773,17 +1796,19 @@ async function renderTag() {
 
     <div class="panel">
       <h3>Assegna agli iscritti</h3>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
-        <label style="display:flex;align-items:center;gap:6px">Giocatori di
+      <div class="toolbar" style="margin-bottom:10px">
+        <label>Giocatori di
           <select id="tgEvent">${_tournaments.map(x =>
             `<option value="${x.id}" ${String(x.id) === String(_tagEventId) ? 'selected' : ''}>${esc(x.name)}</option>`).join('')
             || '<option value="">— nessun evento —</option>'}</select>
         </label>
-        <select id="tgPick">${tags.map(x => `<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select>
+        <label>Tag <select id="tgPick" ${tags.length ? '' : 'disabled'}>${tags.map(x => `<option value="${x.id}">${esc(x.name)}</option>`).join('')
+          || `<option value="">${esc(tr('— nessun tag —'))}</option>`}</select></label>
         <button class="primary" id="tgAssign" type="button" ${tags.length ? '' : 'disabled'}>Assegna ai selezionati</button>
-        <button class="secondary" id="tgAll" type="button">Seleziona tutti</button>
       </div>
-      <table class="bo"><thead><tr><th>Giocatore</th><th>Tag</th></tr></thead><tbody>${regRows}</tbody></table>
+      <table class="bo"><thead><tr>
+        <th><label class="bo-check"><input type="checkbox" id="tgAll" title="Seleziona tutti" /> Giocatore</label></th><th>Tag</th>
+      </tr></thead><tbody>${regRows}</tbody></table>
     </div>
     <div id="suspBox"></div>`;
   renderSuspensions();
@@ -1812,10 +1837,8 @@ async function renderTag() {
 
   $('#tgEvent')?.addEventListener('change', (e) => { _tagEventId = e.target.value; renderTag(); });
 
-  $('#tgAll')?.addEventListener('click', () => {
-    const boxes = $('#panel').querySelectorAll('[data-player]');
-    const turnOn = [...boxes].some(b => !b.checked);
-    boxes.forEach(b => { b.checked = turnOn; });
+  $('#tgAll')?.addEventListener('change', (e) => {
+    $('#panel').querySelectorAll('[data-player]').forEach(b => { b.checked = e.target.checked; });
   });
 
   $('#tgAssign')?.addEventListener('click', async () => {
