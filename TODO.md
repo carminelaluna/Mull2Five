@@ -172,3 +172,54 @@ Dalle vecchie note di sviluppo (`suggestions.md`, tolto: il resto era già fatto
 - Modelli di torneo salvati (oggi c'è "Duplica", con la data spostata di 7 giorni).
 - Early bird e codici sconto sulla quota d'iscrizione.
 - Profilo giocatore: win rate per formato e per archetipo (record e piazzamenti ci sono già).
+
+## Parità con Melee — piano (settembre 2026)
+
+Decisioni: tutti i punti del confronto tranne l'app mobile; giochi Magic, Lorcana,
+Star Wars Unlimited, One Piece, Pokémon; interfaccia in IT, EN, ES, FR, DE; commit su
+`main` senza push, si pubblica tutto alla fine con l'ok.
+
+Ordine (le dipendenze decidono): prima i giochi, perché formati, spareggi e ricerca
+carte dipendono dal gioco; per ultime le lingue, perché toccano ogni stringa; i
+pagamenti ai negozi in fondo, sono il pezzo più grosso.
+
+- [ ] 0. Traduzioni: funzione `t()` con il testo italiano come chiave, usata da subito nel codice nuovo
+- [ ] 1. Più giochi: formati, spareggi ufficiali per gioco, badge e filtro in ricerca
+- [ ] 2. Formato dei match: al meglio di 1/2/3, patte intenzionali sì/no
+- [ ] 3. Scheda Impostazioni del torneo (oggi dopo la creazione non si modifica quasi niente)
+- [ ] 4. Più sedi per negozio
+- [ ] 5. Staff del negozio (più account sugli stessi tornei)
+- [ ] 6. Sospensioni dei giocatori
+- [ ] 7. Tornei ricorrenti
+- [ ] 8. Campi di iscrizione personalizzati
+- [ ] 9. Eventi di sola iscrizione
+- [ ] 10. Import degli iscritti da file
+- [ ] 11. Togli chi non ha pagato; prize out nel registro
+- [ ] 12. Bye assegnati e sconfitte ai ritardatari
+- [ ] 13. Account ospite e minori con genitore
+- [ ] 14. Posti fissi e pod di draft
+- [ ] 15. Tornei a squadre
+- [ ] 16. Storico penalità del giocatore per i judge
+- [ ] 17. Regole di mazzo per gioco, ricerca carte, costruttore di liste, liste salvate
+- [ ] 18. Archivio pubblico delle liste
+- [ ] 19. Tornei online / MTG Arena
+- [ ] 20. ID dell'editore e programmi ufficiali (report vincitori RCQ)
+- [ ] 21. API pubblica con chiavi
+- [ ] 22. Interfaccia in 5 lingue
+- [ ] 23. Pagamenti ai negozi (Stripe Connect, PayPal del negozio)
+- [ ] App mobile: resta per dopo
+
+Spareggi (dai regolamenti ufficiali):
+
+| Gioco | Match in svizzera | Dopo i punti (V3/P1/S0) |
+|---|---|---|
+| Magic | al meglio di 3 | OMW% → GW% → OGW%, minimo 33% |
+| Lorcana | al meglio di 3 (Challenge: 2) | OMW% → GW% → OGW%, minimo 33% |
+| Star Wars Unlimited | al meglio di 3 | OMW% → GW% → OGW%, minimo 33% |
+| One Piece | al meglio di 1 (top cut 3) | win rate proprio → medio avversari, minimo 33%, bye esclusi |
+| Pokémon | al meglio di 3 | Op Win% (min 25%, max 75% per chi lascia) → Op Op Win% → scontro diretto |
+
+Ricerca carte (passa dal backend: CORS, cache, fonti instabili): Scryfall (Magic),
+Lorcast (Lorcana), SWU-DB (Star Wars), optcgapi (One Piece, elenco completo in cache),
+TCGdex (Pokémon).
+
