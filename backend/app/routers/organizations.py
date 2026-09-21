@@ -4,6 +4,7 @@ Un organizzatore apre il proprio negozio e ne decide lo staff; l'admin
 li vede e li crea tutti.
 """
 import re
+from datetime import UTC, date, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import case, select
@@ -17,6 +18,7 @@ from backend.app.models import (
     Organization,
     StoreMember,
     StoreRole,
+    Suspension,
     Tournament,
     TournamentStatus,
     User,
@@ -33,9 +35,16 @@ from backend.app.schemas import (
     StoreMemberRoleIn,
     StoreMembershipOut,
     StoreProfileOut,
+    SuspensionIn,
+    SuspensionOut,
 )
 from backend.app.security import get_current_user, require_admin, require_organizer
-from backend.app.services.stores import can_manage_store, is_store_owner, store_role
+from backend.app.services.stores import (
+    active_suspension,
+    can_manage_store,
+    is_store_owner,
+    store_role,
+)
 
 router = APIRouter(prefix="/organizations", tags=["organizations"])
 
@@ -462,3 +471,84 @@ def remove_member(
             select(Organization.id).where(Organization.is_default.is_(True))
         )
     db.commit()
+
+
+# ── Sospensioni ──────────────────────────────────────────────
+
+
+def _today() -> date:
+    return datetime.now(UTC).date()
+
+
+def _suspension_out(suspension: Suspension, today: date) -> SuspensionOut:
+    return SuspensionOut(
+        id=suspension.id, user_id=suspension.user_id,
+        display_name=suspension.user.display_name, email=suspension.user.email,
+        reason=suspension.reason, ends_on=suspension.ends_on, created_at=suspension.created_at,
+        created_by_name=suspension.created_by.display_name if suspension.created_by else None,
+        lifted_at=suspension.lifted_at, active=suspension.is_active(today),
+    )
+
+
+@router.get("/{slug}/suspensions", response_model=list[SuspensionOut])
+def list_suspensions(slug: str, user: User = Depends(require_organizer), db: Session = Depends(get_db)) -> list[SuspensionOut]:
+    """Tutte, anche quelle finite o revocate: lo storico serve a decidere la prossima."""
+    org = _managed_store(slug, user, db)
+    today = _today()
+    rows = [_suspension_out(s, today) for s in db.scalars(
+        select(Suspension).where(Suspension.organization_id == org.id).order_by(Suspension.created_at.desc())
+    ).all()]
+    return sorted(rows, key=lambda s: not s.active)   # prima quelle in corso
+
+
+@router.post("/{slug}/suspensions", response_model=SuspensionOut, status_code=201)
+def suspend_player(
+    slug: str,
+    payload: SuspensionIn,
+    user: User = Depends(require_organizer),
+    db: Session = Depends(get_db),
+) -> SuspensionOut:
+    """Esclude un giocatore dagli eventi del negozio. Le iscrizioni che ha già
+    restano: l'organizzatore le vede segnalate negli avvisi del torneo e decide."""
+    org = _managed_store(slug, user, db)
+    person = (db.get(User, payload.user_id) if payload.user_id
+              else db.scalar(select(User).where(User.email == payload.email.lower())))
+    if not person:
+        raise HTTPException(status_code=404, detail="Nessun account con questa email")
+    today = _today()
+    if payload.ends_on and payload.ends_on < today:
+        raise HTTPException(status_code=422, detail="La fine della sospensione è già passata")
+    if store_role(person.id, org.id, db):
+        raise HTTPException(status_code=409, detail="Fa parte dello staff del negozio")
+    if active_suspension(person.id, org.id, db):
+        raise HTTPException(status_code=409, detail="È già sospeso: revoca quella in corso per cambiarla")
+    suspension = Suspension(
+        organization_id=org.id, user_id=person.id, reason=payload.reason.strip(),
+        ends_on=payload.ends_on, created_by_id=user.id,
+    )
+    db.add(suspension)
+    db.commit()
+    db.refresh(suspension)
+    return _suspension_out(suspension, today)
+
+
+@router.post("/{slug}/suspensions/{suspension_id}/lift", response_model=SuspensionOut)
+def lift_suspension(
+    slug: str,
+    suspension_id: int,
+    user: User = Depends(require_organizer),
+    db: Session = Depends(get_db),
+) -> SuspensionOut:
+    org = _managed_store(slug, user, db)
+    suspension = db.get(Suspension, suspension_id)
+    if not suspension or suspension.organization_id != org.id:
+        raise HTTPException(status_code=404, detail="Sospensione non trovata")
+    today = _today()
+    if not suspension.is_active(today):
+        raise HTTPException(status_code=409, detail="Non è più in corso")
+    suspension.lifted_at = datetime.now(UTC)
+    suspension.lifted_by_id = user.id
+    db.commit()
+    db.refresh(suspension)
+    return _suspension_out(suspension, today)
+

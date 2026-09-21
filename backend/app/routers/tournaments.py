@@ -112,7 +112,7 @@ from backend.app.services.payments import (
     create_stripe_checkout,
     refund_paypal_capture,
 )
-from backend.app.services.stores import managed_tournaments, store_role
+from backend.app.services.stores import active_suspension, managed_tournaments, store_role
 from backend.app.services.warnings import build_context, tournament_warnings
 
 router = APIRouter(prefix="/tournaments", tags=["tournaments"])
@@ -194,6 +194,24 @@ def tournament_out(tournament: Tournament, registered: int, db: Session) -> Tour
         "event_name": event.name if event else None,
         "decklist_formats": [""] + sorted(f for f in segments if f),
     })
+
+
+def check_not_suspended(player: User, tournament: Tournament, db: Session, at_desk: bool = False) -> None:
+    """Un giocatore sospeso dal negozio non si iscrive ai suoi eventi. Al banco
+    l'organizzatore vede anche il motivo; il giocatore solo fino a quando."""
+    suspension = active_suspension(player.id, tournament.organization_id, db)
+    if not suspension:
+        return
+    until = f" fino al {suspension.ends_on:%d/%m/%Y}" if suspension.ends_on else ""
+    if at_desk:
+        raise HTTPException(
+            status_code=409,
+            detail=f"{player.display_name} è sospeso dagli eventi del negozio{until}: {suspension.reason}",
+        )
+    raise HTTPException(
+        status_code=403,
+        detail=f"Sei sospeso dagli eventi di questo negozio{until}. Per chiarimenti rivolgiti al negozio.",
+    )
 
 
 def check_location(location_id: int | None, organizer: User, db: Session) -> None:
@@ -739,6 +757,7 @@ def register_for_tournament(
     )
     if existing:
         raise HTTPException(status_code=409, detail="Already registered")
+    check_not_suspended(user, tournament, db)
     # Torneo pieno → lista d'attesa invece di rifiuto
     registration = Registration(
         tournament_id=tournament_id,
@@ -1408,6 +1427,7 @@ def add_walk_in(
     )
     if existing:
         raise HTTPException(status_code=409, detail="Player already registered")
+    check_not_suspended(player, tournament, db, at_desk=True)
     active = db.scalar(
         select(func.count(Registration.id)).where(
             Registration.tournament_id == tournament_id,

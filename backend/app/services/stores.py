@@ -5,10 +5,12 @@ Far parte del negozio è esplicito (StoreMember). L'organization_id sull'account
 dice solo per quale negozio si sta lavorando adesso: alla registrazione è il
 negozio di default per tutti, quindi da solo non dà nessun diritto.
 """
+from datetime import UTC, datetime
+
 from sqlalchemy import ColumnElement, false, or_, select
 from sqlalchemy.orm import Session
 
-from backend.app.models import StoreMember, StoreRole, Tournament, User, UserRole
+from backend.app.models import StoreMember, StoreRole, Suspension, Tournament, User, UserRole
 
 
 def store_role(user_id: int, organization_id: int | None, db: Session) -> str | None:
@@ -42,3 +44,19 @@ def managed_tournaments(user: User, db: Session) -> ColumnElement[bool]:
     stores = store_ids(user, db)
     in_store = Tournament.organization_id.in_(stores) if stores else false()
     return or_(Tournament.organizer_id == user.id, in_store)
+
+
+def active_suspension(user_id: int, organization_id: int | None, db: Session) -> Suspension | None:
+    """La sospensione che oggi tiene il giocatore fuori dagli eventi del negozio."""
+    if organization_id is None:
+        return None
+    today = datetime.now(UTC).date()
+    return db.scalar(
+        select(Suspension).where(
+            Suspension.organization_id == organization_id,
+            Suspension.user_id == user_id,
+            Suspension.lifted_at.is_(None),
+            or_(Suspension.ends_on.is_(None), Suspension.ends_on >= today),
+        )
+    )
+

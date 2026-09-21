@@ -49,6 +49,8 @@ const fmtDate = (d) => d ? d.substring(0, 10).split('-').reverse().join('/') : '
 function toast(m) { const e = $('#toast'); e.textContent = m; e.classList.add('show'); clearTimeout(e._t); e._t = setTimeout(() => e.classList.remove('show'), 3000); }
 
 let _section = 'eventi';     // eventi | community | negozio
+let _myStores = new Set();   // slug dei negozi di cui si fa parte
+let _suspendSlug = null;     // il negozio del torneo aperto, se lo si gestisce: da lì si sospende
 let _tab = 'giocatori';      // sezione attiva DENTRO un evento
 let _tagEventId = null;      // da quale evento pescare i giocatori in Community
 let _tournaments = [];
@@ -96,11 +98,13 @@ const isClosed = (t) => ['completed', 'cancelled'].includes(t.status);
 let _warnings = {};
 
 async function loadTournaments() {
-  const [tornei, avvisi] = await Promise.all([
+  const [tornei, avvisi, negozi] = await Promise.all([
     apiFetch('/tournaments/mine').catch(() => []),
     // Solo chi organizza ha avvisi: a un judge l'endpoint dice di no, ed e giusto.
     apiFetch('/tournaments/warnings/mine').catch(() => ({})),
+    apiFetch('/organizations/memberships').catch(() => []),
   ]);
+  _myStores = new Set((negozi || []).map((s) => s.slug));
   _tournaments = tornei || [];
   _warnings = avvisi || {};
   _tournaments.sort((a, b) => String(b.starts_on).localeCompare(String(a.starts_on)));
@@ -172,6 +176,7 @@ function renderCrumb() {
    nominare un capojudge, spostare la scadenza delle liste. */
 const WARNING_ACTIONS = {
   no_head_judge:                 { tab: 'staff',     label: 'Apri Staff' },
+  suspended_players:             { tab: 'giocatori', label: 'Apri Giocatori' },
   missing_decklists:             { tab: 'annunci',   label: 'Manda un annuncio' },
   decklist_deadline_after_start: { tab: 'giocatori', label: 'Apri Giocatori' },
 };
@@ -576,11 +581,13 @@ function playerRow(r) {
       <button class="mini-button" data-act="drop" data-val="${!r.dropped}" type="button">
         ${r.dropped ? 'Reintegra' : 'Drop'}
       </button>
+      ${_suspendSlug && r.player_id ? `<button class="mini-button" data-act="suspend" type="button">${esc(tr('Sospendi'))}</button>` : ''}
     </td>
   </tr>`;
 }
 
 function drawGiocatori(t) {
+  _suspendSlug = t.can_manage && _myStores.has(t.organization_slug) ? t.organization_slug : null;
   const rows = _players.map(playerRow).join('')
     || '<tr><td colspan="6" class="muted">Nessun iscritto: usa "Iscrivi al banco".</td></tr>';
   const conLista = _players.filter(r => (r.decklist_status || 'missing') !== 'missing').length;
@@ -644,6 +651,9 @@ function drawGiocatori(t) {
       if (act === 'deck-view')  return openDeckViewDialog(reg);
       if (act === 'deck-edit')  return openDeckDialog(t.id, reg);
       if (act === 'penalty')    return openPenaltyDialog(t.id, reg);
+      if (act === 'suspend')    return openSuspendDialog(_suspendSlug, {
+        user_id: reg.player_id, name: reg.player?.display_name || reg.player_email,
+      }, () => renderWarnings(t));
       return regAction(t.id, act, regId, btn.dataset.val);
     }));
 }
@@ -1465,7 +1475,9 @@ async function renderTag() {
         <button class="secondary" id="tgAll" type="button">Seleziona tutti</button>
       </div>
       <table class="bo"><thead><tr><th>Giocatore</th><th>Tag</th></tr></thead><tbody>${regRows}</tbody></table>
-    </div>`;
+    </div>
+    <div id="suspBox"></div>`;
+  renderSuspensions();
 
   $('#newTag').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -1506,6 +1518,92 @@ async function renderTag() {
       });
       toast(`Tag assegnato a ${ids.length} giocatori.`);
       renderTag();
+    } catch (err) { toast('Errore: ' + err.message); }
+  });
+}
+
+/* ── SOSPENSIONI ─────────────────────────────────────────
+   Un giocatore tenuto fuori dagli eventi del negozio, con il motivo e fino a
+   quando. Lo storico resta: anche le revocate servono a decidere la prossima. */
+async function renderSuspensions() {
+  const box = $('#suspBox');
+  if (!box) return;
+  let store;
+  try { store = await myStore(); } catch {
+    box.innerHTML = `<div class="panel" style="margin-top:16px"><h3>${esc(tr('Sospensioni'))}</h3>
+      <p class="muted" style="margin:0">${esc(tr('Le sospensioni valgono per gli eventi di un negozio: apri il tuo dalla sezione Negozio.'))}</p></div>`;
+    return;
+  }
+  const base = `/organizations/${encodeURIComponent(store.slug)}/suspensions`;
+  const list = await apiFetch(base).catch(() => []);
+  const state = (s) => {
+    if (s.active) return `<span class="pill warn">${esc(tr('In corso'))}</span>`;
+    if (s.lifted_at) return `<span class="muted">${esc(tr('Revocata il {data}', { data: fmtDate(s.lifted_at) }))}</span>`;
+    return `<span class="muted">${esc(tr('Finita'))}</span>`;
+  };
+  const rows = list.map((s) => `<tr>
+      <td>${esc(s.display_name)}<br><small class="muted">${esc(s.email)}</small></td>
+      <td>${esc(s.reason)}</td>
+      <td>${esc(fmtDate(s.created_at))} → ${s.ends_on ? esc(fmtDate(s.ends_on)) : esc(tr('finché non la revochi'))}
+        ${s.created_by_name ? `<br><small class="muted">${esc(tr('da {nome}', { nome: s.created_by_name }))}</small>` : ''}</td>
+      <td>${state(s)}</td>
+      <td class="row-actions">${s.active ? `<button class="mini-button" data-lift="${s.id}" type="button">${esc(tr('Revoca'))}</button>` : ''}</td>
+    </tr>`).join('')
+    || `<tr><td colspan="5" class="muted">${esc(tr('Nessuna sospensione.'))}</td></tr>`;
+  box.innerHTML = `<div class="panel" style="margin-top:16px">
+    <div class="bo-head" style="margin-bottom:8px">
+      <h3 style="margin:0">${esc(tr('Sospensioni'))}</h3>
+      <button class="secondary" id="suspNew" type="button">${esc(tr('Sospendi un giocatore'))}</button>
+    </div>
+    <p class="muted" style="margin-top:0;font-size:.85rem">${esc(tr('Chi è sospeso non si iscrive agli eventi del negozio. Il motivo lo vede solo lo staff; il giocatore sa fino a quando.'))}</p>
+    <table class="bo"><thead><tr><th>${esc(tr('Giocatore'))}</th><th>${esc(tr('Motivo'))}</th><th>${esc(tr('Periodo'))}</th><th></th><th></th></tr></thead>
+      <tbody>${rows}</tbody></table>
+  </div>`;
+  $('#suspNew').addEventListener('click', () => openSuspendDialog(store.slug, null, renderSuspensions));
+  box.querySelectorAll('[data-lift]').forEach((b) => b.addEventListener('click', async () => {
+    if (!confirm(tr('Revocare la sospensione? Potrà di nuovo iscriversi agli eventi del negozio.'))) return;
+    try {
+      await apiFetch(`${base}/${b.dataset.lift}/lift`, { method: 'POST' });
+      toast(tr('Sospensione revocata.'));
+      renderSuspensions();
+    } catch (err) { toast('Errore: ' + err.message); }
+  }));
+}
+
+/** Sospende un giocatore: dalla riga degli iscritti (si sa già chi) o dalla
+    Community (si scrive l'email). */
+function openSuspendDialog(slug, who, onDone) {
+  const dlg = $('#boDialog');
+  dlg.innerHTML = `
+    <form method="dialog" class="modal">
+      <header><div><span class="eyebrow">${esc(tr('Sospensione'))}</span>
+        <h2>${who ? esc(tr('Sospendi {nome}', { nome: who.name })) : esc(tr('Sospendi un giocatore'))}</h2></div>
+        <button class="icon-button" value="cancel" formnovalidate>&times;</button></header>
+      <div class="bo-grid">
+        ${who ? '' : `<label style="grid-column:1/-1">Email<input id="spEmail" type="email" required placeholder="${esc(tr('email del suo account'))}" /></label>`}
+        <label style="grid-column:1/-1">${esc(tr('Motivo'))}<textarea id="spReason" required minlength="3" maxlength="500" style="min-height:70px" placeholder="${esc(tr('Lo vede solo lo staff del negozio'))}"></textarea></label>
+        <label>${esc(tr('Fino al (compreso)'))}<input id="spUntil" type="date" /></label>
+        <p class="muted" style="grid-column:1/-1;margin:0;font-size:.82rem">${esc(tr('Senza data vale finché non la revochi. Le iscrizioni che ha già restano: le trovi segnalate negli avvisi dei tornei.'))}</p>
+      </div>
+      <menu>
+        <button class="secondary" value="cancel" formnovalidate>${esc(tr('Annulla'))}</button>
+        <button class="primary" id="spSubmit" type="button">${esc(tr('Sospendi'))}</button>
+      </menu>
+    </form>`;
+  dlg.showModal();
+  $('#spSubmit').addEventListener('click', async () => {
+    const body = {
+      reason: $('#spReason').value.trim(),
+      ends_on: $('#spUntil').value || null,
+      ...(who ? { user_id: who.user_id } : { email: $('#spEmail').value.trim() }),
+    };
+    if (body.reason.length < 3) { toast(tr('Scrivi il motivo.')); return; }
+    if (!who && !body.email) { toast(tr("Scrivi l'email del giocatore.")); return; }
+    try {
+      await apiFetch(`/organizations/${encodeURIComponent(slug)}/suspensions`, { method: 'POST', body: JSON.stringify(body) });
+      dlg.close();
+      toast(tr('Giocatore sospeso.'));
+      onDone?.();
     } catch (err) { toast('Errore: ' + err.message); }
   });
 }

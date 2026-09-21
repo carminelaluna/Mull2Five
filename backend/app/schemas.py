@@ -452,6 +452,33 @@ class StoreMemberRoleIn(BaseModel):
     role: Literal["owner", "organizer"]
 
 
+class SuspensionIn(BaseModel):
+    """Il giocatore si indica con l'email del suo account o, dalla lista iscritti, con l'id."""
+    email: EmailStr | None = None
+    user_id: int | None = None
+    reason: str = Field(min_length=3, max_length=500)
+    ends_on: date | None = None
+
+    @model_validator(mode="after")
+    def _someone(self) -> SuspensionIn:
+        if not self.email and not self.user_id:
+            raise ValueError("Indica il giocatore: email o id")
+        return self
+
+
+class SuspensionOut(BaseModel):
+    id: int
+    user_id: int
+    display_name: str
+    email: str
+    reason: str
+    ends_on: date | None = None
+    created_at: datetime
+    created_by_name: str | None = None
+    lifted_at: datetime | None = None
+    active: bool
+
+
 class StoreMemberOut(BaseModel):
     user_id: int
     display_name: str

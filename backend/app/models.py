@@ -212,6 +212,35 @@ class StoreMember(Base):
     user: Mapped["User"] = relationship()
 
 
+class Suspension(Base):
+    """Un giocatore escluso dagli eventi di un negozio: il motivo e fino a quando.
+    Non si cancella: revocarla lascia scritto chi l'ha tolta e quando."""
+    __tablename__ = "suspensions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    organization_id: Mapped[int] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), index=True
+    )
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    reason: Mapped[str] = mapped_column(Text)
+    # Vuota: vale finché qualcuno non la revoca.
+    ends_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+    created_by_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
+    lifted_at: Mapped[datetime | None] = mapped_column(UtcDateTime(timezone=True), nullable=True)
+    lifted_by_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+
+    user: Mapped["User"] = relationship(foreign_keys=[user_id])
+    created_by: Mapped["User | None"] = relationship(foreign_keys=[created_by_id])
+
+    def is_active(self, today: date) -> bool:
+        return self.lifted_at is None and (self.ends_on is None or self.ends_on >= today)
+
+
 class User(Base):
     __tablename__ = "users"
 

@@ -15,7 +15,7 @@ schede sia la striscia dentro il torneo.
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, time, timedelta
 
-from sqlalchemy import case, func, select
+from sqlalchemy import case, func, or_, select
 from sqlalchemy.orm import Session
 
 from backend.app.core.config import get_settings
@@ -26,9 +26,11 @@ from backend.app.models import (
     Registration,
     RulesEnforcementLevel,
     StaffRole,
+    Suspension,
     Tournament,
     TournamentStaff,
     TournamentStatus,
+    User,
 )
 from backend.app.schemas import WarningOut
 
@@ -68,6 +70,8 @@ class WarningContext:
     decklists: dict[int, tuple[int, int]] = field(default_factory=dict)
     head_judge_tournaments: set[int] = field(default_factory=set)
     head_judge_events: set[int] = field(default_factory=set)
+    # tournament_id -> nomi degli iscritti sospesi dal negozio
+    suspended: dict[int, list[str]] = field(default_factory=dict)
 
 
 def build_context(tournaments: list[Tournament], db: Session) -> WarningContext:
@@ -106,6 +110,24 @@ def build_context(tournaments: list[Tournament], db: Session) -> WarningContext:
         .group_by(Registration.tournament_id)
     ).all()
     ctx.decklists = {tid: (int(total), int(missing or 0)) for tid, total, missing in rows}
+
+    today = datetime.now(UTC).date()
+    suspended = db.execute(
+        select(Registration.tournament_id, User.display_name)
+        .join(User, User.id == Registration.player_id)
+        .join(Tournament, Tournament.id == Registration.tournament_id)
+        .join(Suspension, (Suspension.user_id == Registration.player_id)
+              & (Suspension.organization_id == Tournament.organization_id))
+        .where(
+            Registration.tournament_id.in_(ids),
+            Registration.dropped.is_(False),
+            Suspension.lifted_at.is_(None),
+            or_(Suspension.ends_on.is_(None), Suspension.ends_on >= today),
+        )
+        .order_by(User.display_name)
+    ).all()
+    for tid, name in suspended:
+        ctx.suspended.setdefault(tid, []).append(name)
     return ctx
 
 
@@ -165,6 +187,13 @@ def tournament_warnings(
         if now >= reference - MISSING_DECKLISTS_WINDOW:
             add("missing_decklists", "warn",
                 f"{missing} iscritti su {total} non hanno ancora caricato la lista.")
+
+    names = ctx.suspended.get(tournament.id)
+    if names:
+        one = len(names) == 1
+        add("suspended_players", "warn",
+            f"{'Iscritto sospeso' if one else 'Iscritti sospesi'} dagli eventi del negozio: "
+            f"{', '.join(names)}. {'Toglilo' if one else 'Toglili'} dal torneo o revoca la sospensione.")
 
     if (
         tournament.rules_enforcement_level in REL_WITH_HEAD_JUDGE
