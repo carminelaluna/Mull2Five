@@ -56,6 +56,9 @@ class TournamentStructure(StrEnum):
     SWISS = "swiss"
     SINGLE_ELIMINATION = "single_elimination"
     SWISS_TOPCUT = "swiss_topcut"
+    # Si raccolgono iscrizioni, pagamenti e presenze, senza turni né classifica:
+    # una serata casual, un draft tra amici, una presentazione.
+    REGISTRATION_ONLY = "registration_only"
 
 
 class RegistrationMode(StrEnum):

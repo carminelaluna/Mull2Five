@@ -121,9 +121,16 @@ function warnChip(list) {
 function activeT() { return _tournaments.find(t => String(t.id) === String(_activeId)); }
 
 /** Entra in un evento e mostra le sue sezioni. */
+const registrationOnly = (t) => t?.structure === 'registration_only';
+
+/* Senza turni la regia e i risultati non hanno niente da mostrare. */
+const tabsFor = (t) => (registrationOnly(t)
+  ? EVENT_TABS.filter((x) => !['regia', 'risultati'].includes(x.id))
+  : EVENT_TABS);
+
 function openEvent(id, tab = null) {
   const t = _tournaments.find(x => String(x.id) === String(id));
-  tab = tab || (t?.status === 'running' ? 'regia' : 'giocatori');
+  tab = tab || (t?.status === 'running' && !registrationOnly(t) ? 'regia' : 'giocatori');
   _activeId = String(id);
   _tab = tab;
   render();
@@ -154,16 +161,17 @@ function renderCrumb() {
         <span class="pill ${t.status === 'running' ? 'ok' : 'warn'}">${esc(statusLabel(t.status))}</span></span>
     </div>
     <div class="bo-crumb-actions">
-      <a class="mini-button" href="control.html?t=${t.id}" target="_blank" rel="noopener"
+      ${registrationOnly(t) ? '' : `<a class="mini-button" href="control.html?t=${t.id}" target="_blank" rel="noopener"
          title="Apre la stessa console a tutto schermo: per un secondo monitor o per i judge">🖥 Regia a parte</a>
-      <a class="mini-button" href="display.html?t=${t.id}" target="_blank" rel="noopener">📺 Display</a>
+      <a class="mini-button" href="display.html?t=${t.id}" target="_blank" rel="noopener">📺 Display</a>`}
       <a class="mini-button" href="event.html?id=${t.id}" target="_blank" rel="noopener">↗ Pagina pubblica</a>
       ${isClosed(t) ? `<a class="mini-button" href="coverage.html?t=${t.id}" target="_blank" rel="noopener">🖼 Scheda social</a>` : ''}
     </div>`;
   $('#boBack').addEventListener('click', closeEvent);
 
   tabs.style.display = '';
-  tabs.innerHTML = EVENT_TABS.map(x =>
+  if (!tabsFor(t).some((x) => x.id === _tab)) _tab = 'giocatori';
+  tabs.innerHTML = tabsFor(t).map(x =>
     `<button class="bo-tab${x.id === _tab ? ' active' : ''}" data-tab="${x.id}" type="button">${esc(x.label)}</button>`
   ).join('');
   tabs.querySelectorAll('[data-tab]').forEach(b =>
@@ -300,8 +308,8 @@ function eventCard(t) {
         </div>
       </div>
       <div class="bo-event-actions row-actions">
-        ${t.status === 'published' ? `<button class="mini-button" data-act="start" data-id="${t.id}" type="button">▶ Avvia</button>` : ''}
-        <a class="mini-button" href="control.html?t=${t.id}" target="_blank" rel="noopener">🖥 Regia a parte</a>
+        ${t.status === 'published' && !registrationOnly(t) ? `<button class="mini-button" data-act="start" data-id="${t.id}" type="button">▶ Avvia</button>` : ''}
+        ${registrationOnly(t) ? '' : `<a class="mini-button" href="control.html?t=${t.id}" target="_blank" rel="noopener">🖥 Regia a parte</a>`}
         <button class="mini-button" data-act="dup" data-id="${t.id}" type="button">Duplica</button>
         <button class="mini-button" data-act="repeat" data-id="${t.id}" type="button">${esc(tr('Ripeti…'))}</button>
         ${isClosed(t) ? '' : `<button class="mini-button" data-act="close" data-id="${t.id}" type="button">Chiudi</button>`}
@@ -384,6 +392,7 @@ function openNewEventDialog() {
             ${[1, 2, 3].map((n) => `<option value="${n}">${esc(bestOfLabel(n))}</option>`).join('')}
           </select></label>
           <label class="bo-check"><input id="nIds" type="checkbox" checked /> ${esc(tr('Patte intenzionali'))}</label>
+          <label class="bo-check" style="grid-column:1/-1"><input id="nRegOnly" type="checkbox" /> ${esc(tr('Solo iscrizioni: niente turni né classifica (serata casual, draft tra amici, presentazione)'))}</label>
         </div>
       </details>
       <menu>
@@ -459,6 +468,7 @@ async function createTournament(e) {
     game: $('#nGame').value || 'mtg',
     best_of: +$('#nBestOf').value || null,
     allow_intentional_draws: $('#nIds').checked,
+    ...($('#nRegOnly').checked ? { structure: 'registration_only' } : {}),
     starts_on: $('#nDate').value,
     start_time: $('#nTime').value || null,
     capacity: +$('#nCap').value || 8,
@@ -2071,7 +2081,8 @@ async function renderImpostazioni() {
           <label>${esc(tr('Struttura'))}<select id="sStructure" ${lock('structure')}>
             ${option('swiss', tr('Svizzera'), t.structure)}
             ${option('swiss_topcut', tr('Svizzera + top cut'), t.structure)}
-            ${option('single_elimination', tr('Eliminazione diretta'), t.structure)}</select></label>
+            ${option('single_elimination', tr('Eliminazione diretta'), t.structure)}
+            ${option('registration_only', tr('Solo iscrizioni, senza turni'), t.structure)}</select></label>
           <label>${esc(tr('Turni svizzeri (0 = automatico)'))}<input id="sRounds" type="number" min="0" value="${t.swiss_rounds || 0}" ${lock('swiss_rounds')} /></label>
           <label>${esc(tr('Top cut'))}<select id="sCut" ${lock('top_cut_size')}>
             ${[2, 4, 8, 16].map((n) => option(n, `Top ${n}`, t.top_cut_size || 8)).join('')}</select></label>

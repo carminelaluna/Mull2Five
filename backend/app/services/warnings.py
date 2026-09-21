@@ -30,6 +30,7 @@ from backend.app.models import (
     Tournament,
     TournamentStaff,
     TournamentStatus,
+    TournamentStructure,
     User,
 )
 from backend.app.schemas import WarningOut
@@ -152,8 +153,11 @@ def tournament_warnings(
             f"Si gioca il {_d(tournament.starts_on)}, fuori dal periodo di «{event.name}» "
             f"({_period_label(event)}). Nel programma pubblico compare lo stesso.")
 
+    registration_only = tournament.structure == TournamentStructure.REGISTRATION_ONLY
     if not_started and tournament.starts_on < now.date():
         add("missed_start", "warn",
+            f"L'evento c'è stato il {_d(tournament.starts_on)}: chiudilo per metterlo nello storico."
+            if registration_only else
             f"Doveva iniziare il {_d(tournament.starts_on)} e non è mai partito: "
             "avvialo, oppure chiudilo se non si è giocato.")
 
@@ -196,7 +200,8 @@ def tournament_warnings(
             f"{', '.join(names)}. {'Toglilo' if one else 'Toglili'} dal torneo o revoca la sospensione.")
 
     if (
-        tournament.rules_enforcement_level in REL_WITH_HEAD_JUDGE
+        not registration_only
+        and tournament.rules_enforcement_level in REL_WITH_HEAD_JUDGE
         and tournament.id not in ctx.head_judge_tournaments
         and tournament.event_id not in ctx.head_judge_events
     ):

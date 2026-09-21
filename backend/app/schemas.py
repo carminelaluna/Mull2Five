@@ -52,7 +52,7 @@ class TournamentCreate(BaseModel):
     entry_fee_cents: int = Field(ge=0)
     currency: str = "EUR"
     status: str = "published"
-    structure: str = Field(default="swiss", pattern="^(swiss|single_elimination|swiss_topcut)$")
+    structure: str = Field(default="swiss", pattern="^(swiss|single_elimination|swiss_topcut|registration_only)$")
     swiss_rounds: int = Field(default=0, ge=0)
     top_cut_size: int = Field(default=8, ge=2)
     decklist_required: bool = True
@@ -131,7 +131,7 @@ class TournamentUpdate(BaseModel):
     pay_at_event: bool | None = None
     pay_stripe: bool | None = None
     pay_paypal: bool | None = None
-    structure: str | None = Field(default=None, pattern="^(swiss|single_elimination|swiss_topcut)$")
+    structure: str | None = Field(default=None, pattern="^(swiss|single_elimination|swiss_topcut|registration_only)$")
     swiss_rounds: int | None = Field(default=None, ge=0)
     top_cut_size: int | None = Field(default=None, ge=2)
     decklist_required: bool | None = None

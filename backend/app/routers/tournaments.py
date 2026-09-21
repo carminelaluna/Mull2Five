@@ -763,6 +763,8 @@ def start_tournament(
     db: Session = Depends(get_db),
 ) -> RoundOut:
     tournament = load_owned_tournament(tournament_id, organizer, db)
+    if tournament.structure == TournamentStructure.REGISTRATION_ONLY:
+        raise HTTPException(status_code=409, detail=NO_ROUNDS)
     if tournament.status not in {TournamentStatus.PUBLISHED, TournamentStatus.DRAFT}:
         raise HTTPException(status_code=409, detail="Tournament is already started or closed")
     if len(eligible_registrations(tournament, db)) < 2:
@@ -3350,7 +3352,12 @@ def eligible_registrations(tournament: Tournament, db: Session) -> list[Registra
     ]
 
 
+NO_ROUNDS = "Evento di sola iscrizione: non ci sono turni. Quando è finito, chiudilo."
+
+
 def create_round_for_tournament(tournament: Tournament, db: Session) -> RoundOut:
+    if tournament.structure == TournamentStructure.REGISTRATION_ONLY:
+        raise HTTPException(status_code=409, detail=NO_ROUNDS)
     eligible = eligible_registrations(tournament, db)
     if len(eligible) < 2:
         raise HTTPException(status_code=409, detail="At least two eligible players are required")
