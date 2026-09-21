@@ -12,6 +12,7 @@
  */
 import { esc } from './escape.js';
 import { scoreLabel, scoresFor } from './games.js';
+import { t as tr } from './i18n.js';
 
 const API = '/api';
 const TOKEN_KEY = 'mull2five-jwt-v1';
@@ -181,6 +182,13 @@ export function mountConsole(host, tournamentId, { screenLinks = true, onClosed 
 
   /* ── Tavoli ────────────────────────────────────────────── */
 
+  /* Chi non si presenta al tavolo perde a tavolino: l'avversario vince con il
+     punteggio pieno e la penalità resta scritta. */
+  function noShow(p, rid, name) {
+    return `<button class="mini-button danger" data-action="no-show" data-pid="${p.id}" data-rid="${rid}"
+      data-name="${esc(name)}" type="button" title="${esc(tr('Non si è presentato: sconfitta a tavolino'))}">🚫 ${esc(name)}</button>`;
+  }
+
   function renderRow(round, p, allowNoShow) {
     const isBye = !p.player_b;
     const absentBox = (id) => (allowNoShow
@@ -227,6 +235,7 @@ export function mountConsole(host, tournamentId, { screenLinks = true, onClosed 
         ${btn(p.player_b_registration_id, 'game_loss', 'danger', `GL ${esc(p.player_b)}`)}
         ${dc(p.player_a_registration_id, p.player_a)}
         ${dc(p.player_b_registration_id, p.player_b)}
+        ${finalScore ? '' : noShow(p, p.player_a_registration_id, p.player_a) + noShow(p, p.player_b_registration_id, p.player_b)}
       </span>`;
     }
 
@@ -343,6 +352,16 @@ export function mountConsole(host, tournamentId, { screenLinks = true, onClosed 
           { method: 'PATCH', body: JSON.stringify({ status: btn.dataset.next }) }), 'Stato aggiornato.')));
     tables.querySelectorAll('[data-action="deck-check"]').forEach((btn) =>
       btn.addEventListener('click', () => openDeckCheck(+btn.dataset.rid, btn.dataset.name)));
+    tables.querySelectorAll('[data-action="no-show"]').forEach((btn) =>
+      btn.addEventListener('click', () => {
+        const name = btn.dataset.name;
+        if (!confirm(tr('{nome} non si è presentato: sconfitta a tavolino?', { nome: name }))) return;
+        const drop = confirm(tr('Ritirare {nome} dal torneo? Se resta, al prossimo turno viene abbinato di nuovo.', { nome: name }));
+        call(() => apiFetch(`/tournaments/${tid}/pairings/${btn.dataset.pid}/tardiness`, {
+          method: 'POST',
+          body: JSON.stringify({ registration_id: +btn.dataset.rid, penalty: 'match_loss', drop }),
+        }), drop ? tr('Sconfitta a tavolino, giocatore ritirato.') : tr('Sconfitta a tavolino assegnata.'));
+      }));
     tables.querySelectorAll('[data-action="penalty"]').forEach((btn) =>
       btn.addEventListener('click', () => {
         const label = btn.dataset.kind === 'game_loss' ? 'Game Loss' : 'Warning';

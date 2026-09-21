@@ -196,7 +196,7 @@ pagamenti ai negozi in fondo, sono il pezzo più grosso.
 - [x] 9. Eventi di sola iscrizione: iscritti, pagamenti e presenze senza turni né classifica
 - [x] 10. Import degli iscritti da file: CSV con virgole o punti e virgola, anteprima riga per riga, poi l'import
 - [x] 11. Togli chi non ha pagato (con anteprima, prima dell'avvio); premi consegnati segnati in classifica e nel registro
-- [ ] 12. Bye assegnati e sconfitte ai ritardatari
+- [x] 12. Bye assegnati (0-3, prima dell'avvio), bye naturale mai due volte allo stesso giocatore, sconfitta a tavolino per chi non si presenta
 - [ ] 13. Account ospite e minori con genitore
 - [ ] 14. Posti fissi e pod di draft
 - [ ] 15. Tornei a squadre

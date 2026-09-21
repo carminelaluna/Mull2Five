@@ -461,6 +461,9 @@ class Registration(Base):
     player_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     archetype: Mapped[str] = mapped_column(String(120), default="")
     wizards_account: Mapped[str] = mapped_column(String(80), default="")
+    # Bye assegnati prima del torneo (a chi ha vinto una qualificazione, per
+    # esempio): salta i primi turni della svizzera e li vince.
+    byes: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     # Il premio consegnato a fine torneo: cosa, quando e da chi. Ogni consegna e
     # ogni annullamento finiscono anche nel registro del torneo.
     prize_note: Mapped[str] = mapped_column(String(240), default="", server_default="")

@@ -214,6 +214,20 @@ class RegistrationCreate(BaseModel):
     answers: dict[int, str | bool] = {}
 
 
+class ByesIn(BaseModel):
+    byes: int = Field(ge=0, le=3)
+
+
+class TardinessIn(BaseModel):
+    """Chi non si presenta al tavolo o arriva tardi. match_loss: l'avversario
+    vince a tavolino; game_loss: la partita si gioca, la penalità resta scritta."""
+    registration_id: int
+    penalty: Literal["game_loss", "match_loss"] = "match_loss"
+    # Chi non si è presentato si può anche ritirare dal torneo.
+    drop: bool = False
+    note: str = Field(default="", max_length=500)
+
+
 class PrizeIn(BaseModel):
     """Premio consegnato (given) o annullato; note dice cosa: "3 buste", "20 € di credito"."""
     given: bool
@@ -736,6 +750,7 @@ class OrganizerRegistrationOut(RegistrationOut):
     answers: dict[int, str] = {}
     prize_note: str = ""
     prize_given_at: datetime | None = None
+    byes: int = 0
 
 
 class TournamentControlsIn(BaseModel):

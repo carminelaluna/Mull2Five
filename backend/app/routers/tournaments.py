@@ -57,6 +57,7 @@ from backend.app.schemas import (
     AnnouncementOut,
     AuditLogOut,
     BracketMatchOut,
+    ByesIn,
     CheckoutCreate,
     Day2ConversionRow,
     Day2In,
@@ -106,6 +107,7 @@ from backend.app.schemas import (
     TableAssignIn,
     TableExtendIn,
     TableStatusIn,
+    TardinessIn,
     TimerExtendIn,
     TimerRestartIn,
     TournamentControlsIn,
@@ -1671,6 +1673,83 @@ def drop_unpaid(
     return DropUnpaidOut(dropped=names, promoted=before - waiting())
 
 
+@router.put("/{tournament_id}/registrations/{registration_id}/byes", response_model=OrganizerRegistrationOut)
+def set_byes(
+    tournament_id: int,
+    registration_id: int,
+    payload: ByesIn,
+    organizer: User = Depends(require_organizer),
+    db: Session = Depends(get_db),
+) -> OrganizerRegistrationOut:
+    """Bye assegnati: si decidono prima dell'inizio, poi i turni sono già fatti."""
+    from backend.app.core.cache import cache_invalidate
+
+    tournament = load_owned_tournament(tournament_id, organizer, db)
+    if tournament.status not in {TournamentStatus.DRAFT, TournamentStatus.PUBLISHED}:
+        raise HTTPException(status_code=409, detail="I bye si assegnano prima dell'inizio del torneo")
+    registration = load_registration_for_tournament(tournament_id, registration_id, db)
+    if registration.byes != payload.byes:
+        registration.byes = payload.byes
+        _write_audit(db, tournament.id, organizer.id, "byes_assigned",
+                     f"{registration.player.display_name}: {payload.byes} bye")
+        db.commit()
+        cache_invalidate(f"registrations:{tournament.id}")
+    return organizer_registration_out(load_registration_for_tournament(tournament_id, registration_id, db))
+
+
+@router.post("/{tournament_id}/pairings/{pairing_id}/tardiness", response_model=RoundOut)
+def penalize_tardiness(
+    tournament_id: int,
+    pairing_id: int,
+    payload: TardinessIn,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> RoundOut:
+    """Chi non si presenta al tavolo, o arriva tardi. Con la sconfitta a
+    tavolino l'avversario vince con il punteggio pieno del formato; con il game
+    loss la partita si gioca e la penalità resta scritta. Chi non si è
+    presentato si può anche ritirare dal torneo, così non viene più abbinato."""
+    from backend.app.core.cache import cache_invalidate
+
+    tournament = load_tournament_for_staff(tournament_id, user, db)
+    pairing = db.scalar(
+        select(Pairing).join(Round)
+        .where(Pairing.id == pairing_id, Round.tournament_id == tournament_id)
+        .options(selectinload(Pairing.round).selectinload(Round.pairings))
+    )
+    if not pairing:
+        raise HTTPException(status_code=404, detail="Tavolo non trovato")
+    if not pairing.player_b_registration_id:
+        raise HTTPException(status_code=409, detail="Un bye non ha avversario")
+    if payload.registration_id not in {pairing.player_a_registration_id, pairing.player_b_registration_id}:
+        raise HTTPException(status_code=422, detail="Il giocatore non è a questo tavolo")
+    if payload.penalty == "match_loss" and pairing.result:
+        raise HTTPException(status_code=409, detail="Il tavolo ha già un risultato: correggi quello")
+    registration = load_registration_for_tournament(tournament_id, payload.registration_id, db)
+    number = pairing.round.number
+    note = payload.note.strip() or (f"Non presentato al turno {number}" if payload.penalty == "match_loss"
+                                    else f"In ritardo al turno {number}")
+    db.add(Penalty(tournament_id=tournament.id, registration_id=registration.id, judge_id=user.id,
+                   round_id=pairing.round_id, kind=payload.penalty, note=note, is_private=True))
+    if payload.drop:
+        registration.dropped = True
+    _write_audit(db, tournament.id, user.id, f"tardiness_{payload.penalty}",
+                 f"{registration.player.display_name}, turno {number}: {note}" + (" (ritirato)" if payload.drop else ""))
+    if payload.penalty == "match_loss":
+        # Il punteggio pieno: 1-0 al meglio di 1 in svizzera, altrimenti 2-0.
+        full = 1 if pairing.round.phase == "swiss" and tournament.best_of == 1 else 2
+        late_is_a = registration.id == pairing.player_a_registration_id
+        apply_pairing_result(tournament_id, pairing, PairingResultIn(
+            match_wins_a=0 if late_is_a else full, match_wins_b=full if late_is_a else 0,
+        ), db)
+    else:
+        db.commit()
+    db.refresh(pairing.round)
+    for key in ("standings", "result-reports", "my-pairings", "registrations", "public-display"):
+        cache_invalidate(f"{key}:{tournament_id}")
+    return round_out(pairing.round)
+
+
 @router.put("/{tournament_id}/registrations/{registration_id}/prize", response_model=OrganizerRegistrationOut)
 def set_prize(
     tournament_id: int,
@@ -3192,6 +3271,7 @@ def organizer_registration_out(
         answers=(answers or {}).get(registration.id, {}),
         prize_note=registration.prize_note or "",
         prize_given_at=registration.prize_given_at,
+        byes=registration.byes or 0,
     )
 
 
@@ -3535,7 +3615,10 @@ def create_round_for_tournament(tournament: Tournament, db: Session) -> RoundOut
 
     current_round_number = len(tournament.rounds) + 1
     phase = next_phase(tournament, len(tournament.rounds), len(eligible))
-    ordered = pair_order(tournament, eligible, phase, db)
+    # Chi ha bye assegnati salta i primi turni della svizzera: li vince senza giocare.
+    with_bye = [r for r in eligible if phase == "swiss" and (r.byes or 0) >= current_round_number]
+    playing = [r for r in eligible if r not in with_bye]
+    ordered = pair_order(tournament, playing, phase, db) if playing else []
     if phase in {"elimination", "topcut"} and len(ordered) < 2:
         tournament.status = TournamentStatus.COMPLETED
         db.add(tournament)
@@ -3572,6 +3655,10 @@ def create_round_for_tournament(tournament: Tournament, db: Session) -> RoundOut
         )
         db.add(pairing)
         pairings.append(pairing)
+    for offset, registration in enumerate(with_bye, start=len(pairings) + 1):
+        db.add(Pairing(round_id=round_obj.id, table_number=offset,
+                       player_a_registration_id=registration.id, player_b_registration_id=None,
+                       result="A", match_wins_a=2, match_wins_b=0))
     db.commit()
     db.refresh(round_obj)
     return round_out(round_obj)
@@ -3605,7 +3692,26 @@ def pair_order(tournament: Tournament, eligible: list[Registration], phase: str,
     standings = calculate_standings(tournament.id, db)
     by_id = {registration.id: registration for registration in eligible}
     ordered = [by_id[standing.registration_id] for standing in standings if standing.registration_id in by_id]
-    return swiss_pair_order(ordered, previous_opponents(tournament.id, db))
+    ordered, bye = set_aside_bye(ordered, players_with_bye(tournament.id, db))
+    return swiss_pair_order(ordered, previous_opponents(tournament.id, db)) + bye
+
+
+def players_with_bye(tournament_id: int, db: Session) -> set[int]:
+    """Chi ha già avuto un bye, naturale o assegnato."""
+    return set(db.scalars(
+        select(Pairing.player_a_registration_id).join(Round)
+        .where(Round.tournament_id == tournament_id, Pairing.player_b_registration_id.is_(None))
+    ).all())
+
+
+def set_aside_bye(ordered: list[Registration], had_bye: set[int]) -> tuple[list[Registration], list[Registration]]:
+    """Con un numero dispari il bye va al più basso in classifica che non l'ha
+    ancora avuto (se l'hanno avuto tutti, all'ultimo): lo si mette da parte prima
+    di abbinare gli altri, così non finisce abbinato per sbaglio."""
+    if len(ordered) % 2 == 0:
+        return ordered, []
+    chosen = next((r for r in reversed(ordered) if r.id not in had_bye), ordered[-1])
+    return [r for r in ordered if r is not chosen], [chosen]
 
 
 def elimination_advancers(tournament_id: int, phase: str, db: Session) -> list[Registration] | None:

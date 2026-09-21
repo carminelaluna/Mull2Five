@@ -51,6 +51,7 @@ function toast(m) { const e = $('#toast'); e.textContent = m; e.classList.add('s
 let _section = 'eventi';     // eventi | community | negozio
 let _myStores = new Set();   // slug dei negozi di cui si fa parte
 let _suspendSlug = null;     // il negozio del torneo aperto, se lo si gestisce: da lì si sospende
+let _byesEditable = false;   // i bye si assegnano prima dell'inizio, e solo se ci sono turni
 let _tab = 'giocatori';      // sezione attiva DENTRO un evento
 let _tagEventId = null;      // da quale evento pescare i giocatori in Community
 let _tournaments = [];
@@ -651,6 +652,7 @@ function playerRow(r) {
     <td>
       <strong>${esc(name)}</strong>
       ${r.waitlisted ? '<span class="pill warn">attesa</span>' : ''}${r.dropped ? '<span class="pill">drop</span>' : ''}
+      ${r.byes && !_byesEditable ? `<span class="pill ok">${esc(tr('{n} bye', { n: r.byes }))}</span>` : ''}
       <br><small class="muted">${esc(r.player_email)}</small>
       ${answersLine(r)}
       ${tags ? `<br>${tags}` : ''}
@@ -688,12 +690,16 @@ function playerRow(r) {
         ${r.dropped ? 'Reintegra' : 'Drop'}
       </button>
       ${_suspendSlug && r.player_id ? `<button class="mini-button" data-act="suspend" type="button">${esc(tr('Sospendi'))}</button>` : ''}
+      ${_byesEditable ? `<select data-byes style="width:auto" title="${esc(tr('Bye assegnati: salta i primi turni e li vince'))}">
+        ${[0, 1, 2, 3].map((n) => `<option value="${n}"${(r.byes || 0) === n ? ' selected' : ''}>${esc(tr('{n} bye', { n }))}</option>`).join('')}
+      </select>` : ''}
     </td>
   </tr>`;
 }
 
 function drawGiocatori(t) {
   _suspendSlug = t.can_manage && _myStores.has(t.organization_slug) ? t.organization_slug : null;
+  _byesEditable = t.can_manage && ['draft', 'published'].includes(t.status) && !registrationOnly(t);
   const rows = _players.map(playerRow).join('')
     || '<tr><td colspan="6" class="muted">Nessun iscritto: usa "Iscrivi al banco".</td></tr>';
   const conLista = _players.filter(r => (r.decklist_status || 'missing') !== 'missing').length;
@@ -749,6 +755,17 @@ function drawGiocatori(t) {
 
   $('#gWalkIn').addEventListener('click', () => openWalkInDialog(t.id));
   $('#gCsv').addEventListener('click', () => downloadPlayersCsv(t));
+  $('#gBody').querySelectorAll('[data-byes]').forEach((sel) => sel.addEventListener('change', async () => {
+    const rid = sel.closest('[data-reg]').dataset.reg;
+    try {
+      const updated = await apiFetch(`/tournaments/${t.id}/registrations/${rid}/byes`, {
+        method: 'PUT', body: JSON.stringify({ byes: +sel.value }),
+      });
+      const reg = _players.find((r) => String(r.id) === String(rid));
+      if (reg) reg.byes = updated.byes;
+      toast(tr('Bye aggiornati.'));
+    } catch (err) { toast('Errore: ' + err.message); }
+  }));
   $('#gImport').addEventListener('click', () => openImportDialog(t));
   $('#gUnpaid')?.addEventListener('click', () => dropUnpaid(t));
   $('#ctlSaveControls').addEventListener('click', () => saveDecklistControls(t.id));
