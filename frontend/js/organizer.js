@@ -689,7 +689,9 @@ function playerRow(r) {
       ${cell(
         `<strong>${esc(name)}</strong>
          ${r.waitlisted ? '<span class="pill warn">attesa</span>' : ''}${r.dropped ? '<span class="pill">drop</span>' : ''}
-         ${r.byes && !_byesEditable ? `<span class="pill ok">${esc(tr('{n} bye', { n: r.byes }))}</span>` : ''}`,
+         ${r.byes && !_byesEditable ? `<span class="pill ok">${esc(tr('{n} bye', { n: r.byes }))}</span>` : ''}
+         ${r.pod ? `<span class="pill">${esc(tr('pod {p} · posto {s}', { p: r.pod, s: r.pod_seat }))}</span>` : ''}
+         ${r.fixed_table ? `<span class="pill ok">${esc(tr('tavolo {n}', { n: r.fixed_table }))}</span>` : ''}`,
         contactLine(r),
         `${answers ? `<div class="cell-note">${answers}</div>` : ''}${tags ? `<div class="cell-note">${tags}</div>` : ''}`,
       )}
@@ -722,10 +724,15 @@ function playerRow(r) {
     </td>
     <td>
       ${cell('', `<button class="mini-button" data-act="drop" data-val="${!r.dropped}" type="button">${esc(r.dropped ? tr('Reintegra') : tr('Drop'))}</button>
-        ${_suspendSlug && r.player_id ? `<button class="mini-button" data-act="suspend" type="button">${esc(tr('Sospendi'))}</button>` : ''}
         ${_byesEditable ? `<select data-byes title="${esc(tr('Bye assegnati: salta i primi turni e li vince'))}">
           ${[0, 1, 2, 3].map((n) => `<option value="${n}"${(r.byes || 0) === n ? ' selected' : ''}>${esc(tr('{n} bye', { n }))}</option>`).join('')}
-        </select>` : ''}`)}
+        </select>` : ''}
+        <details class="row-menu"><summary class="mini-button" title="${esc(tr('Altre azioni'))}">⋯</summary>
+          <div class="row-menu-list">
+            <button class="mini-button" data-act="fixed-table" type="button">${esc(r.fixed_table ? tr('Cambia tavolo fisso') : tr('Tavolo fisso…'))}</button>
+            ${_suspendSlug && r.player_id ? `<button class="mini-button" data-act="suspend" type="button">${esc(tr('Sospendi dal negozio'))}</button>` : ''}
+          </div>
+        </details>`)}
     </td>
   </tr>`;
 }
@@ -784,9 +791,11 @@ function drawGiocatori(t) {
         </tr></thead>
         <tbody id="gBody">${rows}</tbody>
       </table></div>
-    </div>`;
+    </div>
+    <div id="podsBox"></div>`;
 
   $('#gWalkIn').addEventListener('click', () => openWalkInDialog(t.id));
+  renderPods(t);
   $('#gCsv').addEventListener('click', () => downloadPlayersCsv(t));
   $('#gBody').querySelectorAll('[data-byes]').forEach((sel) => sel.addEventListener('change', async () => {
     const rid = sel.closest('[data-reg]').dataset.reg;
@@ -816,6 +825,7 @@ function drawGiocatori(t) {
       if (act === 'deck-view')  return openDeckViewDialog(reg);
       if (act === 'deck-edit')  return openDeckDialog(t.id, reg);
       if (act === 'penalty')    return openPenaltyDialog(t.id, reg);
+      if (act === 'fixed-table') return setFixedTable(t, reg);
       if (act === 'suspend')    return openSuspendDialog(_suspendSlug, {
         user_id: reg.player_id, name: reg.player?.display_name || reg.player_email,
       }, () => renderWarnings(t));
@@ -841,6 +851,77 @@ async function dropUnpaid(t) {
     await loadTournaments();
     renderGiocatori();
   } catch (err) { toast('Errore: ' + err.message); }
+}
+
+/* Un tavolo fisso per chi ne ha bisogno (sedia a rotelle, vicino all'uscita):
+   i suoi match si giocano lì dal turno dopo. Vuoto per toglierlo. */
+async function setFixedTable(t, reg) {
+  const answer = prompt(tr('Tavolo fisso per {nome} (vuoto per toglierlo):', { nome: reg.player?.display_name || '' }),
+    reg.fixed_table || '');
+  if (answer === null) return;
+  const table = answer.trim() ? +answer : null;
+  if (answer.trim() && !(table >= 1)) { toast(tr('Scrivi un numero di tavolo.')); return; }
+  try {
+    await apiFetch(`/tournaments/${t.id}/registrations/${reg.id}/fixed-table`, { method: 'PUT', body: JSON.stringify({ table }) });
+    toast(table ? tr('Tavolo fisso: {n}.', { n: table }) : tr('Tavolo fisso tolto.'));
+    renderGiocatori();
+  } catch (err) { toast('Errore: ' + err.message); }
+}
+
+/* ── Pod di draft ────────────────────────────────────────
+   Per un draft i giocatori si dividono in pod (di solito da 8) e si siedono
+   in ordine: al primo turno si gioca contro chi siede di fronte, dentro il pod. */
+async function renderPods(t) {
+  const box = $('#podsBox');
+  if (!box) return;
+  const draftLike = /draft/i.test(t.format || '') || t.pod_size > 0;
+  if (!draftLike || registrationOnly(t)) { box.innerHTML = ''; return; }
+  const pods = await apiFetch(`/tournaments/${t.id}/pods`).catch(() => []);
+  const editable = t.can_manage && ['draft', 'published'].includes(t.status);
+  box.innerHTML = `<div class="panel" style="margin-top:16px">
+    <div class="bo-head" style="margin-bottom:8px">
+      <h3 style="margin:0">${esc(tr('Pod di draft'))}</h3>
+      <div class="toolbar">
+        ${editable ? `<label>${esc(tr('Giocatori per pod'))} <select id="podSize" style="min-width:72px">
+          ${[6, 7, 8, 9, 10, 12].map((n) => `<option value="${n}"${n === (t.pod_size || 8) ? ' selected' : ''}>${n}</option>`).join('')}
+        </select></label>
+        <button class="primary" id="podMake" type="button">${esc(pods.length ? tr('Rifai i pod') : tr('Crea i pod'))}</button>
+        ${pods.length ? `<button class="secondary" id="podClear" type="button">${esc(tr('Togli'))}</button>` : ''}` : ''}
+        ${pods.length ? `<button class="secondary" id="podPrint" type="button">${esc(tr('Stampa'))}</button>` : ''}
+      </div>
+    </div>
+    <p class="muted" style="margin:0;font-size:.85rem">${esc(tr('I pod si fanno con chi è pronto a giocare (pagato, presente, con la lista se serve), prima di avviare il torneo. Al primo turno si gioca contro chi siede di fronte, poi svizzera dentro il pod.'))}</p>
+    ${pods.length ? `<div class="pod-grid" id="podGrid">${pods.map((p) => `<div class="pod-card">
+      <h4>${esc(tr('Pod {n}', { n: p.pod }))}</h4>
+      <ol>${p.players.map((s) => `<li value="${s.seat}">${esc(s.name)}</li>`).join('')}</ol>
+    </div>`).join('')}</div>` : ''}
+  </div>`;
+  $('#podMake')?.addEventListener('click', async () => {
+    if (pods.length && !confirm(tr('Rifare i pod? Posti e gruppi cambiano.'))) return;
+    try {
+      await apiFetch(`/tournaments/${t.id}/pods`, { method: 'POST', body: JSON.stringify({ pod_size: +$('#podSize').value }) });
+      await loadTournaments();
+      renderGiocatori();
+    } catch (err) { toast('Errore: ' + err.message); }
+  });
+  $('#podClear')?.addEventListener('click', async () => {
+    try {
+      await apiFetch(`/tournaments/${t.id}/pods`, { method: 'DELETE' });
+      await loadTournaments();
+      renderGiocatori();
+    } catch (err) { toast('Errore: ' + err.message); }
+  });
+  $('#podPrint')?.addEventListener('click', () => {
+    const w = window.open('', '_blank');
+    if (!w) { toast(tr('Il browser ha bloccato la finestra di stampa.')); return; }
+    w.document.write(`<!doctype html><title>${esc(t.name)} — pod</title>
+      <style>body{font-family:sans-serif;padding:24px} .pod{break-inside:avoid;margin-bottom:24px}
+      h1{font-size:20px} h2{font-size:16px;margin:0 0 6px} ol{margin:0;padding-left:24px;line-height:1.7}</style>
+      <h1>${esc(t.name)}</h1>
+      ${pods.map((p) => `<div class="pod"><h2>${esc(tr('Pod {n}', { n: p.pod }))}</h2><ol>${p.players.map((s) => `<li value="${s.seat}">${esc(s.name)}</li>`).join('')}</ol></div>`).join('')}`);
+    w.document.close();
+    w.print();
+  });
 }
 
 /* ── Import da file ─────────────────────────────────────

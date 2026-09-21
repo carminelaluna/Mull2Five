@@ -247,6 +247,9 @@ async function buildCard(t, reg) {
         <span class="reg-row-body">${payBadge}${payActions}</span></div>
       <div class="reg-row"><span class="reg-label">${esc(tr('Lista'))}</span>
         <span class="reg-row-body">${deckBadge}</span></div>
+      ${reg.pod || reg.fixed_table ? `<div class="reg-row"><span class="reg-label">${esc(tr('Posto'))}</span>
+        <span class="reg-row-body">${reg.pod ? `<span class="badge">${esc(tr('Pod {p} · posto {s}', { p: reg.pod, s: reg.pod_seat }))}</span>` : ''}
+          ${reg.fixed_table ? `<span class="badge ok">${esc(tr('Tavolo fisso {n}', { n: reg.fixed_table }))}</span>` : ''}</span></div>` : ''}
     </div>
     <div class="reg-card-actions">
       ${t.status === 'completed'

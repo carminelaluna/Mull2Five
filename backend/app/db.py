@@ -163,6 +163,7 @@ def migrate_existing_schema() -> None:
             add_column(connection, columns, "tournaments", "game", "VARCHAR(20)", "'mtg'")
             add_nullable_column(connection, columns, "tournaments", "location_id", "INTEGER")
             add_nullable_column(connection, columns, "tournaments", "series_id", "INTEGER")
+            add_column(connection, columns, "tournaments", "pod_size", "INTEGER", "0")
             add_column(connection, columns, "tournaments", "best_of", "INTEGER", "3")
             add_column(connection, columns, "tournaments", "allow_intentional_draws", "BOOLEAN", "1")
 
@@ -179,6 +180,9 @@ def migrate_existing_schema() -> None:
             add_nullable_column(connection, columns, "registrations", "promoted_at", "DATETIME")
             add_column(connection, columns, "registrations", "prize_note", "VARCHAR(240)", "''")
             add_column(connection, columns, "registrations", "byes", "INTEGER", "0")
+            add_nullable_column(connection, columns, "registrations", "fixed_table", "INTEGER")
+            add_nullable_column(connection, columns, "registrations", "pod", "INTEGER")
+            add_nullable_column(connection, columns, "registrations", "pod_seat", "INTEGER")
             add_nullable_column(connection, columns, "registrations", "prize_given_at", "TIMESTAMP WITH TIME ZONE")
             add_nullable_column(connection, columns, "registrations", "prize_given_by_id", "INTEGER")
             add_column(connection, columns, "registrations", "day2", "BOOLEAN", "0")

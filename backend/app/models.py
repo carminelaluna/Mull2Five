@@ -417,6 +417,8 @@ class Tournament(Base):
     series_id: Mapped[int | None] = mapped_column(
         ForeignKey("tournament_series.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    # Giocatori per pod di draft; 0 = niente pod.
+    pod_size: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
 
     location: Mapped["Location | None"] = relationship()
@@ -477,6 +479,11 @@ class Registration(Base):
     # Bye assegnati prima del torneo (a chi ha vinto una qualificazione, per
     # esempio): salta i primi turni della svizzera e li vince.
     byes: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    # Tavolo fisso (accessibilità, scelta del judge): i suoi match si giocano lì.
+    fixed_table: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Pod di draft e posto al tavolo del draft.
+    pod: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    pod_seat: Mapped[int | None] = mapped_column(Integer, nullable=True)
     # Il premio consegnato a fine torneo: cosa, quando e da chi. Ogni consegna e
     # ogni annullamento finiscono anche nel registro del torneo.
     prize_note: Mapped[str] = mapped_column(String(240), default="", server_default="")

@@ -48,6 +48,19 @@
       table.bo .mini-button, table.bo select { white-space:nowrap; }
       table.bo.players .cell-bottom { flex-wrap:nowrap; }
       .table-scroll { overflow-x:auto; }
+      /* Menu "⋯" delle azioni meno usate: la riga resta corta e allineata. */
+      .row-menu { position:relative; display:inline-block; }
+      .row-menu > summary { list-style:none; cursor:pointer; }
+      .row-menu > summary::-webkit-details-marker { display:none; }
+      .row-menu-list { position:absolute; right:0; top:calc(100% + 4px); z-index:20; display:grid; gap:4px;
+                       min-width:170px; padding:6px; border:1px solid var(--line,#2a2a31); border-radius:10px;
+                       background:var(--panel,#16161a); box-shadow:0 10px 30px rgba(0,0,0,.45); }
+      .row-menu-list .mini-button { width:100%; text-align:left; }
+      /* Pod di draft: una scheda per pod, posti in colonna. */
+      .pod-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:12px; margin-top:12px; }
+      .pod-card { border:1px solid var(--line,#2a2a31); border-radius:10px; padding:10px 12px; }
+      .pod-card h4 { margin:0 0 6px; }
+      .pod-card ol { margin:0; padding-left:22px; display:grid; gap:2px; font-size:.9rem; }
       /* Nei moduli a griglia, i campi brevi in coppia occupano mezza riga ciascuno:
          a una colonna sola lascerebbero un vuoto a destra. */
       .bo-grid .span-2 { grid-column:span 2; }

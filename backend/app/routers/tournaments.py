@@ -66,6 +66,7 @@ from backend.app.schemas import (
     DecklistCreate,
     DecklistOut,
     DropUnpaidOut,
+    FixedTableIn,
     ImportIn,
     ImportOut,
     ImportRowOut,
@@ -84,6 +85,9 @@ from backend.app.schemas import (
     PlayerCardOut,
     PlayerHistoryRowOut,
     PlayerPublicProfileOut,
+    PodOut,
+    PodSeatOut,
+    PodsIn,
     PrizeIn,
     PublicDisplayOut,
     PublicPairingOut,
@@ -1673,6 +1677,103 @@ def drop_unpaid(
     return DropUnpaidOut(dropped=names, promoted=before - waiting())
 
 
+@router.put("/{tournament_id}/registrations/{registration_id}/fixed-table", response_model=OrganizerRegistrationOut)
+def set_fixed_table(
+    tournament_id: int,
+    registration_id: int,
+    payload: FixedTableIn,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> OrganizerRegistrationOut:
+    """Un tavolo fisso per chi ne ha bisogno (una sedia a rotelle, un tavolo
+    vicino all'uscita): dal turno dopo i suoi match si giocano lì."""
+    from backend.app.core.cache import cache_invalidate
+
+    tournament = load_tournament_for_staff(tournament_id, user, db)
+    registration = load_registration_for_tournament(tournament_id, registration_id, db)
+    registration.fixed_table = payload.table
+    _write_audit(db, tournament.id, user.id, "fixed_table",
+                 f"{registration.player.display_name}: " + (f"tavolo {payload.table}" if payload.table else "nessun tavolo fisso"))
+    db.commit()
+    cache_invalidate(f"registrations:{tournament.id}")
+    return organizer_registration_out(load_registration_for_tournament(tournament_id, registration_id, db))
+
+
+def _pods_of(tournament: Tournament, db: Session) -> list[PodOut]:
+    regs = db.scalars(
+        select(Registration).where(Registration.tournament_id == tournament.id, Registration.pod.is_not(None))
+        .options(selectinload(Registration.player))
+    ).all()
+    pods: dict[int, list[PodSeatOut]] = {}
+    for reg in regs:
+        pods.setdefault(reg.pod, []).append(PodSeatOut(registration_id=reg.id, name=reg.player.display_name,
+                                                       seat=reg.pod_seat or 0))
+    return [PodOut(pod=pod, players=sorted(seats, key=lambda s: s.seat)) for pod, seats in sorted(pods.items())]
+
+
+@router.get("/{tournament_id}/pods", response_model=list[PodOut])
+def list_pods(tournament_id: int, db: Session = Depends(get_db)) -> list[PodOut]:
+    """I pod con i posti: pubblici, si leggono al tavolo del draft."""
+    tournament = db.get(Tournament, tournament_id)
+    if not tournament:
+        raise HTTPException(status_code=404, detail="Tournament not found")
+    return _pods_of(tournament, db)
+
+
+@router.post("/{tournament_id}/pods", response_model=list[PodOut])
+def create_pods(
+    tournament_id: int,
+    payload: PodsIn,
+    organizer: User = Depends(require_organizer),
+    db: Session = Depends(get_db),
+) -> list[PodOut]:
+    """Divide chi gioca in pod di draft il più possibile uguali (18 giocatori in
+    pod da 8 fanno tre pod da 6) e assegna i posti a caso. Si rifanno finché il
+    torneo non è iniziato."""
+    from backend.app.core.cache import cache_invalidate
+
+    tournament = load_owned_tournament(tournament_id, organizer, db)
+    if tournament.status not in {TournamentStatus.DRAFT, TournamentStatus.PUBLISHED}:
+        raise HTTPException(status_code=409, detail="I pod si fanno prima dell'inizio del torneo")
+    players = eligible_registrations(tournament, db)
+    if len(players) < 2:
+        raise HTTPException(status_code=409, detail="Servono almeno due giocatori pronti a giocare")
+    random.shuffle(players)
+    count = math.ceil(len(players) / payload.pod_size)
+    base, extra = divmod(len(players), count)
+    for reg in db.scalars(select(Registration).where(Registration.tournament_id == tournament.id)):
+        reg.pod = reg.pod_seat = None
+    start = 0
+    for pod in range(1, count + 1):
+        size = base + (1 if pod <= extra else 0)
+        for seat, reg in enumerate(players[start:start + size], start=1):
+            reg.pod, reg.pod_seat = pod, seat
+        start += size
+    tournament.pod_size = payload.pod_size
+    _write_audit(db, tournament.id, organizer.id, "pods_created", f"{count} pod da {payload.pod_size} al massimo")
+    db.commit()
+    cache_invalidate(f"registrations:{tournament.id}")
+    return _pods_of(tournament, db)
+
+
+@router.delete("/{tournament_id}/pods", status_code=204)
+def clear_pods(
+    tournament_id: int,
+    organizer: User = Depends(require_organizer),
+    db: Session = Depends(get_db),
+) -> None:
+    from backend.app.core.cache import cache_invalidate
+
+    tournament = load_owned_tournament(tournament_id, organizer, db)
+    if tournament.status not in {TournamentStatus.DRAFT, TournamentStatus.PUBLISHED}:
+        raise HTTPException(status_code=409, detail="I pod si tolgono prima dell'inizio del torneo")
+    for reg in db.scalars(select(Registration).where(Registration.tournament_id == tournament.id)):
+        reg.pod = reg.pod_seat = None
+    tournament.pod_size = 0
+    db.commit()
+    cache_invalidate(f"registrations:{tournament.id}")
+
+
 @router.put("/{tournament_id}/registrations/{registration_id}/byes", response_model=OrganizerRegistrationOut)
 def set_byes(
     tournament_id: int,
@@ -3246,11 +3347,16 @@ def registration_out(registration: Registration) -> RegistrationOut:
         checked_in=registration.checked_in,
         dropped=registration.dropped,
         waitlisted=registration.waitlisted,
+        **_seating(registration),
         player=registration.player,
         decklist_status=registration.decklist.status if registration.decklist else "missing",
         decklist_formats=sorted(d.format for d in registration.decklists),
         payment_status=registration.payment.status if registration.payment else "pending",
     )
+
+
+def _seating(registration: Registration) -> dict:
+    return {"pod": registration.pod, "pod_seat": registration.pod_seat, "fixed_table": registration.fixed_table}
 
 
 def organizer_registration_out(
@@ -3626,7 +3732,14 @@ def create_round_for_tournament(tournament: Tournament, db: Session) -> RoundOut
     # Chi ha bye assegnati salta i primi turni della svizzera: li vince senza giocare.
     with_bye = [r for r in eligible if phase == "swiss" and (r.byes or 0) >= current_round_number]
     playing = [r for r in eligible if r not in with_bye]
-    ordered = pair_order(tournament, playing, phase, db) if playing else []
+    # In svizzera con i pod di draft ogni pod gioca per conto suo: al primo turno
+    # contro chi siede di fronte, poi svizzera dentro il pod.
+    if phase == "swiss" and playing and all(r.pod for r in playing):
+        groups = [pod_pair_order(tournament, [r for r in playing if r.pod == pod], db)
+                  for pod in sorted({r.pod for r in playing})]
+    else:
+        groups = [pair_order(tournament, playing, phase, db)] if playing else []
+    ordered = [r for group in groups for r in group]
     if phase in {"elimination", "topcut"} and len(ordered) < 2:
         tournament.status = TournamentStatus.COMPLETED
         db.add(tournament)
@@ -3648,13 +3761,13 @@ def create_round_for_tournament(tournament: Tournament, db: Session) -> RoundOut
     db.add(round_obj)
     db.flush()
 
+    matches = [(group[i], group[i + 1] if i + 1 < len(group) else None)
+               for group in groups for i in range(0, len(group), 2)]
     pairings = []
-    for index in range(0, len(ordered), 2):
-        player_a = ordered[index]
-        player_b = ordered[index + 1] if index + 1 < len(ordered) else None
+    for (player_a, player_b), table in zip(matches, assign_tables(matches), strict=True):
         pairing = Pairing(
             round_id=round_obj.id,
-            table_number=(index // 2) + 1,
+            table_number=table,
             player_a_registration_id=player_a.id,
             player_b_registration_id=player_b.id if player_b else None,
             result="A" if not player_b else "",
@@ -3663,7 +3776,7 @@ def create_round_for_tournament(tournament: Tournament, db: Session) -> RoundOut
         )
         db.add(pairing)
         pairings.append(pairing)
-    for offset, registration in enumerate(with_bye, start=len(pairings) + 1):
+    for offset, registration in enumerate(with_bye, start=max([p.table_number for p in pairings], default=0) + 1):
         db.add(Pairing(round_id=round_obj.id, table_number=offset,
                        player_a_registration_id=registration.id, player_b_registration_id=None,
                        result="A", match_wins_a=2, match_wins_b=0))
@@ -3702,6 +3815,42 @@ def pair_order(tournament: Tournament, eligible: list[Registration], phase: str,
     ordered = [by_id[standing.registration_id] for standing in standings if standing.registration_id in by_id]
     ordered, bye = set_aside_bye(ordered, players_with_bye(tournament.id, db))
     return swiss_pair_order(ordered, previous_opponents(tournament.id, db)) + bye
+
+
+def assign_tables(matches: list[tuple[Registration, Registration | None]]) -> list[int]:
+    """I numeri di tavolo: chi ha un tavolo fisso gioca lì (se due lo chiedono,
+    vince il primo), gli altri riempiono i numeri liberi in ordine."""
+    fixed: dict[int, int] = {}
+    for index, (a, b) in enumerate(matches):
+        wanted = a.fixed_table or (b.fixed_table if b else None)
+        if wanted and wanted not in fixed.values():
+            fixed[index] = wanted
+    used = set(fixed.values())
+    tables, next_free = [], 1
+    for index in range(len(matches)):
+        if index in fixed:
+            tables.append(fixed[index])
+            continue
+        while next_free in used:
+            next_free += 1
+        tables.append(next_free)
+        used.add(next_free)
+    return tables
+
+
+def pod_pair_order(tournament: Tournament, members: list[Registration], db: Session) -> list[Registration]:
+    """L'ordine di abbinamento dentro un pod. Al primo turno si gioca contro chi
+    siede di fronte (posto 1 contro 5, 2 contro 6 in un pod da 8); con un pod
+    dispari resta senza avversario l'ultimo della prima metà. Poi svizzera."""
+    if tournament.rounds:
+        return pair_order(tournament, members, "swiss", db)
+    seated = sorted(members, key=lambda r: r.pod_seat or 0)
+    half = (len(seated) + 1) // 2
+    ordered: list[Registration] = []
+    for i in range(half):
+        if i + half < len(seated):
+            ordered += [seated[i], seated[i + half]]
+    return ordered + [r for r in seated[:half] if r not in ordered]
 
 
 def players_with_bye(tournament_id: int, db: Session) -> set[int]:

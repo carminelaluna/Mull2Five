@@ -170,6 +170,7 @@ class TournamentOut(BaseModel):
     # non ci arbitra soltanto.
     can_manage: bool = False
     series_id: int | None = None
+    pod_size: int = 0
     # Solo nella risposta di una modifica estesa alla serie.
     series_updated: int | None = None
     series_skipped: list[str] = []
@@ -225,6 +226,25 @@ class RegistrationCreate(BaseModel):
     wizards_account: str = ""
     # Le risposte alle domande del torneo, per id della domanda.
     answers: dict[int, str | bool] = {}
+
+
+class FixedTableIn(BaseModel):
+    table: int | None = Field(default=None, ge=1, le=500)   # null toglie il tavolo fisso
+
+
+class PodsIn(BaseModel):
+    pod_size: int = Field(default=8, ge=4, le=12)
+
+
+class PodSeatOut(BaseModel):
+    registration_id: int
+    name: str
+    seat: int
+
+
+class PodOut(BaseModel):
+    pod: int
+    players: list[PodSeatOut]
 
 
 class ByesIn(BaseModel):
@@ -745,6 +765,10 @@ class RegistrationOut(BaseModel):
     # Segmenti gia consegnati: "" e la lista principale.
     decklist_formats: list[str] = []
     payment_status: str = "pending"
+    # Pod di draft, posto al tavolo del draft e tavolo fisso, se ci sono.
+    pod: int | None = None
+    pod_seat: int | None = None
+    fixed_table: int | None = None
 
     model_config = {"from_attributes": True}
 
