@@ -191,9 +191,11 @@ def attach_tournament(
 
     Una tappa fuori dal periodo si aggancia lo stesso — un side event il giorno
     prima puo avere senso — e lo dice l'avviso nella risposta."""
+    from backend.app.routers.tournaments import owns_tournament
+
     event = load_owned_event(event_id, organizer, db)
     tournament = db.get(Tournament, tournament_id)
-    if not tournament or tournament.organizer_id != organizer.id:
+    if not tournament or not owns_tournament(tournament, organizer, db):
         raise HTTPException(status_code=404, detail="Torneo non trovato")
     tournament.event_id = event.id
     db.commit()

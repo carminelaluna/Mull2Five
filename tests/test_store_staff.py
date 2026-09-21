@@ -174,3 +174,20 @@ def test_a_tournament_leaving_for_the_new_store_keeps_its_place(client, db_sessi
     body = client.get(f"/api/tournaments/{created.json()['id']}").json()
     assert (body["location_id"], body["venue"], body["latitude"]) == (None, "Sala comune, Milano", 45.46)
 
+
+def test_staff_see_what_the_organizer_sees(client):
+    """Iscritti e classifica non pubblica di un torneo del collega."""
+    owner = _register_user(client, "staff-o10@example.com", role="organizer")
+    slug = _store(client, owner)
+    tid = _tournament(client, owner)["id"]
+    client.patch(f"/api/tournaments/{tid}/controls", headers=owner, json={"standings_public": False})
+    player = _register_user(client, "staff-p10@example.com")
+    client.post(f"/api/tournaments/{tid}/registrations", headers=player, json={"wizards_account": "X"})
+
+    _register_user(client, "staff-c10@example.com", role="organizer")
+    _add(client, owner, slug, "staff-c10@example.com")
+    colleague = _register_user(client, "staff-c10@example.com", role="organizer")
+    listed = client.get(f"/api/tournaments/{tid}/registrations", headers=colleague)
+    assert listed.status_code == 200, listed.text
+    assert [r["player_email"] for r in listed.json()] == ["staff-p10@example.com"]
+

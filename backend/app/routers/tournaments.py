@@ -944,7 +944,7 @@ def list_registrations(
     """
     from backend.app.core.cache import cache_get, cache_set
     tournament = db.get(Tournament, tournament_id)
-    if not tournament or tournament.organizer_id != organizer.id:
+    if not tournament or not owns_tournament(tournament, organizer, db):
         raise HTTPException(status_code=404, detail="Tournament not found")
 
     page = max(1, page)
@@ -1405,7 +1405,7 @@ def list_announcements(
             Registration.player_id == user.id,
         )
     )
-    is_staff = tournament.organizer_id == user.id or is_tournament_staff(tournament_id, user.id, db)
+    is_staff = owns_tournament(tournament, user, db) or is_tournament_staff(tournament_id, user.id, db)
     if not is_staff and not is_registered:
         raise HTTPException(status_code=403, detail="Tournament access required")
     stmt = select(Announcement).where(Announcement.tournament_id == tournament_id)
@@ -1640,7 +1640,7 @@ def get_standings(
     tournament = db.get(Tournament, tournament_id)
     if not tournament:
         raise HTTPException(status_code=404, detail="Tournament not found")
-    if tournament.organizer_id != user.id and not tournament.standings_public:
+    if not tournament.standings_public and not owns_tournament(tournament, user, db):
         return []
     cache_key = f"standings:{tournament_id}"
     cached = cache_get(cache_key)
@@ -1660,7 +1660,7 @@ def list_rounds(
     tournament = db.get(Tournament, tournament_id)
     if not tournament:
         raise HTTPException(status_code=404, detail="Tournament not found")
-    is_staff = tournament.organizer_id == user.id or is_tournament_staff(tournament_id, user.id, db)
+    is_staff = owns_tournament(tournament, user, db) or is_tournament_staff(tournament_id, user.id, db)
     rounds = db.scalars(
         select(Round)
         .where(Round.tournament_id == tournament_id)
@@ -2067,7 +2067,7 @@ def get_bracket(
     tournament = db.get(Tournament, tournament_id)
     if not tournament:
         raise HTTPException(status_code=404, detail="Tournament not found")
-    if tournament.organizer_id != user.id and not tournament.pairings_public:
+    if not tournament.pairings_public and not owns_tournament(tournament, user, db):
         return []
     return _build_bracket(tournament_id, db)
 
