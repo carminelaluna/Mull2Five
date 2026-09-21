@@ -159,6 +159,9 @@ def migrate_existing_schema() -> None:
             add_nullable_column(connection, columns, "tournaments", "latitude",  "FLOAT")
             add_nullable_column(connection, columns, "tournaments", "longitude", "FLOAT")
             add_nullable_column(connection, columns, "tournaments", "event_id", "INTEGER")
+            add_column(connection, columns, "tournaments", "game", "VARCHAR(20)", "'mtg'")
+            add_column(connection, columns, "tournaments", "best_of", "INTEGER", "3")
+            add_column(connection, columns, "tournaments", "allow_intentional_draws", "BOOLEAN", "1")
 
         if "users" in inspector.get_table_names():
             columns = {col["name"] for col in inspector.get_columns("users")}

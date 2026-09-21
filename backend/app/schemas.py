@@ -35,6 +35,10 @@ class UserOut(BaseModel):
 class TournamentCreate(BaseModel):
     name: str = Field(min_length=3, max_length=180)
     format: str
+    game: str = "mtg"
+    # Vuoto: quello del regolamento del gioco (One Piece al meglio di 1, gli altri di 3).
+    best_of: int | None = Field(default=None, ge=1, le=3)
+    allow_intentional_draws: bool = True
     event_type: Literal["locals", "prerelease", "rcq", "store_championship", "premier", "other"] = "locals"
     rules_enforcement_level: str = "Competitive"
     venue: str = ""
@@ -68,6 +72,16 @@ class TournamentCreate(BaseModel):
     pay_paypal: bool = False
 
     @model_validator(mode="after")
+    def _game_and_match_format(self):
+        from backend.app.games import GAMES
+
+        if self.game not in GAMES:
+            raise ValueError(f"Gioco non supportato: {self.game}")
+        if self.best_of is None:
+            self.best_of = GAMES[self.game].default_best_of
+        return self
+
+    @model_validator(mode="after")
     def _require_payment_method(self):
         # Almeno un metodo di pagamento deve essere abilitato alla creazione
         if not (self.pay_at_event or self.pay_stripe or self.pay_paypal):
@@ -80,6 +94,12 @@ class TournamentOut(BaseModel):
     organizer_id: int
     name: str
     format: str
+    game: str = "mtg"
+    best_of: int = 3
+    allow_intentional_draws: bool = True
+    # Chi organizza, come persona: il negozio (organization_name) non basta a
+    # sapere a chi rivolgersi.
+    organizer_name: str | None = None
     event_type: str = "locals"
     rules_enforcement_level: str
     venue: str
@@ -761,8 +781,10 @@ class StandingOut(BaseModel):
     record: str
     match_win_percentage: float
     opponent_match_win_percentage: float
-    game_win_percentage: float
-    opponent_game_win_percentage: float
+    # Non tutti i giochi le usano: One Piece e Pokémon non guardano i giochi.
+    game_win_percentage: float = 0.0
+    opponent_game_win_percentage: float = 0.0
+    opponent_opponent_win_percentage: float = 0.0   # solo Pokémon
 
 
 # Risolve la forward reference "StandingOut" usata in PublicDisplayOut

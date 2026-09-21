@@ -222,6 +222,12 @@ class Tournament(Base):
     name: Mapped[str] = mapped_column(String(180), index=True)
     format: Mapped[str] = mapped_column(String(80))
     event_type: Mapped[str] = mapped_column(String(40), default=EventType.LOCALS, index=True)
+    # Il gioco decide formati, spareggi e regole di mazzo: vedi backend/app/games.py.
+    game: Mapped[str] = mapped_column(String(20), default="mtg", server_default="mtg", index=True)
+    # Match in svizzera al meglio di 1, 2 o 3 (i playoff sono sempre al meglio di 3).
+    best_of: Mapped[int] = mapped_column(Integer, default=3, server_default="3")
+    # Spento, il pulsante della patta intenzionale sparisce; le patte a tempo restano.
+    allow_intentional_draws: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1")
     rules_enforcement_level: Mapped[str] = mapped_column(String(40), default="Competitive")
     venue: Mapped[str] = mapped_column(String(180), default="")
     # Coordinate del luogo: se assenti vale la posizione del negozio.

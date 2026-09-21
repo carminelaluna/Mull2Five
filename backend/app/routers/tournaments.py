@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session, joinedload, selectinload  # noqa: F401
 from backend.app.core.config import get_settings
 from backend.app.core.tenant import resolve_org
 from backend.app.db import get_db
+from backend.app.games import ALLOWED_SCORES, get_game
 from backend.app.models import (
     Announcement,
     AnnouncementRecipient,
@@ -163,6 +164,7 @@ def tournament_out(tournament: Tournament, registered: int, db: Session) -> Tour
     """
     org = db.get(Organization, tournament.organization_id) if tournament.organization_id else None
     event = db.get(Event, tournament.event_id) if tournament.event_id else None
+    organizer = db.get(User, tournament.organizer_id)
     # I segmenti nascono dai round: dichiarare un formato su un turno significa
     # che per quella porzione serve una lista a parte.
     segments = db.scalars(
@@ -172,6 +174,7 @@ def tournament_out(tournament: Tournament, registered: int, db: Session) -> Tour
     ).all()
     return TournamentOut.model_validate(tournament).model_copy(update={
         "registered_players": registered,
+        "organizer_name": organizer.display_name if organizer else None,
         "organization_slug": org.slug if org else None,
         "organization_name": org.name if org else None,
         "event_slug": event.slug if event else None,
@@ -213,6 +216,7 @@ def list_tournaments(
     format: str | None = None,
     formats: str | None = None,
     event_types: str | None = None,
+    games: str | None = None,
     rel: str | None = None,
     venue: str | None = None,
     stores: str | None = None,
@@ -227,7 +231,7 @@ def list_tournaments(
 ) -> list[TournamentOut]:
     """Elenco pubblico tornei del negozio (tenant), con filtri di ricerca.
 
-    I parametri a valori multipli (`status`, `formats`, `event_types`, `rel`,
+    I parametri a valori multipli (`status`, `formats`, `event_types`, `games`, `rel`,
     `stores`) accettano una lista separata da virgola. `days` è una finestra
     temporale a partire da oggi; `near_lat`/`near_lng`/`radius_km` filtrano per
     distanza usando le coordinate del torneo o, se assenti, quelle del negozio.
@@ -249,6 +253,10 @@ def list_tournaments(
         wanted = [f.strip() for f in formats.split(",") if f.strip()]
         if wanted:
             stmt = stmt.where(Tournament.format.in_(wanted))
+    if games:
+        wanted_games = [g.strip() for g in games.split(",") if g.strip()]
+        if wanted_games:
+            stmt = stmt.where(Tournament.game.in_(wanted_games))
     if event_types:
         wanted = [e.strip() for e in event_types.split(",") if e.strip()]
         if wanted:
@@ -424,6 +432,9 @@ def duplicate_tournament(
         organizer_id=organizer.id,
         name=src.name,
         format=src.format,
+        game=src.game,
+        best_of=src.best_of,
+        allow_intentional_draws=src.allow_intentional_draws,
         rules_enforcement_level=src.rules_enforcement_level,
         venue=src.venue,
         starts_on=src.starts_on + timedelta(days=7),
@@ -1858,7 +1869,7 @@ def correct_pairing_result(
         raise HTTPException(status_code=404, detail="Pairing not found")
     if not pairing.player_b_registration_id:
         raise HTTPException(status_code=409, detail="I BYE non si correggono")
-    ensure_allowed_score(payload)
+    ensure_allowed_score(payload, pairing, db)
     old = f"{pairing.match_wins_a}-{pairing.match_wins_b}"
     pairing.match_wins_a = payload.match_wins_a
     pairing.match_wins_b = payload.match_wins_b
@@ -2011,7 +2022,7 @@ def report_player_result(
     db: Session = Depends(get_db),
 ) -> RoundOut:
     pairing = load_player_pairing(tournament_id, pairing_id, user, db)
-    ensure_allowed_score(payload)
+    ensure_allowed_score(payload, pairing, db)
     reporter_id = player_registration_id_for_pairing(pairing, user)
     existing = latest_open_report(pairing.id, db)
     if existing and existing.reporter_registration_id != reporter_id:
@@ -3100,7 +3111,7 @@ def apply_pairing_result(
         raise HTTPException(status_code=409, detail="This result is locked because a later round exists")
     if not pairing.player_b_registration_id:
         raise HTTPException(status_code=409, detail="BYE results are automatic")
-    ensure_allowed_score(payload)
+    ensure_allowed_score(payload, pairing, db)
     pairing.match_wins_a = payload.match_wins_a
     pairing.match_wins_b = payload.match_wins_b
     pairing.draws = payload.draws
@@ -3113,9 +3124,19 @@ def apply_pairing_result(
     db.commit()
 
 
-def ensure_allowed_score(payload: PairingResultIn) -> None:
-    allowed_scores = {(0, 0), (1, 0), (1, 1), (0, 1), (2, 0), (0, 2), (2, 1), (1, 2)}
-    if (payload.match_wins_a, payload.match_wins_b) not in allowed_scores:
+def ensure_allowed_score(payload: PairingResultIn, pairing: Pairing, db: Session) -> None:
+    """Il punteggio deve essere possibile nel formato del match: al meglio di 1, 2
+    o 3 in svizzera; nei playoff sempre al meglio di 3 e senza patta."""
+    phase, best_of = db.execute(
+        select(Round.phase, Tournament.best_of)
+        .join(Tournament, Tournament.id == Round.tournament_id)
+        .where(Round.id == pairing.round_id)
+    ).one()
+    if phase != "swiss":
+        allowed = {score for score in ALLOWED_SCORES[3] if score[0] != score[1]}
+    else:
+        allowed = ALLOWED_SCORES.get(best_of or 3, ALLOWED_SCORES[3])
+    if (payload.match_wins_a, payload.match_wins_b) not in allowed:
         raise HTTPException(status_code=422, detail="Unsupported match result")
 
 
@@ -3132,101 +3153,32 @@ def planned_swiss_rounds(tournament: Tournament, eligible_count: int) -> int:
 
 
 def calculate_standings(tournament_id: int, db: Session) -> list[StandingOut]:
+    """La classifica del torneo, con gli spareggi del suo gioco (services/standings.py)."""
+    from backend.app.services.standings import Match as StandingMatch
+    from backend.app.services.standings import Player as StandingPlayer
+    from backend.app.services.standings import compute_standings
+
+    tournament = db.get(Tournament, tournament_id)
     registrations = db.scalars(
         select(Registration)
         .where(Registration.tournament_id == tournament_id)
         .options(selectinload(Registration.player))
     ).all()
-    stats = {
-        registration.id: {
-            "registration": registration,
-            "points": 0,
-            "wins": 0,
-            "losses": 0,
-            "draws": 0,
-            "game_wins": 0,
-            "game_losses": 0,
-            "game_draws": 0,
-            "opponents": [],
-        }
-        for registration in registrations
-    }
     pairings = db.scalars(select(Pairing).join(Round).where(Round.tournament_id == tournament_id)).all()
-    for pairing in pairings:
-        a = stats.get(pairing.player_a_registration_id)
-        b = stats.get(pairing.player_b_registration_id) if pairing.player_b_registration_id else None
-        if not a:
-            continue
-        if not b:
-            a["points"] += 3
-            a["wins"] += 1
-            a["game_wins"] += max(pairing.match_wins_a, 2)
-            continue
-        if not pairing.result:
-            continue
-        a["opponents"].append(pairing.player_b_registration_id)
-        b["opponents"].append(pairing.player_a_registration_id)
-        a["game_wins"] += pairing.match_wins_a
-        a["game_losses"] += pairing.match_wins_b
-        a["game_draws"] += pairing.draws
-        b["game_wins"] += pairing.match_wins_b
-        b["game_losses"] += pairing.match_wins_a
-        b["game_draws"] += pairing.draws
-        if pairing.result == "A":
-            a["points"] += 3
-            a["wins"] += 1
-            b["losses"] += 1
-        elif pairing.result == "B":
-            b["points"] += 3
-            b["wins"] += 1
-            a["losses"] += 1
-        else:
-            a["points"] += 1
-            b["points"] += 1
-            a["draws"] += 1
-            b["draws"] += 1
-
-    match_win = {}
-    game_win = {}
-    for registration_id, item in stats.items():
-        rounds_played = item["wins"] + item["losses"] + item["draws"]
-        match_win[registration_id] = (
-            max(item["points"] / (rounds_played * 3), 0.33) if rounds_played else 0.0
-        )
-        games = item["game_wins"] + item["game_losses"] + item["game_draws"]
-        game_win[registration_id] = item["game_wins"] / games if games else 0.0
-
-    rows = []
-    for registration_id, item in stats.items():
-        opponents = item["opponents"]
-        omw = average([match_win[opponent_id] for opponent_id in opponents]) if opponents else 0.0
-        ogw = average([game_win[opponent_id] for opponent_id in opponents]) if opponents else 0.0
-        rows.append(
-            StandingOut(
-                position=0,
-                registration_id=registration_id,
-                name=item["registration"].player.display_name,
-                pod=1,
-                points=item["points"],
-                record=f"{item['wins']}/{item['losses']}/{item['draws']}",
-                match_win_percentage=round(match_win[registration_id] * 100, 1),
-                opponent_match_win_percentage=round(omw * 100, 1),
-                game_win_percentage=round(game_win[registration_id] * 100, 1),
-                opponent_game_win_percentage=round(ogw * 100, 1),
-            )
-        )
-    rows.sort(
-        key=lambda row: (
-            row.points,
-            row.opponent_match_win_percentage,
-            row.game_win_percentage,
-            row.opponent_game_win_percentage,
-        ),
-        reverse=True,
+    swiss_rounds = db.scalar(
+        select(func.count(Round.id)).where(Round.tournament_id == tournament_id, Round.phase == "swiss")
+    ) or 0
+    rows = compute_standings(
+        [StandingPlayer(r.id, r.player.display_name, dropped=r.dropped) for r in registrations],
+        [
+            StandingMatch(p.player_a_registration_id, p.player_b_registration_id, p.result,
+                          p.match_wins_a, p.match_wins_b, p.draws)
+            for p in pairings
+        ],
+        system=get_game(tournament.game if tournament else None).tiebreakers,
+        total_rounds=swiss_rounds,
     )
-    for index, row in enumerate(rows, start=1):
-        row.position = index
-    return rows
+    return [StandingOut(**row) for row in rows]
 
 
 def average(values: list[float]) -> float:
