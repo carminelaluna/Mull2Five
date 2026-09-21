@@ -5,6 +5,16 @@ import { defineConfig, devices } from '@playwright/test';
 const PORT = process.env.E2E_PORT || '5173';
 const BASE_URL = `http://localhost:${PORT}`;
 
+// Su Windows il venv sta dentro WSL: uvicorn va avviato lì anche se node gira su
+// Windows. Su Linux (la CI di GitHub) Python e le dipendenze sono già installati,
+// e il comando wsl non esiste.
+const BACKEND_ENV = 'DATABASE_URL=sqlite:///./e2e_test.db SECRET_KEY=e2e-test-secret-key-32-chars-long!';
+const BACKEND = process.platform === 'win32'
+  ? 'wsl -e bash -c "cd .. && rm -f e2e_test.db && source .venv/bin/activate && '
+    + BACKEND_ENV + ' uvicorn backend.app.main:app --host 127.0.0.1 --port 8000"'
+  : 'cd .. && rm -f e2e_test.db && '
+    + BACKEND_ENV + ' python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000';
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: false,
@@ -26,12 +36,7 @@ export default defineConfig({
      Il backend usa un DB SQLite dedicato e ricreato a ogni run. */
   webServer: [
     {
-      // Il venv è WSL-based: avvia uvicorn dentro WSL anche se node gira su Windows
-      command: 'wsl -e bash -c "cd .. && rm -f e2e_test.db && '
-             + 'source .venv/bin/activate && '
-             + 'DATABASE_URL=sqlite:///./e2e_test.db '
-             + 'SECRET_KEY=e2e-test-secret-key-32-chars-long! '
-             + 'uvicorn backend.app.main:app --host 127.0.0.1 --port 8000"',
+      command: BACKEND,
       url:     'http://127.0.0.1:8000/health',
       reuseExistingServer: true,
       timeout: 60_000,

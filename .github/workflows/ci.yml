@@ -68,6 +68,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # I test E2E girano contro il backend vero: senza Python non parte.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install backend
+        working-directory: .
+        run: pip install -e .
+
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
