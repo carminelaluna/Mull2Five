@@ -2,6 +2,7 @@ import { renderDeck } from './deck-view.js';
 import { esc } from './escape.js';
 import { gameLabel, scoresFor } from './games.js';
 import { t as tr } from './i18n.js';
+import { actingAs, actingBanner, actingHeaders, bindActingBanner, setActing } from './acting.js';
 
 const API       = '/api';
 const TOKEN_KEY = 'mull2five-jwt-v1';
@@ -22,7 +23,8 @@ if (!session || session.exp < Date.now() / 1000) {
 
 /* ── Helpers ─────────────────────────────────────────── */
 async function apiFetch(path, opts = {}) {
-  const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, ...(opts.headers||{}) };
+  // Chi gestisce il profilo di un figlio vede e fa le cose per lui (X-Act-As).
+  const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, ...actingHeaders(), ...(opts.headers||{}) };
   const r = await fetch(API + path, { ...opts, headers });
   if (r.status === 401) { localStorage.removeItem(TOKEN_KEY); location.replace('login.html'); return; }
   if (!r.ok) throw new Error((await r.json().catch(()=>({}))).detail || r.statusText);
@@ -140,7 +142,7 @@ async function buildCard(t, reg) {
       '<span class="badge">Puoi pagare anche all\'evento</span>');
     if (!t.pay_stripe && !t.pay_paypal && !t.pay_at_event) buttons.push(
       '<span class="badge warn">Nessun metodo di pagamento configurato — contatta l\'organizzatore</span>');
-    payActions = `<div class="pay-actions" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">${buttons.join('')}</div>`;
+    payActions = buttons.join('');
   }
 
   /* Decklist — decklist_status: missing | submitted | valid | invalid.
@@ -163,10 +165,10 @@ async function buildCard(t, reg) {
     if (etichetta) parti.push(`<strong style="font-size:.82rem">${esc(etichetta)}</strong>`);
     if (ok) {
       parti.push('<span class="badge ok">Inviata ✓</span>');
-      parti.push(`<button class="ghost" data-action="view-deck" data-tournament-id="${t.id}" data-name="${esc(t.name)}" data-format="${esc(fmt)}" type="button">Vedi</button>`);
+      parti.push(`<button class="mini-button" data-action="view-deck" data-tournament-id="${t.id}" data-name="${esc(t.name)}" data-format="${esc(fmt)}" type="button">Vedi</button>`);
     }
     if (deckOpen) {
-      parti.push(`<button class="ghost" data-action="upload-deck" data-tournament-id="${t.id}" data-reg-id="${reg.id}" data-format="${esc(fmt)}" data-edit="${ok ? '1' : ''}" type="button">${ok ? 'Modifica' : 'Carica'}</button>`);
+      parti.push(`<button class="mini-button" data-action="upload-deck" data-tournament-id="${t.id}" data-reg-id="${reg.id}" data-format="${esc(fmt)}" data-edit="${ok ? '1' : ''}" type="button">${ok ? 'Modifica' : 'Carica'}</button>`);
     } else if (!ok) {
       parti.push('<span class="badge warn">Liste chiuse</span>');
     }
@@ -214,12 +216,12 @@ async function buildCard(t, reg) {
     ? '<span class="badge">Ritirato</span>' : '';
   const canDrop = !reg.dropped && (t.status === 'published' || t.status === 'running');
   const dropBtn = canDrop
-    ? `<button class="ghost" data-action="self-drop" data-tournament-id="${t.id}" data-name="${esc(t.name)}" type="button" style="color:var(--danger,#ef6a5e)">Ritirati</button>`
+    ? `<button class="mini-button danger" data-action="self-drop" data-tournament-id="${t.id}" data-name="${esc(t.name)}" type="button">Ritirati</button>`
     : '';
   // #43 Annulla iscrizione self-service: solo prima dell'inizio (torneo pubblicato).
   const canCancel = !reg.dropped && t.status === 'published';
   const cancelBtn = canCancel
-    ? `<button class="ghost" data-action="self-cancel" data-tournament-id="${t.id}" data-name="${esc(t.name)}" type="button" style="color:var(--danger,#ef6a5e)">Annulla iscrizione</button>`
+    ? `<button class="mini-button danger" data-action="self-cancel" data-tournament-id="${t.id}" data-name="${esc(t.name)}" type="button">Annulla iscrizione</button>`
     : '';
 
   return `<article class="panel reg-card">
@@ -236,15 +238,22 @@ async function buildCard(t, reg) {
         ${waitlistBadge} ${droppedBadge}
       </div>
     </div>
-    <div class="reg-card-meta">
-      <span>${fmtDate(t.starts_on?.substring(0,10))}</span>
-      <span>Entry: ${fmtMoney((t.entry_fee_cents || 0) / 100)}</span>
-      ${payBadge} ${deckBadge} ${dropBtn} ${cancelBtn}
+    <!-- Una riga per argomento, con l'etichetta a sinistra: ogni cosa ha il suo posto. -->
+    <div class="reg-card-rows">
+      <div class="reg-row"><span class="reg-label">${esc(tr('Quando'))}</span>
+        <span class="reg-row-body">${fmtDate(t.starts_on?.substring(0,10))}${t.start_time ? ' · ' + esc(t.start_time) : ''}
+          · ${esc(tr('Quota'))} ${fmtMoney((t.entry_fee_cents || 0) / 100)}</span></div>
+      <div class="reg-row"><span class="reg-label">${esc(tr('Pagamento'))}</span>
+        <span class="reg-row-body">${payBadge}${payActions}</span></div>
+      <div class="reg-row"><span class="reg-label">${esc(tr('Lista'))}</span>
+        <span class="reg-row-body">${deckBadge}</span></div>
+    </div>
+    <div class="reg-card-actions">
       ${t.status === 'completed'
         ? `<a class="secondary-link" href="history.html?t=${t.id}">📊 Risultati e liste</a>`
         : `<a class="secondary-link" href="/api/tournaments/${t.id}/ical">📅 Aggiungi al calendario</a>`}
+      <span class="reg-actions-right">${dropBtn}${cancelBtn}</span>
     </div>
-    ${payActions}
     ${standingsHtml}
     ${pairingsHtml}
   </article>`;
@@ -559,6 +568,8 @@ function playBeep() {
 /* ── Init ────────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', () => {
   updateAuthNav();
+  showActing();
+  loadProfiles();
   loadRegistrations();
   loadHistory();
   setupPushToggle();
@@ -570,6 +581,69 @@ document.addEventListener('DOMContentLoaded', () => {
     if (f) document.querySelector('#deckText').value = await f.text();
   });
 });
+
+/* ── Profili dei minori ──────────────────────────────────
+   Sotto l'età minima non si apre un account: il genitore aggiunge il figlio
+   come profilo, lo iscrive e lo paga lui; al tavolo gioca con il suo nome. */
+function showActing() {
+  const who = actingAs();
+  if (!who) return;
+  document.querySelector('h1').textContent = tr('Le iscrizioni di {nome}', { nome: who.name });
+  document.querySelector('#actingBar').innerHTML = actingBanner();
+  bindActingBanner(document.querySelector('#actingBar'));
+}
+
+async function loadProfiles() {
+  const box = document.querySelector('#profilesBox');
+  if (!box) return;
+  // Un profilo gestito non ne gestisce altri: la sezione è del genitore.
+  if (actingAs()) { document.querySelector('#profilesSection').hidden = true; return; }
+  let profiles = [];
+  let minAge = 14;
+  try {
+    [profiles, minAge] = await Promise.all([
+      apiFetch('/auth/me/profiles'),
+      fetch(API + '/auth/rules').then((r) => r.json()).then((r) => r.min_account_age).catch(() => 14),
+    ]);
+  } catch (err) {
+    box.innerHTML = `<p class="empty">${esc(err.message)}</p>`;
+    return;
+  }
+  box.innerHTML = `
+    <p class="muted-text" style="margin-top:0">${esc(tr('Sotto i {anni} anni non si apre un account da soli: aggiungi qui i tuoi figli. Li iscrivi e paghi tu, e al tavolo giocano con il loro nome.', { anni: minAge }))}</p>
+    ${profiles.map((p) => `
+      <div class="profile-row">
+        <strong>${esc(p.display_name)}</strong>
+        <span class="muted-text">${esc(tr('{n} tornei', { n: p.registrations }))}</span>
+        <span class="profile-actions">
+          <button class="primary" data-act-as="${p.id}" data-name="${esc(p.display_name)}" type="button">${esc(tr('Gestisci le sue iscrizioni'))}</button>
+          ${p.registrations ? '' : `<button class="secondary" data-drop-profile="${p.id}" type="button">${esc(tr('Elimina'))}</button>`}
+        </span>
+      </div>`).join('')}
+    <form id="profileForm" class="profile-form">
+      <input id="profileName" required minlength="2" maxlength="160" placeholder="${esc(tr('Nome e cognome del ragazzo'))}" />
+      <button class="secondary" type="submit">${esc(tr('Aggiungi profilo'))}</button>
+    </form>`;
+  box.querySelectorAll('[data-act-as]').forEach((b) => b.addEventListener('click', () => {
+    setActing({ id: b.dataset.actAs, name: b.dataset.name });
+    location.reload();
+  }));
+  box.querySelectorAll('[data-drop-profile]').forEach((b) => b.addEventListener('click', async () => {
+    if (!confirm(tr('Eliminare il profilo?'))) return;
+    try {
+      await apiFetch(`/auth/me/profiles/${b.dataset.dropProfile}`, { method: 'DELETE' });
+      loadProfiles();
+    } catch (err) { toast(err.message); }
+  }));
+  box.querySelector('#profileForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    try {
+      await apiFetch('/auth/me/profiles', { method: 'POST', body: JSON.stringify({ display_name: box.querySelector('#profileName').value.trim() }) });
+      toast(tr('Profilo aggiunto.'));
+      loadProfiles();
+    } catch (err) { toast(err.message); }
+  });
+}
 
 /* ── Notifiche Web Push ──────────────────────────────── */
 async function setupPushToggle() {
@@ -611,7 +685,7 @@ async function loadHistory() {
   const box = document.querySelector('#historyList');
   if (!box) return;
   try {
-    _history = await apiFetch('/tournaments/me/history') || [];
+    _history = ((await apiFetch('/tournaments/me/history')) || []).filter((r) => r.status === 'completed');
     if (!_history.length) { box.innerHTML = '<p class="empty">Nessun torneo concluso ancora.</p>'; return; }
     box.innerHTML = `<table class="data-table history-table" style="width:100%">
       <thead><tr><th>Torneo</th><th>Data</th><th>Formato</th><th>Piazzamento</th><th>Record</th><th>Punti</th></tr></thead>

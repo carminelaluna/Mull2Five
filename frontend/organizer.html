@@ -43,6 +43,11 @@
       .cell-bottom { min-height:34px; }
       .cell-bottom select { width:auto; min-height:34px; padding:4px 8px; }
       .cell-note { font-size:.8rem; margin-top:4px; }
+      /* Pulsanti e menu non vanno a capo: sugli schermi stretti scorre la tabella,
+         non si spezzano le righe. */
+      table.bo .mini-button, table.bo select { white-space:nowrap; }
+      table.bo.players .cell-bottom { flex-wrap:nowrap; }
+      .table-scroll { overflow-x:auto; }
       /* Nei moduli a griglia, i campi brevi in coppia occupano mezza riga ciascuno:
          a una colonna sola lascerebbero un vuoto a destra. */
       .bo-grid .span-2 { grid-column:span 2; }

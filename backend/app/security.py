@@ -1,6 +1,6 @@
 from datetime import UTC, datetime, timedelta
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -49,7 +49,9 @@ def verify_reset_token(token: str) -> int | None:
         return None
 
 
-def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:
+def get_current_user(
+    request: Request, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)
+) -> User:
     settings = get_settings()
     credentials_error = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -64,6 +66,14 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     user = db.get(User, user_id)
     if not user or not user.is_active:
         raise credentials_error
+    # Un genitore agisce per il profilo che gestisce: iscriverlo, pagarlo,
+    # consegnarne la lista. Vale solo per i suoi profili.
+    acting = request.headers.get("X-Act-As")
+    if acting:
+        profile = db.get(User, int(acting)) if acting.isdigit() else None
+        if not profile or profile.guardian_id != user.id or not profile.is_active:
+            raise HTTPException(status_code=403, detail="Non gestisci questo profilo")
+        return profile
     return user
 
 

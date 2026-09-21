@@ -75,13 +75,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (password.length < 8) { errEl.textContent = 'Password: minimo 8 caratteri.'; return; }
     if (password !== confirm)  { errEl.textContent = 'Le password non coincidono.'; return; }
+    if (!document.querySelector('#regAge').checked) {
+      errEl.textContent = `Per aprire un account servono almeno ${document.querySelector('#regAgeYears').textContent} anni: `
+        + 'un genitore può aggiungerti come profilo dal suo account.';
+      return;
+    }
 
     btn.disabled = true; btn.textContent = 'Registrazione in corso…';
     try {
       const res = await fetch(API + '/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ display_name: name, email, password, role }),
+        body: JSON.stringify({ display_name: name, email, password, role, age_confirmed: true }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -99,3 +104,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 });
+
+// L'età minima la decide il server (MIN_ACCOUNT_AGE).
+fetch(API + '/auth/rules').then((r) => r.json()).then((rules) => {
+  const years = document.querySelector('#regAgeYears');
+  if (years && rules.min_account_age) years.textContent = rules.min_account_age;
+}).catch(() => {});

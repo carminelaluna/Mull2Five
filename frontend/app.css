@@ -753,12 +753,15 @@ html:not([data-games="many"]) .game-detail { display: none; }
 /* Deck check gia fatto: il judge vede subito chi non va ricontrollato. */
 .mini-button.checked { border-color: var(--green); color: var(--green); }
 
-/* Una riga per segmento di formato nella scheda iscrizione del giocatore. */
+/* Una riga per segmento di formato nella scheda iscrizione del giocatore; il
+   riquadro serve solo a separarli quando sono più d'uno. */
 .deck-segment {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   flex-wrap: wrap;
+}
+.deck-segment:has(strong) {
   padding: 4px 8px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -797,3 +800,59 @@ html:not([data-games="many"]) .game-detail { display: none; }
 .reg-fields { display: grid; gap: 12px; }
 .reg-check { display: flex; align-items: center; gap: 8px; }
 .reg-check input[type="checkbox"] { width: auto; flex: none; margin: 0; accent-color: var(--accent); }
+
+/* Chi sta agendo: il profilo del figlio che il genitore gestisce */
+.acting-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  background: var(--accent-dim);
+}
+.profile-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+.profile-actions { display: flex; gap: 8px; margin-left: auto; }
+.profile-form { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+.profile-form input { flex: 1 1 220px; }
+
+/* Scheda di un'iscrizione: una riga per argomento, etichette in colonna */
+.reg-card-rows { display: grid; gap: 8px; }
+.reg-row {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  align-items: center;
+  gap: 12px;
+  min-height: 34px;
+}
+.reg-label {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.reg-row-body { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.reg-card-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+.reg-actions-right { display: flex; gap: 8px; margin-left: auto; }
+@media (max-width: 560px) {
+  .reg-row { grid-template-columns: 1fr; gap: 4px; }
+}

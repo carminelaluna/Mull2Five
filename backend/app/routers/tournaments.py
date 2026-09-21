@@ -1823,15 +1823,20 @@ def add_walk_in(
     tournament = load_owned_tournament(tournament_id, organizer, db)
     if tournament.status in {TournamentStatus.COMPLETED, TournamentStatus.CANCELLED}:
         raise HTTPException(status_code=409, detail="Closed tournaments cannot accept registrations")
-    email = payload.email.lower()
-    player = db.scalar(select(User).where(User.email == email))
+    email = payload.email.lower() if payload.email else None
+    player = db.scalar(select(User).where(User.email == email)) if email else None
     if not player:
+        # Senza email è un ospite: un indirizzo finto (.invalid) che nessuno usa
+        # per entrare e a cui non parte nessuna email.
+        from uuid import uuid4
+
         player = User(
-            email=email,
+            email=email or f"guest-{uuid4().hex}@guests.mull2five.invalid",
             display_name=payload.display_name,
             role=UserRole.PLAYER,
             password_hash=None,
             is_active=True,
+            is_guest=not email,
         )
         db.add(player)
         db.flush()
@@ -3272,6 +3277,9 @@ def organizer_registration_out(
         prize_note=registration.prize_note or "",
         prize_given_at=registration.prize_given_at,
         byes=registration.byes or 0,
+        player_kind=registration.player.kind,
+        guardian_name=registration.player.guardian.display_name if registration.player.guardian else None,
+        guardian_email=registration.player.guardian.email if registration.player.guardian else None,
     )
 
 

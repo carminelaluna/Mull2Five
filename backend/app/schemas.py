@@ -16,6 +16,19 @@ class UserCreate(BaseModel):
     display_name: str = Field(min_length=2, max_length=160)
     password: str = Field(min_length=8)
     role: str = "player"
+    # Il modulo chiede di confermare l'età minima: False blocca la registrazione.
+    age_confirmed: bool | None = None
+
+
+class ProfileIn(BaseModel):
+    display_name: str = Field(min_length=2, max_length=160)
+
+
+class ProfileOut(BaseModel):
+    id: int
+    display_name: str
+    created_at: datetime
+    registrations: int = 0
 
 
 class LoginIn(BaseModel):
@@ -289,8 +302,9 @@ class RegistrationFieldOut(BaseModel):
 
 
 class WalkInIn(BaseModel):
-    """Iscrizione 'al banco' creata dall'organizzatore per un giocatore presente."""
-    email: EmailStr
+    """Iscrizione 'al banco' creata dall'organizzatore per un giocatore presente.
+    Senza email il giocatore è un ospite: gioca, ma non ha un account."""
+    email: EmailStr | None = None
     display_name: str = Field(min_length=2, max_length=160)
     wizards_account: str = ""
     mark_paid: bool = True
@@ -751,6 +765,10 @@ class OrganizerRegistrationOut(RegistrationOut):
     prize_note: str = ""
     prize_given_at: datetime | None = None
     byes: int = 0
+    # account | profile (un minore, gestito da un genitore) | guest (senza account)
+    player_kind: str = "account"
+    guardian_name: str | None = None
+    guardian_email: str | None = None
 
 
 class TournamentControlsIn(BaseModel):

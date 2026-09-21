@@ -306,13 +306,26 @@ class User(Base):
     password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
+    # Profilo gestito (un minore): niente email né password, lo iscrive e lo segue
+    # l'account del genitore.
+    guardian_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    # Ospite iscritto al banco senza email: gioca, ma non ha un account.
+    is_guest: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
 
+    guardian: Mapped["User | None"] = relationship(remote_side="User.id", foreign_keys=[guardian_id])
     oauth_accounts: Mapped[list["OAuthAccount"]] = relationship(back_populates="user")
     tournaments: Mapped[list["Tournament"]] = relationship(back_populates="organizer")
     registrations: Mapped[list["Registration"]] = relationship(
         back_populates="player", foreign_keys="Registration.player_id"
     )
     push_subscriptions: Mapped[list["PushSubscription"]] = relationship(back_populates="user")
+
+    @property
+    def kind(self) -> str:
+        """account, profilo gestito da un genitore, o ospite senza account."""
+        return "guest" if self.is_guest else "profile" if self.guardian_id else "account"
 
 
 class PushSubscription(Base):

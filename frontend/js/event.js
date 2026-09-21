@@ -1,6 +1,7 @@
 import { esc } from './escape.js';
 import { bestOfLabel, gameInfo, gameLabel } from './games.js';
 import { t as tr } from './i18n.js';
+import { actingAs, actingBanner, actingHeaders, bindActingBanner, setActing } from './acting.js';
 
 const API = '/api';
 const params = new URLSearchParams(location.search);
@@ -8,7 +9,7 @@ const TOURNAMENT_ID = params.get('id');
 
 async function apiFetch(path, opts = {}) {
   const token = localStorage.getItem('mull2five-jwt-v1');
-  const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+  const headers = { 'Content-Type': 'application/json', ...(token ? actingHeaders() : {}), ...(opts.headers || {}) };
   if (token) headers['Authorization'] = `Bearer ${token}`;
   const r = await fetch(API + path, { ...opts, headers });
   if (!r.ok) throw new Error((await r.json().catch(()=>({}))).detail || r.statusText);
@@ -54,7 +55,7 @@ async function loadEvent() {
       : '';
 
     document.title = `${t.name} — Mull2Five`;
-    document.querySelector('#eventDetail').innerHTML = `
+    document.querySelector('#eventDetail').innerHTML = `${actingBanner()}
       <div class="event-detail-header">
         <div>
           <span class="game-badge game-${esc(t.game || 'mtg')}">${esc(gameLabel(t.game))}</span>
@@ -102,12 +103,19 @@ async function loadEvent() {
         : '';
       // L'identificativo richiesto è quello dell'editore del gioco.
       document.querySelector('#regIdLabel').textContent = game?.publisher_id_label || 'Wizards Account';
+      // Chi gestisce i profili dei figli sceglie chi iscrive (X-Act-As vuota: l'account).
+      const profiles = await apiFetch('/auth/me/profiles', { headers: { 'X-Act-As': '' } }).catch(() => []);
+      const acting = actingAs();
+      document.querySelector('#regWhoWrap').style.display = profiles.length ? '' : 'none';
+      document.querySelector('#regWho').innerHTML = `<option value="">${esc(tr('Me stesso'))}</option>`
+        + profiles.map((p) => `<option value="${p.id}"${acting?.id === p.id ? ' selected' : ''}>${esc(p.display_name)}</option>`).join('');
       // Le domande in più che l'organizzatore ha messo al torneo.
       const fields = await apiFetch(`/tournaments/${t.id}/fields`).catch(() => []);
       document.querySelector('#regFields').innerHTML = fields.map(fieldInput).join('');
       document.querySelector('#registerDialog').showModal();
     });
     document.querySelector('#confirmRegister')?.addEventListener('click', () => doRegister(t));
+    bindActingBanner(document.querySelector('#eventDetail'));
 
   } catch (err) {
     document.querySelector('#eventDetail').innerHTML = `<p class="empty">Errore: ${esc(err.message)}</p>`;
@@ -138,8 +146,10 @@ async function doRegister(t) {
   const btn = document.querySelector('#confirmRegister');
   btn.disabled = true; btn.textContent = 'Iscrizione in corso…';
   try {
+    const who = document.querySelector('#regWho')?.value || '';
     const reg = await apiFetch(`/tournaments/${t.id}/registrations`, {
       method: 'POST',
+      headers: { 'X-Act-As': who },
       body: JSON.stringify({
         player_display_name: getSession()?.email || '',
         wizards_account:     document.querySelector('#regWizards').value.trim(),
@@ -148,6 +158,8 @@ async function doRegister(t) {
       }),
     });
     document.querySelector('#registerDialog').close();
+    // Si prosegue come chi è stato iscritto: il pagamento è dalle sue iscrizioni.
+    setActing(who ? { id: who, name: document.querySelector('#regWho').selectedOptions[0].textContent } : null);
     // La registrazione crea l'iscrizione in stato "pending": il pagamento
     // avviene da "Le mie iscrizioni", dove sono mostrati i metodi abilitati.
     toast('Iscrizione effettuata! Completa il pagamento dalle tue iscrizioni.');

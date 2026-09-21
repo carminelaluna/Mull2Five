@@ -649,6 +649,16 @@ const DECK_LABELS = { missing: 'Mancante', submitted: 'Consegnata', valid: 'Vali
 const cell = (top, bottom = '', note = '') =>
   `<div class="cell"><div class="cell-top">${top}</div><div class="cell-bottom">${bottom}</div></div>${note}`;
 
+/* Come si raggiunge il giocatore: la sua email, quella del genitore per un
+   minore, nessuna per un ospite. */
+function contactLine(r) {
+  if (r.player_kind === 'guest') return `<span class="pill">${esc(tr('ospite'))}</span>`;
+  if (r.player_kind === 'profile') {
+    return `<small class="muted">${esc(tr('minore · genitore: {nome}', { nome: r.guardian_name || '' }))}${r.guardian_email ? ' · ' + esc(r.guardian_email) : ''}</small>`;
+  }
+  return `<small class="muted">${esc(r.player_email)}</small>`;
+}
+
 function playerRow(r) {
   const name = r.player?.display_name || r.player_email;
   const paid = ['paid', 'confirmed'].includes(r.payment_status);
@@ -680,7 +690,7 @@ function playerRow(r) {
         `<strong>${esc(name)}</strong>
          ${r.waitlisted ? '<span class="pill warn">attesa</span>' : ''}${r.dropped ? '<span class="pill">drop</span>' : ''}
          ${r.byes && !_byesEditable ? `<span class="pill ok">${esc(tr('{n} bye', { n: r.byes }))}</span>` : ''}`,
-        `<small class="muted">${esc(r.player_email)}</small>`,
+        contactLine(r),
         `${answers ? `<div class="cell-note">${answers}</div>` : ''}${tags ? `<div class="cell-note">${tags}</div>` : ''}`,
       )}
     </td>
@@ -768,12 +778,12 @@ function drawGiocatori(t) {
       </details>
 
       <input id="gFilter" placeholder="Filtra per nome, email o tag…" style="width:100%;margin-bottom:10px" />
-      <table class="bo players">
+<div class="table-scroll">      <table class="bo players">
         <thead><tr>
           <th>Giocatore</th><th>Pagamento</th><th>Check-in</th><th>Lista</th><th>Penalità</th><th></th>
         </tr></thead>
         <tbody id="gBody">${rows}</tbody>
-      </table>
+      </table></div>
     </div>`;
 
   $('#gWalkIn').addEventListener('click', () => openWalkInDialog(t.id));
@@ -930,7 +940,7 @@ function openWalkInDialog(tid) {
       <header><div><span class="eyebrow">Iscrizione</span><h2>Iscrivi al banco</h2></div>
         <button class="icon-button" value="cancel" formnovalidate>&times;</button></header>
       <div class="bo-grid">
-        <label>Email<input id="wEmail" type="email" required placeholder="player@email.com" /></label>
+        <label>Email <small class="muted">${esc(tr('(vuota: ospite senza account)'))}</small><input id="wEmail" type="email" placeholder="player@email.com" /></label>
         <label>Nome<input id="wName" required placeholder="Mario Rossi" /></label>
         <label>Wizards<input id="wWiz" placeholder="##########" /></label>
         <label class="bo-check"><input id="wPaid" type="checkbox" checked /> Pagato (contanti)</label>
@@ -943,12 +953,12 @@ function openWalkInDialog(tid) {
   dlg.showModal();
   $('#wSubmit').addEventListener('click', async () => {
     const body = {
-      email: $('#wEmail').value.trim(),
+      email: $('#wEmail').value.trim() || null,
       display_name: $('#wName').value.trim(),
       wizards_account: $('#wWiz').value.trim(),
       mark_paid: $('#wPaid').checked,
     };
-    if (!body.email || !body.display_name) { toast('Email e nome obbligatori.'); return; }
+    if (!body.display_name) { toast(tr('Il nome è obbligatorio.')); return; }
     try {
       await apiFetch(`/tournaments/${tid}/walk-in`, { method: 'POST', body: JSON.stringify(body) });
       dlg.close();
@@ -1421,7 +1431,8 @@ function downloadPlayersCsv(t) {
   const state = (r) => (r.dropped ? 'drop' : r.waitlisted ? 'attesa' : 'iscritto');
   const header = ['Nome', 'Email', 'ID editore', 'Pagamento', 'Check-in', 'Stato', ..._fields.map((f) => f.label)];
   const rows = _players.map((r) => [
-    r.player?.display_name || '', r.player_email, r.wizards_account, r.payment_status,
+    r.player?.display_name || '', r.player_kind === 'account' ? r.player_email : (r.guardian_email || ''),
+    r.wizards_account, r.payment_status,
     r.checked_in ? 'sì' : '', state(r), ..._fields.map((f) => r.answers?.[f.id] || ''),
   ]);
   const name = String(t.name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');

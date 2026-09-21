@@ -197,7 +197,7 @@ pagamenti ai negozi in fondo, sono il pezzo più grosso.
 - [x] 10. Import degli iscritti da file: CSV con virgole o punti e virgola, anteprima riga per riga, poi l'import
 - [x] 11. Togli chi non ha pagato (con anteprima, prima dell'avvio); premi consegnati segnati in classifica e nel registro
 - [x] 12. Bye assegnati (0-3, prima dell'avvio), bye naturale mai due volte allo stesso giocatore, sconfitta a tavolino per chi non si presenta
-- [ ] 13. Account ospite e minori con genitore
+- [x] 13. Ospiti al banco senza email; minori come profili gestiti dal genitore (X-Act-As); età minima alla registrazione (MIN_ACCOUNT_AGE, 14)
 - [ ] 14. Posti fissi e pod di draft
 - [ ] 15. Tornei a squadre
 - [ ] 16. Storico penalità del giocatore per i judge

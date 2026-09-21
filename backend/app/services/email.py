@@ -8,6 +8,10 @@ def send_email(to_email: str, subject: str, body: str, html_body: str | None = N
     settings = get_settings()
     if not settings.smtp_host:
         return False
+    # Ospiti, profili dei minori e account eliminati hanno un indirizzo finto
+    # (.invalid): a quelli non si scrive.
+    if to_email.lower().endswith(".invalid"):
+        return False
 
     message = EmailMessage()
     message["From"] = settings.smtp_from_email

@@ -72,6 +72,10 @@ class Settings(BaseSettings):
     # si accendono qui.
     enabled_games: str = "mtg"
 
+    # Sotto quest'età non si apre un account da soli: un genitore aggiunge il
+    # ragazzo come profilo gestito dal suo (14 anni è il consenso digitale in Italia).
+    min_account_age: int = 14
+
 
 @lru_cache
 def get_settings() -> Settings:
