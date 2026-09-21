@@ -210,6 +210,32 @@ class TournamentOut(BaseModel):
 
 class RegistrationCreate(BaseModel):
     wizards_account: str = ""
+    # Le risposte alle domande del torneo, per id della domanda.
+    answers: dict[int, str | bool] = {}
+
+
+class RegistrationFieldIn(BaseModel):
+    id: int | None = None       # presente: la domanda esiste già e tiene le sue risposte
+    label: str = Field(min_length=1, max_length=160)
+    kind: Literal["text", "choice", "checkbox"] = "text"
+    options: list[str] = []
+    required: bool = False
+
+    @model_validator(mode="after")
+    def _choices(self) -> RegistrationFieldIn:
+        self.options = [o.strip() for o in self.options if o.strip()]
+        if self.kind == "choice" and len(self.options) < 2:
+            raise ValueError(f"«{self.label}»: servono almeno due scelte")
+        return self
+
+
+class RegistrationFieldOut(BaseModel):
+    id: int
+    label: str
+    kind: str
+    options: list[str]
+    required: bool
+    position: int
 
 
 class WalkInIn(BaseModel):
@@ -218,6 +244,7 @@ class WalkInIn(BaseModel):
     display_name: str = Field(min_length=2, max_length=160)
     wizards_account: str = ""
     mark_paid: bool = True
+    answers: dict[int, str | bool] = {}
 
 
 class TimerRestartIn(BaseModel):
@@ -669,6 +696,8 @@ class OrganizerRegistrationOut(RegistrationOut):
     payment_provider: str | None = None
     decklist_revision_count: int = 0
     tags: list[PlayerTagOut] = []
+    # Le risposte alle domande del torneo, per id della domanda.
+    answers: dict[int, str] = {}
 
 
 class TournamentControlsIn(BaseModel):

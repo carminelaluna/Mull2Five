@@ -92,7 +92,7 @@ async function loadEvent() {
         ${t.refund_policy ? `<div class="panel"><h3>Policy rimborsi</h3><p>${esc(t.refund_policy)}</p></div>` : ''}
       </div>`;
 
-    document.querySelector('#registerBtn')?.addEventListener('click', () => {
+    document.querySelector('#registerBtn')?.addEventListener('click', async () => {
       document.querySelector('#registerTitle').textContent = t.name;
       // Si vede a chi ci si iscrive prima di confermare, non solo dopo.
       document.querySelector('#registerOrganizer').textContent = t.organizer_name
@@ -100,6 +100,9 @@ async function loadEvent() {
         : '';
       // L'identificativo richiesto è quello dell'editore del gioco.
       document.querySelector('#regIdLabel').textContent = game?.publisher_id_label || 'Wizards Account';
+      // Le domande in più che l'organizzatore ha messo al torneo.
+      const fields = await apiFetch(`/tournaments/${t.id}/fields`).catch(() => []);
+      document.querySelector('#regFields').innerHTML = fields.map(fieldInput).join('');
       document.querySelector('#registerDialog').showModal();
     });
     document.querySelector('#confirmRegister')?.addEventListener('click', () => doRegister(t));
@@ -107,6 +110,26 @@ async function loadEvent() {
   } catch (err) {
     document.querySelector('#eventDetail').innerHTML = `<p class="empty">Errore: ${esc(err.message)}</p>`;
   }
+}
+
+function fieldInput(f) {
+  const optional = f.required ? '' : ` <span class="muted-text">(${esc(tr('opzionale'))})</span>`;
+  if (f.kind === 'checkbox') {
+    return `<label class="reg-check"><input type="checkbox" data-field="${f.id}" /> ${esc(f.label)}${optional}</label>`;
+  }
+  if (f.kind === 'choice') {
+    return `<label><span>${esc(f.label)}${optional}</span><select data-field="${f.id}">
+      <option value="">—</option>${f.options.map((o) => `<option>${esc(o)}</option>`).join('')}</select></label>`;
+  }
+  return `<label><span>${esc(f.label)}${optional}</span><input data-field="${f.id}" maxlength="1000" /></label>`;
+}
+
+function collectAnswers() {
+  const answers = {};
+  document.querySelectorAll('#regFields [data-field]').forEach((el) => {
+    answers[el.dataset.field] = el.type === 'checkbox' ? el.checked : el.value.trim();
+  });
+  return answers;
 }
 
 async function doRegister(t) {
@@ -119,6 +142,7 @@ async function doRegister(t) {
         player_display_name: getSession()?.email || '',
         wizards_account:     document.querySelector('#regWizards').value.trim(),
         payment_provider:    document.querySelector('#regPayment').value,
+        answers:             collectAnswers(),
       }),
     });
     document.querySelector('#registerDialog').close();

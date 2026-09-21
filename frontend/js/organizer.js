@@ -588,6 +588,7 @@ function openRepeatDialog(id) {
    così la tabella resta leggibile anche con sessanta iscritti. */
 
 let _players = [];          // iscrizioni, complete di tag e stato lista
+let _fields = [];           // domande all'iscrizione del torneo aperto
 let _penalties = [];        // penalità del torneo, per contarle sulla riga
 
 const DECK_BADGE = { valid: 'ok', invalid: 'warn', submitted: 'ok', missing: '' };
@@ -601,9 +602,10 @@ async function renderGiocatori() {
   if (!t) { $('#panel').innerHTML = '<p class="empty">Apri un evento dalla lista.</p>'; return; }
   $('#panel').innerHTML = '<p class="empty">Caricamento giocatori…</p>';
   try {
-    [_players, _penalties] = await Promise.all([
+    [_players, _penalties, _fields] = await Promise.all([
       fetchAllRegs(t.id),
       apiFetch(`/tournaments/${t.id}/penalties`).catch(() => []),
+      apiFetch(`/tournaments/${t.id}/fields`).catch(() => []),
     ]);
   } catch (err) {
     $('#panel').innerHTML = `<p class="empty">Errore: ${esc(err.message)}</p>`;
@@ -614,6 +616,12 @@ async function renderGiocatori() {
 
 function penaltiesOf(regId) {
   return _penalties.filter(p => String(p.registration_id) === String(regId));
+}
+
+/** Le risposte alle domande del torneo, in una riga sotto il nome. */
+function answersLine(r) {
+  const parts = _fields.filter((f) => r.answers?.[f.id]).map((f) => `${esc(f.label)}: ${esc(r.answers[f.id])}`);
+  return parts.length ? `<br><small class="muted">${parts.join(' · ')}</small>` : '';
 }
 
 function playerRow(r) {
@@ -630,6 +638,7 @@ function playerRow(r) {
       <strong>${esc(name)}</strong>
       ${r.waitlisted ? '<span class="pill warn">attesa</span>' : ''}${r.dropped ? '<span class="pill">drop</span>' : ''}
       <br><small class="muted">${esc(r.player_email)}</small>
+      ${answersLine(r)}
       ${tags ? `<br>${tags}` : ''}
     </td>
     <td>
@@ -681,7 +690,10 @@ function drawGiocatori(t) {
     <div class="panel" style="margin-bottom:16px">
       <div class="bo-head" style="margin-bottom:12px">
         <h3 style="margin:0">Giocatori (${_players.length})</h3>
-        <button class="primary" id="gWalkIn" type="button">+ Iscrivi al banco</button>
+        <div class="row-actions">
+          <button class="secondary" id="gCsv" type="button">${esc(tr('Esporta CSV'))}</button>
+          <button class="primary" id="gWalkIn" type="button">+ Iscrivi al banco</button>
+        </div>
       </div>
       <div class="profile-stats" style="margin-bottom:14px">
         <div class="profile-stat"><strong>${pagati}</strong><span>paganti</span></div>
@@ -719,6 +731,7 @@ function drawGiocatori(t) {
     </div>`;
 
   $('#gWalkIn').addEventListener('click', () => openWalkInDialog(t.id));
+  $('#gCsv').addEventListener('click', () => downloadPlayersCsv(t));
   $('#ctlSaveControls').addEventListener('click', () => saveDecklistControls(t.id));
   $('#gFilter').addEventListener('input', (e) => {
     const q = e.target.value.toLowerCase();
@@ -1177,6 +1190,37 @@ async function loadMetaStats(tid) {
   box.innerHTML = `<div class="panel"><h3>Statistiche meta</h3>
     <table class="bo"><thead><tr><th>Archetipo</th><th>Giocatori</th><th>Record (W-D-L)</th><th>Win rate</th></tr></thead>
     <tbody>${rows}</tbody></table></div>`;
+}
+
+/* Una cella CSV. Le risposte le scrivono i giocatori: un testo che comincia
+   con = + - @ un foglio di calcolo lo eseguirebbe come formula, quindi si
+   apre con un apice e resta testo. */
+function csvCell(value) {
+  let s = String(value ?? '');
+  if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+  return `"${s.replace(/"/g, '""')}"`;
+}
+
+function downloadCsv(filename, rows) {
+  const blob = new Blob(['\ufeff' + rows.map((row) => row.map(csvCell).join(',')).join('\n')],
+    { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* Gli iscritti con le risposte alle domande: per le magliette, i tavoli, la cassa. */
+function downloadPlayersCsv(t) {
+  const state = (r) => (r.dropped ? 'drop' : r.waitlisted ? 'attesa' : 'iscritto');
+  const header = ['Nome', 'Email', 'ID editore', 'Pagamento', 'Check-in', 'Stato', ..._fields.map((f) => f.label)];
+  const rows = _players.map((r) => [
+    r.player?.display_name || '', r.player_email, r.wizards_account, r.payment_status,
+    r.checked_in ? 'sì' : '', state(r), ..._fields.map((f) => r.answers?.[f.id] || ''),
+  ]);
+  const name = String(t.name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  downloadCsv(`iscritti-${name || t.id}.csv`, [header, ...rows]);
 }
 
 /* Genera e scarica il report incassi in CSV (lato client). */
@@ -2043,7 +2087,9 @@ async function renderImpostazioni() {
           ${esc(tr('Applica le modifiche anche ai {n} tornei successivi della serie', { n: following.length }))}</label>` : ''}
         <button class="primary" type="submit" id="sSave">${esc(tr('Salva le modifiche'))}</button>
       </div>
-    </form>`;
+    </form>
+    <div id="fieldsBox" style="margin-top:16px"></div>`;
+  renderFieldsEditor(t);
 
   // Cambiando gioco cambiano i formati proposti e, a torneo non avviato, il formato dei match.
   const syncFormats = (fromUser) => {
@@ -2108,6 +2154,78 @@ async function renderImpostazioni() {
       save.disabled = false;
     }
   });
+}
+
+/* ── DOMANDE ALL'ISCRIZIONE ──────────────────────────────
+   Quello che il torneo chiede in più a chi si iscrive. Si salvano tutte
+   insieme: le domande che restano tengono le risposte già date. */
+const FIELD_KINDS = [
+  { value: 'text', label: 'Testo libero' },
+  { value: 'choice', label: 'Scelta tra opzioni' },
+  { value: 'checkbox', label: 'Casella da spuntare' },
+];
+
+async function renderFieldsEditor(t) {
+  const box = $('#fieldsBox');
+  if (!box) return;
+  const saved = await apiFetch(`/tournaments/${t.id}/fields`).catch(() => []);
+  const toDraft = (list) => list.map((f) => ({ id: f.id, label: f.label, kind: f.kind, options: f.options.join('\n'), required: f.required }));
+  let draft = toDraft(saved);
+  let savedIds = new Set(saved.map((f) => f.id));
+
+  const draw = () => {
+    box.innerHTML = `<div class="panel">
+      <h3>${esc(tr("Domande all'iscrizione"))}</h3>
+      <p class="muted" style="margin-top:0;font-size:.85rem">${esc(tr('Le vede chi si iscrive, le risposte le trovi nella scheda Giocatori e nel CSV. Una casella obbligatoria va spuntata per iscriversi: serve per "accetto il regolamento".'))}</p>
+      ${draft.map((f, i) => `<div class="field-row" data-i="${i}">
+        <input data-k="label" value="${esc(f.label)}" maxlength="160" placeholder="${esc(tr('Domanda'))}" />
+        <select data-k="kind">${FIELD_KINDS.map((k) => `<option value="${k.value}"${k.value === f.kind ? ' selected' : ''}>${esc(tr(k.label))}</option>`).join('')}</select>
+        <label class="bo-check"><input type="checkbox" data-k="required"${f.required ? ' checked' : ''} /> ${esc(tr('Obbligatoria'))}</label>
+        <div class="row-actions">
+          <button class="mini-button" data-move="-1" type="button" ${i === 0 ? 'disabled' : ''} aria-label="${esc(tr('Su'))}">↑</button>
+          <button class="mini-button" data-move="1" type="button" ${i === draft.length - 1 ? 'disabled' : ''} aria-label="${esc(tr('Giù'))}">↓</button>
+          <button class="mini-button" data-remove type="button" style="color:var(--danger)">${esc(tr('Togli'))}</button>
+        </div>
+        ${f.kind === 'choice' ? `<textarea data-k="options" placeholder="${esc(tr('Una scelta per riga'))}">${esc(f.options)}</textarea>` : ''}
+      </div>`).join('') || `<p class="muted">${esc(tr("Nessuna domanda: all'iscrizione si chiede solo l'ID dell'editore."))}</p>`}
+      <div class="row-actions" style="margin-top:8px">
+        <button class="secondary" id="fAdd" type="button">${esc(tr('+ Aggiungi domanda'))}</button>
+        <button class="primary" id="fSave" type="button">${esc(tr('Salva le domande'))}</button>
+      </div>
+    </div>`;
+
+    box.querySelectorAll('.field-row').forEach((row) => {
+      const f = draft[+row.dataset.i];
+      row.querySelectorAll('[data-k]').forEach((el) => el.addEventListener(el.type === 'checkbox' || el.tagName === 'SELECT' ? 'change' : 'input', () => {
+        f[el.dataset.k] = el.type === 'checkbox' ? el.checked : el.value;
+        if (el.dataset.k === 'kind') draw();   // le opzioni compaiono solo per le scelte
+      }));
+      row.querySelectorAll('[data-move]').forEach((b) => b.addEventListener('click', () => {
+        const i = +row.dataset.i;
+        const j = i + +b.dataset.move;
+        [draft[i], draft[j]] = [draft[j], draft[i]];
+        draw();
+      }));
+      row.querySelector('[data-remove]').addEventListener('click', () => { draft.splice(+row.dataset.i, 1); draw(); });
+    });
+    $('#fAdd').addEventListener('click', () => { draft.push({ id: null, label: '', kind: 'text', options: '', required: false }); draw(); });
+    $('#fSave').addEventListener('click', async () => {
+      const removed = [...savedIds].filter((id) => !draft.some((f) => f.id === id));
+      if (removed.length && !confirm(tr('Le risposte alle domande tolte vanno perse. Continuare?'))) return;
+      const body = draft.filter((f) => f.label.trim()).map((f) => ({
+        id: f.id, label: f.label.trim(), kind: f.kind, required: f.required,
+        options: f.kind === 'choice' ? f.options.split('\n') : [],
+      }));
+      try {
+        const result = await apiFetch(`/tournaments/${t.id}/fields`, { method: 'PUT', body: JSON.stringify(body) });
+        draft = toDraft(result);
+        savedIds = new Set(result.map((f) => f.id));
+        toast(tr('Domande salvate.'));
+        draw();
+      } catch (err) { toast('Errore: ' + err.message); }
+    });
+  };
+  draw();
 }
 
 /* ── STAFF DEL TORNEO ────────────────────────────────────

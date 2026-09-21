@@ -776,3 +776,20 @@ dialog.deck-view-dialog { max-width: min(1100px, 94vw); width: 100%; }
   background: var(--panel);
   font-size: .9rem;
 }
+
+/* Domande all'iscrizione: l'editor nel back-office e le caselle nel modulo */
+.field-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) 190px auto auto;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+.field-row textarea { grid-column: 1 / -1; min-height: 96px; }
+@media (max-width: 720px) {
+  .field-row { grid-template-columns: 1fr; }
+}
+.reg-fields { display: grid; gap: 12px; }
+.reg-check { display: flex; align-items: center; gap: 8px; }
+.reg-check input[type="checkbox"] { width: auto; flex: none; margin: 0; accent-color: var(--accent); }

@@ -258,6 +258,37 @@ class TournamentSeries(Base):
     created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
 
 
+class RegistrationField(Base):
+    """Una domanda in più all'iscrizione, decisa dall'organizzatore: la taglia
+    della maglietta, l'archetipo del mazzo, "accetto il regolamento"."""
+    __tablename__ = "registration_fields"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tournament_id: Mapped[int] = mapped_column(ForeignKey("tournaments.id", ondelete="CASCADE"), index=True)
+    label: Mapped[str] = mapped_column(String(160))
+    kind: Mapped[str] = mapped_column(String(20), default="text")    # text | choice | checkbox
+    # Le scelte possibili, una per riga (solo per "choice").
+    options: Mapped[str] = mapped_column(Text, default="", server_default="")
+    required: Mapped[bool] = mapped_column(Boolean, default=False)
+    position: Mapped[int] = mapped_column(Integer, default=0)
+
+    @property
+    def option_list(self) -> list[str]:
+        return [line for line in self.options.splitlines() if line.strip()]
+
+
+class RegistrationAnswer(Base):
+    __tablename__ = "registration_answers"
+    __table_args__ = (UniqueConstraint("registration_id", "field_id"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    registration_id: Mapped[int] = mapped_column(
+        ForeignKey("registrations.id", ondelete="CASCADE"), index=True
+    )
+    field_id: Mapped[int] = mapped_column(ForeignKey("registration_fields.id", ondelete="CASCADE"))
+    value: Mapped[str] = mapped_column(Text, default="")
+
+
 class User(Base):
     __tablename__ = "users"
 

@@ -36,6 +36,8 @@ from backend.app.models import (
     PlayerTag,
     PlayerTagAssignment,
     Registration,
+    RegistrationAnswer,
+    RegistrationField,
     RegistrationMode,
     ResultReportStatus,
     Round,
@@ -84,6 +86,8 @@ from backend.app.schemas import (
     RefundRequestIn,
     RegenerateRoundIn,
     RegistrationCreate,
+    RegistrationFieldIn,
+    RegistrationFieldOut,
     RegistrationOut,
     RepeatIn,
     RepeatPreviewOut,
@@ -197,6 +201,102 @@ def tournament_out(tournament: Tournament, registered: int, db: Session) -> Tour
         "event_name": event.name if event else None,
         "decklist_formats": [""] + sorted(f for f in segments if f),
     })
+
+
+# ── Domande all'iscrizione ────────────────────────────────────
+
+
+def _field_out(field: RegistrationField) -> RegistrationFieldOut:
+    return RegistrationFieldOut(id=field.id, label=field.label, kind=field.kind,
+                                options=field.option_list, required=field.required, position=field.position)
+
+
+def _fields_of(tournament_id: int, db: Session) -> list[RegistrationField]:
+    return list(db.scalars(
+        select(RegistrationField).where(RegistrationField.tournament_id == tournament_id)
+        .order_by(RegistrationField.position, RegistrationField.id)
+    ).all())
+
+
+@router.get("/{tournament_id}/fields", response_model=list[RegistrationFieldOut])
+def list_fields(tournament_id: int, db: Session = Depends(get_db)) -> list[RegistrationFieldOut]:
+    """Le domande del torneo: pubbliche, servono al modulo d'iscrizione."""
+    return [_field_out(f) for f in _fields_of(tournament_id, db)]
+
+
+@router.put("/{tournament_id}/fields", response_model=list[RegistrationFieldOut])
+def replace_fields(
+    tournament_id: int,
+    payload: list[RegistrationFieldIn],
+    organizer: User = Depends(require_organizer),
+    db: Session = Depends(get_db),
+) -> list[RegistrationFieldOut]:
+    """Le domande, tutte insieme e nell'ordine voluto. Quelle che mantengono il
+    loro id tengono le risposte già date; quelle che mancano spariscono, con le
+    loro risposte."""
+    tournament = load_owned_tournament(tournament_id, organizer, db)
+    existing = {f.id: f for f in _fields_of(tournament.id, db)}
+    kept: set[int] = set()
+    for position, item in enumerate(payload):
+        field = existing.get(item.id) if item.id else None
+        if item.id and not field:
+            raise HTTPException(status_code=404, detail=f"Domanda {item.id} non trovata")
+        if field is None:
+            field = RegistrationField(tournament_id=tournament.id)
+            db.add(field)
+        field.label, field.kind, field.required = item.label.strip(), item.kind, item.required
+        field.options = "\n".join(item.options)
+        field.position = position
+        if item.id:
+            kept.add(item.id)
+    for field_id, field in existing.items():
+        if field_id not in kept:
+            db.execute(delete(RegistrationAnswer).where(RegistrationAnswer.field_id == field_id))
+            db.delete(field)
+    db.commit()
+    from backend.app.core.cache import cache_invalidate
+    cache_invalidate(f"registrations:{tournament.id}")
+    return [_field_out(f) for f in _fields_of(tournament.id, db)]
+
+
+def validate_answers(
+    tournament_id: int, raw: dict[int, str | bool], db: Session, enforce_required: bool = True
+) -> dict[int, str]:
+    """Controlla le risposte contro le domande del torneo e le rende testo.
+    Al banco le obbligatorie si possono lasciare vuote: decide chi iscrive."""
+    fields = {f.id: f for f in _fields_of(tournament_id, db)}
+    if set(raw) - set(fields):
+        raise HTTPException(status_code=422, detail="Risposta a una domanda che il torneo non ha")
+    answers: dict[int, str] = {}
+    for field in fields.values():
+        value = raw.get(field.id)
+        if field.kind == "checkbox":
+            text = "sì" if value is True or str(value).lower() in {"true", "sì", "si", "1"} else ""
+        else:
+            text = str(value).strip() if value not in (None, False) else ""
+        if field.kind == "choice" and text and text not in field.option_list:
+            raise HTTPException(status_code=422, detail=f"«{field.label}»: scegli una delle opzioni")
+        if enforce_required and field.required and not text:
+            raise HTTPException(status_code=422, detail=f"Rispondi a «{field.label}»")
+        if text:
+            answers[field.id] = text[:1000]
+    return answers
+
+
+def save_answers(registration_id: int, answers: dict[int, str], db: Session) -> None:
+    for field_id, value in answers.items():
+        db.add(RegistrationAnswer(registration_id=registration_id, field_id=field_id, value=value))
+
+
+def answers_for(registration_ids: list[int], db: Session) -> dict[int, dict[int, str]]:
+    out: dict[int, dict[int, str]] = {}
+    if not registration_ids:
+        return out
+    for answer in db.scalars(
+        select(RegistrationAnswer).where(RegistrationAnswer.registration_id.in_(registration_ids))
+    ):
+        out.setdefault(answer.registration_id, {})[answer.field_id] = answer.value
+    return out
 
 
 def check_not_suspended(player: User, tournament: Tournament, db: Session, at_desk: bool = False) -> None:
@@ -909,6 +1009,7 @@ def register_for_tournament(
     if existing:
         raise HTTPException(status_code=409, detail="Already registered")
     check_not_suspended(user, tournament, db)
+    answers = validate_answers(tournament.id, payload.answers, db)
     # Torneo pieno → lista d'attesa invece di rifiuto
     registration = Registration(
         tournament_id=tournament_id,
@@ -917,6 +1018,8 @@ def register_for_tournament(
         waitlisted=is_full,
     )
     db.add(registration)
+    db.flush()
+    save_answers(registration.id, answers, db)
     db.commit()
     db.refresh(registration)
     from backend.app.core.cache import cache_invalidate
@@ -974,7 +1077,8 @@ def list_registrations(
     player_tags = tags_for_users(
         [r.player_id for r in registrations], organizer.organization_id or 0, db
     )
-    result = [organizer_registration_out(item, player_tags) for item in registrations]
+    answers = answers_for([item.id for item in registrations], db)
+    result = [organizer_registration_out(item, player_tags, answers) for item in registrations]
     cache_set(cache_key, result, ttl=8.0)
     return result
 
@@ -1579,6 +1683,7 @@ def add_walk_in(
     if existing:
         raise HTTPException(status_code=409, detail="Player already registered")
     check_not_suspended(player, tournament, db, at_desk=True)
+    answers = validate_answers(tournament.id, payload.answers, db, enforce_required=False)
     active = db.scalar(
         select(func.count(Registration.id)).where(
             Registration.tournament_id == tournament_id,
@@ -1594,6 +1699,7 @@ def add_walk_in(
     )
     db.add(registration)
     db.flush()
+    save_answers(registration.id, answers, db)
     if payload.mark_paid and not is_full:
         db.add(Payment(
             registration_id=registration.id,
@@ -2893,7 +2999,9 @@ def registration_out(registration: Registration) -> RegistrationOut:
 
 
 def organizer_registration_out(
-    registration: Registration, tags: dict[int, list] | None = None
+    registration: Registration,
+    tags: dict[int, list] | None = None,
+    answers: dict[int, dict[int, str]] | None = None,
 ) -> OrganizerRegistrationOut:
     base = registration_out(registration).model_dump()
     decklist = registration.decklist
@@ -2910,6 +3018,7 @@ def organizer_registration_out(
         payment_provider=payment.provider if payment else None,
         decklist_revision_count=len(registration.decklist_revisions),
         tags=(tags or {}).get(registration.player_id, []),
+        answers=(answers or {}).get(registration.id, {}),
     )
 
 
