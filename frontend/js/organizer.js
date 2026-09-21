@@ -9,6 +9,8 @@ import { EVENT_TYPES, RELS, typeLabel } from './catalog.js';
 import { mountConsole } from './console.js';
 import { renderDeck } from './deck-view.js';
 import { esc } from './escape.js';
+import { bestOfLabel, gameInfo, gameLabel, loadGames, tiebreakerColumns } from './games.js';
+import { t as tr } from './i18n.js';
 
 const API       = '/api';
 const TOKEN_KEY = 'mull2five-jwt-v1';
@@ -260,6 +262,7 @@ function eventCard(t) {
       <div class="bo-event-main">
         <div class="tile-meta">
           <span class="type-badge type-${esc(t.event_type || 'other')}">${esc(typeLabel(t.event_type))}</span>
+          <span class="game-badge game-${esc(t.game || 'mtg')}">${esc(gameLabel(t.game))}</span>
           <span class="pill ${t.status === 'running' ? 'ok' : 'warn'}">${esc(statusLabel(t.status))}</span>
           ${warnChip(_warnings[t.id])}
         </div>
@@ -324,7 +327,9 @@ function openNewEventDialog() {
       </header>
       <div class="bo-grid">
         <label>Nome<input id="nName" required placeholder="RCQ Modern" /></label>
-        <label>Formato<input id="nFormat" value="Modern" /></label>
+        <label>${esc(tr('Gioco'))}<select id="nGame"></select></label>
+        <label>Formato<input id="nFormat" value="Modern" list="nFormatList" autocomplete="off" />
+          <datalist id="nFormatList"></datalist></label>
         <label>Tipo evento<select id="nType">
           ${EVENT_TYPES.map(t => `<option value="${t.value}">${esc(t.label)}</option>`).join('')}
         </select></label>
@@ -347,6 +352,10 @@ function openNewEventDialog() {
           <label class="bo-check"><input id="nPairPub" type="checkbox" checked /> Abbinamenti pubblici</label>
           <label class="bo-check"><input id="nStandPub" type="checkbox" checked /> Classifica pubblica</label>
           <label class="bo-check"><input id="nDeckPub" type="checkbox" /> Liste pubbliche a fine torneo</label>
+          <label>${esc(tr('Match in svizzera'))}<select id="nBestOf">
+            ${[1, 2, 3].map((n) => `<option value="${n}">${esc(bestOfLabel(n))}</option>`).join('')}
+          </select></label>
+          <label class="bo-check"><input id="nIds" type="checkbox" checked /> ${esc(tr('Patte intenzionali'))}</label>
         </div>
       </details>
       <menu>
@@ -356,6 +365,24 @@ function openNewEventDialog() {
     </form>`;
   dlg.showModal();
   $('#nSubmit').addEventListener('click', createTournament);
+  fillGameChoices();
+}
+
+/* Scegliere il gioco cambia l'elenco dei formati proposti e il formato dei match
+   di partenza: One Piece si gioca al meglio di 1, gli altri di 3. */
+async function fillGameChoices() {
+  const games = await loadGames();
+  const select = $('#nGame');
+  if (!select || !games.length) return;
+  select.innerHTML = games.map((g) => `<option value="${esc(g.code)}">${esc(g.name)}</option>`).join('');
+  const apply = () => {
+    const game = games.find((g) => g.code === select.value) || games[0];
+    $('#nFormatList').innerHTML = game.formats.map((f) => `<option value="${esc(f)}"></option>`).join('');
+    if (!game.formats.includes($('#nFormat').value)) $('#nFormat').value = game.formats[0];
+    $('#nBestOf').value = String(game.default_best_of);
+  };
+  select.addEventListener('change', apply);
+  apply();
 }
 
 async function createTournament(e) {
@@ -363,6 +390,9 @@ async function createTournament(e) {
   const body = {
     name: $('#nName').value.trim(),
     format: $('#nFormat').value.trim() || 'Modern',
+    game: $('#nGame').value || 'mtg',
+    best_of: +$('#nBestOf').value || null,
+    allow_intentional_draws: $('#nIds').checked,
     starts_on: $('#nDate').value,
     start_time: $('#nTime').value || null,
     capacity: +$('#nCap').value || 8,
@@ -945,16 +975,19 @@ async function renderClassifica({ prepend = false } = {}) {
   if (!t) { $('#panel').innerHTML = '<p class="empty">Apri un evento.</p>'; return; }
   let standings = [];
   try { standings = (await apiFetch(`/tournaments/${t.id}/standings`)) || []; } catch (err) { toast('Errore: ' + err.message); }
+  // Ogni gioco ha i suoi spareggi, nell'ordine in cui contano.
+  const columns = tiebreakerColumns((await gameInfo(t.game))?.tiebreakers);
   const rows = standings.map(s => `
     <tr>
       <td>${s.position}</td>
       <td><strong>${esc(s.name)}</strong></td>
       <td>${s.points}</td>
       <td>${esc(s.record)}</td>
-      <td>${s.opponent_match_win_percentage}%</td>
-    </tr>`).join('') || '<tr><td colspan="5" class="muted">Nessun dato (genera round e inserisci risultati).</td></tr>';
+      ${columns.map((c) => `<td>${s[c.key] ?? 0}%</td>`).join('')}
+    </tr>`).join('') || `<tr><td colspan="${4 + columns.length}" class="muted">Nessun dato (genera round e inserisci risultati).</td></tr>`;
   const html = `<div class="panel" style="margin-bottom:16px"><h3>Classifica</h3>
-    <table class="bo"><thead><tr><th>#</th><th>Giocatore</th><th>Punti</th><th>V/S/P</th><th>OMW%</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    <table class="bo"><thead><tr><th>#</th><th>Giocatore</th><th>Punti</th><th>V/S/P</th>
+      ${columns.map((c) => `<th>${esc(c.label)}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`;
   if (prepend) $('#panel').insertAdjacentHTML('afterbegin', html);
   else $('#panel').innerHTML = html;
 }

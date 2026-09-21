@@ -1,5 +1,7 @@
 import { renderDeck } from './deck-view.js';
 import { esc } from './escape.js';
+import { gameLabel, scoresFor } from './games.js';
+import { t as tr } from './i18n.js';
 
 const API       = '/api';
 const TOKEN_KEY = 'mull2five-jwt-v1';
@@ -87,7 +89,8 @@ async function loadRegistrations() {
     });
     container.querySelectorAll('[data-action="submit-result"]').forEach(btn => {
       btn.addEventListener('click', () => openResultDialog(
-        btn.dataset.tournamentId, btn.dataset.pairingId, btn.dataset.opponent, btn.dataset.isA === '1'
+        btn.dataset.tournamentId, btn.dataset.pairingId, btn.dataset.opponent, btn.dataset.isA === '1',
+        { bestOf: +btn.dataset.bestOf || 3, playoff: btn.dataset.playoff === '1', intentionalDraws: btn.dataset.ids === '1' },
       ));
     });
     container.querySelectorAll('[data-action="confirm-result"]').forEach(btn => {
@@ -223,9 +226,11 @@ async function buildCard(t, reg) {
     <div class="reg-card-head">
       <div>
         <strong>${esc(t.name)}</strong>
+        ${t.organizer_name ? `<small>${esc(tr('Organizzato da {nome}', { nome: t.organizer_name }))}</small>` : ''}
         ${t.venue ? `<small>${esc(t.venue)}</small>` : ''}
       </div>
       <div style="display:flex;gap:8px;align-items:center">
+        <span class="game-badge game-${esc(t.game || 'mtg')}">${esc(gameLabel(t.game))}</span>
         <span class="badge">${esc(t.format)}</span>
         <span class="badge ${statusCls}">${statusLabel}</span>
         ${waitlistBadge} ${droppedBadge}
@@ -287,6 +292,9 @@ function renderMyPairing(t, round, reg) {
            data-pairing-id="${mine.id}"
            data-is-a="${isA ? '1' : ''}"
            data-opponent="${esc(opponent)}"
+           data-best-of="${t.best_of || 3}"
+           data-playoff="${round.phase && round.phase !== 'swiss' ? '1' : ''}"
+           data-ids="${t.allow_intentional_draws === false ? '' : '1'}"
            type="button">Invia risultato</button>`;
   }
 
@@ -373,12 +381,25 @@ async function submitDeck() {
 }
 
 /* ── Risultato ───────────────────────────────────────── */
-function openResultDialog(tournamentId, pairingId, opponent, isA) {
+/** Un punteggio visto dal giocatore che lo inserisce: "2 – 1 (ho vinto)". */
+function myResultLabel(score) {
+  const [mine, theirs] = score.split('-').map(Number);
+  const punteggio = score.replace('-', ' – ');
+  if (mine > theirs) return tr('{punteggio} (ho vinto)', { punteggio });
+  if (mine < theirs) return tr('{punteggio} (ho perso)', { punteggio });
+  return tr('{punteggio} (patta)', { punteggio });
+}
+
+function openResultDialog(tournamentId, pairingId, opponent, isA, format = {}) {
   _activeTournamentId = tournamentId;
   _activePairingId    = pairingId;
   _activeIsA          = !!isA;
   document.querySelector('#resultDescription').textContent = `vs ${opponent}`;
-  document.querySelector('#resultSelect').value            = '';
+  // Solo i punteggi possibili nel formato del match: al meglio di 1 niente 2-1.
+  const select = document.querySelector('#resultSelect');
+  select.innerHTML = `<option value="">${esc(tr('— Seleziona'))}</option>`
+    + scoresFor(format.bestOf, format).map((s) => `<option value="${s}">${esc(myResultLabel(s))}</option>`).join('');
+  select.value = '';
   document.querySelector('#resultError').textContent       = '';
   document.querySelector('#resultDialog').showModal();
 }

@@ -5,6 +5,7 @@
  * condivisibile e il tasto indietro del browser funziona. "Salva ricerca"
  * memorizza quella querystring in locale.
  */
+import { gameLabel, loadGames } from './games.js';
 import {
   DATE_RANGES, DISTANCES, EVENT_TYPES, FORMATS, RELS,
   apiGet, askPosition, esc, fmtDate, fmtMoney, savedPosition, typeLabel, updateAuthNav,
@@ -23,6 +24,7 @@ function readState() {
   const q = new URLSearchParams(location.search);
   const list = (key) => (q.get(key) || '').split(',').filter(Boolean);
   return {
+    games: list('games'),
     formats: list('formats'),
     event_types: list('event_types'),
     rel: list('rel'),
@@ -41,7 +43,7 @@ const STATI = [
 
 function writeState(state, { replace = false } = {}) {
   const q = new URLSearchParams();
-  for (const key of ['formats', 'event_types', 'rel']) {
+  for (const key of ['games', 'formats', 'event_types', 'rel']) {
     if (state[key].length) q.set(key, state[key].join(','));
   }
   q.set('days', state.days);
@@ -52,6 +54,17 @@ function writeState(state, { replace = false } = {}) {
   if (replace) history.replaceState(null, '', url);
   else history.pushState(null, '', url);
   return q;
+}
+
+// I giochi arrivano dal backend all'avvio: formati e filtro dipendono da loro.
+let _games = [];
+
+/** I formati da proporre: quelli dei giochi scelti, o di tutti se non se ne è scelto nessuno. */
+function formatChoices(state) {
+  const games = state.games.length ? _games.filter((g) => state.games.includes(g.code)) : _games;
+  const formats = [...new Set(games.flatMap((g) => g.formats))];
+  // Senza catalogo (backend irraggiungibile) restano i formati di Magic di sempre.
+  return formats.length ? formats : FORMATS;
 }
 
 function toggle(list, value) {
@@ -101,8 +114,9 @@ function renderFacets(state) {
       <input id="facetName" placeholder="Cerca…" value="${esc(state.name)}" style="width:100%" />
     </div>
     ${radios('Stato', 'stato', STATI, state.stato)}
+    ${checkboxes('Gioco', 'games', _games.map((g) => ({ value: g.code, label: gameLabel(g.code) })), state)}
     ${checkboxes('Tipo di evento', 'event_types', EVENT_TYPES, state)}
-    ${checkboxes('Formato', 'formats', FORMATS.map((f) => ({ value: f, label: f })), state)}
+    ${checkboxes('Formato', 'formats', formatChoices(state).map((f) => ({ value: f, label: f })), state)}
     ${checkboxes('Livello (REL)', 'rel', RELS.map((r) => ({ value: r, label: r })), state, { limit: 3 })}
     ${state.stato === 'conclusi' ? '' : radios('Periodo', 'days', DATE_RANGES, state.days)}
     ${geo}
@@ -195,6 +209,7 @@ function renderRows(events) {
       <td class="col-name">
         ${esc(t.name)}
         <span class="col-sub">
+          <span class="game-badge game-${esc(t.game || 'mtg')}">${esc(gameLabel(t.game))}</span>
           <span class="type-badge type-${esc(t.event_type || 'other')}">${esc(typeLabel(t.event_type))}</span>
           ${esc(t.rules_enforcement_level || '')}
         </span>
@@ -299,7 +314,8 @@ function renderSaved() {
 
 window.addEventListener('popstate', () => { _page = 1; run(); });
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   updateAuthNav();
+  _games = await loadGames();
   run();
 });

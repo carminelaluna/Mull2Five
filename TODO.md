@@ -183,9 +183,10 @@ Ordine (le dipendenze decidono): prima i giochi, perché formati, spareggi e ric
 carte dipendono dal gioco; per ultime le lingue, perché toccano ogni stringa; i
 pagamenti ai negozi in fondo, sono il pezzo più grosso.
 
-- [ ] 0. Traduzioni: funzione `t()` con il testo italiano come chiave, usata da subito nel codice nuovo
-- [ ] 1. Più giochi: formati, spareggi ufficiali per gioco, badge e filtro in ricerca
-- [ ] 2. Formato dei match: al meglio di 1/2/3, patte intenzionali sì/no
+- [x] 0. Traduzioni: funzione `t()` con il testo italiano come chiave, usata da subito nel codice nuovo
+- [x] 1. Più giochi: formati, spareggi ufficiali per gioco, badge e filtro in ricerca
+- [x] 2. Formato dei match: al meglio di 1/2/3, patte intenzionali sì/no
+- [x] Nome dell'organizzatore nella pagina pubblica del torneo, all'iscrizione e nelle iscrizioni del giocatore
 - [ ] 3. Scheda Impostazioni del torneo (oggi dopo la creazione non si modifica quasi niente)
 - [ ] 4. Più sedi per negozio
 - [ ] 5. Staff del negozio (più account sugli stessi tornei)

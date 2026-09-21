@@ -272,6 +272,22 @@ dialog.deck-view-dialog { max-width: min(1100px, 94vw); width: 100%; }
 .type-premier            { color: var(--danger); }
 .type-other              { color: var(--muted); }
 
+/* Il gioco: pieno invece che bordato, per non confonderlo con il tipo di evento. */
+.game-badge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #0d0d0f;
+  background: var(--game-color, var(--muted));
+  white-space: nowrap;
+}
+.game-mtg      { --game-color: #e8a13c; }
+.game-lorcana  { --game-color: #b89cf0; }
+.game-swu      { --game-color: #6fb3ff; }
+.game-onepiece { --game-color: #ff7a6b; }
+.game-pokemon  { --game-color: #f5d547; }
+
 .dist-badge { color: var(--accent); font-size: 0.8rem; white-space: nowrap; }
 
 /* ── Ricerca: facet a sinistra + risultati ─────────────────── */

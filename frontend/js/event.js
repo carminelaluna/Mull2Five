@@ -1,4 +1,6 @@
 import { esc } from './escape.js';
+import { bestOfLabel, gameInfo, gameLabel } from './games.js';
+import { t as tr } from './i18n.js';
 
 const API = '/api';
 const params = new URLSearchParams(location.search);
@@ -40,13 +42,25 @@ async function loadEvent() {
     const spots  = Math.max(t.capacity - (t.registered_players || 0), 0);
     const isReg  = !!myReg;
     const canReg = session && !isReg && spots > 0 && t.registration_mode === 'open';
+    const game = await gameInfo(t.game);
+    // Chi organizza, come persona e come negozio: è a lui che il giocatore si rivolge.
+    const store = t.organization_name
+      ? (t.organization_slug
+        ? ` · <a class="secondary-link" href="store.html?s=${esc(t.organization_slug)}">${esc(t.organization_name)}</a>`
+        : ` · ${esc(t.organization_name)}`)
+      : '';
+    const organizerLine = t.organizer_name
+      ? `<p class="muted-text" style="margin:0">${esc(tr('Organizzato da'))} <strong>${esc(t.organizer_name)}</strong>${store}</p>`
+      : '';
 
     document.title = `${t.name} — Mull2Five`;
     document.querySelector('#eventDetail').innerHTML = `
       <div class="event-detail-header">
         <div>
+          <span class="game-badge game-${esc(t.game || 'mtg')}">${esc(gameLabel(t.game))}</span>
           <span class="badge">${esc(t.format)}</span>
           <h1 style="margin:8px 0">${esc(t.name)}</h1>
+          ${organizerLine}
           ${t.venue ? `<p class="muted-text">${esc(t.venue)}</p>` : ''}
         </div>
         <div style="display:grid;gap:8px;text-align:right">
@@ -65,7 +79,10 @@ async function loadEvent() {
           <h3>Dettagli</h3>
           <dl class="info-dl">
             <dt>Data</dt>       <dd>${fmtDate(t.starts_on?.substring(0,10))}${t.start_time ? ' · ' + esc(t.start_time) : ''}</dd>
+            <dt>${esc(tr('Gioco'))}</dt> <dd>${esc(game?.name || gameLabel(t.game))}</dd>
             <dt>Formato</dt>    <dd>${esc(t.format)}</dd>
+            <dt>${esc(tr('Match'))}</dt> <dd>${esc(bestOfLabel(t.best_of))}</dd>
+            ${t.organizer_name ? `<dt>${esc(tr('Organizzatore'))}</dt> <dd>${esc(t.organizer_name)}</dd>` : ''}
             <dt>REL</dt>        <dd>${esc(t.rules_enforcement_level || 'Regular')}</dd>
             <dt>Entry fee</dt>  <dd>${fmtMoney((t.entry_fee_cents||0)/100)}</dd>
             <dt>Posti</dt>      <dd>${spots} / ${t.capacity}</dd>
@@ -77,6 +94,12 @@ async function loadEvent() {
 
     document.querySelector('#registerBtn')?.addEventListener('click', () => {
       document.querySelector('#registerTitle').textContent = t.name;
+      // Si vede a chi ci si iscrive prima di confermare, non solo dopo.
+      document.querySelector('#registerOrganizer').textContent = t.organizer_name
+        ? tr('Organizzato da {nome}', { nome: t.organizer_name + (t.organization_name ? ` · ${t.organization_name}` : '') })
+        : '';
+      // L'identificativo richiesto è quello dell'editore del gioco.
+      document.querySelector('#regIdLabel').textContent = game?.publisher_id_label || 'Wizards Account';
       document.querySelector('#registerDialog').showModal();
     });
     document.querySelector('#confirmRegister')?.addEventListener('click', () => doRegister(t));

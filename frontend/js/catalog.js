@@ -6,6 +6,7 @@
  * la stessa lingua senza duplicare markup.
  */
 import { esc } from './escape.js';
+import { gameLabel } from './games.js';
 export const API = '/api';
 export const TOKEN_KEY = 'mull2five-jwt-v1';
 
@@ -103,6 +104,7 @@ export function eventTile(t) {
   return `<a class="tile" href="event.html?id=${t.id}">
     <div class="tile-meta">
       <span class="type-badge type-${esc(t.event_type || 'other')}">${esc(typeLabel(t.event_type))}</span>
+      <span class="game-badge game-${esc(t.game || 'mtg')}">${esc(gameLabel(t.game))}</span>
       ${t.distance_km != null ? `<span class="dist-badge">${t.distance_km} km</span>` : ''}
     </div>
     <div class="tile-title">${esc(t.name)}</div>

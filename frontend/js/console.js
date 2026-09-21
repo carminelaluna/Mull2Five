@@ -11,11 +11,11 @@
  * continuerebbe a riscrivere un pannello che non esiste più.
  */
 import { esc } from './escape.js';
+import { scoreLabel, scoresFor } from './games.js';
 
 const API = '/api';
 const TOKEN_KEY = 'mull2five-jwt-v1';
 
-const SCORES = ['2-0', '2-1', '1-1', '1-2', '0-2'];
 
 function scoreToBody(score) {
   const [a, b] = score.split('-').map(Number);
@@ -197,8 +197,14 @@ export function mountConsole(host, tournamentId, { screenLinks = true, onClosed 
       // Correggere un risultato già bloccato passa da /correct (audit log);
       // l'inserimento normale resta su /result.
       const correct = finalScore ? ' data-correct="1"' : '';
+      // I punteggi possibili dipendono dal formato del torneo; nei playoff al meglio di 3.
+      const scores = scoresFor(tournament?.best_of, {
+        playoff: (round.phase || 'swiss') !== 'swiss',
+        intentionalDraws: tournament?.allow_intentional_draws !== false,
+      });
+      if (finalScore && !scores.includes(finalScore)) scores.push(finalScore);   // uno già salvato si vede comunque
       const opts = ['<option value="">— in corso</option>'].concat(
-        SCORES.map((s) => `<option value="${s}"${finalScore === s ? ' selected' : ''}>${s.replace('-', ' – ')}</option>`));
+        scores.map((s) => `<option value="${s}"${finalScore === s ? ' selected' : ''}>${scoreLabel(s)}</option>`));
       control = `<select data-action="result" data-pid="${p.id}"${correct}>${opts.join('')}</select>`;
     }
 
