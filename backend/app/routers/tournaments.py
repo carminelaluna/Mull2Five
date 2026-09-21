@@ -99,6 +99,7 @@ from backend.app.schemas import (
     TournamentOut,
     TournamentReportOut,
     TournamentRoleOut,
+    TournamentUpdate,
     WalkInIn,
     WarningOut,
 )
@@ -545,6 +546,89 @@ def close_tournament(
     cache_invalidate(f"public-display:{tournament_id}")
     count = db.scalar(select(func.count(Registration.id)).where(Registration.tournament_id == tournament.id))
     return tournament_out(tournament, count or 0, db)
+
+
+# Una volta avviato il torneo questi non cambiano più: rifarebbero abbinamenti,
+# spareggi o pagamenti già fatti. Nome, descrizione, luogo e timer restano liberi.
+LOCKED_AFTER_START = frozenset({
+    "game", "format", "best_of", "starts_on", "start_time", "capacity", "entry_fee_cents",
+    "pay_at_event", "pay_stripe", "pay_paypal", "structure", "swiss_rounds", "top_cut_size",
+    "decklist_required", "check_in_required",
+})
+
+
+@router.patch("/{tournament_id}", response_model=TournamentOut)
+def update_tournament(
+    tournament_id: int,
+    payload: TournamentUpdate,
+    organizer: User = Depends(require_organizer),
+    db: Session = Depends(get_db),
+) -> TournamentOut:
+    """Modifica le impostazioni del torneo. Ogni cambio finisce nel registro."""
+    from backend.app.core.cache import cache_invalidate
+    from backend.app.games import GAMES
+
+    tournament = load_owned_tournament(tournament_id, organizer, db)
+    changes = {
+        key: value for key, value in payload.model_dump(exclude_unset=True).items()
+        # null vuol dire "non toccare", tranne per l'orario, che si può togliere
+        if (value is not None or key == "start_time") and getattr(tournament, key) != value
+    }
+    if not changes:
+        return tournament_out(tournament, _registered_count(tournament.id, db), db)
+
+    if tournament.status not in {TournamentStatus.DRAFT, TournamentStatus.PUBLISHED}:
+        locked = sorted(set(changes) & LOCKED_AFTER_START)
+        if locked:
+            raise HTTPException(status_code=409, detail=f"A torneo avviato non si cambiano: {', '.join(locked)}")
+
+    if "game" in changes:
+        if changes["game"] not in GAMES:
+            raise HTTPException(status_code=422, detail=f"Gioco non supportato: {changes['game']}")
+        # Cambiando gioco si riparte dal suo formato dei match, se non se ne sceglie un altro.
+        changes.setdefault("best_of", GAMES[changes["game"]].default_best_of)
+
+    payments = {key: changes.get(key, getattr(tournament, key)) for key in ("pay_at_event", "pay_stripe", "pay_paypal")}
+    if not any(payments.values()):
+        raise HTTPException(status_code=422, detail="Serve almeno un metodo di pagamento (al banco, Stripe o PayPal)")
+
+    if "capacity" in changes:
+        active = db.scalar(
+            select(func.count(Registration.id)).where(
+                Registration.tournament_id == tournament.id,
+                Registration.waitlisted.is_(False),
+                Registration.dropped.is_(False),
+            )
+        ) or 0
+        if changes["capacity"] < active:
+            raise HTTPException(status_code=409, detail=f"Ci sono già {active} iscritti: la capienza non può scendere sotto")
+
+    if "entry_fee_cents" in changes:
+        already_paid = db.scalar(
+            select(func.count(Payment.id))
+            .join(Registration, Registration.id == Payment.registration_id)
+            .where(Registration.tournament_id == tournament.id, Payment.status == PaymentStatus.PAID,
+                   Payment.amount_cents > 0)
+        ) or 0
+        if already_paid:
+            raise HTTPException(status_code=409, detail="Qualcuno ha già pagato: la quota non si cambia più")
+
+    detail = "; ".join(f"{key}: {getattr(tournament, key)!s} → {value!s}" for key, value in changes.items())
+    for key, value in changes.items():
+        setattr(tournament, key, value)
+    _write_audit(db, tournament.id, organizer.id, "tournament_updated", detail[:1000])
+    db.commit()
+    if "capacity" in changes:
+        promote_from_waitlist(tournament, db)   # più posti: chi aspettava entra
+    db.refresh(tournament)
+    cache_invalidate("tournaments")
+    cache_invalidate(f"public-display:{tournament.id}")
+    cache_invalidate(f"registrations:{tournament.id}")
+    return tournament_out(tournament, _registered_count(tournament.id, db), db)
+
+
+def _registered_count(tournament_id: int, db: Session) -> int:
+    return db.scalar(select(func.count(Registration.id)).where(Registration.tournament_id == tournament_id)) or 0
 
 
 @router.delete("/{tournament_id}", status_code=204)

@@ -59,6 +59,7 @@ const EVENT_TABS = [
   { id: 'giocatori',  label: 'Giocatori' },
   { id: 'annunci',    label: 'Annunci' },
   { id: 'staff',      label: 'Staff' },
+  { id: 'impostazioni', label: 'Impostazioni' },
   { id: 'risultati',  label: 'Risultati' },
 ];
 
@@ -233,6 +234,7 @@ function render() {
   if (_tab === 'giocatori')     return renderGiocatori();
   if (_tab === 'annunci')       return renderAnnunci();
   if (_tab === 'staff')         return renderStaff();
+  if (_tab === 'impostazioni')  return renderImpostazioni();
   if (_tab === 'risultati')     return renderRisultati();
 }
 
@@ -1489,6 +1491,149 @@ async function renderManifestazione(eventId) {
       toast('Salvato.');
       await reload();
     } catch (err) { toast('Errore: ' + err.message); }
+  });
+}
+
+/* ── IMPOSTAZIONI ────────────────────────────────────────
+   Tutto quello che si era deciso alla creazione, modificabile. A torneo avviato
+   alcune voci si bloccano (le decide il backend, LOCKED_AFTER_START): qui si
+   disattivano con il motivo, così non si prova a cambiarle per niente. */
+const LOCKED_AFTER_START = new Set([
+  'game', 'format', 'best_of', 'starts_on', 'start_time', 'capacity', 'entry_fee',
+  'pay_at_event', 'pay_stripe', 'pay_paypal', 'structure', 'swiss_rounds', 'top_cut_size',
+  'decklist_required', 'check_in_required',
+]);
+
+async function renderImpostazioni() {
+  const t = activeT();
+  if (!t) { $('#panel').innerHTML = '<p class="empty">Apri un evento dalla lista.</p>'; return; }
+  const games = await loadGames();
+  const started = !['draft', 'published'].includes(t.status);
+  const lock = (name) => (started && LOCKED_AFTER_START.has(name)
+    ? `disabled title="${esc(tr('Non si cambia a torneo avviato'))}"` : '');
+  const checked = (v) => (v ? 'checked' : '');
+  const option = (value, label, current) =>
+    `<option value="${esc(value)}"${String(value) === String(current) ? ' selected' : ''}>${esc(label)}</option>`;
+
+  $('#panel').innerHTML = `
+    <form id="setForm" class="settings-form">
+      ${started ? `<p class="muted" style="margin:0 0 12px">${esc(tr('Il torneo è avviato: gioco, formato, date, capienza, quota, pagamenti e struttura non si cambiano più.'))}</p>` : ''}
+
+      <div class="panel">
+        <h3>${esc(tr('Generale'))}</h3>
+        <div class="bo-grid">
+          <label style="grid-column:1/-1">Nome<input id="sName" required value="${esc(t.name)}" /></label>
+          <label>${esc(tr('Gioco'))}<select id="sGame" ${lock('game')}>
+            ${games.map((g) => option(g.code, g.name, t.game || 'mtg')).join('')}</select></label>
+          <label>Formato<input id="sFormat" list="sFormatList" value="${esc(t.format)}" ${lock('format')} />
+            <datalist id="sFormatList"></datalist></label>
+          <label>Tipo evento<select id="sType">
+            ${EVENT_TYPES.map((x) => option(x.value, x.label, t.event_type)).join('')}</select></label>
+          <label>Livello (REL)<select id="sRel">
+            ${RELS.map((r) => option(r, r, t.rules_enforcement_level)).join('')}</select></label>
+          <label style="grid-column:1/-1">${esc(tr('Descrizione'))}<textarea id="sDesc" style="min-height:70px">${esc(t.description || '')}</textarea></label>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>${esc(tr('Quando e dove'))}</h3>
+        <div class="bo-grid">
+          <label>Data<input id="sDate" type="date" value="${esc(String(t.starts_on).slice(0, 10))}" ${lock('starts_on')} /></label>
+          <label>Orario inizio<input id="sTime" type="time" value="${esc(t.start_time || '')}" ${lock('start_time')} /></label>
+          <label style="grid-column:1/-1">Luogo<input id="sVenue" value="${esc(t.venue || '')}" /></label>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>${esc(tr('Iscrizioni e pagamento'))}</h3>
+        <div class="bo-grid">
+          <label>Capienza<input id="sCap" type="number" min="2" value="${t.capacity}" ${lock('capacity')} /></label>
+          <label>Entry fee €<input id="sFee" type="number" min="0" step="0.01" value="${((t.entry_fee_cents || 0) / 100).toFixed(2)}" ${lock('entry_fee')} /></label>
+          <label class="bo-check"><input id="sAtEvent" type="checkbox" ${checked(t.pay_at_event)} ${lock('pay_at_event')} /> Pagamento al banco</label>
+          <label class="bo-check"><input id="sStripe" type="checkbox" ${checked(t.pay_stripe)} ${lock('pay_stripe')} /> Online Stripe</label>
+          <label class="bo-check"><input id="sPaypal" type="checkbox" ${checked(t.pay_paypal)} ${lock('pay_paypal')} /> Online PayPal</label>
+          <label class="bo-check"><input id="sEmail" type="checkbox" ${checked(t.email_notifications_enabled)} /> ${esc(tr('Notifiche email ai giocatori'))}</label>
+          <label style="grid-column:1/-1">${esc(tr('Policy rimborsi'))}<textarea id="sRefund" style="min-height:60px">${esc(t.refund_policy || '')}</textarea></label>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>${esc(tr('Svolgimento'))}</h3>
+        <div class="bo-grid">
+          <label>${esc(tr('Match in svizzera'))}<select id="sBestOf" ${lock('best_of')}>
+            ${[1, 2, 3].map((n) => option(n, bestOfLabel(n), t.best_of || 3)).join('')}</select></label>
+          <label>${esc(tr('Struttura'))}<select id="sStructure" ${lock('structure')}>
+            ${option('swiss', tr('Svizzera'), t.structure)}
+            ${option('swiss_topcut', tr('Svizzera + top cut'), t.structure)}
+            ${option('single_elimination', tr('Eliminazione diretta'), t.structure)}</select></label>
+          <label>${esc(tr('Turni svizzeri (0 = automatico)'))}<input id="sRounds" type="number" min="0" value="${t.swiss_rounds || 0}" ${lock('swiss_rounds')} /></label>
+          <label>${esc(tr('Top cut'))}<select id="sCut" ${lock('top_cut_size')}>
+            ${[2, 4, 8, 16].map((n) => option(n, `Top ${n}`, t.top_cut_size || 8)).join('')}</select></label>
+          <label>${esc(tr('Minuti per turno'))}<input id="sTimer" type="number" min="1" max="120" value="${t.round_timer_minutes || 50}" /></label>
+          <label class="bo-check"><input id="sIds" type="checkbox" ${checked(t.allow_intentional_draws !== false)} /> ${esc(tr('Patte intenzionali'))}</label>
+          <label class="bo-check"><input id="sDeck" type="checkbox" ${checked(t.decklist_required)} ${lock('decklist_required')} /> Lista obbligatoria</label>
+          <label class="bo-check"><input id="sCheckin" type="checkbox" ${checked(t.check_in_required)} ${lock('check_in_required')} /> ${esc(tr('Check-in obbligatorio'))}</label>
+        </div>
+      </div>
+
+      <div class="settings-actions">
+        <button class="primary" type="submit" id="sSave">${esc(tr('Salva le modifiche'))}</button>
+      </div>
+    </form>`;
+
+  // Cambiando gioco cambiano i formati proposti e, a torneo non avviato, il formato dei match.
+  const syncFormats = (fromUser) => {
+    const game = games.find((g) => g.code === $('#sGame').value) || games[0];
+    if (!game) return;
+    $('#sFormatList').innerHTML = game.formats.map((f) => `<option value="${esc(f)}"></option>`).join('');
+    if (fromUser) {
+      if (!game.formats.includes($('#sFormat').value)) $('#sFormat').value = game.formats[0];
+      $('#sBestOf').value = String(game.default_best_of);
+    }
+  };
+  $('#sGame').addEventListener('change', () => syncFormats(true));
+  syncFormats(false);
+
+  $('#setForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    // Si manda tutto: il backend applica solo quello che è davvero cambiato.
+    const body = {
+      name: $('#sName').value.trim(),
+      game: $('#sGame').value,
+      format: $('#sFormat').value.trim(),
+      event_type: $('#sType').value,
+      rules_enforcement_level: $('#sRel').value,
+      description: $('#sDesc').value.trim(),
+      starts_on: $('#sDate').value,
+      start_time: $('#sTime').value || null,
+      venue: $('#sVenue').value.trim(),
+      capacity: +$('#sCap').value,
+      entry_fee_cents: Math.round((+$('#sFee').value || 0) * 100),
+      pay_at_event: $('#sAtEvent').checked,
+      pay_stripe: $('#sStripe').checked,
+      pay_paypal: $('#sPaypal').checked,
+      email_notifications_enabled: $('#sEmail').checked,
+      refund_policy: $('#sRefund').value.trim(),
+      best_of: +$('#sBestOf').value,
+      structure: $('#sStructure').value,
+      swiss_rounds: +$('#sRounds').value || 0,
+      top_cut_size: +$('#sCut').value,
+      round_timer_minutes: +$('#sTimer').value,
+      allow_intentional_draws: $('#sIds').checked,
+      decklist_required: $('#sDeck').checked,
+      check_in_required: $('#sCheckin').checked,
+    };
+    const save = $('#sSave');
+    save.disabled = true;
+    try {
+      await apiFetch(`/tournaments/${t.id}`, { method: 'PATCH', body: JSON.stringify(body) });
+      toast(tr('Impostazioni salvate.'));
+      await loadTournaments();
+      render();
+    } catch (err) {
+      toast('Errore: ' + err.message);
+      save.disabled = false;
+    }
   });
 }
 

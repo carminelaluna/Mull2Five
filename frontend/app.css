@@ -528,6 +528,14 @@ dialog.deck-view-dialog { max-width: min(1100px, 94vw); width: 100%; }
 
 .bo-dialog { max-width: min(760px, 94vw); width: 100%; }
 .bo-check { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+/* Scheda Impostazioni: un pannello per argomento, il salvataggio sempre a portata. */
+.settings-form { display: grid; gap: 16px; }
+.settings-actions {
+  position: sticky;
+  bottom: 0;
+  padding: 12px 0;
+  background: linear-gradient(transparent, var(--bg, #0d0d0f) 40%);
+}
 /* La regola globale degli input (larghezza piena, padding da campo di testo) vale
    anche per le checkbox: dentro una riga flex la casella si prendeva tutto lo
    spazio e spingeva l'etichetta a destra, spezzata su piu righe. */

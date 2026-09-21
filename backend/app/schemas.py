@@ -89,6 +89,34 @@ class TournamentCreate(BaseModel):
         return self
 
 
+class TournamentUpdate(BaseModel):
+    """Modifiche dalla scheda Impostazioni. I campi non inviati restano com'erano."""
+    name: str | None = Field(default=None, min_length=3, max_length=180)
+    format: str | None = Field(default=None, min_length=1, max_length=80)
+    game: str | None = None
+    best_of: int | None = Field(default=None, ge=1, le=3)
+    allow_intentional_draws: bool | None = None
+    event_type: Literal["locals", "prerelease", "rcq", "store_championship", "premier", "other"] | None = None
+    rules_enforcement_level: str | None = Field(default=None, max_length=40)
+    venue: str | None = Field(default=None, max_length=180)
+    description: str | None = None
+    refund_policy: str | None = None
+    starts_on: date | None = None
+    start_time: str | None = Field(default=None, pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
+    capacity: int | None = Field(default=None, gt=1)
+    entry_fee_cents: int | None = Field(default=None, ge=0)
+    pay_at_event: bool | None = None
+    pay_stripe: bool | None = None
+    pay_paypal: bool | None = None
+    structure: str | None = Field(default=None, pattern="^(swiss|single_elimination|swiss_topcut)$")
+    swiss_rounds: int | None = Field(default=None, ge=0)
+    top_cut_size: int | None = Field(default=None, ge=2)
+    decklist_required: bool | None = None
+    check_in_required: bool | None = None
+    round_timer_minutes: int | None = Field(default=None, ge=1, le=120)
+    email_notifications_enabled: bool | None = None
+
+
 class TournamentOut(BaseModel):
     id: int
     organizer_id: int
