@@ -3,19 +3,55 @@ import subprocess
 from datetime import datetime
 from pathlib import Path
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from backend.app.core.config import get_settings
 from backend.app.db import get_db
-from backend.app.models import Payment, Tournament, User
-from backend.app.schemas import PaymentOut, TournamentOut, UserOut
+from backend.app.models import Organization, Payment, Tournament, User
+from backend.app.schemas import (
+    LocatorImportIn,
+    LocatorImportOut,
+    LocatorStatusOut,
+    PaymentOut,
+    TournamentOut,
+    UserOut,
+)
 from backend.app.security import require_admin
+from backend.app.services import wizards_locator
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 _BACKUP_DIR = Path(os.environ.get("BACKUP_DIR", "./backups"))
 _BACKUP_SCRIPT = Path("scripts/backup_db.sh")
+
+
+@router.get("/wizards-locator", response_model=LocatorStatusOut)
+def locator_status(admin: User = Depends(require_admin), db: Session = Depends(get_db)) -> LocatorStatusOut:
+    def imported(model) -> int:
+        return db.scalar(select(func.count(model.id)).where(model.source == wizards_locator.SOURCE)) or 0
+
+    return LocatorStatusOut(enabled=get_settings().wizards_locator_enabled,
+                            imported_tournaments=imported(Tournament), imported_stores=imported(Organization))
+
+
+@router.post("/wizards-locator/import", response_model=LocatorImportOut)
+def locator_import(payload: LocatorImportIn, admin: User = Depends(require_admin),
+                   db: Session = Depends(get_db)) -> LocatorImportOut:
+    """I tornei di Magic intorno a una città, dal Wizards Event Locator.
+    Spenta finché non si imposta WIZARDS_LOCATOR_ENABLED: vedi services/wizards_locator.py."""
+    city = payload.city.strip()
+    try:
+        events = wizards_locator.fetch_events(city, payload.distance_km, payload.max_pages)
+    except wizards_locator.LocatorDisabled as exc:
+        raise HTTPException(status_code=409, detail="Importazione dal Wizards Locator spenta sul server (WIZARDS_LOCATOR_ENABLED)") from exc
+    except (httpx.HTTPError, KeyError, TypeError, ValueError) as exc:
+        raise HTTPException(status_code=502, detail="Il Wizards Locator non ha risposto come previsto") from exc
+    report = wizards_locator.import_events(events, db, city)
+    return LocatorImportOut(fetched=report.fetched, created=report.created, updated=report.updated,
+                            cancelled=report.cancelled, skipped=report.skipped, stores_created=report.stores_created)
 
 
 @router.get("/users", response_model=list[UserOut])

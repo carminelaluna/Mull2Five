@@ -46,15 +46,20 @@ async function loadEvent() {
     const canReg = session && !isReg && spots > 0 && t.registration_mode === 'open';
     const game = await gameInfo(t.game);
     const platform = t.is_online ? (game?.online_platforms || []).find((p) => p.code === t.online_platform) : null;
+    // Tornei vetrina dal Wizards Event Locator: ci si iscrive presso il negozio.
+    const imported = t.source === 'wizards';
     // Chi organizza, come persona e come negozio: è a lui che il giocatore si rivolge.
-    const store = t.organization_name
+    const storeLink = t.organization_name
       ? (t.organization_slug
-        ? ` · <a class="secondary-link" href="store.html?s=${esc(t.organization_slug)}">${esc(t.organization_name)}</a>`
-        : ` · ${esc(t.organization_name)}`)
+        ? `<a class="secondary-link" href="store.html?s=${esc(t.organization_slug)}">${esc(t.organization_name)}</a>`
+        : esc(t.organization_name))
       : '';
-    const organizerLine = t.organizer_name
-      ? `<p class="muted-text" style="margin:0">${esc(tr('Organizzato da'))} <strong>${esc(t.organizer_name)}</strong>${store}</p>`
-      : '';
+    const organizer = imported ? t.organization_name : t.organizer_name;
+    const organizerLine = imported
+      ? (storeLink ? `<p class="muted-text" style="margin:0">${esc(tr('Organizzato da'))} ${storeLink}</p>` : '')
+      : t.organizer_name
+        ? `<p class="muted-text" style="margin:0">${esc(tr('Organizzato da'))} <strong>${esc(t.organizer_name)}</strong>${storeLink ? ` · ${storeLink}` : ''}</p>`
+        : '';
 
     document.title = `${t.name} — Mull2Five`;
     document.querySelector('#eventDetail').innerHTML = `${actingBanner()}
@@ -67,9 +72,12 @@ async function loadEvent() {
           ${t.is_online
             ? `<p class="muted-text">${esc(tr('Online · {dove}', { dove: platform?.name || '' }))}</p>`
             : t.venue ? `<p class="muted-text">${esc(t.venue)}</p>` : ''}
+          ${imported ? `<p class="muted-text locator-note">${esc(tr('Dal Wizards Event Locator: iscrizione e pagamento si fanno presso il negozio.'))}</p>` : ''}
         </div>
         <div style="display:grid;gap:8px;text-align:right">
-          ${isReg
+          ${imported
+            ? `<a class="primary" href="${esc(t.external_url)}" target="_blank" rel="noopener" style="text-align:center;text-decoration:none;padding:10px 18px;border-radius:8px">${esc(tr('Iscriviti presso il negozio ↗'))}</a>`
+            : isReg
             ? '<span class="badge ok" style="font-size:1rem">✓ Iscritto</span>'
             : canReg
               ? `<button class="primary" id="registerBtn" type="button">Iscriviti — ${fmtMoney((t.entry_fee_cents||0)/100)}</button>`
@@ -91,10 +99,12 @@ async function loadEvent() {
               ? `<dt>${esc(tr('Formula'))}</dt> <dd>${esc(tr('Solo iscrizioni, senza turni'))}</dd>`
               : `<dt>${esc(tr('Match'))}</dt> <dd>${esc(bestOfLabel(t.best_of))}</dd>`}
             ${(t.team_size || 1) > 1 ? `<dt>${esc(tr('Formula'))}</dt> <dd>${esc(tr('Squadre da {n}', { n: t.team_size }))}</dd>` : ''}
-            ${t.organizer_name ? `<dt>${esc(tr('Organizzatore'))}</dt> <dd>${esc(t.organizer_name)}</dd>` : ''}
+            ${organizer ? `<dt>${esc(tr('Organizzatore'))}</dt> <dd>${esc(organizer)}</dd>` : ''}
             <dt>REL</dt>        <dd>${esc(t.rules_enforcement_level || 'Regular')}</dd>
             <dt>Entry fee</dt>  <dd>${fmtMoney((t.entry_fee_cents||0)/100)}</dd>
-            <dt>Posti</dt>      <dd>${spots} / ${t.capacity}</dd>
+            ${imported
+              ? (t.capacity ? `<dt>Posti</dt> <dd>${t.capacity}</dd>` : '')
+              : `<dt>Posti</dt> <dd>${spots} / ${t.capacity}</dd>`}
           </dl>
         </div>
         ${t.description ? `<div class="panel"><h3>Descrizione</h3><p>${esc(t.description)}</p></div>` : ''}

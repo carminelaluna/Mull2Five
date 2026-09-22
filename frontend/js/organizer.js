@@ -1781,8 +1781,10 @@ async function renderNegozio() {
   ${locationsPanel(locations)}
   ${paymentsPanel(org, payments)}
   ${staffPanel(org, members)}
-  ${apiPanel(org, apiKeys)}`;
+  ${apiPanel(org, apiKeys)}
+  ${locatorPanel()}`;
   bindStoreSwitcher();
+  bindLocatorPanel();
   bindLocationsPanel(org, locations);
   bindStaffPanel(org, members);
   bindApiPanel(org);
@@ -1844,8 +1846,10 @@ async function renderNoStore() {
       <label class="span-2">${esc(tr('Città'))}<input id="nsCity" maxlength="120" /></label>
       <button class="primary" type="submit" style="grid-column:1/-1">${esc(tr('Apri il negozio'))}</button>
     </form>
-  </div>`;
+  </div>
+  ${locatorPanel()}`;
   bindStoreSwitcher();
+  bindLocatorPanel();
   $('#newStore').addEventListener('submit', async (e) => {
     e.preventDefault();
     try {
@@ -1912,6 +1916,61 @@ function staffPanel(org, members) {
       <p class="muted" style="grid-column:1/-1;margin:0;font-size:.82rem">${esc(tr('Deve avere già un account. Se era solo giocatore, diventa organizzatore.'))}</p>
     </form>` : ''}
   </div>`;
+}
+
+/* ── Wizards Event Locator (solo admin) ──────────────────
+   Importa i tornei di Magic di una zona come tornei "vetrina": si trovano qui,
+   ci si iscrive presso il negozio. Spenta sul server finché non si imposta
+   WIZARDS_LOCATOR_ENABLED (vedi backend/app/services/wizards_locator.py). */
+function locatorPanel() {
+  if (session.role !== 'admin') return '';
+  return `<div class="panel" style="margin-top:16px">
+    <h3>${esc(tr('Tornei dal Wizards Event Locator'))}</h3>
+    <p class="muted" id="locatorState" style="margin-top:0;font-size:.85rem">${esc(tr('Caricamento…'))}</p>
+    <form id="locatorForm" class="bo-grid">
+      <label class="span-2">${esc(tr('Città'))}<input id="locCity" required minlength="2" maxlength="80" placeholder="Milano" /></label>
+      <label>${esc(tr('Raggio (km)'))}<input id="locDistance" type="number" min="5" max="200" value="50" /></label>
+      <label title="${esc(tr('100 eventi per pagina'))}">${esc(tr('Pagine'))}<input id="locPages" type="number" min="1" max="10" value="3" /></label>
+      <button class="primary" id="locSubmit" type="submit" style="grid-column:1/-1">${esc(tr('Importa i tornei'))}</button>
+    </form>
+    <p class="muted" id="locatorResult" style="margin:10px 0 0;font-size:.85rem" hidden></p>
+  </div>`;
+}
+
+function bindLocatorPanel() {
+  const form = $('#locatorForm');
+  if (!form) return;
+  const showStatus = (st) => {
+    $('#locatorState').textContent = st.enabled
+      ? tr('Importati finora: {tornei} tornei di {negozi} negozi. Chi li apre trova il link per iscriversi presso il negozio.', { tornei: st.imported_tournaments, negozi: st.imported_stores })
+      : tr("Spenta sul server: si accende con WIZARDS_LOCATOR_ENABLED=true. Le condizioni d'uso di Wizards vietano la raccolta automatica dei dati: prima di accenderla chiedi il permesso a Wizards (WPN).");
+    $('#locSubmit').disabled = !st.enabled;
+  };
+  apiFetch('/admin/wizards-locator').then(showStatus).catch((err) => { $('#locatorState').textContent = 'Errore: ' + err.message; });
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const button = $('#locSubmit');
+    button.disabled = true;
+    button.textContent = tr('Importazione in corso…');
+    try {
+      const r = await apiFetch('/admin/wizards-locator/import', { method: 'POST', body: JSON.stringify({
+        city: $('#locCity').value.trim(),
+        distance_km: Number($('#locDistance').value) || 50,
+        max_pages: Number($('#locPages').value) || 3,
+      }) });
+      const result = $('#locatorResult');
+      result.hidden = false;
+      result.textContent = tr('{letti} eventi letti: {nuovi} nuovi, {aggiornati} aggiornati, {annullati} annullati, {saltati} saltati. Negozi nuovi: {negozi}.', {
+        letti: r.fetched, nuovi: r.created, aggiornati: r.updated, annullati: r.cancelled, saltati: r.skipped, negozi: r.stores_created,
+      });
+      showStatus(await apiFetch('/admin/wizards-locator'));
+    } catch (err) {
+      toast('Errore: ' + err.message);
+    } finally {
+      button.disabled = false;
+      button.textContent = tr('Importa i tornei');
+    }
+  });
 }
 
 /* ── Incassi online ──────────────────────────────────────

@@ -881,5 +881,17 @@
   "🖥 Regia a parte": "🖥 Régie séparée",
   "🖥 Timer schermo": "🖥 Écran du minuteur",
   "🖼 Scheda da pubblicare ↗": "🖼 Visuel à publier ↗",
-  "🖼 Scheda social": "🖼 Visuel social"
+  "🖼 Scheda social": "🖼 Visuel social",
+  "Dal Wizards Event Locator: iscrizione e pagamento si fanno presso il negozio.": "Depuis le Wizards Event Locator : l'inscription et le paiement se font en boutique.",
+  "Iscriviti presso il negozio ↗": "S'inscrire en boutique ↗",
+  "Tornei dal Wizards Event Locator": "Tournois du Wizards Event Locator",
+  "Raggio (km)": "Rayon (km)",
+  "100 eventi per pagina": "100 événements par page",
+  "Pagine": "Pages",
+  "Importa i tornei": "Importer les tournois",
+  "Importazione in corso…": "Importation en cours…",
+  "Importati finora: {tornei} tornei di {negozi} negozi. Chi li apre trova il link per iscriversi presso il negozio.": "Importés jusqu'ici : {tornei} tournois de {negozi} boutiques. En les ouvrant, on trouve le lien pour s'inscrire en boutique.",
+  "Spenta sul server: si accende con WIZARDS_LOCATOR_ENABLED=true. Le condizioni d'uso di Wizards vietano la raccolta automatica dei dati: prima di accenderla chiedi il permesso a Wizards (WPN).": "Désactivée sur le serveur : elle s'active avec WIZARDS_LOCATOR_ENABLED=true. Les conditions d'utilisation de Wizards interdisent la collecte automatique de données : demandez l'autorisation à Wizards (WPN) avant de l'activer.",
+  "{letti} eventi letti: {nuovi} nuovi, {aggiornati} aggiornati, {annullati} annullati, {saltati} saltati. Negozi nuovi: {negozi}.": "{letti} événements lus : {nuovi} nouveaux, {aggiornati} mis à jour, {annullati} annulés, {saltati} ignorés. Nouvelles boutiques : {negozi}.",
+  "Iscrizione in negozio": "Inscription en boutique"
 }

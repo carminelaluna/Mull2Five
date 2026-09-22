@@ -258,6 +258,9 @@ class TournamentOut(BaseModel):
     registered_players: int = 0
     sanction_id: str = ""
     invites: int = 0
+    # "wizards" per i tornei vetrina importati dal Wizards Event Locator.
+    source: str = ""
+    external_url: str = ""
     is_online: bool = False
     online_platform: str = ""
     # Solo per chi è iscritto o nello staff (/tournaments/mine): altrove è vuoto.
@@ -641,6 +644,9 @@ class OrganizationOut(BaseModel):
     distance_km: float | None = None
     # Solo in /organizations/mine: il ruolo di chi chiama nello staff.
     my_role: str | None = None
+    # "wizards" per i negozi importati dal Wizards Store Locator, con il loro id lì.
+    source: str = ""
+    external_id: str = ""
 
     model_config = {"from_attributes": True}
 
@@ -1100,6 +1106,27 @@ class StorePaypalIn(BaseModel):
 
 class StripeLinkOut(BaseModel):
     url: str
+
+
+class LocatorImportIn(BaseModel):
+    city: str = Field(min_length=2, max_length=80)
+    distance_km: int = Field(default=50, ge=5, le=200)
+    max_pages: int = Field(default=3, ge=1, le=10)
+
+
+class LocatorImportOut(BaseModel):
+    fetched: int
+    created: int
+    updated: int
+    cancelled: int
+    skipped: int
+    stores_created: int
+
+
+class LocatorStatusOut(BaseModel):
+    enabled: bool
+    imported_tournaments: int
+    imported_stores: int
 
 
 class ApiKeyIn(BaseModel):

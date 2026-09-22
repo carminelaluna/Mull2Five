@@ -1012,3 +1012,7 @@ table.meta-table { min-width: 0; }
   .pay-row, .pay-row-form { grid-template-columns: 1fr; }
   .pay-actions { justify-content: flex-start; }
 }
+
+/* Tornei vetrina dal Wizards Event Locator: la nota sotto il titolo. */
+.locator-note { margin: 6px 0 0; font-size: .85rem; }
+#locatorForm button:disabled { opacity: .45; cursor: not-allowed; }

@@ -859,5 +859,17 @@
   "🖥 Regia a parte": "🖥 Control aparte",
   "🖥 Timer schermo": "🖥 Pantalla del temporizador",
   "🖼 Scheda da pubblicare ↗": "🖼 Imagen para publicar ↗",
-  "🖼 Scheda social": "🖼 Imagen social"
+  "🖼 Scheda social": "🖼 Imagen social",
+  "Dal Wizards Event Locator: iscrizione e pagamento si fanno presso il negozio.": "Del Wizards Event Locator: la inscripción y el pago se hacen en la tienda.",
+  "Iscriviti presso il negozio ↗": "Inscríbete en la tienda ↗",
+  "Tornei dal Wizards Event Locator": "Torneos del Wizards Event Locator",
+  "Raggio (km)": "Radio (km)",
+  "100 eventi per pagina": "100 eventos por página",
+  "Pagine": "Páginas",
+  "Importa i tornei": "Importar torneos",
+  "Importazione in corso…": "Importando…",
+  "Importati finora: {tornei} tornei di {negozi} negozi. Chi li apre trova il link per iscriversi presso il negozio.": "Importados hasta ahora: {tornei} torneos de {negozi} tiendas. Quien los abre encuentra el enlace para inscribirse en la tienda.",
+  "Spenta sul server: si accende con WIZARDS_LOCATOR_ENABLED=true. Le condizioni d'uso di Wizards vietano la raccolta automatica dei dati: prima di accenderla chiedi il permesso a Wizards (WPN).": "Desactivada en el servidor: se activa con WIZARDS_LOCATOR_ENABLED=true. Las condiciones de uso de Wizards prohíben la recogida automática de datos: antes de activarla, pide permiso a Wizards (WPN).",
+  "{letti} eventi letti: {nuovi} nuovi, {aggiornati} aggiornati, {annullati} annullati, {saltati} saltati. Negozi nuovi: {negozi}.": "{letti} eventos leídos: {nuovi} nuevos, {aggiornati} actualizados, {annullati} cancelados, {saltati} omitidos. Tiendas nuevas: {negozi}.",
+  "Iscrizione in negozio": "Inscripción en la tienda"
 }

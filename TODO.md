@@ -208,6 +208,7 @@ pagamenti ai negozi in fondo, sono il pezzo più grosso.
 - [x] 21. API pubblica con chiavi: chiavi del negozio create e revocate dal titolare (solo l'hash nel database, la chiave si vede una volta), /api/v1 in sola lettura per tornei, iscritti (senza dati personali), abbinamenti e classifiche, limite di richieste per chiave
 - [x] 22. Interfaccia in 5 lingue (italiano, inglese, spagnolo, francese, tedesco): selettore nell'header, dizionari con circa 850 voci per lingua, traduzione automatica del markup e dei testi disegnati dalle pagine; restano in italiano i messaggi del server
 - [x] 23. Pagamenti ai negozi: Stripe Connect (account Express del negozio, pagamenti con carta come destination charge, quota della piattaforma PLATFORM_FEE_PERCENT, rimborsi che riprendono il bonifico, stato dal webhook account.updated) e PayPal con l'email del negozio come beneficiario; avviso quando il negozio non è collegato
+- [x] 24. Tornei dal Wizards Event Locator: importazione dei tornei di Magic di una zona come tornei "vetrina" (ricerca, mappa, pagina del negozio; iscrizione presso il negozio col link al Locator), aggiornamento e annullamento a ogni nuova importazione, negozi senza email né telefono; spenta finché non si imposta WIZARDS_LOCATOR_ENABLED (condizioni d'uso di Wizards)
 - [ ] App mobile: resta per dopo
 
 Spareggi (dai regolamenti ufficiali):

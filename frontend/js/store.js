@@ -69,6 +69,7 @@ async function load() {
           ${o.address ? `<span>${esc(o.address)}</span>` : ''}
           ${maps ? `<a class="secondary-link" href="${esc(maps)}" target="_blank" rel="noopener">Mappa ↗</a>` : ''}
           ${o.website ? `<a class="secondary-link" href="${esc(o.website)}" target="_blank" rel="noopener">Sito ↗</a>` : ''}
+          ${o.source === 'wizards' && o.external_id ? `<a class="secondary-link" href="https://locator.wizards.com/store/${encodeURIComponent(o.external_id)}" target="_blank" rel="noopener">Wizards Store Locator ↗</a>` : ''}
         </div>
         <div class="profile-stats">
           <div class="profile-stat"><strong>${o.upcoming_count}</strong><span>in programma</span></div>

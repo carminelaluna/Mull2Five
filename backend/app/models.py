@@ -177,6 +177,9 @@ class Organization(Base):
     stripe_account_id: Mapped[str] = mapped_column(String(64), default="", server_default="")
     stripe_charges_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
     paypal_email: Mapped[str] = mapped_column(String(254), default="", server_default="")
+    # Negozi importati (source "wizards"): l'id della scheda sul Wizards Store Locator.
+    source: Mapped[str] = mapped_column(String(20), default="", server_default="")
+    external_id: Mapped[str] = mapped_column(String(40), default="", server_default="", index=True)
     created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
 
 
@@ -477,6 +480,11 @@ class Tournament(Base):
     # e quanti dei primi in classifica ricevono un invito (1 in un RCQ).
     sanction_id: Mapped[str] = mapped_column(String(60), default="", server_default="")
     invites: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    # Tornei "vetrina" importati (source "wizards"): l'iscrizione si fa presso il
+    # negozio, dalla pagina dell'evento sul Wizards Event Locator.
+    source: Mapped[str] = mapped_column(String(20), default="", server_default="")
+    external_id: Mapped[str] = mapped_column(String(40), default="", server_default="", index=True)
+    external_url: Mapped[str] = mapped_column(String(400), default="", server_default="")
     created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
 
     location: Mapped["Location | None"] = relationship()

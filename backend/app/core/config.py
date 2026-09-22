@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     # Quota della piattaforma sui pagamenti con carta che vanno a un negozio con
     # Stripe collegato (0 = tutto al negozio, meno le commissioni di Stripe).
     platform_fee_percent: float = 0.0
+    # Importazione dei tornei dal Wizards Event Locator (services/wizards_locator.py):
+    # spenta, perché le condizioni d'uso di Wizards vietano la raccolta automatica.
+    wizards_locator_enabled: bool = False
 
     smtp_host: str | None = None
     smtp_port: int = 587

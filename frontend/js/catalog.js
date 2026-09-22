@@ -117,7 +117,7 @@ export function eventTile(t) {
     <div class="tile-meta">${t.is_online ? '<span class="online-badge">Online</span>' : esc(t.venue || t.organization_name || '')}</div>
     <div class="tile-foot">
       <span>${t.entry_fee_cents ? fmtMoney(t.entry_fee_cents) : esc(tr('Gratis'))}</span>
-      <span style="color:var(--muted)">${esc(tr('{n} posti', { n: seats }))}</span>
+      <span style="color:var(--muted)">${esc(t.source === 'wizards' ? tr('Iscrizione in negozio') : tr('{n} posti', { n: seats }))}</span>
     </div>
   </a>`;
 }

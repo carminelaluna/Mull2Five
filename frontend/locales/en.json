@@ -870,5 +870,17 @@
   "🖥 Regia a parte": "🖥 Separate control room",
   "🖥 Timer schermo": "🖥 Timer screen",
   "🖼 Scheda da pubblicare ↗": "🖼 Card to post ↗",
-  "🖼 Scheda social": "🖼 Social card"
+  "🖼 Scheda social": "🖼 Social card",
+  "Dal Wizards Event Locator: iscrizione e pagamento si fanno presso il negozio.": "From the Wizards Event Locator: registration and payment happen at the store.",
+  "Iscriviti presso il negozio ↗": "Register at the store ↗",
+  "Tornei dal Wizards Event Locator": "Tournaments from the Wizards Event Locator",
+  "Raggio (km)": "Radius (km)",
+  "100 eventi per pagina": "100 events per page",
+  "Pagine": "Pages",
+  "Importa i tornei": "Import tournaments",
+  "Importazione in corso…": "Importing…",
+  "Importati finora: {tornei} tornei di {negozi} negozi. Chi li apre trova il link per iscriversi presso il negozio.": "Imported so far: {tornei} tournaments from {negozi} stores. Players who open them find the link to register at the store.",
+  "Spenta sul server: si accende con WIZARDS_LOCATOR_ENABLED=true. Le condizioni d'uso di Wizards vietano la raccolta automatica dei dati: prima di accenderla chiedi il permesso a Wizards (WPN).": "Off on the server: turn it on with WIZARDS_LOCATOR_ENABLED=true. Wizards' terms of use forbid automated data collection: ask Wizards (WPN) for permission before turning it on.",
+  "{letti} eventi letti: {nuovi} nuovi, {aggiornati} aggiornati, {annullati} annullati, {saltati} saltati. Negozi nuovi: {negozi}.": "{letti} events read: {nuovi} new, {aggiornati} updated, {annullati} cancelled, {saltati} skipped. New stores: {negozi}.",
+  "Iscrizione in negozio": "Register at the store"
 }

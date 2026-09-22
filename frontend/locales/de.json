@@ -883,5 +883,17 @@
   "🖥 Regia a parte": "🖥 Separate Regie",
   "🖥 Timer schermo": "🖥 Timer-Bildschirm",
   "🖼 Scheda da pubblicare ↗": "🖼 Bild zum Posten ↗",
-  "🖼 Scheda social": "🖼 Social-Bild"
+  "🖼 Scheda social": "🖼 Social-Bild",
+  "Dal Wizards Event Locator: iscrizione e pagamento si fanno presso il negozio.": "Aus dem Wizards Event Locator: Anmeldung und Bezahlung erfolgen im Laden.",
+  "Iscriviti presso il negozio ↗": "Im Laden anmelden ↗",
+  "Tornei dal Wizards Event Locator": "Turniere aus dem Wizards Event Locator",
+  "Raggio (km)": "Umkreis (km)",
+  "100 eventi per pagina": "100 Events pro Seite",
+  "Pagine": "Seiten",
+  "Importa i tornei": "Turniere importieren",
+  "Importazione in corso…": "Import läuft…",
+  "Importati finora: {tornei} tornei di {negozi} negozi. Chi li apre trova il link per iscriversi presso il negozio.": "Bisher importiert: {tornei} Turniere von {negozi} Läden. Wer sie öffnet, findet den Link zur Anmeldung im Laden.",
+  "Spenta sul server: si accende con WIZARDS_LOCATOR_ENABLED=true. Le condizioni d'uso di Wizards vietano la raccolta automatica dei dati: prima di accenderla chiedi il permesso a Wizards (WPN).": "Auf dem Server ausgeschaltet: Einschalten mit WIZARDS_LOCATOR_ENABLED=true. Die Nutzungsbedingungen von Wizards verbieten das automatische Sammeln von Daten: Bitte vor dem Einschalten Wizards (WPN) um Erlaubnis.",
+  "{letti} eventi letti: {nuovi} nuovi, {aggiornati} aggiornati, {annullati} annullati, {saltati} saltati. Negozi nuovi: {negozi}.": "{letti} Events gelesen: {nuovi} neu, {aggiornati} aktualisiert, {annullati} abgesagt, {saltati} übersprungen. Neue Läden: {negozi}.",
+  "Iscrizione in negozio": "Anmeldung im Laden"
 }

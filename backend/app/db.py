@@ -170,6 +170,9 @@ def migrate_existing_schema() -> None:
             add_column(connection, columns, "tournaments", "online_link", "VARCHAR(300)", "''")
             add_column(connection, columns, "tournaments", "sanction_id", "VARCHAR(60)", "''")
             add_column(connection, columns, "tournaments", "invites", "INTEGER", "0")
+            add_column(connection, columns, "tournaments", "source", "VARCHAR(20)", "''")
+            add_column(connection, columns, "tournaments", "external_id", "VARCHAR(40)", "''")
+            add_column(connection, columns, "tournaments", "external_url", "VARCHAR(400)", "''")
             add_column(connection, columns, "tournaments", "best_of", "INTEGER", "3")
             add_column(connection, columns, "tournaments", "allow_intentional_draws", "BOOLEAN", "1")
 
@@ -223,6 +226,8 @@ def migrate_existing_schema() -> None:
             add_column(connection, columns, "organizations", "stripe_account_id", "VARCHAR(64)", "''")
             add_column(connection, columns, "organizations", "stripe_charges_enabled", "BOOLEAN", "0")
             add_column(connection, columns, "organizations", "paypal_email", "VARCHAR(254)", "''")
+            add_column(connection, columns, "organizations", "source", "VARCHAR(20)", "''")
+            add_column(connection, columns, "organizations", "external_id", "VARCHAR(40)", "''")
 
         if "seasons" in inspector.get_table_names():
             columns = {col["name"] for col in inspector.get_columns("seasons")}
