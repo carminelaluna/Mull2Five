@@ -191,23 +191,19 @@ VITE_API_URL=http://127.0.0.1:8000/api
 
 ---
 
-## OAuth
+## Convenzioni del codice
 
-**Google** — aggiungi in `.env`:
-```env
-GOOGLE_CLIENT_ID=
-GOOGLE_CLIENT_SECRET=
-```
-Callback: `http://127.0.0.1:8000/api/auth/oauth/google/callback`
-
-**Apple** — aggiungi in `.env`:
-```env
-APPLE_CLIENT_ID=
-APPLE_TEAM_ID=
-APPLE_KEY_ID=
-APPLE_PRIVATE_KEY_PATH=/etc/secrets/AuthKey_XXXXXXXXXX.p8
-```
-Callback: `http://127.0.0.1:8000/api/auth/oauth/apple/callback`
+- **Nomi in inglese, parole in italiano.** Variabili, funzioni, tabelle e campi si
+  scrivono in inglese; commenti, docstring e tutto quello che legge una persona
+  (interfaccia e messaggi d'errore del server) in italiano.
+- **Le traduzioni partono dall'italiano**: `t('testo italiano')`, e la stessa frase
+  fa da chiave in `frontend/locales/{en,es,fr,de}.json`. Un test del frontend
+  controlla che non ne manchi nessuna.
+- **Schema del database**: ogni cambiamento è una migrazione Alembic
+  (`alembic revision --autogenerate -m "..."`); la CI verifica che le migrazioni
+  corrispondano ai modelli, su SQLite e su PostgreSQL.
+- **Sessione e chiamate all'API** passano da `frontend/js/session.js`: niente
+  `fetch` con il token scritto a mano nelle pagine.
 
 ---
 
@@ -243,4 +239,4 @@ d'ambiente e ripristino in [HOSTING.md](HOSTING.md).
 
 ## Note
 
-Per produzione servono: credenziali reali OAuth / Stripe / PayPal, HTTPS, e un `SECRET_KEY` lungo e casuale (`python -c "import secrets; print(secrets.token_hex(32))"`).
+Per produzione servono: credenziali reali Stripe / PayPal, HTTPS, e un `SECRET_KEY` lungo e casuale (`python -c "import secrets; print(secrets.token_hex(32))"`).

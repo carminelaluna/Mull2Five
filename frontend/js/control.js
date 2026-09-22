@@ -9,7 +9,7 @@
 import { onReady } from './lang.js';   // prima di tutto: la lingua (vedi lang.js)
 import { mountConsole } from './console.js';
 import { esc } from './escape.js';
-import { logout, requireSession } from './session.js';
+import { apiRequest, logout, requireSession } from './session.js';
 
 const session = requireSession();
 
@@ -30,8 +30,7 @@ async function init() {
 
   let mine = [];
   try {
-    const r = await fetch('/api/tournaments/mine', { headers: { Authorization: `Bearer ${token}` } });
-    mine = r.ok ? await r.json() : [];
+    mine = await apiRequest('/tournaments/mine', { requireLogin: true });
   } catch { mine = []; }
 
   const running = mine.filter((t) => ['running', 'published'].includes(t.status));

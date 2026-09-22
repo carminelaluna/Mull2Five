@@ -33,6 +33,7 @@ from backend.app.routers import (
     seasons,
     site,
     tags,
+    tournament_rounds,
     tournaments,
 )
 
@@ -196,6 +197,9 @@ app.middleware("http")(metrics_middleware)
 
 app.include_router(auth.router, prefix="/api")
 app.include_router(tournaments.router, prefix="/api")
+# Dopo quello principale: le rotte del torneo in corso sono tutte più
+# specifiche, e l'ordine di inclusione decide chi risponde.
+app.include_router(tournament_rounds.router, prefix="/api")
 app.include_router(payments.router, prefix="/api")
 app.include_router(seasons.router, prefix="/api")
 app.include_router(admin.router, prefix="/api")
@@ -233,7 +237,7 @@ def metrics(request: Request):
     """Metriche Prometheus. Se METRICS_TOKEN è impostato, richiede ?token=..."""
     if settings.metrics_token:
         if request.query_params.get("token") != settings.metrics_token:
-            raise HTTPException(status_code=403, detail="Invalid metrics token")
+            raise HTTPException(status_code=403, detail="Token delle metriche non valido")
     return metrics_response()
 
 

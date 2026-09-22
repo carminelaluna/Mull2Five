@@ -12,7 +12,7 @@ import { renderDeck } from './deck-view.js';
 import { esc } from './escape.js';
 import { bestOfLabel, gameInfo, gameLabel, loadGames, tiebreakerColumns } from './games.js';
 import { t as tr } from './i18n.js';
-import { apiRequest, logout, requireSession } from './session.js';
+import { apiDownload, apiRequest, logout, requireSession } from './session.js';
 
 // Pagina riservata: senza sessione valida si va al login, e poi si torna qui.
 const session = requireSession();
@@ -79,24 +79,24 @@ const isClosed = (t) => ['completed', 'cancelled'].includes(t.status);
 let _warnings = {};
 
 async function loadTournaments() {
-  const [tornei, avvisi, negozi] = await Promise.all([
+  const [tournaments, warnings, stores] = await Promise.all([
     apiFetch('/tournaments/mine').catch(() => []),
     // Solo chi organizza ha avvisi: a un judge l'endpoint dice di no, ed e giusto.
     apiFetch('/tournaments/warnings/mine').catch(() => ({})),
     apiFetch('/organizations/memberships').catch(() => []),
   ]);
-  _myStores = new Set((negozi || []).map((s) => s.slug));
-  _tournaments = tornei || [];
-  _warnings = avvisi || {};
+  _myStores = new Set((stores || []).map((s) => s.slug));
+  _tournaments = tournaments || [];
+  _warnings = warnings || {};
   _tournaments.sort((a, b) => String(b.starts_on).localeCompare(String(a.starts_on)));
 }
 
 /** Il contatore sulle schede conta solo gli avvisi veri: le note restano dentro
     il torneo, altrimenti i badge si accendono ovunque e si smette di guardarli. */
 function warnChip(list) {
-  const veri = (list || []).filter(w => w.level === 'warn');
-  if (!veri.length) return '';
-  return `<span class="warn-chip" title="${esc(veri.map(w => w.message).join('\n'))}">⚠ ${veri.length} ${veri.length === 1 ? 'avviso' : 'avvisi'}</span>`;
+  const real = (list || []).filter(w => w.level === 'warn');
+  if (!real.length) return '';
+  return `<span class="warn-chip" title="${esc(real.map(w => w.message).join('\n'))}">⚠ ${real.length} ${real.length === 1 ? 'avviso' : 'avvisi'}</span>`;
 }
 
 function activeT() { return _tournaments.find(t => String(t.id) === String(_activeId)); }
@@ -178,18 +178,18 @@ async function renderWarnings(t) {
     box.innerHTML = '';
     return;
   }
-  let avvisi;
+  let warnings;
   try {
-    avvisi = (await apiFetch(`/tournaments/${t.id}/warnings`)) || [];
+    warnings = (await apiFetch(`/tournaments/${t.id}/warnings`)) || [];
   } catch (err) {
     box.style.display = '';
     box.innerHTML = `<div class="bo-warning info"><span class="bo-warning-text">Avvisi non disponibili: ${esc(err.message)}</span></div>`;
     return;
   }
   if (String(_activeId) !== String(t.id)) return;   // nel frattempo si e cambiato torneo
-  _warnings[t.id] = avvisi;
-  box.style.display = avvisi.length ? '' : 'none';
-  box.innerHTML = avvisi.map(w => {
+  _warnings[t.id] = warnings;
+  box.style.display = warnings.length ? '' : 'none';
+  box.innerHTML = warnings.map(w => {
     const azione = WARNING_ACTIONS[w.code];
     return `
       <div class="bo-warning ${w.level === 'warn' ? 'warn' : 'info'}">
@@ -256,9 +256,9 @@ function renderRegia() {
 /** Quale della serie è: "Serie 3/8", contando le date dei tornei che si vedono. */
 function seriesInfo(t) {
   if (!t.series_id) return null;
-  const serie = _tournaments.filter((x) => x.series_id === t.series_id)
+  const series = _tournaments.filter((x) => x.series_id === t.series_id)
     .sort((a, b) => String(a.starts_on).localeCompare(String(b.starts_on)));
-  return { position: serie.findIndex((x) => x.id === t.id) + 1, total: serie.length };
+  return { position: series.findIndex((x) => x.id === t.id) + 1, total: series.length };
 }
 
 /** I tornei della serie dopo questo, non ancora iniziati: le modifiche possono andare anche a loro. */
@@ -270,7 +270,7 @@ function followingInSeries(t) {
 
 function eventCard(t) {
   const posti = Math.max((t.capacity || 0) - (t.registered_players || 0), 0);
-  const serie = seriesInfo(t);
+  const series = seriesInfo(t);
   return `
     <article class="bo-event" data-open="${t.id}">
       <div class="bo-event-main">
@@ -279,7 +279,7 @@ function eventCard(t) {
           <span class="game-badge game-${esc(t.game || 'mtg')}">${esc(gameLabel(t.game))}</span>
           <span class="pill ${t.status === 'running' ? 'ok' : 'warn'}">${esc(statusLabel(t.status))}</span>
           ${warnChip(_warnings[t.id])}
-          ${serie ? `<span class="pill">${esc(tr('Serie {n}/{tot}', { n: serie.position, tot: serie.total }))}</span>` : ''}
+          ${series ? `<span class="pill">${esc(tr('Serie {n}/{tot}', { n: series.position, tot: series.total }))}</span>` : ''}
         </div>
         <div class="bo-event-name">${esc(t.name)}</div>
         <div class="tile-meta">
@@ -301,8 +301,8 @@ function eventCard(t) {
 }
 
 function renderEventList() {
-  const attivi = _tournaments.filter(t => !isClosed(t));
-  const conclusi = _tournaments.filter(isClosed);
+  const active = _tournaments.filter(t => !isClosed(t));
+  const finished = _tournaments.filter(isClosed);
 
   $('#panel').innerHTML = `
     <div class="bo-head">
@@ -313,15 +313,15 @@ function renderEventList() {
       </div>
     </div>
 
-    ${attivi.length
-      ? `<div class="bo-event-list">${attivi.map(eventCard).join('')}</div>`
+    ${active.length
+      ? `<div class="bo-event-list">${active.map(eventCard).join('')}</div>`
       : `<p class="empty">Nessun evento in corso. Creane uno con "Nuovo evento".</p>`}
 
-    ${conclusi.length ? `
+    ${finished.length ? `
       <h2 class="rail-sub">Conclusi</h2>
       <p class="muted" style="margin:-6px 0 12px;font-size:.85rem">
         Restano consultabili e non si possono eliminare: sono lo storico del negozio.</p>
-      <div class="bo-event-list">${conclusi.map(eventCard).join('')}</div>` : ''}`;
+      <div class="bo-event-list">${finished.map(eventCard).join('')}</div>` : ''}`;
 
   $('#boNew').addEventListener('click', openNewEventDialog);
   $('#boImport').addEventListener('click', openScheduleImportDialog);
@@ -612,10 +612,10 @@ function openRepeatDialog(id) {
 
 /* ── GIOCATORI ───────────────────────────────────────────
    Iscritti, liste e penalità erano tre schede sulle stesse persone: si finiva
-   per rimbalzare fra loro per capire se Tizio aveva pagato, consegnato la lista
+   per rimbalzare fra loro per capire se Tizio aveva pagato, consegnato la list
    e preso un warning. Qui è una riga sola per giocatore, con tutto sopra.
 
-   Le azioni che richiedono spazio (walk-in, lista, penalità) stanno in modali:
+   Le azioni che richiedono spazio (walk-in, list, penalità) stanno in modali:
    così la tabella resta leggibile anche con sessanta iscritti. */
 
 let _players = [];          // iscrizioni, complete di tag e stato lista
@@ -889,7 +889,7 @@ async function setFixedTable(t, reg) {
 }
 
 /* ── Squadre ─────────────────────────────────────────────
-   Nei tornei a squadre ogni squadra ha 2 o 3 posti: a ogni turno il posto A
+   Nei tournaments a squadre ogni squadra ha 2 o 3 posti: a ogni turno il posto A
    gioca contro il posto A avversario, e così via. Giocano le squadre complete. */
 const SEAT_LETTER = (seat) => 'ABC'[seat - 1] || String(seat || '');
 
@@ -1283,7 +1283,7 @@ function openDeckDialog(tid, reg) {
         Caricata dallo staff: non è soggetta alla scadenza che vale per i giocatori.</p>
       <menu>
         <button class="secondary" value="cancel" formnovalidate>Annulla</button>
-        <button class="primary" id="duSubmit" type="button">Salva lista</button>
+        <button class="primary" id="duSubmit" type="button">Salva list</button>
       </menu>
     </form>`;
   dlg.showModal();
@@ -1443,13 +1443,13 @@ async function renderAnnunci() {
   if (!t) { $('#panel').innerHTML = '<p class="empty">Apri un evento dalla lista.</p>'; return; }
   $('#panel').innerHTML = '<p class="empty">Caricamento annunci…</p>';
 
-  let lista = [];
+  let list = [];
   let tags = [];
   // Se i tag non arrivano si puo ancora mandare a tutti, che e il caso normale:
   // l'errore non blocca il modulo, ma va detto, non confuso con "non ci sono tag".
   let erroreTag = null;
   try {
-    [lista, tags] = await Promise.all([
+    [list, tags] = await Promise.all([
       apiFetch(`/tournaments/${t.id}/announcements`).then(r => r || []),
       apiFetch('/tags').then(r => r || []).catch((err) => { erroreTag = err; return []; }),
     ]);
@@ -1458,7 +1458,7 @@ async function renderAnnunci() {
     return;
   }
 
-  const inviati = lista.map(a => `
+  const inviati = list.map(a => `
     <div class="ann-row">
       <div>
         <strong>${esc(a.title)}</strong>
@@ -1470,7 +1470,7 @@ async function renderAnnunci() {
       <small class="muted">${new Date(a.created_at).toLocaleString('it-IT')}</small>
     </div>`).join('') || '<p class="muted">Nessun annuncio.</p>';
 
-  const scelta = tags.length
+  const picker = tags.length
     ? `<fieldset class="tag-picker" style="grid-column:1/-1">
          <legend>Destinatari</legend>
          <label class="bo-check"><input type="checkbox" id="aAll" checked /> Tutti gli iscritti</label>
@@ -1497,7 +1497,7 @@ async function renderAnnunci() {
         <label style="grid-column:1/-1">Titolo<input id="aTitle" required placeholder="Pausa 10 minuti" /></label>
         <label style="grid-column:1/-1">Messaggio<textarea id="aBody" required
           placeholder="Verificate i tavoli, si riprende alle 15:00"></textarea></label>
-        ${scelta}
+        ${picker}
         <div class="a-email">
           <label class="bo-check"><input id="aEmail" type="checkbox" /> Invia anche via email</label>
           <small id="aEmailNote" class="muted"></small>
@@ -1507,9 +1507,9 @@ async function renderAnnunci() {
     </div>
     <div class="panel"><h3>Annunci inviati</h3>${inviati}</div>`;
 
-  const caselle = () => [...$('#panel').querySelectorAll('.a-tag')];
-  const scelti = () => caselle().filter(c => c.checked).map(c => Number(c.value));
-  const aTutti = () => !$('#aAll') || $('#aAll').checked;
+  const boxes = () => [...$('#panel').querySelectorAll('.a-tag')];
+  const picked = () => boxes().filter(c => c.checked).map(c => Number(c.value));
+  const toEveryone = () => !$('#aAll') || $('#aAll').checked;
 
   /* Il conteggio arriva dal backend invece di essere stimato qui: e la stessa
      query che decidera i destinatari, quindi non puo divergere da cio che parte. */
@@ -1543,8 +1543,8 @@ async function renderAnnunci() {
 
   async function aggiornaConteggio() {
     const box = $('#aCount');   // assente se il negozio non ha tag
-    const tagIds = aTutti() ? [] : scelti();
-    if (!aTutti() && !tagIds.length) {
+    const tagIds = toEveryone() ? [] : picked();
+    if (!toEveryone() && !tagIds.length) {
       if (box) box.textContent = 'Nessun tag selezionato: scegline almeno uno, o torna a "Tutti gli iscritti".';
       return;
     }
@@ -1565,16 +1565,16 @@ async function renderAnnunci() {
   }
 
   $('#aAll')?.addEventListener('change', () => {
-    caselle().forEach(c => { c.disabled = aTutti(); if (aTutti()) c.checked = false; });
+    boxes().forEach(c => { c.disabled = toEveryone(); if (toEveryone()) c.checked = false; });
     aggiornaConteggio();
   });
-  caselle().forEach(c => c.addEventListener('change', aggiornaConteggio));
+  boxes().forEach(c => c.addEventListener('change', aggiornaConteggio));
   aggiornaConteggio();
 
   $('#annForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const tagIds = aTutti() ? [] : scelti();
-    if (!aTutti() && !tagIds.length) { toast('Scegli almeno un tag, o manda a tutti.'); return; }
+    const tagIds = toEveryone() ? [] : picked();
+    if (!toEveryone() && !tagIds.length) { toast('Scegli almeno un tag, o manda a tutti.'); return; }
     const invia = $('#aSend');
     invia.disabled = true;
     try {
@@ -1640,13 +1640,9 @@ async function renderOfficial() {
       <tbody>${rows}</tbody></table></div>
   </div>`);
   $('#officialCsv').addEventListener('click', async () => {
-    const r = await fetch(`/api/tournaments/${t.id}/official-report.csv`, { headers: { Authorization: `Bearer ${token}` } });
-    if (!r.ok) { toast(tr('Download non riuscito')); return; }
-    const url = URL.createObjectURL(await r.blob());
-    const a = document.createElement('a');
-    a.href = url; a.download = `report-${report.sanction_id || t.id}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    try {
+      await apiDownload(`/tournaments/${t.id}/official-report.csv`, `report-${report.sanction_id || t.id}.csv`);
+    } catch (err) { toast(err.message); }
   });
   $('#panel').querySelectorAll('[data-fix-id]').forEach((form) => form.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -2019,7 +2015,7 @@ function staffPanel(org, members) {
 }
 
 /* ── Wizards Event Locator (solo admin) ──────────────────
-   Importa i tornei di Magic di una zona come tornei "vetrina": si trovano qui,
+   Importa i tournaments di Magic di una zona come tournaments "vetrina": si trovano qui,
    ci si iscrive presso il negozio. Spenta sul server finché non si imposta
    WIZARDS_LOCATOR_ENABLED (vedi backend/app/services/wizards_locator.py). */
 function locatorPanel() {
@@ -2042,7 +2038,7 @@ function bindLocatorPanel() {
   if (!form) return;
   const showStatus = (st) => {
     $('#locatorState').textContent = st.enabled
-      ? tr('Importati finora: {tornei} tornei di {negozi} negozi. Chi li apre trova il link per iscriversi presso il negozio.', { tornei: st.imported_tournaments, negozi: st.imported_stores })
+      ? tr('Importati finora: {tornei} tornei di {negozi} negozi. Chi li apre trova il link per iscriversi presso il negozio.', { tournaments: st.imported_tournaments, stores: st.imported_stores })
       : tr("Spenta sul server: si accende con WIZARDS_LOCATOR_ENABLED=true. Le condizioni d'uso di Wizards vietano la raccolta automatica dei dati: prima di accenderla chiedi il permesso a Wizards (WPN).");
     $('#locSubmit').disabled = !st.enabled;
   };
@@ -2061,7 +2057,7 @@ function bindLocatorPanel() {
       const result = $('#locatorResult');
       result.hidden = false;
       result.textContent = tr('{letti} eventi letti: {nuovi} nuovi, {aggiornati} aggiornati, {annullati} annullati, {saltati} saltati. Negozi nuovi: {negozi}.', {
-        letti: r.fetched, nuovi: r.created, aggiornati: r.updated, annullati: r.cancelled, saltati: r.skipped, negozi: r.stores_created,
+        letti: r.fetched, nuovi: r.created, aggiornati: r.updated, annullati: r.cancelled, saltati: r.skipped, stores: r.stores_created,
       });
       showStatus(await apiFetch('/admin/wizards-locator'));
     } catch (err) {
@@ -2208,7 +2204,7 @@ function bindPaymentsPanel(org) {
 
 /* ── API pubblica ────────────────────────────────────────
    Le chiavi con cui il sito del negozio, un bot o un overlay di streaming leggono
-   i suoi tornei. Le gestisce il titolare; una chiave si vede solo appena creata. */
+   i suoi tournaments. Le gestisce il titolare; una chiave si vede solo appena creata. */
 function apiPanel(org, keys) {
   if (org.my_role !== 'owner') return '';
   const when = (iso) => new Date(iso).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -2584,9 +2580,9 @@ function openSuspendDialog(slug, who, onDone) {
 }
 
 /* ── MANIFESTAZIONI ──────────────────────────────────────
-   Il contenitore di piu tornei che si svolgono insieme: un weekend con main
+   Il contenitore di piu tournaments che si svolgono insieme: un weekend con main
    event e side event. Si chiama cosi in interfaccia perche "Eventi", qui in
-   back-office, sono gia i singoli tornei; nel modello resta `Event`.
+   back-office, sono gia i singoli tournaments; nel modello resta `Event`.
 
    Il motivo per cui esiste: lo staff si nomina una volta sola e vale su tutte
    le tappe. */
@@ -2626,7 +2622,7 @@ async function renderManifestazioni() {
       <button class="primary" id="evNew" type="button">+ Nuova manifestazione</button>
     </div>
     <p class="muted" style="margin:-8px 0 16px;max-width:64ch">
-      Raggruppa piu tornei che si svolgono insieme. Chi nomini capojudge qui lo e
+      Raggruppa piu tournaments che si svolgono insieme. Chi nomini capojudge qui lo e
       su tutte le tappe, senza rinominarlo torneo per torneo.
     </p>
     ${_events.length
@@ -2696,8 +2692,8 @@ async function renderManifestazione(eventId) {
   const ev = _events.find((e) => String(e.id) === String(eventId));
   if (!ev) { _openEventId = null; return renderManifestazioni(); }
 
-  const avvisi = ev.warnings || [];
-  const fuoriPeriodo = new Set(avvisi
+  const warnings = ev.warnings || [];
+  const fuoriPeriodo = new Set(warnings
     .filter(w => w.code === 'stage_outside_period')
     .map(w => String(w.tournament_id)));
 
@@ -2743,9 +2739,9 @@ async function renderManifestazione(eventId) {
       </div>
     </div>
 
-    ${avvisi.length ? `
+    ${warnings.length ? `
       <div class="bo-warnings" style="margin-bottom:16px">
-        ${avvisi.map(w => `
+        ${warnings.map(w => `
           <div class="bo-warning ${w.level === 'warn' ? 'warn' : 'info'}">
             <span class="bo-warning-icon" aria-hidden="true">${w.level === 'warn' ? '⚠' : 'ℹ'}</span>
             <span class="bo-warning-text">${esc(w.message)}</span>
@@ -3124,10 +3120,10 @@ async function renderStaff() {
   if (!t) { $('#panel').innerHTML = '<p class="empty">Apri un evento dalla lista.</p>'; return; }
   $('#panel').innerHTML = '<p class="empty">Caricamento staff…</p>';
 
-  let membri = [];
-  let ruolo = 'none';
+  let members = [];
+  let myRole = 'none';
   try {
-    [membri, ruolo] = await Promise.all([
+    [members, myRole] = await Promise.all([
       apiFetch(`/tournaments/${t.id}/staff`),
       apiFetch(`/tournaments/${t.id}/my-role`).then((r) => r?.role || 'none'),
     ]);
@@ -3138,26 +3134,26 @@ async function renderStaff() {
 
   // Promuovere e degradare spetta al solo organizzatore: il capojudge non si
   // sceglie un successore. Nominare judge invece lo fa anche lui.
-  const sonoOrganizzatore = ruolo === 'organizer';
-  const possoNominare = ['organizer', 'head_judge'].includes(ruolo);
-  const ceGiaUnCapo = membri.some((m) => m.role === 'head_judge');
+  const isOrganizer = myRole === 'organizer';
+  const possoNominare = ['organizer', 'head_judge'].includes(myRole);
+  const hasHeadJudge = members.some((m) => m.role === 'head_judge');
 
-  const righe = membri.map((m) => `
+  const rows = members.map((m) => `
     <tr>
       <td><strong>${esc(m.display_name)}</strong><br><small class="muted">${esc(m.email)}</small></td>
       <td><span class="pill ${m.role === 'head_judge' ? 'ok' : ''}">
         ${m.role === 'head_judge' ? 'capojudge' : 'judge'}</span></td>
       <td class="row-actions">
-        ${sonoOrganizzatore ? `<button class="mini-button" data-promote="${m.id}"
+        ${isOrganizer ? `<button class="mini-button" data-promote="${m.id}"
           data-to="${m.role === 'head_judge' ? 'judge' : 'head_judge'}" type="button">
           ${m.role === 'head_judge' ? 'Degrada a judge' : 'Promuovi a capojudge'}</button>` : ''}
-        ${(sonoOrganizzatore || m.role !== 'head_judge')
+        ${(isOrganizer || m.role !== 'head_judge')
           ? `<button class="mini-button" data-drop="${m.id}" type="button" style="color:var(--danger)">Rimuovi</button>`
           : ''}
       </td>
     </tr>`).join('') || '<tr><td colspan="3" class="muted">Nessuno nello staff di questa tappa.</td></tr>';
 
-  const avviso = sonoOrganizzatore && ceGiaUnCapo
+  const avviso = isOrganizer && hasHeadJudge
     ? '<p class="muted" style="margin:8px 0 0;font-size:.82rem">Di capojudge ne vale uno: degrada o rimuovi quello attuale prima di nominarne un altro.</p>'
     : '';
 
@@ -3169,14 +3165,14 @@ async function renderStaff() {
         i judge. Chi ha un incarico sulla manifestazione lo ha gia qui e non compare
         in questo elenco.</p>
       <table class="bo"><thead><tr><th>Persona</th><th>Ruolo</th><th></th></tr></thead>
-        <tbody>${righe}</tbody></table>
+        <tbody>${rows}</tbody></table>
 
       ${possoNominare ? `
         <form id="stForm" class="bo-grid" style="margin-top:12px">
           <label>Email<input id="stEmail" type="email" required placeholder="judge@email.com" /></label>
           <label>Ruolo<select id="stRole">
             <option value="judge">Judge</option>
-            ${sonoOrganizzatore && !ceGiaUnCapo ? '<option value="head_judge">Capojudge</option>' : ''}
+            ${isOrganizer && !hasHeadJudge ? '<option value="head_judge">Capojudge</option>' : ''}
           </select></label>
           <button class="primary" type="submit">Nomina</button>
         </form>${avviso}`

@@ -56,6 +56,7 @@ from backend.app.services.stores import (
     is_store_owner,
     store_role,
 )
+from backend.app.services.tournament_views import haversine_km, tournament_with_counts
 
 router = APIRouter(prefix="/organizations", tags=["organizations"])
 
@@ -99,8 +100,6 @@ def list_organizations(
     orgs = [_org_out(o, db) for o in db.scalars(stmt.order_by(Organization.name)).all()]
     if near_lat is None or near_lng is None:
         return orgs
-    from backend.app.routers.tournaments import haversine_km
-
     located = []
     for o in orgs:
         if o.latitude is None or o.longitude is None:
@@ -116,8 +115,6 @@ def list_organizations(
 @router.get("/{slug}/profile", response_model=StoreProfileOut)
 def store_profile(slug: str, db: Session = Depends(get_db)) -> StoreProfileOut:
     """Pagina pubblica del negozio: anagrafica, prossimi eventi e albo d'oro."""
-    from backend.app.routers.tournaments import tournament_with_counts
-
     org = db.scalar(select(Organization).where(Organization.slug == slug))
     if not org:
         raise HTTPException(status_code=404, detail="Negozio non trovato")

@@ -218,7 +218,7 @@ def test_organizations_endpoints(client):
 
 
 def test_default_swiss_rounds_is_log2():
-    from backend.app.routers.tournaments import default_swiss_rounds
+    from backend.app.services.pairings import default_swiss_rounds
     assert default_swiss_rounds(2) == 1
     assert default_swiss_rounds(4) == 2
     assert default_swiss_rounds(8) == 3

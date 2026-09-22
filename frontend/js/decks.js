@@ -7,7 +7,7 @@
  * modalità testo.
  */
 import './lang.js';   // prima di tutto: la lingua (vedi lang.js)
-import { actingAs, actingBanner, actingHeaders, bindActingBanner } from './acting.js';
+import { actingAs, actingBanner, bindActingBanner } from './acting.js';
 import { deckToText, manaSymbols, mergeCards, parseDeck, renderDeck } from './deck-view.js';
 import { esc } from './escape.js';
 import { loadGames } from './games.js';

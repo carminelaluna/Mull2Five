@@ -91,6 +91,22 @@ export async function apiRequest(path, { acting = false, requireLogin = false, .
 }
 
 /**
+ * Scarica un file dall'API. Come apiRequest, ma il corpo e un file e non JSON:
+ * serve per i CSV che genera il server (il report ufficiale del torneo).
+ */
+export async function apiDownload(path, filename) {
+  const token = getToken();
+  const r = await fetch(API + path, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+  if (!r.ok) throw new Error(tr('Download non riuscito'));
+  const url = URL.createObjectURL(await r.blob());
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/**
  * Rinnova il token quando ha più di mezza giornata: chi usa il sito resta
  * collegato, un token rubato scade in pochi giorni. Se il server lo rifiuta
  * (password cambiata, uscita da tutti i dispositivi) la sessione si chiude.

@@ -37,10 +37,10 @@ def _on_payment_paid(db: Session, payment: Payment) -> None:
 def complete_sandbox_payment(payment_id: int, db: Session = Depends(get_db)) -> SandboxPaymentOut:
     settings = get_settings()
     if not settings.payment_sandbox_mock:
-        raise HTTPException(status_code=404, detail="Sandbox payments are disabled")
+        raise HTTPException(status_code=404, detail="I pagamenti di prova sono spenti")
     payment = db.get(Payment, payment_id)
     if not payment or not payment.provider_checkout_id.startswith("sandbox-"):
-        raise HTTPException(status_code=404, detail="Sandbox payment not found")
+        raise HTTPException(status_code=404, detail="Pagamento di prova non trovato")
     payment.status = PaymentStatus.PAID
     payment.provider_payment_id = f"{payment.provider_checkout_id}-paid"
     payment.paid_at = datetime.now(UTC)
@@ -58,12 +58,12 @@ async def stripe_webhook(
 ) -> dict[str, str]:
     settings = get_settings()
     if not settings.stripe_webhook_secret:
-        raise HTTPException(status_code=503, detail="Stripe webhook is not configured")
+        raise HTTPException(status_code=503, detail="La notifica Stripe non è configurata")
     payload = await request.body()
     try:
         event = stripe.Webhook.construct_event(payload, stripe_signature, settings.stripe_webhook_secret)
     except Exception as exc:
-        raise HTTPException(status_code=400, detail="Invalid Stripe webhook") from exc
+        raise HTTPException(status_code=400, detail="Notifica Stripe non valida") from exc
 
     if event["type"] == "account.updated":
         # L'account di un negozio: può incassare o no (verifiche Stripe in sospeso).

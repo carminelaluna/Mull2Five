@@ -34,6 +34,8 @@ from backend.app.schemas import (
 )
 from backend.app.security import get_current_user, require_organizer
 from backend.app.services.stores import store_ids, store_role
+from backend.app.services.tournament_access import owns_tournament
+from backend.app.services.tournament_views import tournament_with_counts
 from backend.app.services.warnings import event_warnings
 
 router = APIRouter(prefix="/events", tags=["events"])
@@ -142,8 +144,6 @@ def list_public_events(db: Session = Depends(get_db)) -> list[EventOut]:
 @router.get("/by-slug/{slug}", response_model=EventPublicOut)
 def public_event(slug: str, db: Session = Depends(get_db)) -> EventPublicOut:
     """Pagina pubblica dell'evento: il programma di tutte le tappe."""
-    from backend.app.routers.tournaments import tournament_with_counts
-
     event = db.scalar(select(Event).where(Event.slug == slug))
     if not event or not event.is_public:
         raise HTTPException(status_code=404, detail="Evento non trovato")
@@ -191,8 +191,6 @@ def attach_tournament(
 
     Una tappa fuori dal periodo si aggancia lo stesso — un side event il giorno
     prima puo avere senso — e lo dice l'avviso nella risposta."""
-    from backend.app.routers.tournaments import owns_tournament
-
     event = load_owned_event(event_id, organizer, db)
     tournament = db.get(Tournament, tournament_id)
     if not tournament or not owns_tournament(tournament, organizer, db):
@@ -286,7 +284,7 @@ def remove_event_staff(
     load_owned_event(event_id, organizer, db)
     staff = db.get(EventStaff, staff_id)
     if not staff or staff.event_id != event_id:
-        raise HTTPException(status_code=404, detail="Staff member not found")
+        raise HTTPException(status_code=404, detail="Membro dello staff non trovato")
     db.delete(staff)
     db.commit()
 

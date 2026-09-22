@@ -28,6 +28,7 @@ from backend.app.schemas import (
     SeriesPublicOut,
 )
 from backend.app.security import require_organizer
+from backend.app.services.tournament_views import tournament_with_counts
 
 router = APIRouter(prefix="/seasons", tags=["seasons"])
 
@@ -100,10 +101,10 @@ def add_tournament_to_season(
 ) -> SeasonOut:
     season = db.get(Season, season_id)
     if not season or season.organizer_id != organizer.id:
-        raise HTTPException(status_code=404, detail="Season not found")
+        raise HTTPException(status_code=404, detail="Circuito non trovato")
     tournament = db.get(Tournament, tournament_id)
     if not tournament or tournament.organizer_id != organizer.id:
-        raise HTTPException(status_code=404, detail="Tournament not found")
+        raise HTTPException(status_code=404, detail="Torneo non trovato")
     tournament.season_id = season.id
     db.commit()
     return _season_out(season, db)
@@ -117,7 +118,7 @@ def close_season(
 ) -> SeasonOut:
     season = db.get(Season, season_id)
     if not season or season.organizer_id != organizer.id:
-        raise HTTPException(status_code=404, detail="Season not found")
+        raise HTTPException(status_code=404, detail="Circuito non trovato")
     season.is_active = False
     db.commit()
     return _season_out(season, db)
@@ -134,7 +135,7 @@ def season_leaderboard(season_id: int, db: Session = Depends(get_db)) -> list[Le
 
     season = db.get(Season, season_id)
     if not season:
-        raise HTTPException(status_code=404, detail="Season not found")
+        raise HTTPException(status_code=404, detail="Circuito non trovato")
 
     tournament_ids = db.scalars(
         select(Tournament.id).where(Tournament.season_id == season_id)
@@ -238,8 +239,6 @@ def list_public_series(db: Session = Depends(get_db)) -> list[SeasonOut]:
 @router.get("/by-slug/{slug}", response_model=SeriesPublicOut)
 def public_series(slug: str, db: Session = Depends(get_db)) -> SeriesPublicOut:
     """Pagina pubblica del circuito: tappe in calendario e classifica cumulativa."""
-    from backend.app.routers.tournaments import tournament_with_counts
-
     season = db.scalar(select(Season).where(Season.slug == slug))
     if not season or not season.is_public:
         raise HTTPException(status_code=404, detail="Circuito non trovato")

@@ -1,5 +1,5 @@
 import { onReady } from './lang.js';   // prima di tutto: la lingua (vedi lang.js)
-import { apiGet, toast, updateAuthNav } from './catalog.js';
+import { apiGet, updateAuthNav } from './catalog.js';
 import { esc } from './escape.js';
 
 const params    = new URLSearchParams(location.search);

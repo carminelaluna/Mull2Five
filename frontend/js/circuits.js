@@ -18,13 +18,13 @@ async function load() {
       placeholder(grid, 'Nessun circuito pubblicato: chiedi al tuo negozio di crearne uno.');
       return;
     }
-    const attivi = series.filter((s) => s.is_active);
-    const chiusi = series.filter((s) => !s.is_active);
+    const active = series.filter((s) => s.is_active);
+    const closed = series.filter((s) => !s.is_active);
     grid.innerHTML = [
-      attivi.length ? `<h2 class="rail-sub">In corso</h2>
-        <div class="public-events-grid">${attivi.map(seriesTile).join('')}</div>` : '',
-      chiusi.length ? `<h2 class="rail-sub">Conclusi</h2>
-        <div class="public-events-grid">${chiusi.map(seriesTile).join('')}</div>` : '',
+      active.length ? `<h2 class="rail-sub">In corso</h2>
+        <div class="public-events-grid">${active.map(seriesTile).join('')}</div>` : '',
+      closed.length ? `<h2 class="rail-sub">Conclusi</h2>
+        <div class="public-events-grid">${closed.map(seriesTile).join('')}</div>` : '',
     ].join('');
   } catch (err) {
     placeholder(grid, `Impossibile caricare i circuiti: ${err.message}`);

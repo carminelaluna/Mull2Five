@@ -2,13 +2,12 @@ import { onReady } from './lang.js';   // prima di tutto: la lingua (vedi lang.j
 import { esc } from './escape.js';
 import { bestOfLabel, gameInfo, gameLabel } from './games.js';
 import { t as tr } from './i18n.js';
-import { actingAs, actingBanner, actingHeaders, bindActingBanner, setActing } from './acting.js';
-import { toast, updateAuthNav } from './catalog.js';
+import { actingAs, actingBanner, bindActingBanner, setActing } from './acting.js';
+import { updateAuthNav } from './catalog.js';
 import { busy } from './form-state.js';
 import { apiRequest, getSession } from './session.js';
 import { stickyCta } from './site.js';
 
-const API = '/api';
 const params = new URLSearchParams(location.search);
 const TOURNAMENT_ID = params.get('id');
 
@@ -165,7 +164,7 @@ async function doRegister(t) {
   busy(btn, true, tr('Iscrizione in corso…'));
   try {
     const who = document.querySelector('#regWho')?.value || '';
-    const reg = await apiFetch(`/tournaments/${t.id}/registrations`, {
+    await apiFetch(`/tournaments/${t.id}/registrations`, {
       method: 'POST',
       headers: { 'X-Act-As': who },
       body: JSON.stringify({

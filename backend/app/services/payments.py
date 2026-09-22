@@ -28,7 +28,7 @@ def store_stripe_account(store: Organization | None) -> str:
 async def create_stripe_checkout(registration: Registration, store: Organization | None = None) -> CheckoutSession:
     settings = get_settings()
     if not settings.stripe_secret_key:
-        raise HTTPException(status_code=503, detail="Stripe is not configured")
+        raise HTTPException(status_code=503, detail="Stripe non è configurato")
 
     tournament = registration.tournament
     frontend_url = str(settings.frontend_url).rstrip("/")
@@ -89,7 +89,7 @@ def paypal_order_body(registration: Registration, store: Organization | None) ->
 async def create_paypal_checkout(registration: Registration, store: Organization | None = None) -> CheckoutSession:
     settings = get_settings()
     if not settings.paypal_client_id or not settings.paypal_client_secret:
-        raise HTTPException(status_code=503, detail="PayPal is not configured")
+        raise HTTPException(status_code=503, detail="PayPal non è configurato")
 
     base_url = (
         "https://api-m.sandbox.paypal.com"
@@ -127,9 +127,9 @@ async def create_paypal_checkout(registration: Registration, store: Organization
 async def refund_paypal_capture(capture_id: str) -> None:
     settings = get_settings()
     if not settings.paypal_client_id or not settings.paypal_client_secret:
-        raise HTTPException(status_code=503, detail="PayPal is not configured")
+        raise HTTPException(status_code=503, detail="PayPal non è configurato")
     if not capture_id:
-        raise HTTPException(status_code=409, detail="PayPal capture id is missing")
+        raise HTTPException(status_code=409, detail="Manca l'identificativo dell'incasso PayPal")
 
     base_url = (
         "https://api-m.sandbox.paypal.com"

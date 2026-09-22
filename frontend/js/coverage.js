@@ -26,7 +26,6 @@ const MUTED = '#9a9aa5';
 const ACCENT = '#c6ff3d';
 const BG = '#0d0d0f';
 const PANEL = '#16161a';
-const LINE = '#2a2a31';
 
 let _data = null;
 let _size = 'square';

@@ -209,7 +209,7 @@ async function buildCard(t, reg) {
     const rounds = await apiFetch(`/tournaments/${t.id}/my-pairings`);
     const lastRound = Array.isArray(rounds) ? rounds.at(-1) : null;
     if (lastRound) pairingsHtml = renderMyPairing(t, lastRound, reg);
-  } catch {}
+  } catch { /* pezzo in piu: senza, la pagina resta quella che e */ }
 
   /* Standings */
   let standingsHtml = '';
@@ -223,7 +223,7 @@ async function buildCard(t, reg) {
           · ${me.points ?? 0} punti
           · ${esc(me.record ?? '')}</div>`;
       }
-    } catch {}
+    } catch { /* pezzo in piu: senza, la pagina resta quella che e */ }
   }
 
   const statusLabel = { published:'Aperto', running:'In corso', completed:'Concluso', cancelled:'Annullato' }[t.status] || t.status;
@@ -602,7 +602,7 @@ function startRoundWatcher(tournamentIds) {
           notifyNewRound(last);
           await loadRegistrations();   // aggiorna le card con il nuovo pairing
         }
-      } catch {}
+      } catch { /* pezzo in piu: senza, la pagina resta quella che e */ }
     }
   }, 30_000);
 }
@@ -626,7 +626,7 @@ function playBeep() {
     osc.connect(gain); gain.connect(ctx.destination);
     osc.frequency.value = 880; gain.gain.value = 0.15;
     osc.start(); osc.stop(ctx.currentTime + 0.4);
-  } catch {}
+  } catch { /* pezzo in piu: senza, la pagina resta quella che e */ }
 }
 
 /* ── Init ────────────────────────────────────────────── */

@@ -40,7 +40,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 def register(request: Request, payload: UserCreate, db: Session = Depends(get_db)) -> TokenOut:
     existing = db.scalar(select(User).where(User.email == payload.email.lower()))
     if existing:
-        raise HTTPException(status_code=409, detail="Email already registered")
+        raise HTTPException(status_code=409, detail="Questa email ha già un account")
     role = payload.role if payload.role in {UserRole.PLAYER, UserRole.ORGANIZER} else UserRole.PLAYER
     if payload.age_confirmed is False:
         raise HTTPException(
@@ -80,7 +80,7 @@ def login(request: Request, payload: LoginIn, db: Session = Depends(get_db)) -> 
     user = db.scalar(select(User).where(User.email == email))
     if not user or not verify_password(payload.password, user.password_hash):
         record_failed(email)
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Email o password non corretti")
 
     lockout_reset(email)   # reset contatore su login riuscito
     # Un hash fatto con meno giri di quelli attuali si rifà adesso, con la password in mano.

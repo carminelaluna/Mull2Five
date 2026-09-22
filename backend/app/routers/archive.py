@@ -17,9 +17,9 @@ from backend.app.core.clock import local_today
 from backend.app.core.ttl_cache import TtlCache
 from backend.app.db import get_db
 from backend.app.models import Decklist, Organization, Registration, Tournament, TournamentStatus
-from backend.app.routers.tournaments import calculate_standings
 from backend.app.schemas import ArchiveDeckDetailOut, ArchiveDeckOut, ArchiveMetaOut, ArchivePageOut
 from backend.app.services.decklists import MTG_BASIC_LANDS, parse_decklist
+from backend.app.services.pairings import calculate_standings
 
 router = APIRouter(prefix="/decklists", tags=["archive"])
 

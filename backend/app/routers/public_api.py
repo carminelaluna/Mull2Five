@@ -25,9 +25,9 @@ from backend.app.models import (
     Tournament,
     TournamentStatus,
 )
-from backend.app.routers.tournaments import calculate_standings
 from backend.app.schemas import ApiPairingsOut, ApiPlayerOut, ApiTournamentOut, StandingOut
 from backend.app.services.api_keys import hash_key
+from backend.app.services.pairings import calculate_standings
 
 router = APIRouter(prefix="/v1", tags=["public-api"])
 

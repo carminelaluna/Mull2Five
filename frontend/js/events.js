@@ -257,10 +257,10 @@ async function run({ keepFocus = false } = {}) {
   q.delete('stato');
   q.delete('luogo');
   if (state.luogo) q.set('online', state.luogo === 'online' ? 'true' : 'false');
-  const conclusi = state.stato === 'conclusi';
-  q.set('status', conclusi ? 'completed' : 'published,running');
+  const finished = state.stato === 'conclusi';
+  q.set('status', finished ? 'completed' : 'published,running');
   // Una finestra "nei prossimi N giorni" non ha senso guardando indietro.
-  if (conclusi) q.delete('days');
+  if (finished) q.delete('days');
   if (state.radius_km && _position) {
     q.set('near_lat', _position.lat);
     q.set('near_lng', _position.lng);
