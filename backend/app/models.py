@@ -293,6 +293,17 @@ class RegistrationAnswer(Base):
     value: Mapped[str] = mapped_column(Text, default="")
 
 
+class Team(Base):
+    """Una squadra di un torneo a squadre: i giocatori siedono ai posti A, B, C
+    e a ogni turno giocano contro il posto corrispondente della squadra avversaria."""
+    __tablename__ = "teams"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tournament_id: Mapped[int] = mapped_column(ForeignKey("tournaments.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(120))
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -419,6 +430,8 @@ class Tournament(Base):
     )
     # Giocatori per pod di draft; 0 = niente pod.
     pod_size: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    # 1: individuale; 2 o 3: a squadre (Team Sealed, Team Constructed).
+    team_size: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
     created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
 
     location: Mapped["Location | None"] = relationship()
@@ -484,6 +497,9 @@ class Registration(Base):
     # Pod di draft e posto al tavolo del draft.
     pod: Mapped[int | None] = mapped_column(Integer, nullable=True)
     pod_seat: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Nei tornei a squadre: la squadra e il posto (1 = A, 2 = B, 3 = C).
+    team_id: Mapped[int | None] = mapped_column(ForeignKey("teams.id", ondelete="SET NULL"), nullable=True, index=True)
+    team_seat: Mapped[int | None] = mapped_column(Integer, nullable=True)
     # Il premio consegnato a fine torneo: cosa, quando e da chi. Ogni consegna e
     # ogni annullamento finiscono anche nel registro del torneo.
     prize_note: Mapped[str] = mapped_column(String(240), default="", server_default="")
@@ -499,6 +515,7 @@ class Registration(Base):
     created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
 
     tournament: Mapped[Tournament] = relationship(back_populates="registrations")
+    team: Mapped["Team | None"] = relationship()
     # player_id, non prize_given_by_id: anche chi consegna il premio è un utente.
     player: Mapped[User] = relationship(back_populates="registrations", foreign_keys=[player_id])
     decklists: Mapped[list["Decklist"]] = relationship(

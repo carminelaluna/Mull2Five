@@ -49,6 +49,8 @@ class TournamentCreate(BaseModel):
     name: str = Field(min_length=3, max_length=180)
     format: str
     game: str = "mtg"
+    # 1: individuale; 2 o 3: a squadre.
+    team_size: int = Field(default=1, ge=1, le=3)
     # Una delle sedi del negozio: il torneo ne eredita indirizzo e coordinate.
     location_id: int | None = None
     # Vuoto: quello del regolamento del gioco (One Piece al meglio di 1, gli altri di 3).
@@ -97,6 +99,12 @@ class TournamentCreate(BaseModel):
         return self
 
     @model_validator(mode="after")
+    def _teams_play_swiss(self):
+        if self.team_size > 1 and self.structure != "swiss":
+            raise ValueError("I tornei a squadre si giocano in svizzera")
+        return self
+
+    @model_validator(mode="after")
     def _require_payment_method(self):
         # Almeno un metodo di pagamento deve essere abilitato alla creazione
         if not (self.pay_at_event or self.pay_stripe or self.pay_paypal):
@@ -128,6 +136,7 @@ class TournamentUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=3, max_length=180)
     # 0 toglie la sede; null la lascia com'è.
     location_id: int | None = Field(default=None, ge=0)
+    team_size: int | None = Field(default=None, ge=1, le=3)
     format: str | None = Field(default=None, min_length=1, max_length=80)
     game: str | None = None
     best_of: int | None = Field(default=None, ge=1, le=3)
@@ -171,6 +180,7 @@ class TournamentOut(BaseModel):
     can_manage: bool = False
     series_id: int | None = None
     pod_size: int = 0
+    team_size: int = 1
     # Solo nella risposta di una modifica estesa alla serie.
     series_updated: int | None = None
     series_skipped: list[str] = []
@@ -226,6 +236,37 @@ class RegistrationCreate(BaseModel):
     wizards_account: str = ""
     # Le risposte alle domande del torneo, per id della domanda.
     answers: dict[int, str | bool] = {}
+
+
+class TeamIn(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+
+
+class TeamSeatIn(BaseModel):
+    registration_id: int | None = None   # null libera il posto
+
+
+class TeamMemberOut(BaseModel):
+    registration_id: int
+    name: str
+    seat: int
+
+
+class TeamOut(BaseModel):
+    id: int
+    name: str
+    members: list[TeamMemberOut]
+    complete: bool
+
+
+class TeamStandingOut(BaseModel):
+    position: int
+    team_id: int
+    name: str
+    points: int
+    record: str
+    opponent_match_win_percentage: float
+    seat_wins: int
 
 
 class FixedTableIn(BaseModel):
@@ -769,6 +810,9 @@ class RegistrationOut(BaseModel):
     pod: int | None = None
     pod_seat: int | None = None
     fixed_table: int | None = None
+    team_id: int | None = None
+    team_name: str | None = None
+    team_seat: int | None = None
 
     model_config = {"from_attributes": True}
 

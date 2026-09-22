@@ -203,3 +203,62 @@ def compute_standings(
             **values,
         })
     return rows
+
+
+# ── Squadre ───────────────────────────────────────────────────
+
+
+@dataclass
+class TeamMatch:
+    a: int
+    b: int | None             # None: bye per la squadra a
+    seats_a: int = 0          # posti vinti dalla squadra a
+    seats_b: int = 0
+    complete: bool = True     # tutti i match individuali hanno un risultato
+
+
+def compute_team_standings(teams: dict[int, str], matches: list[TeamMatch]) -> list[dict]:
+    """Classifica a squadre. L'incontro lo vince chi vince più posti: 3 punti,
+    1 il pareggio, e il bye vale una vittoria. Spareggi: la percentuale di
+    vittorie delle squadre incontrate (mai sotto un terzo, come in MTR), poi i
+    match individuali vinti."""
+    rec = {tid: {"points": 0, "w": 0, "l": 0, "d": 0, "opps": [], "seats": 0} for tid in teams}
+    for m in matches:
+        if not m.complete or m.a not in rec or (m.b is not None and m.b not in rec):
+            continue
+        a = rec[m.a]
+        if m.b is None:
+            a["points"] += 3
+            a["w"] += 1
+            continue
+        b = rec[m.b]
+        a["seats"] += m.seats_a
+        b["seats"] += m.seats_b
+        a["opps"].append(m.b)
+        b["opps"].append(m.a)
+        if m.seats_a > m.seats_b:
+            a["points"], a["w"], b["l"] = a["points"] + 3, a["w"] + 1, b["l"] + 1
+        elif m.seats_b > m.seats_a:
+            b["points"], b["w"], a["l"] = b["points"] + 3, b["w"] + 1, a["l"] + 1
+        else:
+            a["points"], b["points"], a["d"], b["d"] = a["points"] + 1, b["points"] + 1, a["d"] + 1, b["d"] + 1
+
+    def win_rate(team_id: int) -> float:
+        r = rec[team_id]
+        played = r["w"] + r["l"] + r["d"]
+        return max(r["points"] / (3 * played), MTR_FLOOR) if played else MTR_FLOOR
+
+    rows = [
+        {
+            "team_id": tid, "name": name, "points": rec[tid]["points"],
+            "record": f"{rec[tid]['w']}/{rec[tid]['l']}/{rec[tid]['d']}",
+            "opponent_match_win_percentage": round(_average([win_rate(o) for o in rec[tid]["opps"]]) * 100, 1),
+            "seat_wins": rec[tid]["seats"],
+        }
+        for tid, name in teams.items()
+    ]
+    rows.sort(key=lambda r: (-r["points"], -r["opponent_match_win_percentage"], -r["seat_wins"], r["name"]))
+    for position, row in enumerate(rows, start=1):
+        row["position"] = position
+    return rows
+

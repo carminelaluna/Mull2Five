@@ -250,6 +250,8 @@ async function buildCard(t, reg) {
       ${reg.pod || reg.fixed_table ? `<div class="reg-row"><span class="reg-label">${esc(tr('Posto'))}</span>
         <span class="reg-row-body">${reg.pod ? `<span class="badge">${esc(tr('Pod {p} · posto {s}', { p: reg.pod, s: reg.pod_seat }))}</span>` : ''}
           ${reg.fixed_table ? `<span class="badge ok">${esc(tr('Tavolo fisso {n}', { n: reg.fixed_table }))}</span>` : ''}</span></div>` : ''}
+      ${reg.team_name ? `<div class="reg-row"><span class="reg-label">${esc(tr('Squadra'))}</span>
+        <span class="reg-row-body">${esc(reg.team_name)} · ${esc(tr('posto {x}', { x: 'ABC'[reg.team_seat - 1] || reg.team_seat }))}</span></div>` : ''}
     </div>
     <div class="reg-card-actions">
       ${t.status === 'completed'

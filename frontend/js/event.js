@@ -85,6 +85,7 @@ async function loadEvent() {
             ${t.structure === 'registration_only'
               ? `<dt>${esc(tr('Formula'))}</dt> <dd>${esc(tr('Solo iscrizioni, senza turni'))}</dd>`
               : `<dt>${esc(tr('Match'))}</dt> <dd>${esc(bestOfLabel(t.best_of))}</dd>`}
+            ${(t.team_size || 1) > 1 ? `<dt>${esc(tr('Formula'))}</dt> <dd>${esc(tr('Squadre da {n}', { n: t.team_size }))}</dd>` : ''}
             ${t.organizer_name ? `<dt>${esc(tr('Organizzatore'))}</dt> <dd>${esc(t.organizer_name)}</dd>` : ''}
             <dt>REL</dt>        <dd>${esc(t.rules_enforcement_level || 'Regular')}</dd>
             <dt>Entry fee</dt>  <dd>${fmtMoney((t.entry_fee_cents||0)/100)}</dd>

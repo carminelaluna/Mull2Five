@@ -43,6 +43,7 @@ from backend.app.models import (
     ResultReportStatus,
     Round,
     StaffRole,
+    Team,
     Tournament,
     TournamentSeries,
     TournamentStaff,
@@ -112,6 +113,11 @@ from backend.app.schemas import (
     TableExtendIn,
     TableStatusIn,
     TardinessIn,
+    TeamIn,
+    TeamMemberOut,
+    TeamOut,
+    TeamSeatIn,
+    TeamStandingOut,
     TimerExtendIn,
     TimerRestartIn,
     TournamentControlsIn,
@@ -596,6 +602,7 @@ def _copy_tournament(src: Tournament, organizer: User, starts_on: date, series_i
         organizer_id=organizer.id,
         organization_id=src.organization_id,
         event_type=src.event_type,
+        team_size=src.team_size,
         series_id=series_id,
         starts_on=starts_on,
         name=src.name,
@@ -822,7 +829,7 @@ def close_tournament(
 LOCKED_AFTER_START = frozenset({
     "game", "format", "best_of", "starts_on", "start_time", "capacity", "entry_fee_cents",
     "pay_at_event", "pay_stripe", "pay_paypal", "structure", "swiss_rounds", "top_cut_size",
-    "decklist_required", "check_in_required",
+    "decklist_required", "check_in_required", "team_size",
 })
 
 
@@ -861,6 +868,9 @@ def _apply_settings(tournament: Tournament, requested: dict, organizer: User, db
             raise HTTPException(status_code=422, detail=f"Gioco non disponibile: {changes['game']}")
         # Cambiando gioco si riparte dal suo formato dei match, se non se ne sceglie un altro.
         changes.setdefault("best_of", GAMES[changes["game"]].default_best_of)
+
+    if changes.get("team_size", tournament.team_size) > 1 and changes.get("structure", tournament.structure) != "swiss":
+        raise HTTPException(status_code=422, detail="I tornei a squadre si giocano in svizzera")
 
     payments = {key: changes.get(key, getattr(tournament, key)) for key in ("pay_at_event", "pay_stripe", "pay_paypal")}
     if not any(payments.values()):
@@ -1697,6 +1707,106 @@ def set_fixed_table(
     db.commit()
     cache_invalidate(f"registrations:{tournament.id}")
     return organizer_registration_out(load_registration_for_tournament(tournament_id, registration_id, db))
+
+
+# ── Squadre ──────────────────────────────────────────────────
+
+
+def _teams_of(tournament: Tournament, db: Session) -> list[TeamOut]:
+    members: dict[int, list[TeamMemberOut]] = {}
+    for reg in db.scalars(
+        select(Registration).where(Registration.tournament_id == tournament.id, Registration.team_id.is_not(None))
+        .options(selectinload(Registration.player))
+    ):
+        members.setdefault(reg.team_id, []).append(
+            TeamMemberOut(registration_id=reg.id, name=reg.player.display_name, seat=reg.team_seat or 0))
+    return [
+        TeamOut(id=team.id, name=team.name, members=sorted(members.get(team.id, []), key=lambda m: m.seat),
+                complete=len(members.get(team.id, [])) == tournament.team_size)
+        for team in db.scalars(select(Team).where(Team.tournament_id == tournament.id).order_by(Team.name))
+    ]
+
+
+def _team_editable(tournament_id: int, organizer: User, db: Session) -> Tournament:
+    tournament = load_owned_tournament(tournament_id, organizer, db)
+    if (tournament.team_size or 1) < 2:
+        raise HTTPException(status_code=409, detail="Il torneo non è a squadre")
+    if tournament.status not in {TournamentStatus.DRAFT, TournamentStatus.PUBLISHED}:
+        raise HTTPException(status_code=409, detail="Le squadre si compongono prima dell'inizio del torneo")
+    return tournament
+
+
+@router.get("/{tournament_id}/teams", response_model=list[TeamOut])
+def list_teams(tournament_id: int, db: Session = Depends(get_db)) -> list[TeamOut]:
+    tournament = db.get(Tournament, tournament_id)
+    if not tournament:
+        raise HTTPException(status_code=404, detail="Tournament not found")
+    return _teams_of(tournament, db)
+
+
+@router.post("/{tournament_id}/teams", response_model=list[TeamOut], status_code=201)
+def create_team(
+    tournament_id: int, payload: TeamIn,
+    organizer: User = Depends(require_organizer), db: Session = Depends(get_db),
+) -> list[TeamOut]:
+    tournament = _team_editable(tournament_id, organizer, db)
+    db.add(Team(tournament_id=tournament.id, name=payload.name.strip()))
+    db.commit()
+    return _teams_of(tournament, db)
+
+
+@router.delete("/{tournament_id}/teams/{team_id}", response_model=list[TeamOut])
+def delete_team(
+    tournament_id: int, team_id: int,
+    organizer: User = Depends(require_organizer), db: Session = Depends(get_db),
+) -> list[TeamOut]:
+    tournament = _team_editable(tournament_id, organizer, db)
+    team = db.get(Team, team_id)
+    if not team or team.tournament_id != tournament.id:
+        raise HTTPException(status_code=404, detail="Squadra non trovata")
+    for reg in db.scalars(select(Registration).where(Registration.team_id == team.id)):
+        reg.team_id = reg.team_seat = None
+    db.delete(team)
+    db.commit()
+    return _teams_of(tournament, db)
+
+
+@router.put("/{tournament_id}/teams/{team_id}/seats/{seat}", response_model=list[TeamOut])
+def set_team_seat(
+    tournament_id: int, team_id: int, seat: int, payload: TeamSeatIn,
+    organizer: User = Depends(require_organizer), db: Session = Depends(get_db),
+) -> list[TeamOut]:
+    """Mette un iscritto a un posto della squadra (o lo libera). Chi era a quel
+    posto torna senza squadra; chi è già in un'altra squadra non si sposta da solo."""
+    from backend.app.core.cache import cache_invalidate
+
+    tournament = _team_editable(tournament_id, organizer, db)
+    team = db.get(Team, team_id)
+    if not team or team.tournament_id != tournament.id:
+        raise HTTPException(status_code=404, detail="Squadra non trovata")
+    if not 1 <= seat <= tournament.team_size:
+        raise HTTPException(status_code=422, detail="Posto non valido")
+    for reg in db.scalars(select(Registration).where(Registration.team_id == team.id, Registration.team_seat == seat)):
+        reg.team_id = reg.team_seat = None
+    if payload.registration_id:
+        registration = load_registration_for_tournament(tournament.id, payload.registration_id, db)
+        if registration.team_id and registration.team_id != team.id:
+            raise HTTPException(status_code=409, detail="È già in un'altra squadra")
+        registration.team_id, registration.team_seat = team.id, seat
+    db.commit()
+    cache_invalidate(f"registrations:{tournament.id}")
+    return _teams_of(tournament, db)
+
+
+@router.get("/{tournament_id}/team-standings", response_model=list[TeamStandingOut])
+def team_standings(tournament_id: int, db: Session = Depends(get_db)) -> list[dict]:
+    from backend.app.services.standings import compute_team_standings
+
+    tournament = db.get(Tournament, tournament_id)
+    if not tournament:
+        raise HTTPException(status_code=404, detail="Tournament not found")
+    teams = {t.id: t.name for t in db.scalars(select(Team).where(Team.tournament_id == tournament.id))}
+    return compute_team_standings(teams, team_matches(tournament.id, db))
 
 
 def _pods_of(tournament: Tournament, db: Session) -> list[PodOut]:
@@ -3356,7 +3466,9 @@ def registration_out(registration: Registration) -> RegistrationOut:
 
 
 def _seating(registration: Registration) -> dict:
-    return {"pod": registration.pod, "pod_seat": registration.pod_seat, "fixed_table": registration.fixed_table}
+    return {"pod": registration.pod, "pod_seat": registration.pod_seat, "fixed_table": registration.fixed_table,
+            "team_id": registration.team_id, "team_seat": registration.team_seat,
+            "team_name": registration.team.name if registration.team else None}
 
 
 def organizer_registration_out(
@@ -3732,9 +3844,15 @@ def create_round_for_tournament(tournament: Tournament, db: Session) -> RoundOut
     # Chi ha bye assegnati salta i primi turni della svizzera: li vince senza giocare.
     with_bye = [r for r in eligible if phase == "swiss" and (r.byes or 0) >= current_round_number]
     playing = [r for r in eligible if r not in with_bye]
+    # A squadre si abbinano le squadre; ogni incontro sono i match posto contro
+    # posto (A contro A, B contro B…), su tavoli vicini. Con la squadra in bye
+    # ogni suo giocatore ha il bye. I bye assegnati ai singoli qui non valgono.
+    if (tournament.team_size or 1) > 1:
+        with_bye = []
+        groups = team_round_groups(tournament, eligible, db)
     # In svizzera con i pod di draft ogni pod gioca per conto suo: al primo turno
     # contro chi siede di fronte, poi svizzera dentro il pod.
-    if phase == "swiss" and playing and all(r.pod for r in playing):
+    elif phase == "swiss" and playing and all(r.pod for r in playing):
         groups = [pod_pair_order(tournament, [r for r in playing if r.pod == pod], db)
                   for pod in sorted({r.pod for r in playing})]
     else:
@@ -3815,6 +3933,76 @@ def pair_order(tournament: Tournament, eligible: list[Registration], phase: str,
     ordered = [by_id[standing.registration_id] for standing in standings if standing.registration_id in by_id]
     ordered, bye = set_aside_bye(ordered, players_with_bye(tournament.id, db))
     return swiss_pair_order(ordered, previous_opponents(tournament.id, db)) + bye
+
+
+def complete_teams(tournament: Tournament, eligible: list[Registration], db: Session) -> list[tuple[Team, list[Registration]]]:
+    """Le squadre che possono giocare: tutti i posti occupati da giocatori pronti."""
+    ready = {r.id: r for r in eligible}
+    out = []
+    for team in db.scalars(select(Team).where(Team.tournament_id == tournament.id).order_by(Team.id)):
+        members = sorted((r for r in ready.values() if r.team_id == team.id), key=lambda r: r.team_seat or 0)
+        if len(members) == tournament.team_size and [m.team_seat for m in members] == list(range(1, tournament.team_size + 1)):
+            out.append((team, members))
+    return out
+
+
+def team_matches(tournament_id: int, db: Session) -> list:
+    """Gli incontri fra squadre giocati finora, ricostruiti dai match individuali."""
+    from backend.app.services.standings import TeamMatch
+
+    team_of = dict(db.execute(
+        select(Registration.id, Registration.team_id).where(Registration.tournament_id == tournament_id)
+    ).all())
+    grouped: dict[tuple, TeamMatch] = {}
+    for rnd in db.scalars(select(Round).where(Round.tournament_id == tournament_id).options(selectinload(Round.pairings))):
+        for p in rnd.pairings:
+            ta = team_of.get(p.player_a_registration_id)
+            tb = team_of.get(p.player_b_registration_id) if p.player_b_registration_id else None
+            if ta is None:
+                continue
+            if tb is None:
+                grouped.setdefault((rnd.id, ta, None), TeamMatch(a=ta, b=None))
+                continue
+            key = (rnd.id, *sorted((ta, tb)))
+            match = grouped.setdefault(key, TeamMatch(a=key[1], b=key[2]))
+            winner = {"A": ta, "B": tb}.get(p.result)
+            if not p.result:
+                match.complete = False
+            if winner == match.a:
+                match.seats_a += 1
+            elif winner == match.b:
+                match.seats_b += 1
+    return list(grouped.values())
+
+
+def team_round_groups(tournament: Tournament, eligible: list[Registration], db: Session) -> list[list[Registration]]:
+    """Gli abbinamenti di un turno a squadre, come gruppi da due (un match) o
+    da uno (un bye). Primo turno a caso, poi svizzera sulla classifica a squadre."""
+    from backend.app.services.standings import compute_team_standings
+
+    teams = complete_teams(tournament, eligible, db)
+    if len(teams) < 2:
+        raise HTTPException(status_code=409, detail="Servono almeno due squadre complete")
+    by_id = {team.id: (team, members) for team, members in teams}
+    played = team_matches(tournament.id, db)
+    if not tournament.rounds:
+        ordered = [team for team, _ in teams]
+        random.shuffle(ordered)
+    else:
+        table = compute_team_standings({t.id: t.name for t, _ in teams}, played)
+        ordered = [by_id[row["team_id"]][0] for row in table]
+        ordered, bye = set_aside_bye(ordered, {m.a for m in played if m.b is None})
+        previous = {tuple(sorted((m.a, m.b))) for m in played if m.b is not None}
+        ordered = swiss_pair_order(ordered, previous) + bye
+    groups: list[list[Registration]] = []
+    for i in range(0, len(ordered), 2):
+        home = by_id[ordered[i].id][1]
+        away = by_id[ordered[i + 1].id][1] if i + 1 < len(ordered) else None
+        if away is None:
+            groups += [[member] for member in home]
+        else:
+            groups += [[a, b] for a, b in zip(home, away, strict=True)]
+    return groups
 
 
 def assign_tables(matches: list[tuple[Registration, Registration | None]]) -> list[int]:

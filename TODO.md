@@ -199,7 +199,7 @@ pagamenti ai negozi in fondo, sono il pezzo più grosso.
 - [x] 12. Bye assegnati (0-3, prima dell'avvio), bye naturale mai due volte allo stesso giocatore, sconfitta a tavolino per chi non si presenta
 - [x] 13. Ospiti al banco senza email; minori come profili gestiti dal genitore (X-Act-As); età minima alla registrazione (MIN_ACCOUNT_AGE, 14)
 - [x] 14. Tavoli fissi; pod di draft bilanciati con posti, primo turno di fronte e svizzera nel pod, stampa
-- [ ] 15. Tornei a squadre
+- [x] 15. Tornei a squadre: squadre da 2 o 3 con posti A/B/C, abbinamenti posto contro posto, classifica a squadre
 - [ ] 16. Storico penalità del giocatore per i judge
 - [ ] 17. Regole di mazzo per gioco, ricerca carte, costruttore di liste, liste salvate
 - [ ] 18. Archivio pubblico delle liste

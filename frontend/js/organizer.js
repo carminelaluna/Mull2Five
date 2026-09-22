@@ -394,6 +394,7 @@ function openNewEventDialog() {
             ${[1, 2, 3].map((n) => `<option value="${n}">${esc(bestOfLabel(n))}</option>`).join('')}
           </select></label>
           <label class="bo-check"><input id="nIds" type="checkbox" checked /> ${esc(tr('Patte intenzionali'))}</label>
+          <label>${esc(tr('Formula'))}<select id="nTeam">${[1, 2, 3].map((n) => `<option value="${n}"${n === 1 ? ' selected' : ''}>${esc(n === 1 ? tr('Individuale') : tr('Squadre da {n}', { n }))}</option>`).join('')}</select></label>
           <label class="bo-check" style="grid-column:1/-1"><input id="nRegOnly" type="checkbox" /> ${esc(tr('Solo iscrizioni: niente turni né classifica (serata casual, draft tra amici, presentazione)'))}</label>
         </div>
       </details>
@@ -473,6 +474,7 @@ async function createTournament(e) {
     best_of: +$('#nBestOf').value || null,
     allow_intentional_draws: $('#nIds').checked,
     ...($('#nRegOnly').checked ? { structure: 'registration_only' } : {}),
+    team_size: +$('#nTeam').value || 1,
     starts_on: $('#nDate').value,
     start_time: $('#nTime').value || null,
     capacity: +$('#nCap').value || 8,
@@ -691,7 +693,8 @@ function playerRow(r) {
          ${r.waitlisted ? '<span class="pill warn">attesa</span>' : ''}${r.dropped ? '<span class="pill">drop</span>' : ''}
          ${r.byes && !_byesEditable ? `<span class="pill ok">${esc(tr('{n} bye', { n: r.byes }))}</span>` : ''}
          ${r.pod ? `<span class="pill">${esc(tr('pod {p} · posto {s}', { p: r.pod, s: r.pod_seat }))}</span>` : ''}
-         ${r.fixed_table ? `<span class="pill ok">${esc(tr('tavolo {n}', { n: r.fixed_table }))}</span>` : ''}`,
+         ${r.fixed_table ? `<span class="pill ok">${esc(tr('tavolo {n}', { n: r.fixed_table }))}</span>` : ''}
+         ${r.team_name ? `<span class="pill">${esc(r.team_name)} · ${esc(SEAT_LETTER(r.team_seat))}</span>` : ''}`,
         contactLine(r),
         `${answers ? `<div class="cell-note">${answers}</div>` : ''}${tags ? `<div class="cell-note">${tags}</div>` : ''}`,
       )}
@@ -792,9 +795,11 @@ function drawGiocatori(t) {
         <tbody id="gBody">${rows}</tbody>
       </table></div>
     </div>
+    <div id="teamsBox"></div>
     <div id="podsBox"></div>`;
 
   $('#gWalkIn').addEventListener('click', () => openWalkInDialog(t.id));
+  renderTeams(t);
   renderPods(t);
   $('#gCsv').addEventListener('click', () => downloadPlayersCsv(t));
   $('#gBody').querySelectorAll('[data-byes]').forEach((sel) => sel.addEventListener('change', async () => {
@@ -866,6 +871,71 @@ async function setFixedTable(t, reg) {
     toast(table ? tr('Tavolo fisso: {n}.', { n: table }) : tr('Tavolo fisso tolto.'));
     renderGiocatori();
   } catch (err) { toast('Errore: ' + err.message); }
+}
+
+/* ── Squadre ─────────────────────────────────────────────
+   Nei tornei a squadre ogni squadra ha 2 o 3 posti: a ogni turno il posto A
+   gioca contro il posto A avversario, e così via. Giocano le squadre complete. */
+const SEAT_LETTER = (seat) => 'ABC'[seat - 1] || String(seat || '');
+
+async function renderTeams(t) {
+  const box = $('#teamsBox');
+  if (!box) return;
+  if ((t.team_size || 1) < 2) { box.innerHTML = ''; return; }
+  const teams = await apiFetch(`/tournaments/${t.id}/teams`).catch(() => []);
+  const editable = t.can_manage && ['draft', 'published'].includes(t.status);
+  const seats = Array.from({ length: t.team_size }, (_, i) => i + 1);
+  const taken = new Set(teams.flatMap((team) => team.members.map((m) => m.registration_id)));
+  const free = _players.filter((r) => !r.dropped && !r.waitlisted && !taken.has(r.id));
+  const seatCell = (team, seat) => {
+    const member = team.members.find((m) => m.seat === seat);
+    if (!editable) return esc(member?.name || '—');
+    return `<select data-team="${team.id}" data-seat="${seat}">
+      <option value="">—</option>
+      ${member ? `<option value="${member.registration_id}" selected>${esc(member.name)}</option>` : ''}
+      ${free.map((r) => `<option value="${r.id}">${esc(r.player?.display_name || r.player_email)}</option>`).join('')}
+    </select>`;
+  };
+  box.innerHTML = `<div class="panel" style="margin-top:16px">
+    <div class="bo-head" style="margin-bottom:8px">
+      <h3 style="margin:0">${esc(tr('Squadre ({n})', { n: teams.length }))}</h3>
+      ${editable ? `<form id="teamForm" class="toolbar">
+        <input id="teamName" required maxlength="120" placeholder="${esc(tr('Nome della squadra'))}" style="width:220px" />
+        <button class="primary" type="submit">${esc(tr('Aggiungi squadra'))}</button>
+      </form>` : ''}
+    </div>
+    <p class="muted" style="margin:0 0 8px;font-size:.85rem">${esc(tr("A ogni turno il posto A gioca contro il posto A della squadra avversaria, e così via: vince l'incontro chi vince più posti. Giocano solo le squadre complete."))}</p>
+    <div class="table-scroll"><table class="bo">
+      <thead><tr><th>${esc(tr('Squadra'))}</th>${seats.map((s) => `<th>${esc(tr('Posto {x}', { x: SEAT_LETTER(s) }))}</th>`).join('')}<th></th></tr></thead>
+      <tbody>${teams.map((team) => `<tr>
+        <td><strong>${esc(team.name)}</strong> ${team.complete ? '' : `<span class="pill warn">${esc(tr('incompleta'))}</span>`}</td>
+        ${seats.map((s) => `<td>${seatCell(team, s)}</td>`).join('')}
+        <td class="row-actions">${editable ? `<button class="mini-button danger" data-drop-team="${team.id}" type="button">${esc(tr('Elimina'))}</button>` : ''}</td>
+      </tr>`).join('') || `<tr><td colspan="${seats.length + 2}" class="muted">${esc(tr('Nessuna squadra: aggiungine una.'))}</td></tr>`}</tbody>
+    </table></div>
+  </div>`;
+  $('#teamForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    try {
+      await apiFetch(`/tournaments/${t.id}/teams`, { method: 'POST', body: JSON.stringify({ name: $('#teamName').value.trim() }) });
+      renderGiocatori();
+    } catch (err) { toast('Errore: ' + err.message); }
+  });
+  box.querySelectorAll('[data-seat]').forEach((sel) => sel.addEventListener('change', async () => {
+    try {
+      await apiFetch(`/tournaments/${t.id}/teams/${sel.dataset.team}/seats/${sel.dataset.seat}`, {
+        method: 'PUT', body: JSON.stringify({ registration_id: +sel.value || null }),
+      });
+      renderGiocatori();
+    } catch (err) { toast('Errore: ' + err.message); renderGiocatori(); }
+  }));
+  box.querySelectorAll('[data-drop-team]').forEach((b) => b.addEventListener('click', async () => {
+    if (!confirm(tr('Eliminare la squadra? I suoi giocatori restano iscritti, senza squadra.'))) return;
+    try {
+      await apiFetch(`/tournaments/${t.id}/teams/${b.dataset.dropTeam}`, { method: 'DELETE' });
+      renderGiocatori();
+    } catch (err) { toast('Errore: ' + err.message); }
+  }));
 }
 
 /* ── Pod di draft ────────────────────────────────────────
@@ -1403,7 +1473,15 @@ async function renderClassifica({ prepend = false } = {}) {
       ${columns.map((c) => `<td>${s[c.key] ?? 0}%</td>`).join('')}
       ${t.can_manage ? `<td>${prizeCell(prizeOf.get(s.registration_id))}</td>` : ''}
     </tr>`).join('') || `<tr><td colspan="${5 + columns.length}" class="muted">Nessun dato (genera round e inserisci risultati).</td></tr>`;
-  const html = `<div class="panel" style="margin-bottom:16px"><h3>Classifica</h3>
+  let teamHtml = '';
+  if ((t.team_size || 1) > 1) {
+    const teamRows = await apiFetch(`/tournaments/${t.id}/team-standings`).catch(() => []);
+    teamHtml = `<div class="panel" style="margin-bottom:16px"><h3>${esc(tr('Classifica a squadre'))}</h3>
+      <table class="bo"><thead><tr><th>#</th><th>${esc(tr('Squadra'))}</th><th>${esc(tr('Punti'))}</th><th>V/S/P</th><th>OMW%</th><th>${esc(tr('Posti vinti'))}</th></tr></thead>
+      <tbody>${teamRows.map((r) => `<tr><td>${r.position}</td><td><strong>${esc(r.name)}</strong></td><td>${r.points}</td><td>${esc(r.record)}</td><td>${r.opponent_match_win_percentage}%</td><td>${r.seat_wins}</td></tr>`).join('')
+        || `<tr><td colspan="6" class="muted">${esc(tr('Nessun incontro concluso.'))}</td></tr>`}</tbody></table></div>`;
+  }
+  const html = `${teamHtml}<div class="panel" style="margin-bottom:16px"><h3>Classifica</h3>
     <table class="bo"><thead><tr><th>#</th><th>Giocatore</th><th>Punti</th><th>V/S/P</th>
       ${columns.map((c) => `<th>${esc(c.label)}</th>`).join('')}${t.can_manage ? `<th>${esc(tr('Premio'))}</th>` : ''}</tr></thead><tbody>${rows}</tbody></table></div>`;
   if (prepend) $('#panel').insertAdjacentHTML('afterbegin', html);
@@ -2318,7 +2396,7 @@ async function renderManifestazione(eventId) {
 const LOCKED_AFTER_START = new Set([
   'game', 'format', 'best_of', 'starts_on', 'start_time', 'capacity', 'entry_fee',
   'pay_at_event', 'pay_stripe', 'pay_paypal', 'structure', 'swiss_rounds', 'top_cut_size',
-  'decklist_required', 'check_in_required',
+  'decklist_required', 'check_in_required', 'team_size',
 ]);
 
 async function renderImpostazioni() {
@@ -2389,6 +2467,7 @@ async function renderImpostazioni() {
             ${option('swiss_topcut', tr('Svizzera + top cut'), t.structure)}
             ${option('single_elimination', tr('Eliminazione diretta'), t.structure)}
             ${option('registration_only', tr('Solo iscrizioni, senza turni'), t.structure)}</select></label>
+          <label>${esc(tr('Formula'))}<select id="sTeam" ${lock('team_size')}>${[1, 2, 3].map((n) => `<option value="${n}"${n === (t.team_size || 1) ? ' selected' : ''}>${esc(n === 1 ? tr('Individuale') : tr('Squadre da {n}', { n }))}</option>`).join('')}</select></label>
           <label>${esc(tr('Turni svizzeri (0 = automatico)'))}<input id="sRounds" type="number" min="0" value="${t.swiss_rounds || 0}" ${lock('swiss_rounds')} /></label>
           <label>${esc(tr('Top cut'))}<select id="sCut" ${lock('top_cut_size')}>
             ${[2, 4, 8, 16].map((n) => option(n, `Top ${n}`, t.top_cut_size || 8)).join('')}</select></label>
@@ -2446,6 +2525,7 @@ async function renderImpostazioni() {
       refund_policy: $('#sRefund').value.trim(),
       best_of: +$('#sBestOf').value,
       structure: $('#sStructure').value,
+      team_size: +$('#sTeam').value || 1,
       swiss_rounds: +$('#sRounds').value || 0,
       top_cut_size: +$('#sCut').value,
       round_timer_minutes: +$('#sTimer').value,
