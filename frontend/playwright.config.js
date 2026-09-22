@@ -23,6 +23,9 @@ export default defineConfig({
 
   use: {
     baseURL: BASE_URL,
+    // Il sito sceglie la lingua da quella del browser: i test cercano i testi
+    // italiani, quindi il browser dei test parla italiano anche nella CI.
+    locale: 'it-IT',
     headless: true,
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
