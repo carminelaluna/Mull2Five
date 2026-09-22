@@ -452,6 +452,10 @@ class Tournament(Base):
     is_online: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
     online_platform: Mapped[str] = mapped_column(String(30), default="", server_default="")
     online_link: Mapped[str] = mapped_column(String(300), default="", server_default="")
+    # Programmi ufficiali: l'ID dell'evento presso l'editore (EventLink per Magic)
+    # e quanti dei primi in classifica ricevono un invito (1 in un RCQ).
+    sanction_id: Mapped[str] = mapped_column(String(60), default="", server_default="")
+    invites: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
 
     location: Mapped["Location | None"] = relationship()

@@ -105,6 +105,17 @@ async function loadRegistrations() {
     container.querySelectorAll('[data-action="reject-result"]').forEach(btn => {
       btn.addEventListener('click', () => rejectResult(btn.dataset.tournamentId, btn.dataset.pairingId));
     });
+    container.querySelectorAll('[data-action="edit-publisher-id"]').forEach((btn) => btn.addEventListener('click', async () => {
+      const value = prompt(btn.dataset.label, btn.dataset.value);
+      if (value === null || value.trim() === btn.dataset.value) return;
+      try {
+        await apiFetch(`/tournaments/${btn.dataset.tournamentId}/my-publisher-id`, {
+          method: 'PUT', body: JSON.stringify({ publisher_id: value.trim() }),
+        });
+        toast(tr('Aggiornato ✓'));
+        loadRegistrations();
+      } catch (err) { toast(err.message); }
+    }));
     container.querySelectorAll('[data-action="edit-handle"]').forEach((btn) => btn.addEventListener('click', async () => {
       const hint = btn.dataset.hint ? ` (${tr('es. {x}', { x: btn.dataset.hint })})` : '';
       const handle = prompt(`${btn.dataset.label}${hint}`, btn.dataset.handle);
@@ -149,6 +160,16 @@ async function buildCard(t, reg) {
           data-label="${esc(platform?.handle_label || '')}" data-hint="${esc(platform?.handle_hint || '')}"
           data-handle="${esc(reg.game_handle || '')}" type="button">${esc(tr('Cambia'))}</button>` : ''}
         ${reg.online_link ? `<a class="secondary-link" href="${esc(reg.online_link)}" target="_blank" rel="noopener noreferrer">${esc(tr('Apri la stanza ↗'))}</a>` : ''}</span></div>` : '';
+
+  /* Eventi ufficiali: l'ID presso l'editore, che si può aggiungere anche dopo. */
+  const official = ['rcq', 'store_championship', 'premier'].includes(t.event_type) || t.invites > 0;
+  const idLabel = (await gameInfo(t.game))?.publisher_id_label || 'Wizards Account';
+  const publisherRow = official ? `<div class="reg-row"><span class="reg-label">${esc(idLabel)}</span>
+      <span class="reg-row-body">${reg.wizards_account
+        ? `<span class="handle">${esc(reg.wizards_account)}</span>`
+        : `<span class="badge warn">${esc(tr('manca: serve per risultati e inviti'))}</span>`}
+        <button class="mini-button" data-action="edit-publisher-id" data-tournament-id="${t.id}"
+          data-label="${esc(idLabel)}" data-value="${esc(reg.wizards_account || '')}" type="button">${esc(reg.wizards_account ? tr('Cambia') : tr('Aggiungi'))}</button></span></div>` : '';
 
   /* Stato pagamento */
   const isPaid = ['paid', 'confirmed'].includes(reg.payment_status);
@@ -278,6 +299,7 @@ async function buildCard(t, reg) {
       <div class="reg-row"><span class="reg-label">${esc(tr('Lista'))}</span>
         <span class="reg-row-body">${deckBadge}</span></div>
       ${onlineRow}
+      ${publisherRow}
       ${reg.pod || reg.fixed_table ? `<div class="reg-row"><span class="reg-label">${esc(tr('Posto'))}</span>
         <span class="reg-row-body">${reg.pod ? `<span class="badge">${esc(tr('Pod {p} · posto {s}', { p: reg.pod, s: reg.pod_seat }))}</span>` : ''}
           ${reg.fixed_table ? `<span class="badge ok">${esc(tr('Tavolo fisso {n}', { n: reg.fixed_table }))}</span>` : ''}</span></div>` : ''}

@@ -128,6 +128,18 @@ def reset_password(
     return {"detail": "Password aggiornata. Ora puoi accedere."}
 
 
+@router.get("/me/publisher-ids")
+def my_publisher_ids(user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> dict[str, str]:
+    """L'ultimo ID presso l'editore usato per ogni gioco: l'iscrizione lo ripropone."""
+    rows = db.execute(
+        select(Tournament.game, Registration.wizards_account)
+        .join(Tournament, Tournament.id == Registration.tournament_id)
+        .where(Registration.player_id == user.id, Registration.wizards_account != "")
+        .order_by(Registration.created_at, Registration.id)
+    ).all()
+    return {game: publisher_id for game, publisher_id in rows}
+
+
 @router.get("/me/handles")
 def my_handles(user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> dict[str, str]:
     """L'ultimo nome in gioco usato su ogni piattaforma: l'iscrizione lo ripropone."""

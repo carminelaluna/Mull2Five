@@ -77,6 +77,8 @@ from backend.app.schemas import (
     InviteCodeOut,
     ManualPairingIn,
     MetaStatRow,
+    OfficialReportOut,
+    OfficialReportRowOut,
     OrganizedTournamentRow,
     OrganizerRegistrationOut,
     PairingOut,
@@ -97,6 +99,7 @@ from backend.app.schemas import (
     PublicPairingOut,
     PublicResultsOut,
     PublicStandingRow,
+    PublisherIdIn,
     RefundDecisionIn,
     RefundRequestIn,
     RegenerateRoundIn,
@@ -572,7 +575,8 @@ def player_public_history(
         rows.append(PlayerHistoryRowOut(
             tournament_id=t.id, tournament_name=t.name, starts_on=t.starts_on,
             format=t.format, status=t.status, placement=mine.position,
-            record=mine.record, points=mine.points,
+            record=mine.record, points=mine.points, event_type=t.event_type,
+            invited=t.status == TournamentStatus.COMPLETED and mine.position <= t.invites,
         ))
     rows.sort(key=lambda r: str(r.starts_on), reverse=True)
 
@@ -644,6 +648,7 @@ def _copy_tournament(src: Tournament, organizer: User, starts_on: date, series_i
         legal_validation_enabled=src.legal_validation_enabled,
         description=src.description,
         season_id=src.season_id,
+        invites=src.invites,      # l'ID evento no: ogni data ha il suo
         is_online=src.is_online,
         online_platform=src.online_platform,
         online_link=src.online_link,
@@ -1035,6 +1040,27 @@ def check_game_handle(tournament: Tournament, handle: str) -> str:
             detail=f"{platform.handle_label} non valido: si scrive come {platform.handle_hint}.",
         )
     return handle
+
+
+@router.put("/{tournament_id}/my-publisher-id", response_model=RegistrationOut)
+def update_my_publisher_id(
+    tournament_id: int,
+    payload: PublisherIdIn,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> RegistrationOut:
+    """Il giocatore aggiunge o corregge il suo ID presso l'editore: anche a torneo
+    concluso, perché è lì che arriva l'invito."""
+    registration = db.scalar(select(Registration).where(
+        Registration.tournament_id == tournament_id, Registration.player_id == user.id))
+    if not registration or registration.tournament.status == TournamentStatus.CANCELLED:
+        raise HTTPException(status_code=404, detail="Registration not found")
+    registration.wizards_account = payload.publisher_id.strip()
+    db.commit()
+    db.refresh(registration)
+    from backend.app.core.cache import cache_invalidate
+    cache_invalidate(f"registrations:{tournament_id}")
+    return registration_out(registration)
 
 
 @router.put("/{tournament_id}/my-handle", response_model=RegistrationOut)
@@ -3321,6 +3347,72 @@ def _tournament_to_vevent(tournament: Tournament) -> str:
         f"DESCRIPTION:{_ical_escape(tournament.description or tournament.format)}\r\n"
         "END:VEVENT\r\n"
     )
+
+
+def official_report(tournament: Tournament, db: Session) -> OfficialReportOut:
+    game = get_game(tournament.game)
+    ids = dict(db.execute(
+        select(Registration.id, Registration.wizards_account).where(Registration.tournament_id == tournament.id)
+    ).all())
+    done = tournament.status == TournamentStatus.COMPLETED
+    rows = [
+        OfficialReportRowOut(
+            position=row.position, registration_id=row.registration_id, name=row.name,
+            publisher_id=(ids.get(row.registration_id) or "").strip(), record=row.record, points=row.points,
+            invited=done and row.position <= tournament.invites,
+        )
+        for row in calculate_standings(tournament.id, db)
+    ]
+    return OfficialReportOut(
+        tournament_id=tournament.id, name=tournament.name, format=tournament.format,
+        starts_on=tournament.starts_on, status=tournament.status, event_type=tournament.event_type,
+        sanction_id=tournament.sanction_id, sanction_label=game.sanction_label,
+        publisher_id_label=game.publisher_id_label, players=len(rows),
+        rounds=db.scalar(select(func.count(Round.id)).where(Round.tournament_id == tournament.id)) or 0,
+        invites=tournament.invites, rows=rows, missing_ids=[row.name for row in rows if not row.publisher_id],
+    )
+
+
+@router.get("/{tournament_id}/official-report", response_model=OfficialReportOut)
+def get_official_report(
+    tournament_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db),
+) -> OfficialReportOut:
+    """Il report per l'editore: classifica con gli ID dei giocatori e gli inviti."""
+    return official_report(load_tournament_for_staff(tournament_id, user, db), db)
+
+
+@router.get("/{tournament_id}/official-report.csv")
+def official_report_csv(
+    tournament_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db),
+) -> Response:
+    report = official_report(load_tournament_for_staff(tournament_id, user, db), db)
+    buffer = io.StringIO()
+    writer = csv.writer(buffer, delimiter=";")
+    writer.writerow(["Posizione", "Giocatore", report.publisher_id_label, "Record", "Punti", "Invito"])
+    for row in report.rows:
+        writer.writerow([row.position, row.name, row.publisher_id, row.record, row.points, "sì" if row.invited else ""])
+    name = f"report-{report.sanction_id or tournament_id}.csv".replace(" ", "-")
+    return Response(content=buffer.getvalue(), media_type="text/csv; charset=utf-8",
+                    headers={"Content-Disposition": f'attachment; filename="{name}"'})
+
+
+@router.put("/{tournament_id}/registrations/{registration_id}/publisher-id", response_model=RegistrationOut)
+def set_publisher_id(
+    tournament_id: int,
+    registration_id: int,
+    payload: PublisherIdIn,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> RegistrationOut:
+    """Lo staff completa l'ID di chi l'ha dato a voce al banco."""
+    tournament = load_tournament_for_staff(tournament_id, user, db)
+    registration = load_registration_for_tournament(tournament.id, registration_id, db)
+    registration.wizards_account = payload.publisher_id.strip()
+    db.commit()
+    db.refresh(registration)
+    from backend.app.core.cache import cache_invalidate
+    cache_invalidate(f"registrations:{tournament_id}")
+    return registration_out(registration)
 
 
 @router.get("/{tournament_id}/ical")

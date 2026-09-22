@@ -108,6 +108,11 @@ async function loadEvent() {
         : '';
       // L'identificativo richiesto è quello dell'editore del gioco.
       document.querySelector('#regIdLabel').textContent = game?.publisher_id_label || 'Wizards Account';
+      // Negli eventi ufficiali l'ID serve: risultati e inviti arrivano lì. Si ripropone l'ultimo usato.
+      const official = ['rcq', 'store_championship', 'premier'].includes(t.event_type) || t.invites > 0;
+      document.querySelector('#regIdNote').textContent = official ? tr('(serve per risultati e inviti)') : tr('(opzionale)');
+      const knownIds = await apiFetch('/auth/me/publisher-ids').catch(() => ({}));
+      if (!document.querySelector('#regWizards').value) document.querySelector('#regWizards').value = knownIds[t.game || 'mtg'] || '';
       // Online serve il nome in gioco: si ripropone l'ultimo usato su quella piattaforma.
       document.querySelector('#regHandleWrap').style.display = t.is_online ? '' : 'none';
       if (t.is_online && platform) {

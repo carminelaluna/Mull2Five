@@ -168,6 +168,8 @@ def migrate_existing_schema() -> None:
             add_column(connection, columns, "tournaments", "is_online", "BOOLEAN", "0")
             add_column(connection, columns, "tournaments", "online_platform", "VARCHAR(30)", "''")
             add_column(connection, columns, "tournaments", "online_link", "VARCHAR(300)", "''")
+            add_column(connection, columns, "tournaments", "sanction_id", "VARCHAR(60)", "''")
+            add_column(connection, columns, "tournaments", "invites", "INTEGER", "0")
             add_column(connection, columns, "tournaments", "best_of", "INTEGER", "3")
             add_column(connection, columns, "tournaments", "allow_intentional_draws", "BOOLEAN", "1")
 

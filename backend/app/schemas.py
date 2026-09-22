@@ -87,6 +87,9 @@ class TournamentCreate(BaseModel):
     pay_at_event: bool = True
     pay_stripe: bool = False
     pay_paypal: bool = False
+    sanction_id: str = Field(default="", max_length=60)
+    # Vuoto: uno in un RCQ (l'invito al Regional Championship), nessuno negli altri.
+    invites: int | None = Field(default=None, ge=0, le=64)
     is_online: bool = False
     online_platform: str = Field(default="", max_length=30)
     online_link: str = Field(default="", max_length=300, pattern=r"^(https://\S+)?$")
@@ -99,6 +102,13 @@ class TournamentCreate(BaseModel):
             raise ValueError(f"Gioco non disponibile: {self.game}")
         if self.best_of is None:
             self.best_of = GAMES[self.game].default_best_of
+        return self
+
+    @model_validator(mode="after")
+    def _invites(self):
+        if self.invites is None:
+            self.invites = 1 if self.event_type == "rcq" else 0
+        self.sanction_id = self.sanction_id.strip()
         return self
 
     @model_validator(mode="after")
@@ -173,6 +183,8 @@ class TournamentUpdate(BaseModel):
     check_in_required: bool | None = None
     round_timer_minutes: int | None = Field(default=None, ge=1, le=120)
     email_notifications_enabled: bool | None = None
+    sanction_id: str | None = Field(default=None, max_length=60)
+    invites: int | None = Field(default=None, ge=0, le=64)
     is_online: bool | None = None
     online_platform: str | None = Field(default=None, max_length=30)
     online_link: str | None = Field(default=None, max_length=300, pattern=r"^(https://\S+)?$")
@@ -244,6 +256,8 @@ class TournamentOut(BaseModel):
     pay_stripe: bool = False
     pay_paypal: bool = False
     registered_players: int = 0
+    sanction_id: str = ""
+    invites: int = 0
     is_online: bool = False
     online_platform: str = ""
     # Solo per chi è iscritto o nello staff (/tournaments/mine): altrove è vuoto.
@@ -523,6 +537,9 @@ class PlayerHistoryRowOut(BaseModel):
     placement: int | None = None
     record: str = ""
     points: int = 0
+    event_type: str = "locals"
+    # Ha chiuso fra i qualificati di un programma ufficiale (l'invito di un RCQ).
+    invited: bool = False
 
 
 class PushSubscriptionKeys(BaseModel):
@@ -840,6 +857,39 @@ class RegistrationOut(BaseModel):
     online_link: str = ""
 
     model_config = {"from_attributes": True}
+
+
+class PublisherIdIn(BaseModel):
+    publisher_id: str = Field(max_length=80)
+
+
+class OfficialReportRowOut(BaseModel):
+    position: int
+    registration_id: int
+    name: str
+    publisher_id: str
+    record: str
+    points: int
+    invited: bool
+
+
+class OfficialReportOut(BaseModel):
+    """Quello che l'editore chiede di un evento ufficiale: chi ha giocato, con che
+    ID, come è finita e chi ha l'invito."""
+    tournament_id: int
+    name: str
+    format: str
+    starts_on: date
+    status: str
+    event_type: str
+    sanction_id: str
+    sanction_label: str
+    publisher_id_label: str
+    players: int
+    rounds: int
+    invites: int
+    rows: list[OfficialReportRowOut]
+    missing_ids: list[str]
 
 
 class GameHandleIn(BaseModel):

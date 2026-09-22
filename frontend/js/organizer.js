@@ -397,6 +397,7 @@ function openNewEventDialog() {
           <label class="bo-check"><input id="nPairPub" type="checkbox" checked /> Abbinamenti pubblici</label>
           <label class="bo-check"><input id="nStandPub" type="checkbox" checked /> Classifica pubblica</label>
           <label class="bo-check"><input id="nDeckPub" type="checkbox" /> Liste pubbliche a fine torneo</label>
+          <label>${esc(tr('ID evento (EventLink)'))}<input id="nSanction" maxlength="60" placeholder="${esc(tr('se è un evento ufficiale'))}" /></label>
           <label>${esc(tr('Match in svizzera'))}<select id="nBestOf">
             ${[1, 2, 3].map((n) => `<option value="${n}">${esc(bestOfLabel(n))}</option>`).join('')}
           </select></label>
@@ -521,6 +522,7 @@ async function createTournament(e) {
     pairings_public: $('#nPairPub').checked,
     standings_public: $('#nStandPub').checked,
     decklists_public: $('#nDeckPub').checked,
+    sanction_id: $('#nSanction').value.trim(),
   };
   if (!body.name || !body.starts_on) { toast('Nome e data obbligatori.'); return; }
   if (!body.start_time) { toast('Inserisci l\'orario di inizio.'); return; }
@@ -1489,7 +1491,68 @@ async function renderAnnunci() {
    sta sopra: durante il torneo e quella che si guarda. */
 async function renderRisultati() {
   await renderReport();
+  await renderOfficial();
   await renderClassifica({ prepend: true });
+}
+
+/* ── Report ufficiale ────────────────────────────────────
+   Negli eventi dell'editore (RCQ, Store Championship, premier) o con un ID
+   evento: la classifica con gli ID dei giocatori e chi ha l'invito. Chi non ha
+   dato l'ID si completa da qui, perché l'invito arriva lì. */
+const OFFICIAL_TYPES = new Set(['rcq', 'store_championship', 'premier']);
+
+async function renderOfficial() {
+  const t = activeT();
+  if (!t || !(OFFICIAL_TYPES.has(t.event_type) || t.sanction_id || t.invites)) return;
+  let report;
+  try { report = await apiFetch(`/tournaments/${t.id}/official-report`); } catch { return; }
+  const done = report.status === 'completed';
+  const rows = report.rows.map((r) => `<tr>
+      <td>${r.position}</td>
+      <td><strong>${esc(r.name)}</strong></td>
+      <td>${r.publisher_id ? `<span class="handle">${esc(r.publisher_id)}</span>`
+        : `<form class="toolbar" data-fix-id="${r.registration_id}">
+            <input required maxlength="80" placeholder="${esc(tr('manca'))}" style="width:150px" />
+            <button class="mini-button" type="submit">${esc(tr('Salva'))}</button></form>`}</td>
+      <td>${esc(r.record)}</td>
+      <td>${r.points}</td>
+      <td>${r.invited ? `<span class="pill ok">🎟 ${esc(tr('Invito'))}</span>` : ''}</td>
+    </tr>`).join('') || `<tr><td colspan="6" class="muted">${esc(tr('Ancora nessun giocatore in classifica.'))}</td></tr>`;
+  const missing = report.missing_ids.length
+    ? `<div class="bo-warning warn" style="margin-bottom:8px"><span class="bo-warning-icon" aria-hidden="true">⚠</span>
+        <span class="bo-warning-text">${esc(tr('Senza {id}: {nomi}.', { id: report.publisher_id_label, nomi: report.missing_ids.join(', ') }))}</span></div>` : '';
+  $('#panel').insertAdjacentHTML('afterbegin', `<div class="panel" style="margin-bottom:16px">
+    <div class="bo-head" style="margin-bottom:8px">
+      <h3 style="margin:0">${esc(tr('Report ufficiale'))}</h3>
+      <button class="secondary" id="officialCsv" type="button">${esc(tr('Scarica CSV'))}</button>
+    </div>
+    <p class="muted" style="margin:0 0 10px">${esc(report.sanction_label)}: <strong>${esc(report.sanction_id || tr('non indicato (Impostazioni)'))}</strong>
+      · ${esc(tr('{n} giocatori', { n: report.players }))} · ${esc(report.rounds === 1 ? tr('1 turno') : tr('{n} turni', { n: report.rounds }))}
+      · ${esc(!report.invites ? tr('nessun invito') : report.invites === 1 ? tr('invito al primo classificato') : tr('inviti ai primi {n}', { n: report.invites }))}
+      ${done ? '' : ` · ${esc(tr('gli inviti si assegnano a torneo concluso'))}`}</p>
+    ${missing}
+    <div class="table-scroll"><table class="bo"><thead><tr><th>#</th><th>${esc(tr('Giocatore'))}</th>
+      <th>${esc(report.publisher_id_label)}</th><th>V/S/P</th><th>${esc(tr('Punti'))}</th><th></th></tr></thead>
+      <tbody>${rows}</tbody></table></div>
+  </div>`);
+  $('#officialCsv').addEventListener('click', async () => {
+    const r = await fetch(`/api/tournaments/${t.id}/official-report.csv`, { headers: { Authorization: `Bearer ${token}` } });
+    if (!r.ok) { toast(tr('Download non riuscito')); return; }
+    const url = URL.createObjectURL(await r.blob());
+    const a = document.createElement('a');
+    a.href = url; a.download = `report-${report.sanction_id || t.id}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+  $('#panel').querySelectorAll('[data-fix-id]').forEach((form) => form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    try {
+      await apiFetch(`/tournaments/${t.id}/registrations/${form.dataset.fixId}/publisher-id`, {
+        method: 'PUT', body: JSON.stringify({ publisher_id: form.querySelector('input').value.trim() }),
+      });
+      renderRisultati();
+    } catch (err) { toast('Errore: ' + err.message); }
+  }));
 }
 
 /* ── CLASSIFICA ──────────────────────────────────────── */
@@ -2474,6 +2537,8 @@ async function renderImpostazioni() {
             ${EVENT_TYPES.map((x) => option(x.value, x.label, t.event_type)).join('')}</select></label>
           <label>Livello (REL)<select id="sRel">
             ${RELS.map((r) => option(r, r, t.rules_enforcement_level)).join('')}</select></label>
+          <label>${esc(games.find((g) => g.code === (t.game || 'mtg'))?.sanction_label || tr('ID evento'))}<input id="sSanction" maxlength="60" value="${esc(t.sanction_id || '')}" /></label>
+          <label title="${esc(tr('Quanti dei primi in classifica ricevono un invito (1 in un RCQ)'))}">${esc(tr('Inviti'))}<input id="sInvites" type="number" min="0" max="64" value="${t.invites || 0}" /></label>
           <label style="grid-column:1/-1">${esc(tr('Descrizione'))}<textarea id="sDesc" style="min-height:70px">${esc(t.description || '')}</textarea></label>
         </div>
       </div>
@@ -2562,6 +2627,8 @@ async function renderImpostazioni() {
       format: $('#sFormat').value.trim(),
       event_type: $('#sType').value,
       rules_enforcement_level: $('#sRel').value,
+      sanction_id: $('#sSanction').value.trim(),
+      invites: Math.max(0, +$('#sInvites').value || 0),
       description: $('#sDesc').value.trim(),
       starts_on: $('#sDate').value,
       start_time: $('#sTime').value || null,

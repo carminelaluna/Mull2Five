@@ -52,6 +52,8 @@ async function loadProfile() {
     const totalW = profile.wins, totalD = profile.draws, totalL = profile.losses;
     const totalPts = profile.total_points, totalTournaments = profile.tournaments_played;
 
+    // Inviti dei programmi ufficiali (un RCQ vinto, per esempio).
+    const invites = (profile.rows || []).filter((r) => r.invited).length;
     const winPct = (totalW+totalD+totalL) > 0 ? Math.round(totalW/(totalW+totalD+totalL)*100) : 0;
     const initials = playerName.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
     const isOrganizer = profile.role === 'organizer' || profile.role === 'admin';
@@ -62,7 +64,7 @@ async function loadProfile() {
         <td><strong>${esc(r.tournament_name)}</strong></td>
         <td>${esc(r.format)}</td>
         <td>${fmtDate(r.starts_on)}</td>
-        <td><strong>${r.placement ? '#' + r.placement : '—'}</strong></td>
+        <td><strong>${r.placement ? '#' + r.placement : '—'}</strong>${r.invited ? ' <span class="badge ok">🎟 Invito</span>' : ''}</td>
         <td><strong>${r.points}</strong></td>
         <td>${esc(r.record || '—')}</td>
       </tr>`).join('');
@@ -87,6 +89,7 @@ async function loadProfile() {
         <article class="metric"><span>Record totale</span><strong>${totalW}V ${totalD}P ${totalL}S</strong></article>
         <article class="metric"><span>% vittorie</span><strong>${winPct}%</strong></article>
         <article class="metric"><span>Tornei giocati</span><strong>${totalTournaments}</strong></article>
+        ${invites ? `<article class="metric"><span>Inviti ottenuti</span><strong>${invites}</strong></article>` : ''}
       </div>
       <div class="table-wrap"><table>
         <thead><tr><th>Torneo</th><th>Formato</th><th>Data</th><th>Piazzamento</th><th>Punti</th><th>Record</th></tr></thead>

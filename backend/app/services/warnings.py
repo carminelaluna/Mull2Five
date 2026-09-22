@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 
 from backend.app.core.clock import local_today, local_zone
 from backend.app.core.config import get_settings
+from backend.app.games import OFFICIAL_EVENT_TYPES, get_game
 from backend.app.models import (
     Decklist,
     Event,
@@ -74,6 +75,8 @@ class WarningContext:
     head_judge_events: set[int] = field(default_factory=set)
     # tournament_id -> nomi degli iscritti sospesi dal negozio
     suspended: dict[int, list[str]] = field(default_factory=dict)
+    # tournament_id -> nomi di chi non ha dato l'ID all'editore (solo eventi ufficiali)
+    missing_ids: dict[int, list[str]] = field(default_factory=dict)
 
 
 def build_context(tournaments: list[Tournament], db: Session) -> WarningContext:
@@ -130,6 +133,22 @@ def build_context(tournaments: list[Tournament], db: Session) -> WarningContext:
     ).all()
     for tid, name in suspended:
         ctx.suspended.setdefault(tid, []).append(name)
+
+    official = [t.id for t in tournaments if t.event_type in OFFICIAL_EVENT_TYPES or t.invites]
+    if official:
+        missing = db.execute(
+            select(Registration.tournament_id, User.display_name)
+            .join(User, User.id == Registration.player_id)
+            .where(
+                Registration.tournament_id.in_(official),
+                Registration.dropped.is_(False),
+                Registration.waitlisted.is_(False),
+                func.trim(Registration.wizards_account) == "",
+            )
+            .order_by(User.display_name)
+        ).all()
+        for tid, name in missing:
+            ctx.missing_ids.setdefault(tid, []).append(name)
     return ctx
 
 
@@ -199,6 +218,14 @@ def tournament_warnings(
         add("suspended_players", "warn",
             f"{'Iscritto sospeso' if one else 'Iscritti sospesi'} dagli eventi del negozio: "
             f"{', '.join(names)}. {'Toglilo' if one else 'Toglili'} dal torneo o revoca la sospensione.")
+
+    names = ctx.missing_ids.get(tournament.id)
+    if names:
+        label = get_game(tournament.game).publisher_id_label or "ID dell'editore"
+        shown = ", ".join(names[:5]) + (f" e altri {len(names) - 5}" if len(names) > 5 else "")
+        add("missing_publisher_ids", "warn",
+            f"{len(names)} {'iscritto' if len(names) == 1 else 'iscritti'} senza {label}: {shown}. "
+            "In un evento ufficiale serve a tutti: risultati e inviti arrivano lì.")
 
     if (
         not registration_only

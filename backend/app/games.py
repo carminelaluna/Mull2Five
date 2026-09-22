@@ -38,6 +38,8 @@ class Game:
     limited_formats: tuple[str, ...] = field(default_factory=tuple)
     # Come si chiama l'identificativo del giocatore presso l'editore.
     publisher_id_label: str = ""
+    # Come si chiama l'identificativo del torneo presso l'editore (evento sanzionato).
+    sanction_label: str = "ID evento"
     # Ricerca carte, regole di mazzo e costruttore di liste: services/decklists.py.
     deck_tools: bool = False
     # Dove si possono giocare i suoi tornei online.
@@ -56,6 +58,7 @@ GAMES: dict[str, Game] = {
             default_best_of=3,
             tiebreakers="mtr",
             publisher_id_label="Wizards Account",
+            sanction_label="ID evento EventLink",
             deck_tools=True,
             online_platforms=(
                 # L'Arena ID ha sempre il numero a cinque cifre dopo il cancelletto.
@@ -73,6 +76,7 @@ GAMES: dict[str, Game] = {
             default_best_of=3,
             tiebreakers="mtr",
             publisher_id_label="Ravensburger Play Hub",
+            sanction_label="ID evento Play Hub",
         ),
         Game(
             code="swu",
@@ -92,6 +96,7 @@ GAMES: dict[str, Game] = {
             default_best_of=1,
             tiebreakers="onepiece",
             publisher_id_label="Bandai Card Games+",
+            sanction_label="ID evento Bandai Card Games+",
         ),
         Game(
             code="pokemon",
@@ -101,11 +106,16 @@ GAMES: dict[str, Game] = {
             default_best_of=3,
             tiebreakers="pokemon",
             publisher_id_label="Play! Pokémon ID",
+            sanction_label="Sanction ID Play! Pokémon",
         ),
     )
 }
 
 DEFAULT_GAME = "mtg"
+
+# I programmi ufficiali dell'editore: chi gioca deve avere l'ID del giocatore, e
+# un RCQ dà al vincitore l'invito al Regional Championship.
+OFFICIAL_EVENT_TYPES = frozenset({"rcq", "store_championship", "premier"})
 
 
 def get_game(code: str | None) -> Game:
@@ -153,6 +163,7 @@ def games_catalog() -> list[dict]:
             "default_best_of": game.default_best_of,
             "tiebreakers": game.tiebreakers,
             "publisher_id_label": game.publisher_id_label,
+            "sanction_label": game.sanction_label,
             "deck_tools": game.deck_tools,
             "online_platforms": [asdict(platform) for platform in game.online_platforms],
         }
