@@ -62,7 +62,7 @@ Funzioni derivate dall'analisi di Melee.gg e adattate al progetto.
 - [x] Il capojudge nomina e rimuove i judge sotto di lui; non puo nominarsi un pari grado ne rimuovere se stesso.
 - [x] Lo staff trova il torneo in `/tournaments/mine`, vede i pairing non pubblicati, rilegge penalita e annunci.
 - [x] `GET /tournaments/{id}/my-role` per far decidere alla UI quali controlli mostrare.
-- [ ] UI: sezione nomina capojudge in organizer.html e nomina judge per il capojudge.
+- [x] UI: sezione nomina capojudge in organizer.html e nomina judge per il capojudge.
 - [x] UI: control.html adatta i controlli al ruolo (`canRunRounds`, chiusura al solo organizzatore).
 - [x] Top decklist pubbliche e statistiche archetipi (`/public-meta` e vista grafica nello storico).
 
@@ -87,7 +87,7 @@ Funzioni derivate dall'analisi di Melee.gg e adattate al progetto.
 - [x] Tag giocatore per negozio, con assegnazione in blocco dagli iscritti.
 - [x] Back-office: tab Negozio (profilo + geocoding Nominatim) e tab Tag.
 - [x] Conventions: realizzate come contenitore `Event` (in interfaccia "Manifestazioni").
-- [ ] API pubblica con API key e database decklist consultabile.
+- [x] API pubblica con API key e database decklist consultabile (passi 18 e 21).
 - [x] Annunci mirati per tag: scelta dei tag nel modulo con il conteggio dei destinatari
       prima dell'invio, filtro su email, push e lettura in pagina. La platea si fissa
       all'invio (`announcement_recipients`): togliere o cancellare un tag dopo non
@@ -209,6 +209,7 @@ pagamenti ai negozi in fondo, sono il pezzo più grosso.
 - [x] 22. Interfaccia in 5 lingue (italiano, inglese, spagnolo, francese, tedesco): selettore nell'header, dizionari con circa 850 voci per lingua, traduzione automatica del markup e dei testi disegnati dalle pagine; restano in italiano i messaggi del server
 - [x] 23. Pagamenti ai negozi: Stripe Connect (account Express del negozio, pagamenti con carta come destination charge, quota della piattaforma PLATFORM_FEE_PERCENT, rimborsi che riprendono il bonifico, stato dal webhook account.updated) e PayPal con l'email del negozio come beneficiario; avviso quando il negozio non è collegato
 - [x] 24. Tornei dal Wizards Event Locator: importazione dei tornei di Magic di una zona come tornei "vetrina" (ricerca, mappa, pagina del negozio; iscrizione presso il negozio col link al Locator), aggiornamento e annullamento a ogni nuova importazione, negozi senza email né telefono; spenta finché non si imposta WIZARDS_LOCATOR_ENABLED (condizioni d'uso di Wizards)
+- [x] 25. Calendario del negozio da file (EventLink non lo esporta): CSV da foglio di calcolo, un torneo per riga, intestazioni in italiano o inglese, date gg/mm/aaaa, formato e tipo dedotti dal nome se mancano, anteprima riga per riga, niente doppioni ricaricando lo stesso file, modello da scaricare
 - [ ] App mobile: resta per dopo
 
 Spareggi (dai regolamenti ufficiali):

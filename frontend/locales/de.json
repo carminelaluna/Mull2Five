@@ -895,5 +895,20 @@
   "Importati finora: {tornei} tornei di {negozi} negozi. Chi li apre trova il link per iscriversi presso il negozio.": "Bisher importiert: {tornei} Turniere von {negozi} Läden. Wer sie öffnet, findet den Link zur Anmeldung im Laden.",
   "Spenta sul server: si accende con WIZARDS_LOCATOR_ENABLED=true. Le condizioni d'uso di Wizards vietano la raccolta automatica dei dati: prima di accenderla chiedi il permesso a Wizards (WPN).": "Auf dem Server ausgeschaltet: Einschalten mit WIZARDS_LOCATOR_ENABLED=true. Die Nutzungsbedingungen von Wizards verbieten das automatische Sammeln von Daten: Bitte vor dem Einschalten Wizards (WPN) um Erlaubnis.",
   "{letti} eventi letti: {nuovi} nuovi, {aggiornati} aggiornati, {annullati} annullati, {saltati} saltati. Negozi nuovi: {negozi}.": "{letti} Events gelesen: {nuovi} neu, {aggiornati} aktualisiert, {annullati} abgesagt, {saltati} übersprungen. Neue Läden: {negozi}.",
-  "Iscrizione in negozio": "Anmeldung im Laden"
+  "Iscrizione in negozio": "Anmeldung im Laden",
+  "Importa calendario": "Kalender importieren",
+  "Un torneo per riga, da un foglio di calcolo (CSV): servono almeno nome e data; ora, formato, quota, posti, tipo e descrizione si riconoscono dall'intestazione. EventLink non esporta il calendario: puoi ricopiarlo nel modello.": "Ein Turnier pro Zeile, aus einer Tabelle (CSV): Name und Datum sind Pflicht; Uhrzeit, Format, Gebühr, Plätze, Typ und Beschreibung werden an der Kopfzeile erkannt. EventLink exportiert keinen Kalender: Du kannst ihn in die Vorlage übertragen.",
+  "Scarica il modello": "Vorlage herunterladen",
+  "Nome e città": "Name und Stadt",
+  "Posti se non indicati": "Plätze, falls nicht angegeben",
+  "Pubblica subito": "Sofort veröffentlichen",
+  "Da creare": "Wird erstellt",
+  "Già in calendario": "Schon im Kalender",
+  "Scegli un file o incolla il calendario.": "Wähle eine Datei oder füge den Kalender ein.",
+  "{n} tornei da creare, {s} saltati.": "{n} Turniere zu erstellen, {s} übersprungen.",
+  "Crea {n} tornei": "{n} Turniere erstellen",
+  "Creati {n} tornei.": "{n} Turniere erstellt.",
+  "1 torneo da creare, {s} saltati.": "1 Turnier zu erstellen, {s} übersprungen.",
+  "Crea 1 torneo": "1 Turnier erstellen",
+  "Creato 1 torneo.": "1 Turnier erstellt."
 }

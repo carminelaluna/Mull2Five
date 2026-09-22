@@ -370,6 +370,38 @@ class ImportRowOut(BaseModel):
     detail: str = ""
 
 
+class ScheduleImportIn(BaseModel):
+    """Il calendario del negozio, un torneo per riga, così come esce da un foglio di calcolo."""
+    csv_text: str = Field(min_length=1, max_length=200_000)
+    # Dove si gioca, per tutti: una sede del negozio o un luogo scritto.
+    location_id: int | None = None
+    venue: str = Field(default="", max_length=180)
+    # Per le righe senza la colonna dei posti.
+    capacity: int = Field(default=32, gt=1, le=4096)
+    publish: bool = True
+    decklist_required: bool = False
+    # Vero: dice solo cosa succederebbe, riga per riga.
+    dry_run: bool = True
+
+
+class ScheduleRowOut(BaseModel):
+    line: int
+    name: str
+    starts_on: date | None = None
+    start_time: str | None = None
+    format: str = ""
+    entry_fee_cents: int = 0
+    capacity: int = 0
+    outcome: Literal["new", "already", "error"]
+    detail: str = ""
+
+
+class ScheduleImportOut(BaseModel):
+    rows: list[ScheduleRowOut]
+    new: int
+    skipped: int
+
+
 class ImportOut(BaseModel):
     rows: list[ImportRowOut]
     added: int

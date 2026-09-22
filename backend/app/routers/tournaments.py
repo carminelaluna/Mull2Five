@@ -111,6 +111,9 @@ from backend.app.schemas import (
     RepeatPreviewOut,
     RoundFormatIn,
     RoundOut,
+    ScheduleImportIn,
+    ScheduleImportOut,
+    ScheduleRowOut,
     StaffIn,
     StaffOut,
     StaffRoleIn,
@@ -144,6 +147,7 @@ from backend.app.services.payments import (
     refund_paypal_capture,
 )
 from backend.app.services.player_import import parse_players_csv
+from backend.app.services.schedule_import import parse_schedule_csv
 from backend.app.services.stores import active_suspension, managed_tournaments, store_role
 from backend.app.services.warnings import build_context, tournament_warnings
 
@@ -761,6 +765,85 @@ def duplicate_tournament(
     from backend.app.core.cache import cache_invalidate
     cache_invalidate("tournaments:")
     return tournament_out(copy, 0, db)
+
+
+SCHEDULE_LIMIT = 200
+# Il campo di TournamentCreate che non va, detto come nel file.
+SCHEDULE_FIELDS = {"name": "il nome (almeno 3 lettere)", "format": "il formato", "capacity": "i posti (almeno 2)",
+                   "entry_fee_cents": "la quota", "start_time": "l'orario", "starts_on": "la data"}
+
+
+@router.post("/import-schedule", response_model=ScheduleImportOut)
+def import_schedule(
+    payload: ScheduleImportIn,
+    organizer: User = Depends(require_organizer),
+    db: Session = Depends(get_db),
+) -> ScheduleImportOut:
+    """Il calendario del negozio da un file, un torneo per riga: EventLink non lo
+    esporta, così lo si porta qui da un foglio di calcolo. Ogni riga passa gli
+    stessi controlli di «Nuovo evento». Una riga con lo stesso nome e la stessa
+    data di un torneo del negozio non crea un doppione, quindi si può ricaricare
+    lo stesso file. Con dry_run dice cosa creerebbe, senza toccare niente."""
+    from pydantic import ValidationError
+
+    from backend.app.core.cache import cache_invalidate
+
+    check_location(payload.location_id, organizer, db)
+    game = get_game("mtg")
+    try:
+        parsed = parse_schedule_csv(payload.csv_text, game.formats)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if len(parsed) > SCHEDULE_LIMIT:
+        raise HTTPException(status_code=422, detail=f"Al massimo {SCHEDULE_LIMIT} righe per volta")
+
+    mine = (Tournament.organization_id == organizer.organization_id if organizer.organization_id
+            else Tournament.organizer_id == organizer.id)
+    existing = {(name.strip().lower(), day) for name, day in db.execute(
+        select(Tournament.name, Tournament.starts_on).where(mine, Tournament.status != TournamentStatus.CANCELLED)
+    ).all()}
+    today = local_today()
+    rows: list[ScheduleRowOut] = []
+    planned: list[TournamentCreate] = []
+    for item in parsed:
+        row = ScheduleRowOut(
+            line=item.line, name=item.name, starts_on=item.starts_on, start_time=item.start_time,
+            format=item.format, entry_fee_cents=item.entry_fee_cents or 0,
+            capacity=item.capacity or payload.capacity, outcome="new",
+        )
+        rows.append(row)
+        if item.error:
+            row.outcome, row.detail = "error", item.error
+            continue
+        if item.starts_on < today:
+            row.outcome, row.detail = "error", "La data è già passata"
+            continue
+        key = (item.name.strip().lower(), item.starts_on)
+        if key in existing:
+            row.outcome, row.detail = "already", "Già in calendario"
+            continue
+        try:
+            planned.append(TournamentCreate(
+                name=item.name, format=item.format, game=game.code, event_type=item.event_type,
+                rules_enforcement_level=item.rules_enforcement_level or "Regular",
+                starts_on=item.starts_on, start_time=item.start_time, capacity=row.capacity,
+                entry_fee_cents=row.entry_fee_cents, description=item.description,
+                location_id=payload.location_id, venue="" if payload.location_id else payload.venue,
+                status="published" if payload.publish else "draft",
+                decklist_required=payload.decklist_required,
+            ))
+        except ValidationError as exc:
+            field_name = str(exc.errors()[0]["loc"][0]) if exc.errors()[0]["loc"] else ""
+            row.outcome, row.detail = "error", f"Controlla {SCHEDULE_FIELDS.get(field_name, field_name or 'la riga')}"
+            continue
+        existing.add(key)   # la stessa riga due volte nel file conta una
+
+    if not payload.dry_run and planned:
+        db.add_all([Tournament(**data.model_dump(), organizer_id=organizer.id,
+                               organization_id=organizer.organization_id) for data in planned])
+        db.commit()
+        cache_invalidate("tournaments:")
+    return ScheduleImportOut(rows=rows, new=len(planned), skipped=len(rows) - len(planned))
 
 
 @router.post("", response_model=TournamentOut, status_code=201)

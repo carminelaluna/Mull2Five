@@ -335,7 +335,10 @@ function renderEventList() {
   $('#panel').innerHTML = `
     <div class="bo-head">
       <h2>I tuoi eventi</h2>
-      <button class="primary" id="boNew" type="button">+ Nuovo evento</button>
+      <div class="row-actions">
+        <button class="secondary" id="boImport" type="button">${esc(tr('Importa calendario'))}</button>
+        <button class="primary" id="boNew" type="button">+ Nuovo evento</button>
+      </div>
     </div>
 
     ${attivi.length
@@ -349,6 +352,7 @@ function renderEventList() {
       <div class="bo-event-list">${conclusi.map(eventCard).join('')}</div>` : ''}`;
 
   $('#boNew').addEventListener('click', openNewEventDialog);
+  $('#boImport').addEventListener('click', openScheduleImportDialog);
   $('#panel').querySelectorAll('[data-open]').forEach(card =>
     card.addEventListener('click', (e) => {
       // I pulsanti dentro la scheda hanno la precedenza sull'apertura.
@@ -1117,6 +1121,126 @@ function openImportDialog(t) {
     } catch (err) {
       toast('Errore: ' + err.message);
       $('#imGo').disabled = false;
+    }
+  });
+}
+
+/* ── Calendario da file ─────────────────────────────────
+   EventLink non esporta il calendario: il negozio lo tiene su un foglio di
+   calcolo e lo carica qui, un torneo per riga. Anteprima prima di creare;
+   ricaricare lo stesso file non crea doppioni. */
+const SCHEDULE_OUTCOMES = {
+  new: { label: 'Da creare', cls: 'ok' },
+  already: { label: 'Già in calendario', cls: '' },
+  error: { label: 'Errore', cls: 'danger' },
+};
+
+/* Il modello da scaricare, con due righe d'esempio nelle prossime settimane:
+   caricato così com'è, l'anteprima le accetta. */
+function scheduleTemplate() {
+  const day = (d) => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+  const friday = new Date();
+  friday.setDate(friday.getDate() + (((5 - friday.getDay() + 7) % 7) || 7));
+  const saturday = new Date(friday);
+  saturday.setDate(friday.getDate() + 1);
+  return [
+    'nome;data;ora;formato;quota;posti;tipo;descrizione',
+    `Friday Night Magic;${day(friday)};20:30;Standard;5;24;FNM;Premi in buste`,
+    `Draft del sabato;${day(saturday)};16:00;Draft;18;16;;3 buste a testa`,
+  ].join('\r\n');
+}
+
+function openScheduleImportDialog() {
+  const dlg = $('#boDialog');
+  dlg.innerHTML = `
+    <form method="dialog" class="modal">
+      <header><div><span class="eyebrow">${esc(tr('Eventi'))}</span><h2>${esc(tr('Importa calendario'))}</h2></div>
+        <button class="icon-button" value="cancel" formnovalidate>&times;</button></header>
+      <p class="muted" style="margin-top:0;font-size:.85rem">${esc(tr("Un torneo per riga, da un foglio di calcolo (CSV): servono almeno nome e data; ora, formato, quota, posti, tipo e descrizione si riconoscono dall'intestazione. EventLink non esporta il calendario: puoi ricopiarlo nel modello."))}
+        <a class="secondary-link" id="scTemplate" href="#" download="calendario-mull2five.csv">${esc(tr('Scarica il modello'))}</a></p>
+      <div class="bo-grid">
+        <label style="grid-column:1/-1">${esc(tr('File'))}<input id="scFile" type="file" accept=".csv,.txt,text/csv,text/plain" /></label>
+        <label style="grid-column:1/-1">${esc(tr('Oppure incolla qui'))}<textarea id="scText" style="min-height:110px" placeholder="nome;data;ora;formato;quota;posti&#10;Friday Night Magic;02/10/2026;20:30;Standard;5;24"></textarea></label>
+        <label style="grid-column:1/-1;display:none" id="scLocationWrap">${esc(tr('Sede'))}<select id="scLocation"></select></label>
+        <label style="grid-column:1/-1" id="scVenueWrap">${esc(tr('Luogo'))}<input id="scVenue" maxlength="180" placeholder="${esc(tr('Nome e città'))}" /></label>
+        <label>${esc(tr('Posti se non indicati'))}<input id="scCap" type="number" min="2" max="4096" value="32" /></label>
+        <div style="grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px 20px">
+          <label class="bo-check"><input id="scPublish" type="checkbox" checked /> ${esc(tr('Pubblica subito'))}</label>
+          <label class="bo-check"><input id="scDeck" type="checkbox" /> ${esc(tr('Lista obbligatoria'))}</label>
+        </div>
+      </div>
+      <div id="scPreview" style="margin-top:12px"></div>
+      <menu>
+        <button class="secondary" value="cancel" formnovalidate>${esc(tr('Annulla'))}</button>
+        <button class="secondary" id="scCheck" type="button">${esc(tr('Anteprima'))}</button>
+        <button class="primary" id="scGo" type="button" disabled>${esc(tr('Crea'))}</button>
+      </menu>
+    </form>`;
+  dlg.showModal();
+  fillLocationChoices('#scLocation', '#scLocationWrap', '#scVenueWrap', null);
+
+  const template = $('#scTemplate');
+  // Il BOM fa aprire a Excel il file in UTF-8, con le lettere accentate giuste.
+  template.href = URL.createObjectURL(new Blob(['\ufeff' + scheduleTemplate()], { type: 'text/csv;charset=utf-8' }));
+  dlg.addEventListener('close', () => URL.revokeObjectURL(template.href), { once: true });
+
+  // Cambiato qualcosa, l'anteprima non vale più: si rifà prima di creare.
+  const stale = () => { $('#scGo').disabled = true; };
+  $('#scFile').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (file) $('#scText').value = await readTextFile(file);
+    stale();
+  });
+  ['#scText', '#scLocation', '#scVenue', '#scCap', '#scPublish', '#scDeck'].forEach((sel) => {
+    $(sel).addEventListener('input', stale);
+    $(sel).addEventListener('change', stale);
+  });
+
+  const send = (dryRun) => apiFetch('/tournaments/import-schedule', {
+    method: 'POST',
+    body: JSON.stringify({
+      csv_text: $('#scText').value,
+      location_id: Number($('#scLocation').value) || null,
+      venue: $('#scVenue').value.trim(),
+      capacity: Number($('#scCap').value) || 32,
+      publish: $('#scPublish').checked,
+      decklist_required: $('#scDeck').checked,
+      dry_run: dryRun,
+    }),
+  });
+
+  $('#scCheck').addEventListener('click', async () => {
+    if (!$('#scText').value.trim()) { toast(tr('Scegli un file o incolla il calendario.')); return; }
+    try {
+      const plan = await send(true);
+      const rows = plan.rows.map((r) => {
+        const o = SCHEDULE_OUTCOMES[r.outcome];
+        const when = [r.starts_on ? fmtDate(r.starts_on) : '', r.start_time || '', r.format,
+          r.outcome === 'error' ? '' : money(r.entry_fee_cents)].filter(Boolean).join(' · ');
+        return `<tr><td>${r.line}</td><td>${esc(r.name || '—')}<br><small class="muted">${esc(when)}</small></td>
+          <td><span class="pill ${o.cls}" style="white-space:nowrap">${esc(tr(o.label))}</span>${r.detail ? `<br><small class="muted">${esc(r.detail)}</small>` : ''}</td></tr>`;
+      }).join('');
+      $('#scPreview').innerHTML = `
+        <p style="margin:0 0 8px">${esc(tr(plan.new === 1 ? '1 torneo da creare, {s} saltati.' : '{n} tornei da creare, {s} saltati.', { n: plan.new, s: plan.skipped }))}</p>
+        <div style="max-height:280px;overflow:auto"><table class="bo">
+          <thead><tr><th>${esc(tr('Riga'))}</th><th>${esc(tr('Evento'))}</th><th>${esc(tr('Esito'))}</th></tr></thead>
+          <tbody>${rows}</tbody></table></div>`;
+      $('#scGo').disabled = !plan.new;
+      $('#scGo').textContent = !plan.new ? tr('Crea') : plan.new === 1 ? tr('Crea 1 torneo') : tr('Crea {n} tornei', { n: plan.new });
+    } catch (err) { $('#scPreview').innerHTML = `<p class="field-error">${esc(err.message)}</p>`; }
+  });
+
+  $('#scGo').addEventListener('click', async () => {
+    $('#scGo').disabled = true;
+    try {
+      const done = await send(false);
+      dlg.close();
+      toast(done.new === 1 ? tr('Creato 1 torneo.') : tr('Creati {n} tornei.', { n: done.new }));
+      await loadTournaments();
+      renderEventList();
+    } catch (err) {
+      toast('Errore: ' + err.message);
+      $('#scGo').disabled = false;
     }
   });
 }
