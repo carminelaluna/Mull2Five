@@ -1,3 +1,4 @@
+import { onReady } from './lang.js';   // prima di tutto: la lingua (vedi lang.js)
 import { renderDeck } from './deck-view.js';
 import { esc } from './escape.js';
 import { gameInfo, gameLabel, scoresFor } from './games.js';
@@ -660,7 +661,7 @@ function playBeep() {
 }
 
 /* ── Init ────────────────────────────────────────────── */
-document.addEventListener('DOMContentLoaded', () => {
+onReady(() => {
   updateAuthNav();
   showActing();
   loadProfiles();

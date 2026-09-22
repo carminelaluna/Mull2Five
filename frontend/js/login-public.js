@@ -1,3 +1,4 @@
+import { onReady } from './lang.js';   // prima di tutto: la lingua (vedi lang.js)
 const API       = '/api';
 const TOKEN_KEY = 'mull2five-jwt-v1';
 const REDIRECT  = new URLSearchParams(location.search).get('next') || 'my-registrations.html';
@@ -14,7 +15,7 @@ if (existing) {
   if (p && p.exp > Date.now() / 1000) location.replace(REDIRECT);
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+onReady(() => {
   const tabLogin    = document.querySelector('#tabLogin');
   const tabRegister = document.querySelector('#tabRegister');
   const formLogin   = document.querySelector('#formLogin');

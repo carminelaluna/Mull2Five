@@ -7,6 +7,7 @@
  */
 import { esc } from './escape.js';
 import { gameLabel } from './games.js';
+import { t as tr } from './i18n.js';
 export const API = '/api';
 export const TOKEN_KEY = 'mull2five-jwt-v1';
 
@@ -115,8 +116,8 @@ export function eventTile(t) {
     </div>
     <div class="tile-meta">${t.is_online ? '<span class="online-badge">Online</span>' : esc(t.venue || t.organization_name || '')}</div>
     <div class="tile-foot">
-      <span>${t.entry_fee_cents ? fmtMoney(t.entry_fee_cents) : 'Gratis'}</span>
-      <span style="color:var(--muted)">${seats} posti</span>
+      <span>${t.entry_fee_cents ? fmtMoney(t.entry_fee_cents) : esc(tr('Gratis'))}</span>
+      <span style="color:var(--muted)">${esc(tr('{n} posti', { n: seats }))}</span>
     </div>
   </a>`;
 }

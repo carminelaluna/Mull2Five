@@ -18,6 +18,8 @@ export default defineConfig({
 
   build: {
     outDir: 'dist',
+    // es2022 per il top-level await di js/lang.js: la pagina aspetta la sua lingua.
+    target: 'es2022',
     rollupOptions: {
       input: {
         /* App online — frontend unico (rimosso il tool offline) */

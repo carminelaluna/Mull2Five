@@ -1,3 +1,4 @@
+import { onReady } from './lang.js';   // prima di tutto: la lingua (vedi lang.js)
 import { esc } from './escape.js';
 
 const API       = '/api';
@@ -125,4 +126,4 @@ async function loadProfile() {
   }
 }
 
-document.addEventListener('DOMContentLoaded', () => { updateAuthNav(); loadProfile(); });
+onReady(() => { updateAuthNav(); loadProfile(); });

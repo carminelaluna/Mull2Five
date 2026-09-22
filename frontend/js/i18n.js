@@ -67,6 +67,72 @@ export function t(text, params) {
 }
 
 /**
+ * Il testo tradotto se è una frase intera del dizionario, altrimenti com'è; gli
+ * spazi attorno restano dove sono. Serve alle stringhe che non passano da t():
+ * il markup delle pagine e i template scritti prima delle traduzioni.
+ */
+export function translateText(text) {
+  if (current === 'it' || !text) return text;
+  const trimmed = text.trim();
+  const found = trimmed && dictionary[trimmed.replace(/\s+/g, ' ')];
+  if (!found) return text;
+  const start = text.indexOf(trimmed);
+  return text.slice(0, start) + found + text.slice(start + trimmed.length);
+}
+
+// Dentro questi elementi il testo è di chi scrive (liste, note), non dell'interfaccia.
+const SKIP = new Set(['SCRIPT', 'STYLE', 'TEXTAREA', 'CODE', 'PRE']);
+const ATTRS = ['placeholder', 'title', 'aria-label', 'alt'];
+const skipped = (el) => SKIP.has(el.tagName) || el.getAttribute('translate') === 'no' || el.isContentEditable;
+
+function translateNode(node) {
+  const next = translateText(node.nodeValue);
+  if (next !== node.nodeValue) node.nodeValue = next;
+}
+
+function translateAttrs(el) {
+  for (const name of ATTRS) {
+    const value = el.getAttribute(name);
+    if (!value) continue;
+    const next = translateText(value);
+    if (next !== value) el.setAttribute(name, next);
+  }
+}
+
+/** Traduce i testi e gli attributi (placeholder, title…) che corrispondono a una voce del dizionario. */
+export function autoTranslate(root) {
+  if (current === 'it' || !root) return;
+  if (root.nodeType === 3) { translateNode(root); return; }
+  if (root.nodeType !== 1 || skipped(root)) return;
+  translateAttrs(root);
+  const walker = root.ownerDocument.createTreeWalker(root, 5 /* SHOW_ELEMENT | SHOW_TEXT */, {
+    acceptNode: (node) => (node.nodeType === 1 && skipped(node) ? 2 /* FILTER_REJECT */ : 1),
+  });
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    if (node.nodeType === 3) translateNode(node);
+    else translateAttrs(node);
+  }
+}
+
+/**
+ * Tiene tradotta la pagina: quello che c'è e quello che le pagine disegnano dopo.
+ * Una frase già tradotta non è una chiave, quindi le nostre modifiche si fermano lì.
+ */
+export function watchTranslations(root = globalThis.document?.body) {
+  if (current === 'it' || !root) return null;
+  autoTranslate(root);
+  const observer = new MutationObserver((records) => {
+    for (const record of records) {
+      if (record.type === 'childList') record.addedNodes.forEach(autoTranslate);
+      else if (record.type === 'characterData') translateNode(record.target);
+      else if (record.target.nodeType === 1) translateAttrs(record.target);
+    }
+  });
+  observer.observe(root, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ATTRS });
+  return observer;
+}
+
+/**
  * Traduce il markup statico delle pagine: gli elementi con data-i18n (il testo) e
  * data-i18n-attr="placeholder,title" (gli attributi). Il testo originale resta
  * nell'HTML, così la pagina è italiana anche senza JavaScript.

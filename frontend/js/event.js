@@ -1,3 +1,4 @@
+import { onReady } from './lang.js';   // prima di tutto: la lingua (vedi lang.js)
 import { esc } from './escape.js';
 import { bestOfLabel, gameInfo, gameLabel } from './games.js';
 import { t as tr } from './i18n.js';
@@ -203,4 +204,4 @@ function updateAuthNav() {
   }
 }
 
-document.addEventListener('DOMContentLoaded', () => { updateAuthNav(); loadEvent(); });
+onReady(() => { updateAuthNav(); loadEvent(); });

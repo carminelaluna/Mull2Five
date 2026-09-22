@@ -2,7 +2,7 @@
  * i18n.test.js — Lingue dell'interfaccia.
  */
 import { describe, it, expect, beforeEach } from 'vitest';
-import { detectLanguage, getLang, ready, t, translatePage } from '../js/i18n.js';
+import { autoTranslate, detectLanguage, getLang, ready, t, translatePage, translateText, watchTranslations } from '../js/i18n.js';
 
 beforeEach(async () => {
   localStorage.clear();
@@ -59,5 +59,38 @@ describe('translatePage()', () => {
     translatePage();
     expect(document.querySelector('span').textContent).toBe('Idioma');
     expect(document.querySelector('input').placeholder).toBe('Idioma');
+  });
+});
+
+describe('traduzione automatica', () => {
+  it('traduce solo le frasi intere del dizionario, spazi compresi', async () => {
+    await ready('en');
+    expect(translateText('  Le mie iscrizioni \n')).toBe('  My registrations \n');
+    expect(translateText('Le mie iscrizioni e altro')).toBe('Le mie iscrizioni e altro');
+  });
+
+  it('non tocca il testo degli utenti nelle aree di testo', async () => {
+    document.body.innerHTML = '<p>Salva lista</p><textarea>Salva lista</textarea><button title="Copia testo">x</button>';
+    await ready('fr');
+    autoTranslate(document.body);
+    expect(document.querySelector('p').textContent).toBe('Enregistrer la decklist');
+    expect(document.querySelector('textarea').value).toBe('Salva lista');
+    expect(document.querySelector('button').title).toBe('Copier le texte');
+  });
+
+  it('tiene tradotto quello che le pagine disegnano dopo', async () => {
+    document.body.innerHTML = '<main></main>';
+    await ready('de');
+    const observer = watchTranslations(document.body);
+    document.querySelector('main').innerHTML = '<span>Pagato ✓</span>';
+    await new Promise((resolve) => setTimeout(resolve));
+    expect(document.querySelector('span').textContent).toBe('Bezahlt ✓');
+    observer.disconnect();
+  });
+
+  it("in italiano non fa niente", async () => {
+    await ready('it');
+    expect(watchTranslations(document.body)).toBeNull();
+    expect(translateText('Pagato ✓')).toBe('Pagato ✓');
   });
 });

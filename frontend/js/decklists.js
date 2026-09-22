@@ -6,6 +6,7 @@
  * stesse liste. Lo stato dei filtri vive nella querystring, come nella ricerca
  * eventi: ogni ricerca è un link da condividere.
  */
+import './lang.js';   // prima di tutto: la lingua (vedi lang.js)
 import { TOKEN_KEY, apiGet, esc, fmtDate, getSession, updateAuthNav } from './catalog.js';
 import { renderDeck } from './deck-view.js';
 import { loadGames } from './games.js';
@@ -147,7 +148,7 @@ async function renderMeta(state) {
     </div>
     <div class="archive-meta-grid">
       <table class="meta-table">
-        <thead><tr><th>${esc(tr('Archetipo'))}</th><th class="num">${esc(tr('Quota'))}</th><th class="num">${esc(tr('Liste'))}</th><th class="num">Top 8</th></tr></thead>
+        <thead><tr><th>${esc(tr('Archetipo'))}</th><th class="num">${esc(tr('% liste'))}</th><th class="num">${esc(tr('Liste'))}</th><th class="num">Top 8</th></tr></thead>
         <tbody>${archetypes}</tbody>
       </table>
       <table class="meta-table">

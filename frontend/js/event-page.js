@@ -6,6 +6,7 @@
  * calendario. Nel modello si chiama Event; "manifestazione" e il nome in
  * interfaccia, perche "evento" da noi e gia il singolo torneo.
  */
+import { onReady } from './lang.js';   // prima di tutto: la lingua (vedi lang.js)
 import { apiGet, esc, eventTile, fmtDate, updateAuthNav } from './catalog.js';
 
 const $ = (s) => document.querySelector(s);
@@ -71,4 +72,4 @@ async function load() {
     ${programma}`;
 }
 
-document.addEventListener('DOMContentLoaded', () => { updateAuthNav(); load(); });
+onReady(() => { updateAuthNav(); load(); });

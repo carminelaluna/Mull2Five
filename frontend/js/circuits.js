@@ -4,6 +4,7 @@
  * Sostituisce la vecchia "Classifica stagionale": li si sceglieva la stagione da
  * un menu a tendina senza sapere cosa fossero. Qui i circuiti sono schede.
  */
+import { onReady } from './lang.js';   // prima di tutto: la lingua (vedi lang.js)
 import { apiGet, placeholder, seriesTile, updateAuthNav } from './catalog.js';
 
 const $ = (s) => document.querySelector(s);
@@ -30,4 +31,4 @@ async function load() {
   }
 }
 
-document.addEventListener('DOMContentLoaded', () => { updateAuthNav(); load(); });
+onReady(() => { updateAuthNav(); load(); });

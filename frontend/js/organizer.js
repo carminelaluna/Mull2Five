@@ -5,6 +5,7 @@
  * pagamento contanti, drop), classifica, report incassi. Accessibile da più PC:
  * ogni postazione vede gli stessi dati in tempo reale (refresh su ogni azione).
  */
+import { onReady } from './lang.js';   // prima di tutto: la lingua (vedi lang.js)
 import { EVENT_TYPES, RELS, typeLabel } from './catalog.js';
 import { mountConsole } from './console.js';
 import { renderDeck } from './deck-view.js';
@@ -783,7 +784,7 @@ function drawGiocatori(t) {
   $('#panel').innerHTML = `
     <div class="panel" style="margin-bottom:16px">
       <div class="bo-head" style="margin-bottom:12px">
-        <h3 style="margin:0">Giocatori (${_players.length})</h3>
+        <h3 style="margin:0">${esc(tr('Giocatori ({n})', { n: _players.length }))}</h3>
         <div class="row-actions">
           <button class="secondary" id="gCsv" type="button">${esc(tr('Esporta CSV'))}</button>
           <button class="secondary" id="gImport" type="button">${esc(tr('Importa da file'))}</button>
@@ -1722,7 +1723,7 @@ function downloadReportCsv(reports) {
   URL.revokeObjectURL(url);
 }
 
-document.addEventListener('DOMContentLoaded', init);
+onReady(init);
 
 /* ── NEGOZIO ─────────────────────────────────────────────
    Il profilo che i giocatori vedono su store.html. Le coordinate servono alla

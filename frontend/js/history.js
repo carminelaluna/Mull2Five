@@ -3,6 +3,7 @@
  * Elenca i tornei conclusi; cliccando un torneo mostra vincitore, classifica e
  * decklist (solo se rese pubbliche dall'organizzatore). Endpoint pubblici.
  */
+import { onReady } from './lang.js';   // prima di tutto: la lingua (vedi lang.js)
 import { renderDeck } from './deck-view.js';
 import { esc } from './escape.js';
 
@@ -180,7 +181,7 @@ async function loadBracket(tid, box) {
   box.appendChild(panel);
 }
 
-document.addEventListener('DOMContentLoaded', async () => {
+onReady(async () => {
   updateAuthNav();
   await loadHistory();
   document.querySelector('#histSearch').addEventListener('input', draw);

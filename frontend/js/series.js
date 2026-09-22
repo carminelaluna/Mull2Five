@@ -1,6 +1,7 @@
 /**
  * series.js — Pagina pubblica di un circuito: classifica cumulativa e tappe.
  */
+import { onReady } from './lang.js';   // prima di tutto: la lingua (vedi lang.js)
 import { apiGet, esc, eventTile, fmtDate, updateAuthNav } from './catalog.js';
 
 const $ = (s) => document.querySelector(s);
@@ -77,4 +78,4 @@ async function load() {
     </section>`;
 }
 
-document.addEventListener('DOMContentLoaded', () => { updateAuthNav(); load(); });
+onReady(() => { updateAuthNav(); load(); });

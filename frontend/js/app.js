@@ -5,6 +5,7 @@
  * completa con i filtri già impostati. Chi sa cosa cerca va dritto su events.html;
  * chi non lo sa, scorre.
  */
+import { onReady } from './lang.js';   // prima di tutto: la lingua (vedi lang.js)
 import {
   apiGet, askPosition, esc, eventTile, forgetPosition, placeholder,
   savedPosition, seriesTile, storeTile, updateAuthNav,
@@ -131,7 +132,7 @@ function renderGeo() {
   });
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+onReady(() => {
   updateAuthNav();
   renderGeo();
   loadEvents(0);

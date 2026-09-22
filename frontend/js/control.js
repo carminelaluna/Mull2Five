@@ -6,6 +6,7 @@
  * schermo e ai judge, che nel back-office non entrano — mentre l'organizzatore
  * trova la stessa console dentro la pagina dell'evento.
  */
+import { onReady } from './lang.js';   // prima di tutto: la lingua (vedi lang.js)
 import { mountConsole } from './console.js';
 import { esc } from './escape.js';
 
@@ -64,4 +65,4 @@ async function init() {
   open(tid);
 }
 
-document.addEventListener('DOMContentLoaded', init);
+onReady(init);

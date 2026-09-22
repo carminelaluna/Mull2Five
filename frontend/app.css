@@ -20,7 +20,7 @@
 .public-auth { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
 .public-auth .secondary-link { white-space: nowrap; }
 /* Sul telefono l'email non ci sta accanto ai link del profilo: resta nel profilo. */
-@media (max-width: 640px) { .public-auth > span { display: none; } }
+@media (max-width: 1100px) { .public-auth > span { display: none; } }
 .secondary-link { color: var(--muted); text-decoration: none; font-weight: 700; background: none; border: 0; cursor: pointer; font: inherit; }
 .secondary-link:hover { color: var(--ink); }
 .primary-btn {
@@ -488,6 +488,9 @@ html:not([data-games="many"]) .game-detail { display: none; }
   margin-bottom: 16px;
 }
 .bo-head h2 { margin: 0; font-size: clamp(1.4rem, 3vw, 1.9rem); letter-spacing: -0.02em; }
+/* Il titolo non si spezza: con etichette più lunghe (tedesco) vanno a capo i pulsanti, allineati a destra. */
+.bo-head > h2, .bo-head > h3 { white-space: nowrap; flex-shrink: 0; }
+.bo-head > .toolbar, .bo-head > .row-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 
 /* Briciola: dove sono, cosa sto guardando, e le scorciatoie di quell'evento. */
 .bo-crumb {
@@ -994,3 +997,7 @@ table.meta-table { min-width: 0; }
 /* Esempi di codice (API del negozio): monospazio, e si scorre invece di andare a capo. */
 .code-block { margin: 8px 0 0; padding: 10px 12px; border-radius: 8px; background: rgba(255, 255, 255, 0.05);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .82rem; white-space: pre; overflow-x: auto; }
+
+/* Il selettore della lingua in fondo all'header: piccolo, come i link del profilo. */
+.public-header .lang-select { width: auto; flex: none; min-height: 0; padding: 5px 8px; border-radius: 8px; background: transparent; color: var(--muted); font-size: .82rem; font-weight: 700; }
+.public-header .lang-select:hover { color: var(--ink); }

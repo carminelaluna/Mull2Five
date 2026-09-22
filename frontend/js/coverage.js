@@ -9,6 +9,7 @@
  * esatta per il social, e una conversione da HTML non la garantisce (font che
  * slittano, dipendenze esterne, immagini bloccate dal CORS).
  */
+import { onReady } from './lang.js';   // prima di tutto: la lingua (vedi lang.js)
 import { apiGet, esc, fmtDate, updateAuthNav } from './catalog.js';
 
 const $ = (s) => document.querySelector(s);
@@ -291,4 +292,4 @@ async function load() {
   redraw();
 }
 
-document.addEventListener('DOMContentLoaded', () => { updateAuthNav(); load(); });
+onReady(() => { updateAuthNav(); load(); });

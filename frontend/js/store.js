@@ -1,6 +1,7 @@
 /**
  * store.js — Profilo pubblico di un negozio: anagrafica, calendario e albo d'oro.
  */
+import { onReady } from './lang.js';   // prima di tutto: la lingua (vedi lang.js)
 import { apiGet, esc, eventTile, updateAuthNav } from './catalog.js';
 
 const $ = (s) => document.querySelector(s);
@@ -80,4 +81,4 @@ async function load() {
     ${section('Eventi passati', data.past, 'Nessun evento concluso.')}`;
 }
 
-document.addEventListener('DOMContentLoaded', () => { updateAuthNav(); load(); });
+onReady(() => { updateAuthNav(); load(); });

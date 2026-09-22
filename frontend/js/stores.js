@@ -1,6 +1,7 @@
 /**
  * stores.js — Elenco negozi, con filtro rapido e ricerca per nome o città.
  */
+import { onReady } from './lang.js';   // prima di tutto: la lingua (vedi lang.js)
 import {
   apiGet, askPosition, esc, placeholder, savedPosition, storeTile, updateAuthNav,
 } from './catalog.js';
@@ -62,7 +63,7 @@ async function load() {
   }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+onReady(() => {
   updateAuthNav();
   $('#storeSearch').addEventListener('input', draw);
   load();

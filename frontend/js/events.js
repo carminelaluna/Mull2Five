@@ -5,6 +5,7 @@
  * condivisibile e il tasto indietro del browser funziona. "Salva ricerca"
  * memorizza quella querystring in locale.
  */
+import { onReady } from './lang.js';   // prima di tutto: la lingua (vedi lang.js)
 import { gameLabel, loadGames } from './games.js';
 import {
   DATE_RANGES, DISTANCES, EVENT_TYPES, FORMATS, RELS,
@@ -324,7 +325,7 @@ function renderSaved() {
 
 window.addEventListener('popstate', () => { _page = 1; run(); });
 
-document.addEventListener('DOMContentLoaded', async () => {
+onReady(async () => {
   updateAuthNav();
   _games = await loadGames();
   run();
