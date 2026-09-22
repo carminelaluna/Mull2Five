@@ -112,7 +112,10 @@ Funzioni derivate dall'analisi di Melee.gg e adattate al progetto.
 - [x] Pagina `coverage.html`: scheda con vincitore, top 8 e metagame, export PNG in tre formati social.
 - [x] Corretto l'ordine dei campi del record in `meta_stats`: sconfitte lette come pareggi, win rate gonfiato.
 - [x] Eventi a formato misto: `Round.format`, una decklist per segmento, UI su giocatore e back-office.
-- [ ] Pod di draft con round interni al pod e ri-podding: valutato, rimandato.
+- [x] Pod di draft con round interni al pod: fatti al passo 14 (pod bilanciati,
+      posti, primo turno contro chi siede di fronte, poi svizzera dentro il pod).
+- [ ] Ri-podding fra un turno e l'altro: non fatto. Oggi i pod si formano una volta
+      sola e restano quelli; rifarli a ogni turno serve solo ai draft lunghi.
 
 ## Gestione sala (spunti da Purple Fox)
 
@@ -150,17 +153,70 @@ Tutte le voci dell'MVP sono chiuse.
 
 ### Fuori MVP, valutati e rimandati
 
-- Pod di draft con round interni al pod e ri-podding (serve solo al limited oltre i 16 giocatori).
-- API pubblica con API key e database decklist consultabile.
+Tutti e due sono stati fatti dopo: i pod al passo 14, l'API pubblica con le
+chiavi e l'archivio delle liste ai passi 18 e 21. Resta fuori solo il
+ri-podding fra un turno e l'altro.
 
 ### Non fattibile da qui
 
 - Test refund PayPal: servono credenziali sandbox reali e un webhook pubblico.
   Va fatto da te, in un ambiente con `PAYPAL_CLIENT_ID`/`SECRET` configurati.
 
+## Revisione critica (settembre 2026) — quello che resta aperto
+
+Diciotto rilievi su codice e tecnologie scelte. Quindici sono stati sistemati
+nei commit del 22-23 settembre: sessione e token, migrazioni Alembic con
+controllo in CI su SQLite e PostgreSQL, chiamate all'API in un posto solo
+(`frontend/js/session.js`), divisione dei file troppo lunghi, ESLint sul
+frontend. Questi tre restano: il primo è lavoro da fare, gli altri due sono
+decisioni tue.
+
+- [ ] **1. Il webhook PayPal non verifica la firma, e segna pagato troppo presto.**
+  Quello di Stripe la verifica (`stripe.Webhook.construct_event`); quello di
+  PayPal accetta qualunque POST, quindi chi conosce l'URL può mandare un
+  `PAYMENT.CAPTURE.COMPLETED` con un order id vero e farsi risultare pagato
+  senza aver pagato. Serve la chiamata a
+  `POST /v1/notifications/verify-webhook-signature` con `PAYPAL_WEBHOOK_ID`,
+  e il rifiuto dell'evento se non torna `SUCCESS`. Nella stessa rotta,
+  `CHECKOUT.ORDER.APPROVED` viene trattato come incasso, ma l'approvazione non
+  è l'incasso: va catturato l'ordine
+  (`POST /v2/checkout/orders/{id}/capture`) e segnato pagato solo dopo.
+  File: `backend/app/routers/payments.py:90`.
+
+- [ ] **15. Il piano di Render: quanto regge quello che c'è adesso.**
+  Il container avvia un solo processo uvicorn, senza `--workers`
+  (`Dockerfile:40`): una richiesta lenta blocca le altre. Sul piano gratuito il
+  servizio si addormenta dopo un quarto d'ora e il primo visitatore aspetta
+  l'avvio a freddo — per un negozio che manda i suoi giocatori sul sito è la
+  prima impressione. `redis_url` non è impostato, quindi i contatori del
+  limite di richieste stanno nella memoria del processo: si azzerano a ogni
+  deploy e non sarebbero condivisi fra due istanze. Da decidere prima di aprire
+  ai negozi: che piano pagare, quanti worker, se mettere Redis, e che la
+  regione di Render sia la stessa di Supabase (Francoforte) — altrimenti ogni
+  query paga il viaggio.
+
+- [ ] **17. L'import dal Locator è fragile per costruzione.**
+  Legge `search.data`, il formato turbo-stream interno di Remix che nessuno ha
+  documentato e che Wizards può cambiare senza dirlo: il giorno che cambia,
+  l'import smette di trovare tornei e non se ne accorge nessuno. Se lo si
+  tiene: un test su una risposta salvata su disco, e un avviso quando una città
+  che prima dava tornei ne dà zero. Resta comunque spento finché non si imposta
+  `WIZARDS_LOCATOR_ENABLED`, perché le condizioni d'uso di Wizards (§2.2)
+  vietano la raccolta automatica: la strada pulita è chiedere il permesso al
+  WPN. File: `backend/app/services/wizards_locator.py`.
+
 ## Da monitorare
 
 - [ ] Testare refund PayPal con account sandbox reale e webhook `PAYMENT.CAPTURE.COMPLETED`.
+- [ ] Far leggere a un legale privacy, termini e cookie: quelle pubblicate sono bozze
+      scritte qui. Da riempire anche i valori `LEGAL_*` (titolare, indirizzo, P.IVA).
+- [ ] Stripe Connect sull'account vero: il codice c'è (passo 23), ma vanno attivati
+      Connect e il webhook `account.updated` nel cruscotto Stripe, e provato un
+      pagamento a un negozio collegato.
+- [ ] `.env` di sviluppo scaduto: punta a `postgresql://…@localhost:5432/arcana_events`,
+      ma su quella porta ora c'è il PostgreSQL di un altro progetto. L'API di sviluppo
+      va avviata con `DATABASE_URL=sqlite:///./manabind_dev.db`. Da sistemare nel `.env`
+      (o da riportare su Docker come fa `make dev`) prima che qualcuno ci perda un'ora.
 - [x] Aggiunta suite `unittest` persistente invece degli smoke test inline.
 
 ## Idee per dopo
