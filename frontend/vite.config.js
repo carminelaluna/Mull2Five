@@ -4,15 +4,26 @@ import { defineConfig } from 'vite';
    su IPv4. Usiamo 127.0.0.1 esplicitamente per forzare IPv4. */
 const BACKEND = 'http://127.0.0.1:8000';
 
+/* L'indirizzo pubblico del sito, per og:image, og:url e canonical: i social
+   vogliono indirizzi assoluti. Nelle pagine si scrive __SITE_URL__. */
+const SITE_URL = (process.env.SITE_URL || 'https://mull2five.onrender.com').replace(/\/$/, '');
+const siteUrl = {
+  name: 'site-url',
+  transformIndexHtml: (html) => html.replaceAll('__SITE_URL__', SITE_URL),
+};
+
 export default defineConfig({
   root: '.',
   publicDir: 'public',   // asset statici: brand/, icone, site.webmanifest, sw.js
+  plugins: [siteUrl],
 
   server: {
     port: 5173,
     proxy: {
       '/api':    { target: BACKEND, changeOrigin: true },
       '/health': { target: BACKEND, changeOrigin: true },
+      '/robots.txt':  { target: BACKEND, changeOrigin: true },
+      '/sitemap.xml': { target: BACKEND, changeOrigin: true },
     },
   },
 
@@ -47,6 +58,12 @@ export default defineConfig({
         display:           'display.html',
         'forgot-password': 'forgot-password.html',
         'reset-password':  'reset-password.html',
+        /* Pagine di servizio: errore, ringraziamento, testi legali */
+        'not-found':       '404.html',
+        grazie:            'grazie.html',          // dopo l'iscrizione e il pagamento
+        privacy:           'privacy.html',
+        termini:           'termini.html',
+        cookie:            'cookie.html',
       },
     },
   },

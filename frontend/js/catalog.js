@@ -161,6 +161,15 @@ export function placeholder(el, message) {
   el.innerHTML = `<p class="empty">${esc(message)}</p>`;
 }
 
+/* Mentre si carica: schede finte che tengono il posto di quelle vere, così la
+   pagina non salta quando arrivano. Per le righe di una fila o di una griglia. */
+export function loadingTiles(el, count = 4) {
+  el.innerHTML = Array.from({ length: count }, () => `<div class="tile skeleton" aria-hidden="true">
+      <span class="skeleton-line short"></span><span class="skeleton-line wide"></span>
+      <span class="skeleton-line"></span><span class="skeleton-line short"></span></div>`).join('')
+    + `<span class="visually-hidden">${esc(tr('Caricamento…'))}</span>`;
+}
+
 /* ── Posizione del giocatore ───────────────────────────────── */
 
 const GEO_KEY = 'mull2five-geo-v1';

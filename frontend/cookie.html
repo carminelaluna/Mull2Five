@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cookie — Mull2Five</title>
+    <meta name="description" content="Quali dati Mull2Five salva nel tuo browser: solo archiviazione tecnica e statistiche anonime senza cookie." />
+    <link rel="canonical" href="__SITE_URL__/cookie.html" />
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="theme-color" content="#0d0d0f" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Mull2Five" />
+    <meta property="og:locale" content="it_IT" />
+    <meta property="og:title" content="Cookie — Mull2Five" />
+    <meta property="og:description" content="Quali dati Mull2Five salva nel tuo browser: solo archiviazione tecnica e statistiche anonime senza cookie." />
+    <meta property="og:url" content="__SITE_URL__/cookie.html" />
+    <meta property="og:image" content="__SITE_URL__/og-image-1200x630.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Mull2Five — tornei di Magic vicino a te" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="__SITE_URL__/og-image-1200x630.png" />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="app.css" />
+  </head>
+  <body>
+    <header class="public-header">
+      <a class="brand" href="/">
+        <img src="/brand/header-logo-orizzontale-su-scuro.svg" alt="Mull2Five" class="brand-logo" />
+      </a>
+      <nav class="public-nav" aria-label="Navigazione">
+        <a href="/events.html">Eventi</a>
+        <a href="/stores.html">Negozi</a>
+        <a href="/circuits.html">Circuiti</a>
+        <a href="/decklists.html">Liste</a>
+        <a href="/organizer.html">Organizza</a>
+      </nav>
+      <div class="public-auth" id="publicAuth"></div>
+    </header>
+
+    <main class="public-main">
+      <p class="legal legal-lang-note" hidden>Il testo legale è in italiano: è la versione che fa fede.</p>
+      <article class="legal" translate="no">
+        <span class="eyebrow">Informativa</span>
+        <h1>Cookie</h1>
+        <p class="legal-meta">Ultimo aggiornamento: 22 settembre 2026</p>
+        <p>Mull2Five non usa cookie di profilazione, pubblicitari o di terze parti per seguirti. Nel tuo browser salva solo quello che serve a farlo funzionare, e per questo non ti chiede il consenso.</p>
+
+        <h2>Cosa salviamo nel tuo browser</h2>
+        <p>Non sono cookie ma archiviazione locale del browser (localStorage), che usa solo questo sito:</p>
+        <table class="legal-table">
+          <thead><tr><th>Nome</th><th>A cosa serve</th><th>Quanto dura</th></tr></thead>
+          <tbody>
+            <tr><td><code>mull2five-jwt-v1</code></td><td>Tenerti collegato al tuo account</td><td>Finché esci o l'accesso scade</td></tr>
+            <tr><td><code>mull2five-lang</code></td><td>La lingua che hai scelto</td><td>Finché non la cambi</td></tr>
+            <tr><td><code>mull2five-geo-v1</code></td><td>La tua posizione approssimata, se la condividi, per i tornei vicini</td><td>Finché non la togli</td></tr>
+            <tr><td><code>mull2five-saved-searches-v1</code></td><td>Le ricerche di eventi che hai salvato</td><td>Finché non le cancelli</td></tr>
+            <tr><td><code>mull2five-act-as</code></td><td>Il profilo gestito (di un minore) per cui stai agendo</td><td>Finché non torni al tuo</td></tr>
+            <tr><td><code>mull2five-privacy-notice-v1</code></td><td>Ricordare che hai chiuso l'avviso sulla privacy</td><td>Finché non lo cancelli</td></tr>
+          </tbody>
+        </table>
+        <p>Se attivi le notifiche, il browser registra anche il service worker del sito, che serve a riceverle.</p>
+
+        <h2>Statistiche</h2>
+        <p>Contiamo le visite in modo anonimo: per ogni pagina vista registriamo solo la pagina, il sito da cui arrivi (per esempio un motore di ricerca) e se lo schermo è di un telefono, di un tablet o di un computer. Non usiamo cookie, non salviamo il tuo indirizzo IP e non ti riconosciamo da una visita all'altra. Se il tuo browser ha attivo «Do Not Track» o «Global Privacy Control», non ti contiamo affatto.</p>
+
+        <h2>Servizi esterni</h2>
+        <p>Quando paghi lo fai sui siti di Stripe o PayPal, che usano i loro cookie secondo le loro informative. I simboli e i dati delle carte arrivano da Scryfall, che riceve solo le informazioni tecniche del collegamento.</p>
+
+        <h2>Come cancellarli</h2>
+        <p>Uscire dall'account cancella il dato di accesso. Il resto lo cancelli dalle impostazioni del browser, alla voce sui dati dei siti: il sito continua a funzionare, dovrai solo rifare l'accesso e scegliere di nuovo le tue preferenze.</p>
+        <p>Per tutto il resto vedi l'<a href="/privacy.html">informativa privacy</a>.</p>
+      </article>
+    </main>
+
+    <footer class="public-footer">
+      <nav aria-label="Informazioni legali">
+        <a href="/privacy.html">Privacy</a>
+        <a href="/termini.html">Termini</a>
+        <a href="/cookie.html">Cookie</a>
+        <a href="/docs">API</a>
+      </nav>
+      <p>© 2026 Mull2Five · Non affiliato a Wizards of the Coast</p>
+    </footer>
+
+    <div id="toast" role="status" aria-live="polite"></div>
+    <script type="module" src="js/info-page.js"></script>
+    <script type="module" src="js/site.js"></script>
+  </body>
+</html>

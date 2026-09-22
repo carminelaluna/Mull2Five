@@ -3,7 +3,7 @@
  */
 import { onReady } from './lang.js';   // prima di tutto: la lingua (vedi lang.js)
 import {
-  apiGet, askPosition, esc, placeholder, savedPosition, storeTile, updateAuthNav,
+  apiGet, askPosition, esc, loadingTiles, placeholder, savedPosition, storeTile, updateAuthNav,
 } from './catalog.js';
 
 const $ = (s) => document.querySelector(s);
@@ -46,7 +46,7 @@ function draw() {
 
 async function load() {
   renderChips();
-  placeholder($('#storeGrid'), 'Caricamento…');
+  loadingTiles($('#storeGrid'), 6);
   const params = RAILS[_active].params;
   const q = new URLSearchParams();
   if (params.premium_only) q.set('premium_only', 'true');

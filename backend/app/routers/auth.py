@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from urllib.parse import urlencode
 from uuid import uuid4
 
@@ -49,6 +50,8 @@ def register(request: Request, payload: UserCreate, db: Session = Depends(get_db
             detail=f"Per aprire un account servono almeno {get_settings().min_account_age} anni: "
                    "un genitore può aggiungerti come profilo dal suo account.",
         )
+    if payload.terms_accepted is False:
+        raise HTTPException(status_code=422, detail="Per aprire un account accetta i termini e l'informativa privacy")
     from backend.app.models import Organization
     default_org = db.scalar(select(Organization).where(Organization.is_default == True))  # noqa: E712
     user = User(
@@ -57,6 +60,7 @@ def register(request: Request, payload: UserCreate, db: Session = Depends(get_db
         role=role,
         password_hash=hash_password(payload.password),
         organization_id=default_org.id if default_org else None,
+        terms_accepted_at=datetime.now(UTC) if payload.terms_accepted else None,
     )
     db.add(user)
     db.commit()
@@ -189,6 +193,7 @@ def export_my_data(
             "display_name": user.display_name,
             "role": user.role,
             "created_at": user.created_at.isoformat(),
+            "terms_accepted_at": user.terms_accepted_at.isoformat() if user.terms_accepted_at else None,
         },
         "registrations": [
             {

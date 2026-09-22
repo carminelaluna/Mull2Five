@@ -1906,9 +1906,11 @@ async function renderNegozio() {
   ${paymentsPanel(org, payments)}
   ${staffPanel(org, members)}
   ${apiPanel(org, apiKeys)}
-  ${locatorPanel()}`;
+  ${locatorPanel()}
+  ${analyticsPanel()}`;
   bindStoreSwitcher();
   bindLocatorPanel();
+  bindAnalyticsPanel();
   bindLocationsPanel(org, locations);
   bindStaffPanel(org, members);
   bindApiPanel(org);
@@ -1971,9 +1973,11 @@ async function renderNoStore() {
       <button class="primary" type="submit" style="grid-column:1/-1">${esc(tr('Apri il negozio'))}</button>
     </form>
   </div>
-  ${locatorPanel()}`;
+  ${locatorPanel()}
+  ${analyticsPanel()}`;
   bindStoreSwitcher();
   bindLocatorPanel();
+  bindAnalyticsPanel();
   $('#newStore').addEventListener('submit', async (e) => {
     e.preventDefault();
     try {
@@ -2095,6 +2099,56 @@ function bindLocatorPanel() {
       button.textContent = tr('Importa i tornei');
     }
   });
+}
+
+/* ── Visite al sito (solo admin) ─────────────────────────
+   Statistiche anonime senza cookie (backend/app/routers/site.py): pagine viste,
+   visite (gli ingressi nel sito), da dove arrivano e su che schermi. */
+function analyticsPanel() {
+  if (session.role !== 'admin') return '';
+  return `<div class="panel" style="margin-top:16px">
+    <div class="bo-head" style="margin-bottom:8px">
+      <h3 style="margin:0">${esc(tr('Visite al sito'))}</h3>
+      <div class="row-actions"><select id="anDays" aria-label="${esc(tr('Periodo'))}">
+        <option value="7">${esc(tr('Ultimi 7 giorni'))}</option>
+        <option value="30" selected>${esc(tr('Ultimi 30 giorni'))}</option>
+        <option value="90">${esc(tr('Ultimi 90 giorni'))}</option>
+      </select></div>
+    </div>
+    <p class="muted" style="margin-top:0;font-size:.85rem">${esc(tr('Statistiche anonime, senza cookie: pagine viste e visite, cioè gli ingressi nel sito.'))}</p>
+    <div id="anBody"><p class="empty">${esc(tr('Caricamento…'))}</p></div>
+  </div>`;
+}
+
+function bindAnalyticsPanel() {
+  const select = $('#anDays');
+  if (!select) return;
+  const list = (rows, label = (x) => x) => (rows.length
+    ? `<ol class="an-list">${rows.map((r) => `<li><span>${esc(label(r.label))}</span><strong>${r.count}</strong></li>`).join('')}</ol>`
+    : `<p class="muted" style="margin:0">${esc(tr('Ancora niente.'))}</p>`);
+  const screens = { mobile: tr('Telefono'), tablet: tr('Tablet'), desktop: tr('Computer') };
+  const load = async () => {
+    try {
+      const a = await apiFetch(`/admin/analytics?days=${select.value}`);
+      const max = Math.max(1, ...a.days.map((d) => d.views));
+      const bars = a.days.map((d) => `<div class="an-bar" title="${esc(fmtDate(d.day))}: ${d.views}" style="--h:${Math.round((d.views / max) * 100)}%"></div>`).join('');
+      $('#anBody').innerHTML = `
+        <div class="an-totals">
+          <div><strong>${a.total_views}</strong><span>${esc(tr('pagine viste'))}</span></div>
+          <div><strong>${a.total_entries}</strong><span>${esc(tr('visite'))}</span></div>
+        </div>
+        <div class="an-chart" role="img" aria-label="${esc(tr('Pagine viste per giorno'))}">${bars}</div>
+        <div class="an-cols">
+          <div><h4>${esc(tr('Pagine'))}</h4>${list(a.pages)}</div>
+          <div><h4>${esc(tr('Da dove arrivano'))}</h4>${list(a.referrers, (x) => x || tr('Diretto'))}</div>
+          <div><h4>${esc(tr('Schermi'))}</h4>${list(a.devices, (x) => screens[x] || x)}</div>
+        </div>`;
+    } catch (err) {
+      $('#anBody').innerHTML = `<p class="field-error">${esc(err.message)}</p>`;
+    }
+  };
+  select.addEventListener('change', load);
+  load();
 }
 
 /* ── Incassi online ──────────────────────────────────────

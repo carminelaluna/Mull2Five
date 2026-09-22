@@ -1,7 +1,14 @@
 import { onReady } from './lang.js';   // prima di tutto: la lingua (vedi lang.js)
+import { busy, clearErrors, fieldError } from './form-state.js';
 const API       = '/api';
 const TOKEN_KEY = 'mull2five-jwt-v1';
 const REDIRECT  = new URLSearchParams(location.search).get('next') || 'my-registrations.html';
+
+/* Il messaggio d'errore del server: una frase, o la lista di FastAPI per i campi non validi. */
+function detailText(err, fallback) {
+  if (Array.isArray(err.detail)) return err.detail.map((d) => d.msg).join(' · ') || fallback;
+  return err.detail || fallback;
+}
 
 function decodeJwt(t) {
   try { return JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))); }
@@ -38,7 +45,7 @@ onReady(() => {
     const email    = document.querySelector('#loginEmail').value.trim();
     const password = document.querySelector('#loginPassword').value;
     const errEl    = document.querySelector('#errLogin');
-    btn.disabled = true; btn.textContent = 'Accesso in corso…';
+    busy(btn, true, 'Accesso in corso…');
     errEl.textContent = '';
     try {
       const res = await fetch(API + '/auth/login', {
@@ -48,7 +55,7 @@ onReady(() => {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || 'Credenziali non valide.');
+        throw new Error(detailText(err, 'Credenziali non valide.'));
       }
       const { access_token } = await res.json();
       localStorage.setItem(TOKEN_KEY, access_token);
@@ -58,8 +65,7 @@ onReady(() => {
       location.replace(hasNext ? REDIRECT : (role === 'organizer' || role === 'admin' ? 'organizer.html' : REDIRECT));
     } catch (err) {
       errEl.textContent = err.message;
-    } finally {
-      btn.disabled = false; btn.textContent = 'Accedi';
+      busy(btn, false);
     }
   });
 
@@ -73,25 +79,34 @@ onReady(() => {
     const confirm  = document.querySelector('#regConfirm').value;
     const role     = document.querySelector('#regRole')?.value === 'organizer' ? 'organizer' : 'player';
     errEl.textContent = '';
+    clearErrors(formReg);
 
-    if (password.length < 8) { errEl.textContent = 'Password: minimo 8 caratteri.'; return; }
-    if (password !== confirm)  { errEl.textContent = 'Le password non coincidono.'; return; }
+    // Ogni errore accanto al suo campo: si vede subito cosa correggere.
+    if (password.length < 8) { fieldError(document.querySelector('#regPassword'), 'Minimo 8 caratteri.'); return; }
+    if (password !== confirm) { fieldError(document.querySelector('#regConfirm'), 'Le password non coincidono.'); return; }
     if (!document.querySelector('#regAge').checked) {
-      errEl.textContent = `Per aprire un account servono almeno ${document.querySelector('#regAgeYears').textContent} anni: `
-        + 'un genitore può aggiungerti come profilo dal suo account.';
+      fieldError(document.querySelector('#regAge'),
+        `Per aprire un account servono almeno ${document.querySelector('#regAgeYears').textContent} anni: `
+        + 'un genitore può aggiungerti come profilo dal suo account.');
+      return;
+    }
+    if (!document.querySelector('#regTerms').checked) {
+      fieldError(document.querySelector('#regTerms'), "Per aprire un account accetta i termini e l'informativa privacy.");
       return;
     }
 
-    btn.disabled = true; btn.textContent = 'Registrazione in corso…';
+    busy(btn, true, 'Registrazione in corso…');
     try {
       const res = await fetch(API + '/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ display_name: name, email, password, role, age_confirmed: true }),
+        body: JSON.stringify({ display_name: name, email, password, role, age_confirmed: true, terms_accepted: true }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || 'Errore durante la registrazione.');
+        // Email già usata: l'errore va sul campo dell'email.
+        if (res.status === 409) { fieldError(document.querySelector('#regEmail'), 'Questa email ha già un account: accedi.'); busy(btn, false); return; }
+        throw new Error(detailText(err, 'Errore durante la registrazione.'));
       }
       const { access_token } = await res.json();
       localStorage.setItem(TOKEN_KEY, access_token);
@@ -100,8 +115,7 @@ onReady(() => {
       location.replace(hasNext ? REDIRECT : (role === 'organizer' ? 'organizer.html' : REDIRECT));
     } catch (err) {
       errEl.textContent = err.message;
-    } finally {
-      btn.disabled = false; btn.textContent = 'Crea account';
+      busy(btn, false);
     }
   });
 });

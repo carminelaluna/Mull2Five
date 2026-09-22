@@ -31,6 +31,7 @@ from backend.app.routers import (
     public_api,
     push,
     seasons,
+    site,
     tags,
     tournaments,
 )
@@ -179,6 +180,8 @@ app.include_router(games.router, prefix="/api")
 app.include_router(decks.router, prefix="/api")
 app.include_router(archive.router, prefix="/api")
 app.include_router(public_api.router, prefix="/api")
+app.include_router(site.api_router, prefix="/api")
+app.include_router(site.router)   # robots.txt e sitemap.xml, alla radice
 
 
 @app.get("/health")

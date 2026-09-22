@@ -46,8 +46,8 @@ async def create_stripe_checkout(registration: Registration, store: Organization
         payee = f"stripe:{account}"
     session = stripe.checkout.Session.create(
         mode="payment",
-        success_url=f"{frontend_url}/?payment=success",
-        cancel_url=f"{frontend_url}/?payment=cancelled",
+        success_url=f"{frontend_url}/grazie.html?t={tournament.id}&pagamento=ok",
+        cancel_url=f"{frontend_url}/my-registrations.html?pagamento=annullato",
         line_items=[
             {
                 "price_data": {
@@ -80,8 +80,8 @@ def paypal_order_body(registration: Registration, store: Organization | None) ->
         "intent": "CAPTURE",
         "purchase_units": [unit],
         "application_context": {
-            "return_url": f"{frontend_url}/?payment=success",
-            "cancel_url": f"{frontend_url}/?payment=cancelled",
+            "return_url": f"{frontend_url}/grazie.html?t={tournament.id}&pagamento=ok",
+            "cancel_url": f"{frontend_url}/my-registrations.html?pagamento=annullato",
         },
     }
 

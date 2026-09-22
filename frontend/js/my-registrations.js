@@ -1,4 +1,5 @@
 import { onReady } from './lang.js';   // prima di tutto: la lingua (vedi lang.js)
+import { busy } from './form-state.js';
 import { renderDeck } from './deck-view.js';
 import { esc } from './escape.js';
 import { gameInfo, gameLabel, scoresFor } from './games.js';
@@ -661,9 +662,45 @@ function playBeep() {
 }
 
 /* ── Init ────────────────────────────────────────────── */
+/* I diritti sui dati (GDPR): scaricarli ed eliminare l'account, qui dove si
+   gestisce il resto. L'eliminazione anonimizza: le classifiche restano giuste. */
+function setupAccount() {
+  const exportBtn = document.querySelector('#exportData');
+  exportBtn?.addEventListener('click', async () => {
+    busy(exportBtn, true);
+    try {
+      const data = await apiFetch('/auth/me/export');
+      const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+      const link = Object.assign(document.createElement('a'), { href: url, download: 'mull2five-i-miei-dati.json' });
+      document.body.append(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (err) {
+      toast(err.message);
+    } finally {
+      busy(exportBtn, false);
+    }
+  });
+  document.querySelector('#deleteAccount')?.addEventListener('click', async () => {
+    if (!confirm(tr("Eliminare l'account? Email, nome e ID vengono cancellati e non si può tornare indietro."))) return;
+    try {
+      await apiFetch('/auth/me', { method: 'DELETE' });
+      localStorage.removeItem(TOKEN_KEY);
+      location.replace('index.html');
+    } catch (err) { toast(err.message); }
+  });
+}
+
 onReady(() => {
   updateAuthNav();
   showActing();
+  setupAccount();
+  // Di ritorno da Stripe o PayPal senza aver pagato: l'iscrizione resta, si riprova da qui.
+  if (new URLSearchParams(location.search).get('pagamento') === 'annullato') {
+    toast(tr('Pagamento annullato: puoi riprovare quando vuoi da qui.'));
+    history.replaceState(null, '', location.pathname);
+  }
   loadProfiles();
   loadRegistrations();
   loadHistory();

@@ -355,6 +355,8 @@ class User(Base):
     role: Mapped[str] = mapped_column(String(32), default=UserRole.PLAYER)
     password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Quando ha accettato termini e informativa privacy alla registrazione.
+    terms_accepted_at: Mapped[datetime | None] = mapped_column(UtcDateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
     # Profilo gestito (un minore): niente email né password, lo iscrive e lo segue
     # l'account del genitore.
@@ -919,3 +921,21 @@ class InviteCode(Base):
     created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
 
     tournament: Mapped[Tournament] = relationship(back_populates="invite_codes")
+
+
+class PageView(Base):
+    """Le visite al sito, contate per giorno, pagina, sito di provenienza e tipo
+    di schermo. Niente cookie, niente IP, niente utenti: solo numeri aggregati,
+    così non serve il consenso (vedi routers/site.py e cookie.html)."""
+    __tablename__ = "page_views"
+    __table_args__ = (UniqueConstraint("day", "path", "referrer", "device", name="uq_page_views"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    day: Mapped[date] = mapped_column(Date, index=True)
+    path: Mapped[str] = mapped_column(String(120))
+    # Solo il dominio da cui si arriva ("google.com"); vuoto: diretto o dal sito stesso.
+    referrer: Mapped[str] = mapped_column(String(120), default="", server_default="")
+    device: Mapped[str] = mapped_column(String(10), default="desktop", server_default="desktop")
+    views: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    # Le pagine da cui si entra nel sito: una per visita.
+    entries: Mapped[int] = mapped_column(Integer, default=0, server_default="0")

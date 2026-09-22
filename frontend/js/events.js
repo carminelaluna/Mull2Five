@@ -269,7 +269,9 @@ async function run({ keepFocus = false } = {}) {
   }
 
   const body = $('#resultsBody');
-  body.innerHTML = '<tr><td colspan="5" class="muted">Caricamento…</td></tr>';
+  // Righe finte finché arrivano i risultati: la tabella non cambia altezza di colpo.
+  body.innerHTML = Array.from({ length: 4 }, () => `<tr class="skeleton" aria-hidden="true"><td colspan="5">
+    <span class="skeleton-line wide"></span><span class="skeleton-line short"></span></td></tr>`).join('');
   try {
     const events = await apiGet('/tournaments?' + q.toString());
     summarize(state, events.length);

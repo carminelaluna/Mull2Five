@@ -4,14 +4,24 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Le mie iscrizioni — Mull2Five</title>
+    <meta name="description" content="Le tue iscrizioni ai tornei: pagamenti, liste, abbinamenti e risultati." />
+    <meta name="robots" content="noindex" />
     <link rel="icon" href="/favicon.ico" sizes="48x48" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
     <meta name="theme-color" content="#0d0d0f" />
-    <meta property="og:image" content="/og-image-1200x630.png" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Mull2Five" />
+    <meta property="og:locale" content="it_IT" />
+    <meta property="og:title" content="Le mie iscrizioni — Mull2Five" />
+    <meta property="og:description" content="Le tue iscrizioni ai tornei: pagamenti, liste, abbinamenti e risultati." />
+    <meta property="og:image" content="__SITE_URL__/og-image-1200x630.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Mull2Five — tornei di Magic vicino a te" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:image" content="/og-image-1200x630.png" />
+    <meta name="twitter:image" content="__SITE_URL__/og-image-1200x630.png" />
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="app.css" />
   </head>
@@ -57,7 +67,35 @@
         </div>
         <div class="panel" id="historyList"><p class="empty">Caricamento…</p></div>
       </section>
+
+      <section style="margin-top:40px" id="accountSection">
+        <div class="section-heading" style="margin-bottom:16px">
+          <div><span class="eyebrow">Privacy</span><h2>Il tuo account</h2></div>
+        </div>
+        <div class="panel account-actions">
+          <div>
+            <strong>Scarica i tuoi dati</strong>
+            <p class="muted">Account, iscrizioni, liste e profili gestiti, in un file JSON.</p>
+          </div>
+          <button class="secondary" id="exportData" type="button">Scarica i miei dati</button>
+          <div>
+            <strong>Elimina l'account</strong>
+            <p class="muted">Email, nome e ID vengono cancellati; i risultati dei tornei già giocati restano come «Utente eliminato». Non si può annullare.</p>
+          </div>
+          <button class="secondary danger-outline" id="deleteAccount" type="button">Elimina account</button>
+        </div>
+      </section>
     </main>
+
+    <footer class="public-footer">
+      <nav aria-label="Informazioni legali">
+        <a href="/privacy.html">Privacy</a>
+        <a href="/termini.html">Termini</a>
+        <a href="/cookie.html">Cookie</a>
+        <a href="/docs">API</a>
+      </nav>
+      <p>© 2026 Mull2Five · Non affiliato a Wizards of the Coast</p>
+    </footer>
 
     <!-- Dialog: carica decklist -->
     <dialog id="deckDialog">
@@ -140,5 +178,6 @@
 
     <div id="toast" role="status" aria-live="polite"></div>
     <script type="module" src="js/my-registrations.js"></script>
+    <script type="module" src="js/site.js"></script>
   </body>
 </html>

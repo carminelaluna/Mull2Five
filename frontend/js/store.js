@@ -3,6 +3,7 @@
  */
 import { onReady } from './lang.js';   // prima di tutto: la lingua (vedi lang.js)
 import { apiGet, esc, eventTile, updateAuthNav } from './catalog.js';
+import { t as tr } from './i18n.js';
 
 const $ = (s) => document.querySelector(s);
 
@@ -58,7 +59,7 @@ async function load() {
   host.innerHTML = `
     <div class="profile-head">
       ${o.logo_url
-        ? `<img class="profile-logo" src="${esc(o.logo_url)}" alt="" />`
+        ? `<img class="profile-logo" src="${esc(o.logo_url)}" alt="${esc(tr('Logo di {nome}', { nome: o.name }))}" />`
         : '<div class="profile-logo"></div>'}
       <div style="flex:1;min-width:240px">
         <span class="eyebrow">Negozio${o.is_premium ? ' · Premium' : ''}</span>

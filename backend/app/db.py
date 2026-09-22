@@ -181,6 +181,7 @@ def migrate_existing_schema() -> None:
             add_nullable_column(connection, columns, "users", "organization_id", "INTEGER")
             add_nullable_column(connection, columns, "users", "guardian_id", "INTEGER")
             add_column(connection, columns, "users", "is_guest", "BOOLEAN", "0")
+            add_nullable_column(connection, columns, "users", "terms_accepted_at", "TIMESTAMP WITH TIME ZONE")
 
         if "registrations" in inspector.get_table_names():
             columns = {col["name"] for col in inspector.get_columns("registrations")}

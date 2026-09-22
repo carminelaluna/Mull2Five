@@ -4,7 +4,7 @@
  * network-first per l'API. Riceve anche le notifiche Web Push.
  */
 
-const CACHE = 'mull2five-v1';
+const CACHE = 'mull2five-v2';   // nuova versione: le pagine in cache si riscaricano
 
 /* Solo file che hanno lo stesso nome in sviluppo e nella build. JS e CSS nella
    build prendono un nome con l'hash (/assets/...): finiscono in cache al primo

@@ -7,7 +7,7 @@
  */
 import { onReady } from './lang.js';   // prima di tutto: la lingua (vedi lang.js)
 import {
-  apiGet, askPosition, esc, eventTile, forgetPosition, placeholder,
+  apiGet, askPosition, esc, eventTile, forgetPosition, loadingTiles, placeholder,
   savedPosition, seriesTile, storeTile, updateAuthNav,
 } from './catalog.js';
 
@@ -51,7 +51,7 @@ function renderChips(host, rails, active, onPick) {
 async function loadEvents(index = 0) {
   const host = $('#eventsRail');
   renderChips($('#eventsChips'), EVENT_RAILS, index, loadEvents);
-  placeholder(host, 'Caricamento…');
+  loadingTiles(host);
   const rail = EVENT_RAILS[index];
   try {
     const events = await apiGet('/tournaments?' + query(rail.params));
@@ -67,7 +67,7 @@ async function loadEvents(index = 0) {
 async function loadStores(index = 0) {
   const host = $('#storesRail');
   renderChips($('#storesChips'), STORE_RAILS, index, loadStores);
-  placeholder(host, 'Caricamento…');
+  loadingTiles(host);
   const params = { ...STORE_RAILS[index].params };
   const q = new URLSearchParams();
   if (params.premium_only) q.set('premium_only', 'true');
@@ -90,7 +90,7 @@ async function loadStores(index = 0) {
 
 async function loadSeries() {
   const host = $('#seriesRail');
-  placeholder(host, 'Caricamento…');
+  loadingTiles(host);
   try {
     const series = await apiGet('/seasons/public');
     if (!series.length) {

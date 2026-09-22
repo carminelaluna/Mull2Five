@@ -37,6 +37,16 @@ class Settings(BaseSettings):
     # Importazione dei tornei dal Wizards Event Locator (services/wizards_locator.py):
     # spenta, perché le condizioni d'uso di Wizards vietano la raccolta automatica.
     wizards_locator_enabled: bool = False
+    # L'indirizzo pubblico del sito, per sitemap e robots.txt. Vuoto: FRONTEND_URL.
+    site_url: str = ""
+    # Chi gestisce il sito, per informativa privacy e termini (privacy.html,
+    # termini.html): vuoti, le pagine dicono che sono da completare.
+    legal_name: str = ""
+    legal_email: str = ""
+    legal_address: str = ""
+    legal_vat_id: str = ""
+    # Statistiche delle visite senza cookie né dati personali (routers/site.py).
+    analytics_enabled: bool = True
 
     smtp_host: str | None = None
     smtp_port: int = 587

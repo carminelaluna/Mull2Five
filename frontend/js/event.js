@@ -3,6 +3,8 @@ import { esc } from './escape.js';
 import { bestOfLabel, gameInfo, gameLabel } from './games.js';
 import { t as tr } from './i18n.js';
 import { actingAs, actingBanner, actingHeaders, bindActingBanner, setActing } from './acting.js';
+import { busy } from './form-state.js';
+import { stickyCta } from './site.js';
 
 const API = '/api';
 const params = new URLSearchParams(location.search);
@@ -76,13 +78,13 @@ async function loadEvent() {
         </div>
         <div style="display:grid;gap:8px;text-align:right">
           ${imported
-            ? `<a class="primary" href="${esc(t.external_url)}" target="_blank" rel="noopener" style="text-align:center;text-decoration:none;padding:10px 18px;border-radius:8px">${esc(tr('Iscriviti presso il negozio ↗'))}</a>`
+            ? `<a class="primary" id="eventCta" href="${esc(t.external_url)}" target="_blank" rel="noopener" style="text-align:center;text-decoration:none;padding:10px 18px;border-radius:8px">${esc(tr('Iscriviti presso il negozio ↗'))}</a>`
             : isReg
             ? '<span class="badge ok" style="font-size:1rem">✓ Iscritto</span>'
             : canReg
               ? `<button class="primary" id="registerBtn" type="button">Iscriviti — ${fmtMoney((t.entry_fee_cents||0)/100)}</button>`
               : !session
-                ? `<a class="primary" href="login.html" style="text-align:center;text-decoration:none;padding:10px 18px;border-radius:8px">Accedi per iscriverti</a>`
+                ? `<a class="primary" id="eventCta" href="login.html?next=${encodeURIComponent(location.pathname + location.search)}" style="text-align:center;text-decoration:none;padding:10px 18px;border-radius:8px">Accedi per iscriverti</a>`
                 : `<span class="badge warn">${spots === 0 ? 'Torneo pieno' : 'Iscrizioni chiuse'}</span>`}
         </div>
       </div>
@@ -111,6 +113,8 @@ async function loadEvent() {
         ${t.refund_policy ? `<div class="panel"><h3>Policy rimborsi</h3><p>${esc(t.refund_policy)}</p></div>` : ''}
       </div>`;
 
+    // Sul telefono la CTA resta a portata di pollice anche scorrendo la pagina.
+    stickyCta(document.querySelector('#registerBtn, #eventCta'));
     document.querySelector('#registerBtn')?.addEventListener('click', async () => {
       document.querySelector('#registerTitle').textContent = t.name;
       // Si vede a chi ci si iscrive prima di confermare, non solo dopo.
@@ -173,7 +177,7 @@ function collectAnswers() {
 
 async function doRegister(t) {
   const btn = document.querySelector('#confirmRegister');
-  btn.disabled = true; btn.textContent = 'Iscrizione in corso…';
+  busy(btn, true, tr('Iscrizione in corso…'));
   try {
     const who = document.querySelector('#regWho')?.value || '';
     const reg = await apiFetch(`/tournaments/${t.id}/registrations`, {
@@ -190,13 +194,12 @@ async function doRegister(t) {
     document.querySelector('#registerDialog').close();
     // Si prosegue come chi è stato iscritto: il pagamento è dalle sue iscrizioni.
     setActing(who ? { id: who, name: document.querySelector('#regWho').selectedOptions[0].textContent } : null);
-    // La registrazione crea l'iscrizione in stato "pending": il pagamento
-    // avviene da "Le mie iscrizioni", dove sono mostrati i metodi abilitati.
-    toast('Iscrizione effettuata! Completa il pagamento dalle tue iscrizioni.');
-    setTimeout(() => { location.href = 'my-registrations.html'; }, 1200);
+    // La pagina di ringraziamento dice cosa resta da fare: pagare online dalle
+    // iscrizioni, pagare al banco, caricare la lista.
+    location.href = `grazie.html?t=${t.id}`;
   } catch (err) {
     document.querySelector('#regError').textContent = err.message;
-    btn.disabled = false; btn.textContent = 'Iscriviti e paga';
+    busy(btn, false);
   }
 }
 

@@ -18,6 +18,8 @@ class UserCreate(BaseModel):
     role: str = "player"
     # Il modulo chiede di confermare l'età minima: False blocca la registrazione.
     age_confirmed: bool | None = None
+    # E di accettare termini e informativa privacy: False blocca la registrazione.
+    terms_accepted: bool | None = None
 
 
 class ProfileIn(BaseModel):
@@ -1437,3 +1439,40 @@ class StandingOut(BaseModel):
 
 # Risolve la forward reference "StandingOut" usata in PublicDisplayOut
 PublicDisplayOut.model_rebuild()
+
+
+class LegalOut(BaseModel):
+    """Chi gestisce il sito: nome, email, indirizzo e partita IVA, per privacy e termini."""
+    name: str = ""
+    email: str = ""
+    address: str = ""
+    vat_id: str = ""
+    complete: bool = False
+
+
+class PageHitIn(BaseModel):
+    """Una pagina vista: dove, da dove, e quanto è largo lo schermo (per mobile/desktop)."""
+    path: str = Field(max_length=300)
+    referrer: str = Field(default="", max_length=1000)
+    width: int = Field(default=0, ge=0, le=20000)
+
+
+class AnalyticsDayOut(BaseModel):
+    day: date
+    views: int
+    entries: int
+
+
+class AnalyticsCountOut(BaseModel):
+    label: str
+    count: int
+
+
+class AnalyticsOut(BaseModel):
+    enabled: bool
+    total_views: int
+    total_entries: int
+    days: list[AnalyticsDayOut]
+    pages: list[AnalyticsCountOut]
+    referrers: list[AnalyticsCountOut]
+    devices: list[AnalyticsCountOut]
