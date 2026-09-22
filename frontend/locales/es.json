@@ -1029,5 +1029,13 @@
   "Periodo": "Periodo",
   "persone": "personas",
   "Motivo": "Motivo",
-  "Top cut": "Top cut"
+  "Top cut": "Top cut",
+  "Invia a un torneo": "Enviar a un torneo",
+  "La lista è vuota.": "La lista está vacía.",
+  "Lista inviata a {name} ✓": "Lista enviada a {name} ✓",
+  "Lista principale": "Lista principal",
+  "Mandi «{name}» come sta adesso, anche se non è ancora salvata.": "Envías «{name}» tal como está ahora, aunque todavía no la hayas guardado.",
+  "Nessun torneo che aspetta una lista": "Ningún torneo espera una lista",
+  "già inviata": "ya enviada",
+  "questa lista": "esta lista"
 }

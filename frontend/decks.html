@@ -81,6 +81,28 @@
       </form>
     </dialog>
 
+    <!-- Dialog: manda questa lista a un torneo a cui si e iscritti -->
+    <dialog id="sendDialog">
+      <form method="dialog" class="modal">
+        <header>
+          <div><span class="eyebrow">Decklist</span><h2>Invia a un torneo</h2></div>
+          <button class="icon-button" value="cancel" formnovalidate>&times;</button>
+        </header>
+        <p class="muted" id="sendHint" style="margin-top:0"></p>
+        <label>Torneo
+          <select id="sendTournament"><option value="">Caricamento…</option></select>
+        </label>
+        <label id="sendSegmentRow" style="display:none">Segmento
+          <select id="sendSegment"></select>
+        </label>
+        <p class="field-error" id="sendError"></p>
+        <menu>
+          <button class="secondary" value="cancel" formnovalidate>Annulla</button>
+          <button class="primary" id="sendSubmit" type="button">Invia la lista</button>
+        </menu>
+      </form>
+    </dialog>
+
     <div id="toast" role="status" aria-live="polite"></div>
     <script type="module" src="js/decks.js"></script>
     <script type="module" src="js/site.js"></script>

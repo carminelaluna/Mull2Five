@@ -9,7 +9,7 @@ import random
 
 from fastapi import HTTPException
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session, joinedload, selectinload  # noqa: F401
+from sqlalchemy.orm import Session, selectinload
 
 from backend.app.games import ALLOWED_SCORES, get_game
 from backend.app.models import (

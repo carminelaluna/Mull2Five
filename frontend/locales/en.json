@@ -1028,5 +1028,13 @@
   "Drop": "Drop",
   "Pod {n}": "Pod {n}",
   "persone": "people",
-  "Top cut": "Top cut"
+  "Top cut": "Top cut",
+  "Invia a un torneo": "Send to a tournament",
+  "La lista è vuota.": "The list is empty.",
+  "Lista inviata a {name} ✓": "List sent to {name} ✓",
+  "Lista principale": "Main list",
+  "Mandi «{name}» come sta adesso, anche se non è ancora salvata.": "You are sending “{name}” as it is right now, even if you have not saved it yet.",
+  "Nessun torneo che aspetta una lista": "No tournament is waiting for a list",
+  "già inviata": "already sent",
+  "questa lista": "this list"
 }

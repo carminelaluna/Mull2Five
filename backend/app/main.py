@@ -33,6 +33,7 @@ from backend.app.routers import (
     seasons,
     site,
     tags,
+    tournament_registrations,
     tournament_rounds,
     tournaments,
 )
@@ -200,6 +201,7 @@ app.include_router(tournaments.router, prefix="/api")
 # Dopo quello principale: le rotte del torneo in corso sono tutte più
 # specifiche, e l'ordine di inclusione decide chi risponde.
 app.include_router(tournament_rounds.router, prefix="/api")
+app.include_router(tournament_registrations.router, prefix="/api")
 app.include_router(payments.router, prefix="/api")
 app.include_router(seasons.router, prefix="/api")
 app.include_router(admin.router, prefix="/api")

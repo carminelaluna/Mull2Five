@@ -149,6 +149,7 @@ function renderEditor() {
         <button class="secondary" id="dPreview" type="button">${esc(tr('Anteprima'))}</button>
         <button class="secondary" id="dCopy" type="button">${esc(tr('Copia testo'))}</button>
         <button class="secondary" id="dDownload" type="button">${esc(tr('Scarica .txt'))}</button>
+        <button class="secondary" id="dSend" type="button">${esc(tr('Invia a un torneo'))}</button>
         ${current.id ? `<button class="secondary danger-outline" id="dDelete" type="button">${esc(tr('Elimina'))}</button>` : ''}
       </div>
       <button class="primary" id="dSave" type="button">${esc(tr('Salva lista'))}</button>
@@ -168,6 +169,7 @@ function renderEditor() {
   $('#dPreview').addEventListener('click', preview);
   $('#dCopy').addEventListener('click', copyText);
   $('#dDownload').addEventListener('click', download);
+  $('#dSend').addEventListener('click', openSendDialog);
   $('#dDelete')?.addEventListener('click', removeDeck);
   renderBody();
   validation = null;
@@ -467,6 +469,77 @@ async function preview() {
   await renderDeck($('#deckViewBody'), deckToText(current));
 }
 
+/* ── Invia a un torneo ───────────────────────────────────
+   Le liste salvate servono a questo: ritrovarle e mandarle. Prima si doveva
+   copiare il testo e incollarlo in "Le mie iscrizioni"; da qui si scelgono il
+   torneo e il segmento e si manda. */
+let _open = [];
+
+/** Le iscrizioni che accettano ancora una lista, quelle che ne aspettano una per prime. */
+function sendableRegistrations(rows) {
+  const wanted = (row) => row.tournament.decklist_required
+    && (row.registration.decklist_formats || []).length < (row.tournament.decklist_formats || ['']).length;
+  return rows
+    .filter((row) => !row.tournament.decklist_locked && !row.registration.dropped)
+    .sort((a, b) => (wanted(b) - wanted(a)) || String(a.tournament.starts_on).localeCompare(String(b.tournament.starts_on)));
+}
+
+/** I segmenti di quel torneo: con uno solo non si chiede niente. */
+function fillSegments(row) {
+  const segments = row?.tournament.decklist_formats?.length ? row.tournament.decklist_formats : [''];
+  const done = new Set(row?.registration.decklist_formats || []);
+  $('#sendSegmentRow').style.display = segments.length < 2 ? 'none' : '';
+  $('#sendSegment').innerHTML = segments.map((seg) =>
+    `<option value="${esc(seg)}">${esc(seg || tr('Lista principale'))}${done.has(seg) ? ` — ${esc(tr('già inviata'))}` : ''}</option>`).join('');
+}
+
+async function openSendDialog() {
+  if (!deckToText(current).trim()) { toast(tr('La lista è vuota.')); return; }
+  $('#sendError').textContent = '';
+  $('#sendHint').textContent = tr('Mandi «{name}» come sta adesso, anche se non è ancora salvata.', { name: current.name || tr('questa lista') });
+  $('#sendTournament').innerHTML = `<option value="">${esc(tr('Caricamento…'))}</option>`;
+  $('#sendSegmentRow').style.display = 'none';
+  $('#sendDialog').showModal();
+  try {
+    _open = sendableRegistrations(await apiFetch('/tournaments/me/registrations'));
+  } catch (err) {
+    _open = [];
+    $('#sendError').textContent = err.message;
+  }
+  const select = $('#sendTournament');
+  select.disabled = !_open.length;
+  $('#sendSubmit').disabled = !_open.length;
+  select.innerHTML = _open.length
+    ? _open.map((row) => `<option value="${row.tournament.id}">${esc(row.tournament.name)} · ${esc(row.tournament.format)} · ${esc(fmtDay(row.tournament.starts_on))}</option>`).join('')
+    : `<option value="">${esc(tr('Nessun torneo che aspetta una lista'))}</option>`;
+  fillSegments(_open[0]);
+  select.onchange = () => fillSegments(_open.find((row) => String(row.tournament.id) === select.value));
+}
+
+const fmtDay = (iso) => (iso ? iso.substring(0, 10).split('-').reverse().join('/') : '');
+
+async function sendDeck() {
+  const row = _open.find((r) => String(r.tournament.id) === $('#sendTournament').value);
+  if (!row) return;
+  const button = $('#sendSubmit');
+  button.disabled = true;
+  try {
+    await apiFetch(`/tournaments/${row.tournament.id}/decklist`, {
+      method: 'POST',
+      body: JSON.stringify({
+        raw_text: deckToText(current),
+        archetype: current.archetype || '',
+        format: $('#sendSegmentRow').style.display === 'none' ? '' : $('#sendSegment').value,
+      }),
+    });
+    $('#sendDialog').close();
+    toast(tr('Lista inviata a {name} ✓', { name: row.tournament.name }));
+  } catch (err) {
+    $('#sendError').textContent = err.message;
+  }
+  button.disabled = false;
+}
+
 function copyText() {
   navigator.clipboard.writeText(deckToText(current))
     .then(() => toast(tr('Lista copiata')))
@@ -513,6 +586,7 @@ async function init() {
     bindActingBanner($('#actingBar'));
   }
   $('#newDeck').addEventListener('click', newDeck);
+  $('#sendSubmit').addEventListener('click', sendDeck);
   bindPreview();
   window.addEventListener('beforeunload', (e) => {
     if (!dirty) return;

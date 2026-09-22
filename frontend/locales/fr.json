@@ -1036,5 +1036,13 @@
   "Drop": "Abandon",
   "Pod {n}": "Pod {n}",
   "persone": "personnes",
-  "Top cut": "Top cut"
+  "Top cut": "Top cut",
+  "Invia a un torneo": "Envoyer à un tournoi",
+  "La lista è vuota.": "La liste est vide.",
+  "Lista inviata a {name} ✓": "Liste envoyée à {name} ✓",
+  "Lista principale": "Liste principale",
+  "Mandi «{name}» come sta adesso, anche se non è ancora salvata.": "Vous envoyez «{name}» telle qu’elle est maintenant, même si vous ne l’avez pas encore enregistrée.",
+  "Nessun torneo che aspetta una lista": "Aucun tournoi n’attend de liste",
+  "già inviata": "déjà envoyée",
+  "questa lista": "cette liste"
 }

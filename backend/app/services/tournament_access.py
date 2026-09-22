@@ -7,7 +7,7 @@ controlli che i router fanno prima di lasciar toccare qualcosa.
 
 from fastapi import HTTPException
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session, joinedload, selectinload  # noqa: F401
+from sqlalchemy.orm import Session, selectinload
 
 from backend.app.models import (
     Event,

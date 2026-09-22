@@ -1039,5 +1039,13 @@
   "Drop": "Drop",
   "Pod {n}": "Pod {n}",
   "persone": "Personen",
-  "Top cut": "Top cut"
+  "Top cut": "Top cut",
+  "Invia a un torneo": "An ein Turnier senden",
+  "La lista è vuota.": "Die Liste ist leer.",
+  "Lista inviata a {name} ✓": "Liste an {name} gesendet ✓",
+  "Lista principale": "Hauptliste",
+  "Mandi «{name}» come sta adesso, anche se non è ancora salvata.": "Du sendest „{name}“ so, wie sie jetzt ist, auch wenn du sie noch nicht gespeichert hast.",
+  "Nessun torneo che aspetta una lista": "Kein Turnier wartet auf eine Liste",
+  "già inviata": "bereits gesendet",
+  "questa lista": "diese Liste"
 }

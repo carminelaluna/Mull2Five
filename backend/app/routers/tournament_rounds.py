@@ -10,7 +10,7 @@ from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session, joinedload, selectinload  # noqa: F401
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from backend.app.db import get_db
 from backend.app.models import (
@@ -18,6 +18,7 @@ from backend.app.models import (
     DeckCheck,
     Pairing,
     PairingResultReport,
+    Penalty,
     Registration,
     ResultReportStatus,
     Round,
@@ -48,6 +49,7 @@ from backend.app.schemas import (
     TableAssignIn,
     TableExtendIn,
     TableStatusIn,
+    TardinessIn,
     TimerExtendIn,
     TimerRestartIn,
 )
@@ -1118,3 +1120,56 @@ def set_round_format(
     db.commit()
     db.refresh(rnd)
     return round_out(rnd, latest_result_reports(tournament_id, db))
+
+
+@router.post("/{tournament_id}/pairings/{pairing_id}/tardiness", response_model=RoundOut)
+def penalize_tardiness(
+    tournament_id: int,
+    pairing_id: int,
+    payload: TardinessIn,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> RoundOut:
+    """Chi non si presenta al tavolo, o arriva tardi. Con la sconfitta a
+    tavolino l'avversario vince con il punteggio pieno del formato; con il game
+    loss la partita si gioca e la penalità resta scritta. Chi non si è
+    presentato si può anche ritirare dal torneo, così non viene più abbinato."""
+    from backend.app.core.cache import cache_invalidate
+
+    tournament = load_tournament_for_staff(tournament_id, user, db)
+    pairing = db.scalar(
+        select(Pairing).join(Round)
+        .where(Pairing.id == pairing_id, Round.tournament_id == tournament_id)
+        .options(selectinload(Pairing.round).selectinload(Round.pairings))
+    )
+    if not pairing:
+        raise HTTPException(status_code=404, detail="Tavolo non trovato")
+    if not pairing.player_b_registration_id:
+        raise HTTPException(status_code=409, detail="Un bye non ha avversario")
+    if payload.registration_id not in {pairing.player_a_registration_id, pairing.player_b_registration_id}:
+        raise HTTPException(status_code=422, detail="Il giocatore non è a questo tavolo")
+    if payload.penalty == "match_loss" and pairing.result:
+        raise HTTPException(status_code=409, detail="Il tavolo ha già un risultato: correggi quello")
+    registration = load_registration_for_tournament(tournament_id, payload.registration_id, db)
+    number = pairing.round.number
+    note = payload.note.strip() or (f"Non presentato al turno {number}" if payload.penalty == "match_loss"
+                                    else f"In ritardo al turno {number}")
+    db.add(Penalty(tournament_id=tournament.id, registration_id=registration.id, judge_id=user.id,
+                   round_id=pairing.round_id, kind=payload.penalty, note=note, is_private=True))
+    if payload.drop:
+        registration.dropped = True
+    write_audit(db, tournament.id, user.id, f"tardiness_{payload.penalty}",
+                 f"{registration.player.display_name}, turno {number}: {note}" + (" (ritirato)" if payload.drop else ""))
+    if payload.penalty == "match_loss":
+        # Il punteggio pieno: 1-0 al meglio di 1 in svizzera, altrimenti 2-0.
+        full = 1 if pairing.round.phase == "swiss" and tournament.best_of == 1 else 2
+        late_is_a = registration.id == pairing.player_a_registration_id
+        apply_pairing_result(tournament_id, pairing, PairingResultIn(
+            match_wins_a=0 if late_is_a else full, match_wins_b=full if late_is_a else 0,
+        ), db)
+    else:
+        db.commit()
+    db.refresh(pairing.round)
+    for key in ("standings", "result-reports", "my-pairings", "registrations", "public-display"):
+        cache_invalidate(f"{key}:{tournament_id}")
+    return round_out(pairing.round)

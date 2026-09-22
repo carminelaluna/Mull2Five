@@ -204,6 +204,15 @@ VITE_API_URL=http://127.0.0.1:8000/api
   corrispondano ai modelli, su SQLite e su PostgreSQL.
 - **Sessione e chiamate all'API** passano da `frontend/js/session.js`: niente
   `fetch` con il token scritto a mano nelle pagine.
+- **Un file, un argomento.** I tornei stanno in quattro file: `tournaments.py`
+  (il torneo come oggetto), `tournament_registrations.py` (chi gioca),
+  `tournament_rounds.py` (il torneo mentre si gioca) e i servizi sotto
+  `backend/app/services/` per quello che si calcola senza rispondere a una
+  richiesta. Il back-office è diviso allo stesso modo fra `organizer.js`,
+  `organizer-store.js` e `organizer-common.js`.
+- **Il lint non è facoltativo**: `ruff` dietro al backend, `npm run lint`
+  (ESLint) davanti. `no-undef` è il motivo per cui c'è: in JavaScript un nome
+  sbagliato dentro un template literal si vede solo aprendo quella pagina.
 
 ---
 

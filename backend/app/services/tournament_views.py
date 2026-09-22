@@ -9,7 +9,7 @@ import math
 from math import asin, cos, radians, sin, sqrt
 
 from sqlalchemy import Select, func, select
-from sqlalchemy.orm import Session, joinedload, selectinload  # noqa: F401
+from sqlalchemy.orm import Session
 
 from backend.app.models import (
     Event,
