@@ -87,6 +87,7 @@ export function updateAuthNav() {
   const s = getSession();
   el.innerHTML = s
     ? `<a class="secondary-link" href="my-registrations.html">Le mie iscrizioni</a>
+       <a class="secondary-link" href="decks.html">Le mie liste</a>
        <span style="color:var(--muted);font-size:.85rem">${esc(s.email)}</span>
        <button class="secondary-link" id="logoutBtn" type="button">Esci</button>`
     : `<a class="secondary-link" href="login.html">Accedi</a>

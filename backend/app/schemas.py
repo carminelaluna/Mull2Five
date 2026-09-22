@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, EmailStr, Field, model_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
 
 class TokenOut(BaseModel):
@@ -1004,6 +1004,63 @@ class DecklistCreate(BaseModel):
     archetype: str = ""
     # Vuoto = lista principale. Valorizzato sui segmenti di un evento misto.
     format: str = Field(default="", max_length=80)
+
+
+class SavedDeckIn(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    game: str = Field(default="mtg", max_length=20)
+    format: str = Field(default="", max_length=80)
+    archetype: str = Field(default="", max_length=120)
+    raw_text: str = Field(default="", max_length=20_000)
+
+    @field_validator("name", "format", "archetype")
+    @classmethod
+    def _strip(cls, value: str) -> str:
+        return value.strip()
+
+
+class SavedDeckOut(BaseModel):
+    id: int
+    name: str
+    game: str
+    format: str
+    archetype: str
+    raw_text: str
+    main_count: int
+    side_count: int
+    # Le regole del formato, senza rete: la legalità delle carte si chiede a parte.
+    errors: list[str]
+    updated_at: datetime
+
+
+class DeckValidateIn(BaseModel):
+    raw_text: str = Field(default="", max_length=20_000)
+    game: str = Field(default="mtg", max_length=20)
+    format: str = Field(default="", max_length=80)
+    # Chiede a Scryfall se le carte sono legali nel formato (serve la rete).
+    legality: bool = False
+
+
+class DeckValidateOut(BaseModel):
+    main_count: int
+    side_count: int
+    status: str
+    errors: list[str]
+
+
+class CardLookupIn(BaseModel):
+    game: str = Field(default="mtg", max_length=20)
+    names: list[str] = Field(default_factory=list, max_length=250)
+
+
+class CardOut(BaseModel):
+    query: str
+    found: bool
+    name: str
+    mana_cost: str
+    type_line: str
+    category: str
+    image: str
 
 
 class DecklistOut(BaseModel):

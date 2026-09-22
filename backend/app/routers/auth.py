@@ -3,7 +3,7 @@ from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from backend.app.core.config import get_settings
@@ -11,7 +11,7 @@ from backend.app.core.limiter import limiter
 from backend.app.core.lockout import is_locked, record_failed
 from backend.app.core.lockout import reset as lockout_reset
 from backend.app.db import get_db
-from backend.app.models import OAuthAccount, Registration, User, UserRole
+from backend.app.models import OAuthAccount, Registration, SavedDeck, User, UserRole
 from backend.app.schemas import (
     ForgotPasswordIn,
     LoginIn,
@@ -137,6 +137,14 @@ def export_my_data(
         select(Registration).where(Registration.player_id == user.id)
     ).all()
     profiles = db.scalars(select(User).where(User.guardian_id == user.id)).all()
+
+    def decks_of(owner_id: int) -> list[dict]:
+        return [
+            {"name": deck.name, "game": deck.game, "format": deck.format, "archetype": deck.archetype,
+             "raw_text": deck.raw_text, "updated_at": deck.updated_at.isoformat()}
+            for deck in db.scalars(select(SavedDeck).where(SavedDeck.owner_id == owner_id))
+        ]
+
     return {
         # I profili dei minori gestiti da questo account: i loro dati li esporta il genitore.
         "managed_profiles": [
@@ -146,9 +154,11 @@ def export_my_data(
                 "tournaments": [reg.tournament_id for reg in db.scalars(
                     select(Registration).where(Registration.player_id == profile.id)
                 ).all()],
+                "saved_decks": decks_of(profile.id),
             }
             for profile in profiles
         ],
+        "saved_decks": decks_of(user.id),
         "user": {
             "id": user.id,
             "email": user.email,
@@ -178,7 +188,10 @@ def delete_my_account(
     """GDPR: anonimizza l'account. I risultati storici dei tornei restano
     (integrità delle classifiche) ma senza dati personali."""
     # I profili dei minori gestiti se ne vanno con l'account del genitore.
-    for profile in db.scalars(select(User).where(User.guardian_id == user.id)):
+    profiles = db.scalars(select(User).where(User.guardian_id == user.id)).all()
+    # Le liste salvate sono solo sue: non servono a nessuna classifica.
+    db.execute(delete(SavedDeck).where(SavedDeck.owner_id.in_([user.id, *(p.id for p in profiles)])))
+    for profile in profiles:
         profile.email = f"deleted-{profile.id}@anon.invalid"
         profile.display_name = "Utente eliminato"
         profile.is_active = False

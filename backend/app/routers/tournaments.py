@@ -2393,11 +2393,12 @@ def submit_decklist(
     if decklists_locked(registration.tournament):
         raise HTTPException(status_code=409, detail="Decklist submissions are locked")
 
-    validation = validate_decklist(payload.raw_text, registration.tournament.format)
+    tournament = registration.tournament
+    validation = validate_decklist(payload.raw_text, payload.format or tournament.format, tournament.game)
     registration.archetype = payload.archetype.strip()
     errors = validation.errors[:]
-    if registration.tournament.legal_validation_enabled:
-        errors.extend(validate_card_legality(payload.raw_text, registration.tournament.format))
+    if tournament.legal_validation_enabled:
+        errors.extend(validate_card_legality(payload.raw_text, payload.format or tournament.format, tournament.game))
     status = DecklistStatus.INVALID if errors else DecklistStatus.VALID
     fmt = (payload.format or "").strip()
     decklist = registration.decklist_for(fmt) or Decklist(
@@ -2439,11 +2440,11 @@ def submit_decklist_for_registration(
     tournament = load_tournament_for_staff(tournament_id, user, db)
     registration = load_registration_for_tournament(tournament_id, registration_id, db)
 
-    validation = validate_decklist(payload.raw_text, tournament.format)
+    validation = validate_decklist(payload.raw_text, payload.format or tournament.format, tournament.game)
     registration.archetype = payload.archetype.strip()
     errors = validation.errors[:]
     if tournament.legal_validation_enabled:
-        errors.extend(validate_card_legality(payload.raw_text, tournament.format))
+        errors.extend(validate_card_legality(payload.raw_text, payload.format or tournament.format, tournament.game))
     status = DecklistStatus.INVALID if errors else DecklistStatus.VALID
     fmt = (payload.format or "").strip()
     decklist = registration.decklist_for(fmt) or Decklist(

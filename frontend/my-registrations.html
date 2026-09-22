@@ -65,7 +65,13 @@
           <div><span class="eyebrow">Decklist</span><h2 id="deckDialogTitle">Carica lista</h2></div>
           <button class="icon-button" value="cancel" formnovalidate>×</button>
         </header>
-        <label>Carica da file (.txt/.dec)
+        <div class="deck-saved-row">
+          <label>Usa una lista salvata
+            <select id="deckSaved"><option value="">Caricamento…</option></select>
+          </label>
+          <a class="secondary-link" href="decks.html" target="_blank" rel="noopener">Le mie liste ↗</a>
+        </div>
+        <label>…oppure carica da file (.txt/.dec)
           <input id="deckFile" type="file" accept=".txt,.dec,.csv,text/plain" />
         </label>
         <label>…oppure incolla la lista
@@ -74,6 +80,7 @@
         <label>Archetipo
           <input id="deckArchetype" placeholder="Izzet Murktide, Domain Ramp…" />
         </label>
+        <label class="reg-check"><input id="deckSaveCopy" type="checkbox" /> Salvala anche tra le mie liste</label>
         <p class="field-error" id="deckError"></p>
         <menu>
           <button class="secondary" value="cancel" formnovalidate>Annulla</button>

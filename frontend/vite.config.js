@@ -33,6 +33,7 @@ export default defineConfig({
         history:            'history.html',
         event:              'event.html',
         'my-registrations': 'my-registrations.html',
+        decks:              'decks.html',          // le mie liste e il costruttore
         player:             'player.html',
         leaderboard:        'leaderboard.html',
         'sandbox-checkout': 'sandbox-checkout.html',

@@ -25,6 +25,8 @@ class Game:
     limited_formats: tuple[str, ...] = field(default_factory=tuple)
     # Come si chiama l'identificativo del giocatore presso l'editore.
     publisher_id_label: str = ""
+    # Ricerca carte, regole di mazzo e costruttore di liste: services/decklists.py.
+    deck_tools: bool = False
 
 
 GAMES: dict[str, Game] = {
@@ -39,6 +41,7 @@ GAMES: dict[str, Game] = {
             default_best_of=3,
             tiebreakers="mtr",
             publisher_id_label="Wizards Account",
+            deck_tools=True,
         ),
         Game(
             code="lorcana",
@@ -124,6 +127,7 @@ def games_catalog() -> list[dict]:
             "default_best_of": game.default_best_of,
             "tiebreakers": game.tiebreakers,
             "publisher_id_label": game.publisher_id_label,
+            "deck_tools": game.deck_tools,
         }
         for game in enabled_games()
     ]

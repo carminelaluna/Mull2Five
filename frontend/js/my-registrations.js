@@ -40,6 +40,8 @@ function toast(msg) {
 }
 
 let _activeFormat = '';   // segmento della lista in modifica
+let _activeTournament = { format: '', name: '' };   // per salvare la lista anche tra le mie
+let _savedDecks = [];
 let _activeTournamentId = null;
 let _activePairingId    = null;
 let _activeIsA          = true;   // sono il giocatore A del pairing?
@@ -48,6 +50,7 @@ let _activeIsA          = true;   // sono il giocatore A del pairing?
 function updateAuthNav() {
   const el = document.querySelector('#publicAuth'); if (!el) return;
   el.innerHTML = `<a class="secondary-link" href="player.html?email=${encodeURIComponent(session.email)}">Profilo</a>
+    <a class="secondary-link" href="decks.html">${esc(tr('Le mie liste'))}</a>
     <span style="color:var(--muted);font-size:.85rem">${esc(session.email)}</span>
     <button class="secondary-link" id="logoutBtn" type="button">Esci</button>`;
   el.querySelector('#logoutBtn').addEventListener('click', () => {
@@ -84,7 +87,8 @@ async function loadRegistrations() {
 
     /* Event handlers */
     container.querySelectorAll('[data-action="upload-deck"]').forEach(btn => {
-      btn.addEventListener('click', () => openDeckDialog(btn.dataset.tournamentId, btn.dataset.regId, btn.dataset.edit === '1', btn.dataset.format || ''));
+      btn.addEventListener('click', () => openDeckDialog(btn.dataset.tournamentId, btn.dataset.regId, btn.dataset.edit === '1', btn.dataset.format || '',
+        { format: btn.dataset.tformat || '', name: btn.dataset.tname || '' }));
     });
     container.querySelectorAll('[data-action="view-deck"]').forEach(btn => {
       btn.addEventListener('click', () => showMyDeck(btn.dataset.tournamentId, btn.dataset.name, btn.dataset.format || ''));
@@ -168,7 +172,7 @@ async function buildCard(t, reg) {
       parti.push(`<button class="mini-button" data-action="view-deck" data-tournament-id="${t.id}" data-name="${esc(t.name)}" data-format="${esc(fmt)}" type="button">Vedi</button>`);
     }
     if (deckOpen) {
-      parti.push(`<button class="mini-button" data-action="upload-deck" data-tournament-id="${t.id}" data-reg-id="${reg.id}" data-format="${esc(fmt)}" data-edit="${ok ? '1' : ''}" type="button">${ok ? 'Modifica' : 'Carica'}</button>`);
+      parti.push(`<button class="mini-button" data-action="upload-deck" data-tournament-id="${t.id}" data-reg-id="${reg.id}" data-format="${esc(fmt)}" data-tformat="${esc(t.format)}" data-tname="${esc(t.name)}" data-edit="${ok ? '1' : ''}" type="button">${ok ? 'Modifica' : 'Carica'}</button>`);
     } else if (!ok) {
       parti.push('<span class="badge warn">Liste chiuse</span>');
     }
@@ -335,9 +339,12 @@ function fmtDeadline(iso) {
     : d.toLocaleString('it-IT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
-async function openDeckDialog(tournamentId, regId, isEdit = false, fmt = '') {
+async function openDeckDialog(tournamentId, regId, isEdit = false, fmt = '', tournament = {}) {
   _activeFormat = fmt;
   _activeTournamentId = tournamentId;
+  _activeTournament = { format: fmt || tournament.format || '', name: tournament.name || '' };
+  document.querySelector('#deckSaveCopy').checked = false;
+  fillSavedDecks();
   document.querySelector('#deckDialogTitle').textContent =
     `${isEdit ? 'Modifica lista' : 'Carica lista'}${fmt ? ' — ' + fmt : ''}`;
   document.querySelector('#deckText').value              = '';
@@ -355,6 +362,25 @@ async function openDeckDialog(tournamentId, regId, isEdit = false, fmt = '') {
     document.querySelector('#deckError').textContent =
       'Non sono riuscito a rileggere la lista attuale: reincollala per intero.';
   }
+}
+
+/** Le liste salvate in "Le mie liste": una si sceglie e riempie il modulo. */
+async function fillSavedDecks() {
+  const select = document.querySelector('#deckSaved');
+  select.innerHTML = `<option value="">${esc(tr('Caricamento…'))}</option>`;
+  try {
+    _savedDecks = await apiFetch('/decks');
+  } catch {
+    _savedDecks = [];
+  }
+  // Prima quelle del formato del torneo: sono quelle che servono.
+  const sameFormat = (d) => d.format.toLowerCase() === _activeTournament.format.toLowerCase();
+  const ordered = [..._savedDecks.filter(sameFormat), ..._savedDecks.filter((d) => !sameFormat(d))];
+  select.innerHTML = ordered.length
+    ? `<option value="">${esc(tr('— Scegli una lista —'))}</option>` + ordered.map((d) =>
+      `<option value="${d.id}">${esc(d.name)} · ${esc(d.format || '—')} (${d.main_count}/${d.side_count})</option>`).join('')
+    : `<option value="">${esc(tr('Nessuna lista salvata'))}</option>`;
+  select.disabled = !ordered.length;
 }
 
 async function showMyDeck(tournamentId, tournamentName, fmt = '') {
@@ -384,6 +410,16 @@ async function submitDeck() {
       method: 'POST',
       body: JSON.stringify({ raw_text: raw, archetype, format: _activeFormat }),
     });
+    if (document.querySelector('#deckSaveCopy').checked) {
+      // Anche tra le mie liste: la ritrova per il prossimo torneo.
+      await apiFetch('/decks', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: archetype || _activeTournament.name || tr('Lista'), format: _activeTournament.format,
+          archetype, raw_text: raw,
+        }),
+      }).catch((err) => toast(tr('Lista inviata, ma non salvata tra le tue: {err}', { err: err.message })));
+    }
     document.querySelector('#deckDialog').close();
     toast('Lista salvata ✓');
     await loadRegistrations();
@@ -579,6 +615,12 @@ document.addEventListener('DOMContentLoaded', () => {
   loadHistory();
   setupPushToggle();
   document.querySelector('#submitDeck').addEventListener('click', submitDeck);
+  document.querySelector('#deckSaved').addEventListener('change', (e) => {
+    const deck = _savedDecks.find((d) => d.id === +e.target.value);
+    if (!deck) return;
+    document.querySelector('#deckText').value = deck.raw_text;
+    document.querySelector('#deckArchetype').value = deck.archetype || '';
+  });
   document.querySelector('#submitResult').addEventListener('click', submitResult);
   // Carica la lista da file nel textarea
   document.querySelector('#deckFile')?.addEventListener('change', async (e) => {

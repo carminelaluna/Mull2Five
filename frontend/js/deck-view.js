@@ -17,22 +17,68 @@ const SCRYFALL_BATCH = 75;   // limite dell'endpoint collection
 
 const normalize = (name) => String(name).trim().toLowerCase();
 
+// Come legge le liste il server (services/decklists.py): le due letture devono
+// contare le stesse carte, o il giocatore vedrebbe numeri diversi da quelli controllati.
+const CARD_LINE = /^(?:(sb)\s*:\s*)?(\d+)\s*x?\s+(.+)$/i;           // "4 Bolt", "4x Bolt", "SB: 2 Pyroblast"
+const SIDE_HEADER = /^(?:\/\/\s*)?(sideboard|side|sb|companion|compagno)\b/i;
+// "Deck" di Arena, "Commander" e i gruppi per tipo riportano al main, anche dopo la riga vuota.
+const MAIN_HEADER = /^(?:\/\/\s*)?(deck|main|maindeck|mazzo|commander|comandante|creatures?|lands?|terre|instants?|istantanei|sorcery|sorceries|stregonerie|artifacts?|artefatti|enchantments?|incantesimi|planeswalkers?|battles?|battaglie|other|altro)\b/i;
+
+/** Il nome come lo cerca Scryfall: senza segno della foil, set e numero di collezione. */
+export function cleanCardName(raw) {
+  let name = String(raw).trim().replace(/\s*\*[A-Za-z]+\*$/, '').replace(/\s+\([A-Za-z0-9]{2,6}\)(?:\s+\S+)?$/, '');
+  if (name.includes('//')) name = name.split('//').map((part) => part.trim()).join(' // ');
+  return name.replace(/\s+/g, ' ').trim();
+}
+
 /** Separa main e sideboard da una lista in formato "4 Nome Carta". */
 export function parseDeck(rawText) {
   const deck = { main: [], side: [] };
   let section = 'main';
   for (const rawLine of String(rawText || '').split(/\r?\n/)) {
     const line = rawLine.trim();
-    if (!line) continue;
-    if (/^(sideboard|side|sb)\b/i.test(line)) { section = 'side'; continue; }
-    const match = line.match(/^(\d+)\s*x?\s+(.+)$/i);
-    if (!match) continue;
-    // Via il set fra parentesi e il numero di collezione: Scryfall cerca per nome.
-    const name = match[2].replace(/\s+\(.+?\)\s*\d*$/, '').replace(/\s+\d+$/, '').trim();
-    if (!name) continue;
-    deck[section].push({ quantity: Number(match[1]), name, section, index: deck[section].length });
+    if (!line) {
+      // Una riga vuota dopo il main: il resto è sideboard (formato MTGO/Arena).
+      if (section === 'main' && deck.main.length) section = 'side';
+      continue;
+    }
+    const card = line.match(CARD_LINE);
+    if (card) {
+      const name = cleanCardName(card[3]);
+      const quantity = Number(card[2]);
+      const where = card[1] ? 'side' : section;
+      if (name && quantity > 0) deck[where].push({ quantity, name, section: where, index: deck[where].length });
+      continue;
+    }
+    if (SIDE_HEADER.test(line)) section = 'side';
+    else if (MAIN_HEADER.test(line)) section = 'main';
   }
   return deck;
+}
+
+/** Le righe con lo stesso nome diventano una sola, con le copie sommate. */
+export function mergeCards(cards) {
+  const byName = new Map();
+  for (const card of cards) {
+    const key = card.name.toLowerCase();
+    const seen = byName.get(key);
+    if (seen) seen.quantity += card.quantity;
+    else byName.set(key, { name: card.name, quantity: card.quantity });
+  }
+  return [...byName.values()];
+}
+
+/** Il testo di una lista: il main, una riga vuota, "Sideboard" e il sideboard. */
+export function deckToText(deck) {
+  const lines = (cards) => (cards || []).map((card) => `${card.quantity} ${card.name}`);
+  const side = lines(deck.side);
+  return [...lines(deck.main), ...(side.length ? ['', 'Sideboard', ...side] : [])].join('\n');
+}
+
+/** "{2}{U}{U}" con i simboli di mana di Scryfall. */
+export function manaSymbols(cost) {
+  return esc(cost || '').replace(/\{([^}]+)\}/g, (_, symbol) =>
+    `<img class="mana" alt="{${symbol}}" src="https://svgs.scryfall.io/card-symbols/${symbol.replace('/', '')}.svg" loading="lazy" />`);
 }
 
 const cardKey = (card) =>

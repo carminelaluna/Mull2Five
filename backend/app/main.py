@@ -22,6 +22,7 @@ from backend.app.db import create_all, engine
 from backend.app.routers import (
     admin,
     auth,
+    decks,
     events,
     games,
     organizations,
@@ -173,6 +174,7 @@ app.include_router(organizations.router, prefix="/api")
 app.include_router(tags.router, prefix="/api")
 app.include_router(events.router, prefix="/api")
 app.include_router(games.router, prefix="/api")
+app.include_router(decks.router, prefix="/api")
 
 
 @app.get("/health")

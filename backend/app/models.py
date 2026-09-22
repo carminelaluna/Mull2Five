@@ -304,6 +304,21 @@ class Team(Base):
     created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
 
 
+class SavedDeck(Base):
+    """Una lista salvata dal giocatore: la ritrova quando si iscrive a un torneo."""
+    __tablename__ = "saved_decks"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    game: Mapped[str] = mapped_column(String(20), default="mtg", server_default="mtg")
+    name: Mapped[str] = mapped_column(String(120))
+    format: Mapped[str] = mapped_column(String(80), default="")
+    archetype: Mapped[str] = mapped_column(String(120), default="")
+    raw_text: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
+    updated_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
+
+
 class User(Base):
     __tablename__ = "users"
 
