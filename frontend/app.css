@@ -531,6 +531,8 @@ html:not([data-games="many"]) .game-detail { display: none; }
 .bo-event-actions { flex-shrink: 0; }
 
 .bo-dialog { max-width: min(760px, 94vw); width: 100%; }
+/* Nelle finestre le tabelle stanno nella larghezza della finestra (il minimo di 760px è per le pagine). */
+.bo-dialog table { min-width: 0; }
 .bo-check { display: flex; align-items: center; gap: 8px; font-weight: 600; }
 /* Scheda Impostazioni: un pannello per argomento, il salvataggio sempre a portata. */
 .settings-form { display: grid; gap: 16px; }

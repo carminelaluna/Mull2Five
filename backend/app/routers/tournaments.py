@@ -82,6 +82,7 @@ from backend.app.schemas import (
     PairingResultRejectIn,
     PaymentOut,
     PenaltyCreate,
+    PenaltyHistoryOut,
     PenaltyOut,
     PlayerCardOut,
     PlayerHistoryRowOut,
@@ -1103,7 +1104,8 @@ def list_registrations(
         [r.player_id for r in registrations], organizer.organization_id or 0, db
     )
     answers = answers_for([item.id for item in registrations], db)
-    result = [organizer_registration_out(item, player_tags, answers) for item in registrations]
+    prior = prior_penalty_counts(tournament_id, [item.player_id for item in registrations], db)
+    result = [organizer_registration_out(item, player_tags, answers, prior) for item in registrations]
     cache_set(cache_key, result, ttl=8.0)
     return result
 
@@ -1564,7 +1566,56 @@ def create_penalty(
     db.add(penalty)
     db.commit()
     db.refresh(penalty)
+    from backend.app.core.cache import cache_invalidate
+    cache_invalidate("registrations:")   # "precedenti" nelle liste degli altri tornei
     return penalty
+
+
+def _prior_penalties(player_ids: list[int], tournament_id: int):
+    """Le penalità degli stessi giocatori negli altri tornei. Le note restano del
+    torneo che le ha scritte: sono appunti dello staff, non penalità."""
+    return (
+        select(Penalty, Registration.player_id)
+        .join(Registration, Registration.id == Penalty.registration_id)
+        .where(Registration.player_id.in_(player_ids), Penalty.tournament_id != tournament_id, Penalty.kind != "note")
+    )
+
+
+def prior_penalty_counts(tournament_id: int, player_ids: list[int], db: Session) -> dict[int, int]:
+    if not player_ids:
+        return {}
+    counts: dict[int, int] = {}
+    for _, player_id in db.execute(_prior_penalties(player_ids, tournament_id)).all():
+        counts[player_id] = counts.get(player_id, 0) + 1
+    return counts
+
+
+@router.get("/{tournament_id}/registrations/{registration_id}/penalty-history", response_model=list[PenaltyHistoryOut])
+def penalty_history(
+    tournament_id: int,
+    registration_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[PenaltyHistoryOut]:
+    """Le penalità del giocatore negli altri tornei, dalla più recente: le vede
+    lo staff del torneo in cui gioca ora, per capire se è recidivo."""
+    tournament = load_tournament_for_staff(tournament_id, user, db)
+    registration = load_registration_for_tournament(tournament.id, registration_id, db)
+    rows = db.execute(_prior_penalties([registration.player_id], tournament.id)).all()
+    out = []
+    for penalty, _ in rows:
+        other = db.get(Tournament, penalty.tournament_id)
+        store = db.get(Organization, other.organization_id) if other and other.organization_id else None
+        out.append(PenaltyHistoryOut(
+            tournament_id=penalty.tournament_id, tournament_name=other.name if other else "—",
+            starts_on=other.starts_on if other else penalty.created_at.date(),
+            store_name=store.name if store else None,
+            round_number=penalty.round.number if penalty.round else None,
+            kind=penalty.kind, note=penalty.note or "",
+            judge_name=penalty.judge.display_name if penalty.judge else None,
+            created_at=penalty.created_at,
+        ))
+    return sorted(out, key=lambda p: p.created_at, reverse=True)
 
 
 @router.get("/{tournament_id}/penalties", response_model=list[PenaltyOut])
@@ -3475,6 +3526,7 @@ def organizer_registration_out(
     registration: Registration,
     tags: dict[int, list] | None = None,
     answers: dict[int, dict[int, str]] | None = None,
+    prior: dict[int, int] | None = None,
 ) -> OrganizerRegistrationOut:
     base = registration_out(registration).model_dump()
     decklist = registration.decklist
@@ -3496,6 +3548,7 @@ def organizer_registration_out(
         prize_given_at=registration.prize_given_at,
         byes=registration.byes or 0,
         player_kind=registration.player.kind,
+        prior_penalties=(prior or {}).get(registration.player_id, 0),
         guardian_name=registration.player.guardian.display_name if registration.player.guardian else None,
         guardian_email=registration.player.guardian.email if registration.player.guardian else None,
     )

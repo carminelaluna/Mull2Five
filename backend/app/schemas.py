@@ -835,6 +835,8 @@ class OrganizerRegistrationOut(RegistrationOut):
     byes: int = 0
     # account | profile (un minore, gestito da un genitore) | guest (senza account)
     player_kind: str = "account"
+    # Penalità prese negli altri tornei (senza le note): un judge vede i recidivi.
+    prior_penalties: int = 0
     guardian_name: str | None = None
     guardian_email: str | None = None
 
@@ -926,6 +928,19 @@ class PenaltyCreate(BaseModel):
     kind: str = Field(default="warning", pattern="^(warning|game_loss|match_loss|disqualification|note)$")
     note: str = ""
     is_private: bool = True
+
+
+class PenaltyHistoryOut(BaseModel):
+    """Una penalità del giocatore in un altro torneo, per chi lo arbitra ora."""
+    tournament_id: int
+    tournament_name: str
+    starts_on: date
+    store_name: str | None = None
+    round_number: int | None = None
+    kind: str
+    note: str
+    judge_name: str | None = None
+    created_at: datetime
 
 
 class PenaltyOut(BaseModel):

@@ -721,7 +721,8 @@ function playerRow(r) {
     </td>
     <td>
       ${cell(
-        pen.length ? `<span class="pill warn">${pen.length}</span>` : '<span class="muted">—</span>',
+        `${pen.length ? `<span class="pill warn">${pen.length}</span>` : '<span class="muted">—</span>'}
+         ${r.prior_penalties ? `<span class="pill" title="${esc(tr('Penalità prese in altri tornei'))}">${esc(r.prior_penalties === 1 ? tr('1 precedente') : tr('{n} precedenti', { n: r.prior_penalties }))}</span>` : ''}`,
         `<button class="mini-button" data-act="penalty" type="button">${esc(tr('Gestisci'))}</button>`,
       )}
     </td>
@@ -1198,11 +1199,26 @@ function openPenaltyDialog(tid, reg) {
         <label>Nota<input id="pNote" placeholder="Slow play, deck error…" /></label>
       </div>
       <button class="primary" id="pSubmit" type="button" style="width:100%;margin-top:8px">Registra penalità</button>
-      <h3 style="margin:18px 0 6px">Storico</h3>
+      <h3 style="margin:18px 0 6px">${esc(tr('In questo torneo'))}</h3>
       <table class="bo"><thead><tr><th>Tipo</th><th>Nota</th><th>Quando</th></tr></thead><tbody>${storico}</tbody></table>
+      <h3 style="margin:18px 0 6px">${esc(tr('Negli altri tornei'))}</h3>
+      <div id="pHistory"><p class="muted">${esc(tr('Caricamento…'))}</p></div>
       <menu><button class="secondary" value="cancel" formnovalidate>Chiudi</button></menu>
     </form>`;
   dlg.showModal();
+  // Lo storico negli altri tornei: chi arbitra ora capisce se è recidivo.
+  apiFetch(`/tournaments/${tid}/registrations/${reg.id}/penalty-history`).then((rows) => {
+    $('#pHistory').innerHTML = rows.length
+      ? `<table class="bo"><thead><tr><th>${esc(tr('Torneo'))}</th><th>${esc(tr('Turno'))}</th><th>Tipo</th><th>Nota</th><th>Judge</th></tr></thead><tbody>
+        ${rows.map((p) => `<tr>
+          <td>${esc(p.tournament_name)}<br><small class="muted">${esc(fmtDate(p.starts_on))}${p.store_name ? ' · ' + esc(p.store_name) : ''}</small></td>
+          <td>${p.round_number ?? '—'}</td>
+          <td><span class="pill warn">${esc(PENALTY_LABEL[p.kind] || p.kind)}</span></td>
+          <td>${esc(p.note || '—')}</td>
+          <td><small class="muted">${esc(p.judge_name || '—')}</small></td>
+        </tr>`).join('')}</tbody></table>`
+      : `<p class="muted">${esc(tr('Nessuna penalità negli altri tornei.'))}</p>`;
+  }).catch((err) => { $('#pHistory').innerHTML = `<p class="muted">${esc(err.message)}</p>`; });
   $('#pSubmit').addEventListener('click', async () => {
     try {
       await apiFetch(`/tournaments/${tid}/penalties`, {

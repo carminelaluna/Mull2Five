@@ -200,7 +200,7 @@ pagamenti ai negozi in fondo, sono il pezzo più grosso.
 - [x] 13. Ospiti al banco senza email; minori come profili gestiti dal genitore (X-Act-As); età minima alla registrazione (MIN_ACCOUNT_AGE, 14)
 - [x] 14. Tavoli fissi; pod di draft bilanciati con posti, primo turno di fronte e svizzera nel pod, stampa
 - [x] 15. Tornei a squadre: squadre da 2 o 3 con posti A/B/C, abbinamenti posto contro posto, classifica a squadre
-- [ ] 16. Storico penalità del giocatore per i judge
+- [x] 16. Storico penalità del giocatore per i judge: "N precedenti" nella lista iscritti e storico negli altri tornei nella finestra penalità (le note restano del torneo)
 - [ ] 17. Regole di mazzo per gioco, ricerca carte, costruttore di liste, liste salvate
 - [ ] 18. Archivio pubblico delle liste
 - [ ] 19. Tornei online / MTG Arena
