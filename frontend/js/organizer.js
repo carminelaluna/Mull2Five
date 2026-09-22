@@ -1738,10 +1738,11 @@ async function renderNegozio() {
   }
   if (!org) { $('#panel').innerHTML = '<p class="empty">Nessun negozio configurato.</p>'; return; }
   const slug = encodeURIComponent(org.slug);
-  const [locations, members, stores] = await Promise.all([
+  const [locations, members, stores, apiKeys] = await Promise.all([
     myLocations().catch(() => []),
     apiFetch(`/organizations/${slug}/members`).catch(() => []),
     apiFetch('/organizations/memberships').catch(() => []),
+    org.my_role === 'owner' ? apiFetch(`/organizations/${slug}/api-keys`).catch(() => []) : [],
   ]);
 
   $('#panel').innerHTML = `${storeSwitcher(stores)}
@@ -1768,10 +1769,12 @@ async function renderNegozio() {
     </form>
   </div>
   ${locationsPanel(locations)}
-  ${staffPanel(org, members)}`;
+  ${staffPanel(org, members)}
+  ${apiPanel(org, apiKeys)}`;
   bindStoreSwitcher();
   bindLocationsPanel(org, locations);
   bindStaffPanel(org, members);
+  bindApiPanel(org);
 
   $('#sGeocode').addEventListener('click', async () => {
     const q = [$('#sAddr').value, $('#sCity').value].filter(Boolean).join(', ');
@@ -1897,6 +1900,65 @@ function staffPanel(org, members) {
       <p class="muted" style="grid-column:1/-1;margin:0;font-size:.82rem">${esc(tr('Deve avere già un account. Se era solo giocatore, diventa organizzatore.'))}</p>
     </form>` : ''}
   </div>`;
+}
+
+/* ── API pubblica ────────────────────────────────────────
+   Le chiavi con cui il sito del negozio, un bot o un overlay di streaming leggono
+   i suoi tornei. Le gestisce il titolare; una chiave si vede solo appena creata. */
+function apiPanel(org, keys) {
+  if (org.my_role !== 'owner') return '';
+  const when = (iso) => new Date(iso).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const rows = keys.map((k) => `<tr>
+      <td><strong>${esc(k.name)}</strong></td>
+      <td><span class="handle">${esc(k.prefix)}…</span></td>
+      <td class="muted">${esc(when(k.created_at))}${k.created_by ? ` · ${esc(k.created_by)}` : ''}</td>
+      <td class="muted">${k.last_used_at ? esc(when(k.last_used_at)) : esc(tr('mai'))}</td>
+      <td class="row-actions"><button class="mini-button" data-revoke-key="${k.id}" type="button" style="color:var(--danger,#ef6a5e)">${esc(tr('Revoca'))}</button></td>
+    </tr>`).join('') || `<tr><td colspan="5" class="muted">${esc(tr('Nessuna chiave.'))}</td></tr>`;
+  const base = `${location.origin}/api/v1`;
+  return `<div class="panel" style="margin-top:16px">
+    <h3>${esc(tr('API per il sito del negozio'))}</h3>
+    <p class="muted" style="margin-top:0;font-size:.85rem">${esc(tr('Con una chiave il tuo sito, un bot o un overlay di streaming leggono tornei, iscritti, abbinamenti e classifiche del negozio. Sola lettura, senza email né dati di pagamento.'))}</p>
+    <div class="table-scroll"><table class="bo"><thead><tr><th>${esc(tr('Nome'))}</th><th>${esc(tr('Chiave'))}</th>
+      <th>${esc(tr('Creata'))}</th><th>${esc(tr('Ultimo uso'))}</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+    <form id="apiKeyForm" class="toolbar" style="margin-top:12px">
+      <input id="apiKeyName" required maxlength="80" placeholder="${esc(tr('A cosa serve, es. Sito del negozio'))}" style="width:280px" />
+      <button class="primary" type="submit">${esc(tr('Crea chiave'))}</button>
+    </form>
+    <div id="apiKeyNew"></div>
+    <details class="bo-more" style="margin-top:12px"><summary>${esc(tr('Come si usa'))}</summary>
+      <pre class="code-block">curl -H "X-API-Key: m2f_…" ${esc(base)}/tournaments
+${esc(base)}/tournaments/{id}
+${esc(base)}/tournaments/{id}/players
+${esc(base)}/tournaments/{id}/pairings?round=2
+${esc(base)}/tournaments/{id}/standings</pre>
+    </details>
+  </div>`;
+}
+
+function bindApiPanel(org) {
+  const base = `/organizations/${encodeURIComponent(org.slug)}/api-keys`;
+  $('#apiKeyForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    try {
+      const created = await apiFetch(base, { method: 'POST', body: JSON.stringify({ name: $('#apiKeyName').value.trim() }) });
+      await renderNegozio();
+      $('#apiKeyNew').innerHTML = `<div class="bo-warning warn" style="margin-top:12px">
+        <span class="bo-warning-icon" aria-hidden="true">🔑</span>
+        <span class="bo-warning-text">${esc(tr('Copiala adesso: poi non la vedrai più.'))} <span class="handle">${esc(created.key)}</span></span>
+        <button class="mini-button" id="apiKeyCopy" type="button">${esc(tr('Copia'))}</button></div>`;
+      $('#apiKeyCopy').addEventListener('click', () => navigator.clipboard.writeText(created.key).then(() => toast(tr('Chiave copiata'))));
+      $('#apiKeyNew').scrollIntoView({ block: 'nearest' });
+    } catch (err) { toast('Errore: ' + err.message); }
+  });
+  $('#panel').querySelectorAll('[data-revoke-key]').forEach((b) => b.addEventListener('click', async () => {
+    if (!confirm(tr('Revocare la chiave? Chi la usa smette subito di leggere i dati.'))) return;
+    try {
+      await apiFetch(`${base}/${b.dataset.revokeKey}`, { method: 'DELETE' });
+      toast(tr('Chiave revocata.'));
+      renderNegozio();
+    } catch (err) { toast('Errore: ' + err.message); }
+  }));
 }
 
 function bindStaffPanel(org, members) {

@@ -205,7 +205,7 @@ pagamenti ai negozi in fondo, sono il pezzo più grosso.
 - [x] 18. Archivio pubblico delle liste ("Liste"): le liste dei tornei conclusi con classifica e liste pubbliche, filtri per formato, archetipo, carta, periodo e posizione, metagame (archetipi e carte più giocate) e "Salva tra le mie liste"
 - [x] 19. Tornei online (MTG Arena, Magic Online, SpellTable): piattaforma e link della stanza visibile solo agli iscritti, nome in gioco chiesto all'iscrizione (Arena ID controllato) e ricordato, nome dell'avversario negli abbinamenti, filtro "Dove si gioca" nella ricerca
 - [x] 20. ID dell'editore e programmi ufficiali: ID evento (EventLink) e inviti (1 negli RCQ), report ufficiale con ID dei giocatori e inviti (anche CSV), ID completabile da staff e giocatore, avviso per gli ID mancanti, ID riproposto all'iscrizione e inviti sul profilo pubblico
-- [ ] 21. API pubblica con chiavi
+- [x] 21. API pubblica con chiavi: chiavi del negozio create e revocate dal titolare (solo l'hash nel database, la chiave si vede una volta), /api/v1 in sola lettura per tornei, iscritti (senza dati personali), abbinamenti e classifiche, limite di richieste per chiave
 - [ ] 22. Interfaccia in 5 lingue
 - [ ] 23. Pagamenti ai negozi (Stripe Connect, PayPal del negozio)
 - [ ] App mobile: resta per dopo

@@ -14,6 +14,7 @@ from backend.app.core.clock import local_today
 from backend.app.core.tenant import resolve_org
 from backend.app.db import get_db
 from backend.app.models import (
+    ApiKey,
     Event,
     Location,
     Organization,
@@ -26,6 +27,9 @@ from backend.app.models import (
     UserRole,
 )
 from backend.app.schemas import (
+    ApiKeyCreatedOut,
+    ApiKeyIn,
+    ApiKeyOut,
     LocationIn,
     LocationOut,
     OrganizationOut,
@@ -40,6 +44,7 @@ from backend.app.schemas import (
     SuspensionOut,
 )
 from backend.app.security import get_current_user, require_admin, require_organizer
+from backend.app.services.api_keys import SHOWN_CHARS, hash_key, new_key
 from backend.app.services.stores import (
     active_suspension,
     can_manage_store,
@@ -333,6 +338,61 @@ def delete_location(
     db.delete(location)
     db.commit()
     _forget_tournaments()
+
+
+# ── Chiavi dell'API pubblica ──────────────────────────────
+# Le crea e le revoca il titolare: danno i dati del negozio a un altro programma.
+
+MAX_API_KEYS = 10
+
+
+def _key_owner_store(slug: str, user: User, db: Session) -> Organization:
+    org = _store(slug, db)
+    if not is_store_owner(user, org.id, db):
+        raise HTTPException(status_code=403, detail="Le chiavi API le gestisce il titolare del negozio")
+    return org
+
+
+def _api_key_out(key: ApiKey, db: Session) -> ApiKeyOut:
+    author = db.get(User, key.created_by_id) if key.created_by_id else None
+    return ApiKeyOut(id=key.id, name=key.name, prefix=key.prefix, created_at=key.created_at,
+                     last_used_at=key.last_used_at, created_by=author.display_name if author else None)
+
+
+@router.get("/{slug}/api-keys", response_model=list[ApiKeyOut])
+def list_api_keys(slug: str, user: User = Depends(require_organizer), db: Session = Depends(get_db)) -> list[ApiKeyOut]:
+    org = _key_owner_store(slug, user, db)
+    keys = db.scalars(select(ApiKey).where(ApiKey.organization_id == org.id, ApiKey.revoked_at.is_(None))
+                      .order_by(ApiKey.created_at, ApiKey.id)).all()
+    return [_api_key_out(key, db) for key in keys]
+
+
+@router.post("/{slug}/api-keys", response_model=ApiKeyCreatedOut, status_code=201)
+def create_api_key(
+    slug: str, payload: ApiKeyIn, user: User = Depends(require_organizer), db: Session = Depends(get_db),
+) -> ApiKeyCreatedOut:
+    """Una chiave nuova: la risposta è l'unica volta che si vede in chiaro."""
+    org = _key_owner_store(slug, user, db)
+    active = db.scalars(select(ApiKey.id).where(ApiKey.organization_id == org.id, ApiKey.revoked_at.is_(None))).all()
+    if len(active) >= MAX_API_KEYS:
+        raise HTTPException(status_code=409, detail=f"Al massimo {MAX_API_KEYS} chiavi attive: revocane una")
+    raw = new_key()
+    key = ApiKey(organization_id=org.id, created_by_id=user.id, name=payload.name.strip(),
+                 prefix=raw[:SHOWN_CHARS], key_hash=hash_key(raw))
+    db.add(key)
+    db.commit()
+    db.refresh(key)
+    return ApiKeyCreatedOut(**_api_key_out(key, db).model_dump(), key=raw)
+
+
+@router.delete("/{slug}/api-keys/{key_id}", status_code=204)
+def revoke_api_key(slug: str, key_id: int, user: User = Depends(require_organizer), db: Session = Depends(get_db)) -> None:
+    org = _key_owner_store(slug, user, db)
+    key = db.get(ApiKey, key_id)
+    if not key or key.organization_id != org.id or key.revoked_at:
+        raise HTTPException(status_code=404, detail="Chiave non trovata")
+    key.revoked_at = datetime.now(UTC)
+    db.commit()
 
 
 def _keep_place(tournament: Tournament) -> None:

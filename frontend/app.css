@@ -990,3 +990,7 @@ table.meta-table { min-width: 0; }
 /* Due campi che occupano insieme tutta la riga, qualunque sia il numero di colonne della griglia. */
 .bo-grid .bo-pair { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: inherit; }
 @media (max-width: 640px) { .bo-grid .bo-pair { grid-template-columns: 1fr; } }
+
+/* Esempi di codice (API del negozio): monospazio, e si scorre invece di andare a capo. */
+.code-block { margin: 8px 0 0; padding: 10px 12px; border-radius: 8px; background: rgba(255, 255, 255, 0.05);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .82rem; white-space: pre; overflow-x: auto; }

@@ -28,6 +28,7 @@ from backend.app.routers import (
     games,
     organizations,
     payments,
+    public_api,
     push,
     seasons,
     tags,
@@ -177,6 +178,7 @@ app.include_router(events.router, prefix="/api")
 app.include_router(games.router, prefix="/api")
 app.include_router(decks.router, prefix="/api")
 app.include_router(archive.router, prefix="/api")
+app.include_router(public_api.router, prefix="/api")
 
 
 @app.get("/health")

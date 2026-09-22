@@ -1085,6 +1085,68 @@ class DecklistCreate(BaseModel):
     format: str = Field(default="", max_length=80)
 
 
+class ApiKeyIn(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+
+
+class ApiKeyOut(BaseModel):
+    id: int
+    name: str
+    prefix: str             # l'inizio della chiave, per riconoscerla
+    created_at: datetime
+    last_used_at: datetime | None = None
+    created_by: str | None = None
+
+
+class ApiKeyCreatedOut(ApiKeyOut):
+    key: str                # in chiaro: solo nella risposta che la crea
+
+
+class ApiTournamentOut(BaseModel):
+    id: int
+    name: str
+    game: str
+    format: str
+    event_type: str
+    status: str
+    starts_on: date
+    start_time: str | None = None
+    place: str
+    is_online: bool
+    online_platform: str
+    capacity: int
+    registered_players: int
+    entry_fee_cents: int
+    currency: str
+    structure: str
+    current_round: int | None = None
+
+
+class ApiPlayerOut(BaseModel):
+    registration_id: int
+    name: str
+    checked_in: bool
+    dropped: bool
+    waitlisted: bool
+
+
+class ApiPairingOut(BaseModel):
+    table: int
+    player_a: str
+    player_b: str | None = None
+    result: str
+    match_wins_a: int
+    match_wins_b: int
+    draws: int
+
+
+class ApiPairingsOut(BaseModel):
+    round: int
+    phase: str
+    ends_at: datetime | None = None
+    pairings: list[ApiPairingOut]
+
+
 class SavedDeckIn(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     game: str = Field(default="mtg", max_length=20)

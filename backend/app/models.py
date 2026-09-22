@@ -304,6 +304,22 @@ class Team(Base):
     created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
 
 
+class ApiKey(Base):
+    """Una chiave dell'API pubblica del negozio (routers/public_api.py). Nel
+    database resta solo l'hash: la chiave in chiaro si vede una volta."""
+    __tablename__ = "api_keys"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    organization_id: Mapped[int] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    name: Mapped[str] = mapped_column(String(80))
+    prefix: Mapped[str] = mapped_column(String(16))
+    key_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
+    last_used_at: Mapped[datetime | None] = mapped_column(UtcDateTime(timezone=True), nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(UtcDateTime(timezone=True), nullable=True)
+
+
 class SavedDeck(Base):
     """Una lista salvata dal giocatore: la ritrova quando si iscrive a un torneo."""
     __tablename__ = "saved_decks"
