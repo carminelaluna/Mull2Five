@@ -6,14 +6,13 @@ giochi la lista si legge e si conta, ma non si controlla. Le loro regole e la lo
 ricerca carte vanno in RULES, LEGALITY e CARD_SOURCES in fondo al file.
 """
 import re
-import threading
-import time
-from collections import Counter, OrderedDict
+from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass
 
 import httpx
 
+from backend.app.core.ttl_cache import TtlCache
 from backend.app.models import DecklistStatus
 
 SCRYFALL = "https://api.scryfall.com"
@@ -223,37 +222,10 @@ def _mtg_legality(entries: list[DeckEntry], tournament_format: str) -> list[str]
     return errors
 
 
-class _TtlCache:
-    """Piccola cache in memoria, per processo: le carte cambiano di rado (le legalità
-    al massimo una volta al mese) e Scryfall chiede di non ripetere le stesse domande."""
-
-    def __init__(self, ttl: float, size: int) -> None:
-        self.ttl, self.size = ttl, size
-        self._data: OrderedDict[str, tuple[float, object]] = OrderedDict()
-        self._lock = threading.Lock()
-
-    def get(self, key: str) -> tuple[bool, object]:
-        with self._lock:
-            hit = self._data.get(key)
-            if not hit or hit[0] < time.monotonic():
-                return False, None
-            self._data.move_to_end(key)
-            return True, hit[1]
-
-    def set(self, key: str, value: object) -> None:
-        with self._lock:
-            self._data[key] = (time.monotonic() + self.ttl, value)
-            self._data.move_to_end(key)
-            while len(self._data) > self.size:
-                self._data.popitem(last=False)
-
-    def clear(self) -> None:
-        with self._lock:
-            self._data.clear()
-
-
-_cards_cache = _TtlCache(ttl=12 * 3600, size=20_000)
-_search_cache = _TtlCache(ttl=12 * 3600, size=5_000)
+# Le carte cambiano di rado (le legalità al massimo una volta al mese) e Scryfall
+# chiede di non ripetere le stesse domande.
+_cards_cache = TtlCache(ttl=12 * 3600, size=20_000)
+_search_cache = TtlCache(ttl=12 * 3600, size=5_000)
 
 
 def _names_of(card: dict) -> set[str]:

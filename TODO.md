@@ -202,7 +202,7 @@ pagamenti ai negozi in fondo, sono il pezzo più grosso.
 - [x] 15. Tornei a squadre: squadre da 2 o 3 con posti A/B/C, abbinamenti posto contro posto, classifica a squadre
 - [x] 16. Storico penalità del giocatore per i judge: "N precedenti" nella lista iscritti e storico negli altri tornei nella finestra penalità (le note restano del torneo)
 - [x] 17. Regole di mazzo per gioco (Magic: 4 copie fra main e side, base e "qualsiasi numero" liberi, limited 40, Commander singleton 100), bandite e ristrette via Scryfall, ricerca carte, costruttore di liste e liste salvate ("Le mie liste"); gli altri giochi hanno il posto pronto in services/decklists.py
-- [ ] 18. Archivio pubblico delle liste
+- [x] 18. Archivio pubblico delle liste ("Liste"): le liste dei tornei conclusi con classifica e liste pubbliche, filtri per formato, archetipo, carta, periodo e posizione, metagame (archetipi e carte più giocate) e "Salva tra le mie liste"
 - [ ] 19. Tornei online / MTG Arena
 - [ ] 20. ID dell'editore e programmi ufficiali (report vincitori RCQ)
 - [ ] 21. API pubblica con chiavi

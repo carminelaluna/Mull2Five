@@ -17,7 +17,10 @@
 .public-nav a { color: var(--muted); text-decoration: none; font-weight: 700; }
 .public-nav a:hover { color: var(--ink); }
 
-.public-auth { display: flex; gap: 10px; align-items: center; }
+.public-auth { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.public-auth .secondary-link { white-space: nowrap; }
+/* Sul telefono l'email non ci sta accanto ai link del profilo: resta nel profilo. */
+@media (max-width: 640px) { .public-auth > span { display: none; } }
 .secondary-link { color: var(--muted); text-decoration: none; font-weight: 700; background: none; border: 0; cursor: pointer; font: inherit; }
 .secondary-link:hover { color: var(--ink); }
 .primary-btn {
@@ -956,3 +959,26 @@ img.mana { width: 15px; height: 15px; vertical-align: middle; }
 /* Finestra "Carica lista": la scelta fra le liste salvate, col link per gestirle. */
 .deck-saved-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 12px; }
 .deck-saved-row .secondary-link { padding-bottom: 12px; white-space: nowrap; }
+
+/* ══ Archivio delle liste ═══════════════════════════════════
+   Sopra i risultati il metagame delle stesse liste: archetipi e carte più
+   giocate, cliccabili per filtrare. */
+.archive-meta { margin-bottom: 16px; }
+.archive-meta-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 8px; }
+.archive-meta-head h3 { margin: 0; }
+.archive-meta-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+/* La colonna dei risultati si stringe con la pagina: il minimo di 760px la faceva uscire. */
+table.results-table { min-width: 0; }
+table.meta-table { min-width: 0; }
+.meta-table th, .meta-table td { padding: 8px 6px; }
+.meta-table .num { width: 1%; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.link-button { padding: 0; border: 0; background: none; color: var(--ink); font: inherit; font-weight: 700; text-align: left; cursor: pointer; }
+.link-button:hover { color: var(--accent); }
+.pos-badge {
+  display: inline-flex; align-items: center; justify-content: center; min-width: 38px; padding: 3px 8px;
+  border-radius: 999px; background: rgba(255, 255, 255, 0.06); color: var(--muted); font-weight: 800; font-variant-numeric: tabular-nums;
+}
+.pos-badge.first { background: var(--accent-dim); color: var(--accent); }
+@media (max-width: 900px) {
+  .archive-meta-grid { grid-template-columns: 1fr; }
+}

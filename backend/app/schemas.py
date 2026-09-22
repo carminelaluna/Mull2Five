@@ -1063,6 +1063,58 @@ class CardOut(BaseModel):
     image: str
 
 
+class ArchiveDeckOut(BaseModel):
+    """Una lista dell'archivio pubblico: chi l'ha giocata, dove e come è andata."""
+    decklist_id: int
+    registration_id: int
+    tournament_id: int
+    tournament_name: str
+    starts_on: date
+    store_name: str | None = None
+    store_slug: str | None = None
+    format: str
+    position: int
+    players: int
+    player_name: str
+    archetype: str
+    record: str
+    points: int
+    main_count: int
+    side_count: int
+
+
+class ArchiveDeckDetailOut(ArchiveDeckOut):
+    raw_text: str
+
+
+class ArchivePageOut(BaseModel):
+    total: int
+    page: int
+    per_page: int
+    items: list[ArchiveDeckOut]
+
+
+class ArchetypeShareOut(BaseModel):
+    archetype: str
+    lists: int
+    share: float        # percentuale delle liste
+    top8: int
+    wins: int
+
+
+class CardShareOut(BaseModel):
+    name: str
+    lists: int
+    share: float        # percentuale delle liste che la giocano
+    copies: float       # copie in media, main e sideboard insieme
+
+
+class ArchiveMetaOut(BaseModel):
+    total_lists: int
+    archetypes: list[ArchetypeShareOut]
+    top_cards: list[CardShareOut]
+
+
 class DecklistOut(BaseModel):
     id: int
     registration_id: int

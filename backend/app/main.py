@@ -21,6 +21,7 @@ from backend.app.core.redis import redis_is_real
 from backend.app.db import create_all, engine
 from backend.app.routers import (
     admin,
+    archive,
     auth,
     decks,
     events,
@@ -175,6 +176,7 @@ app.include_router(tags.router, prefix="/api")
 app.include_router(events.router, prefix="/api")
 app.include_router(games.router, prefix="/api")
 app.include_router(decks.router, prefix="/api")
+app.include_router(archive.router, prefix="/api")
 
 
 @app.get("/health")

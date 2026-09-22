@@ -3,7 +3,8 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Cerca eventi — Mull2Five</title>
+    <title>Liste dei tornei — Mull2Five</title>
+    <meta name="description" content="Le liste dei tornei conclusi: cerca per formato, archetipo e carta, e guarda il metagame." />
     <link rel="icon" href="/favicon.ico" sizes="48x48" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
@@ -21,10 +22,10 @@
         <img src="/brand/header-logo-orizzontale-su-scuro.svg" alt="Mull2Five" class="brand-logo" />
       </a>
       <nav class="public-nav" aria-label="Navigazione">
-        <a href="events.html" aria-current="page">Eventi</a>
+        <a href="events.html">Eventi</a>
         <a href="stores.html">Negozi</a>
         <a href="circuits.html">Circuiti</a>
-        <a href="decklists.html">Liste</a>
+        <a href="decklists.html" aria-current="page">Liste</a>
         <a href="organizer.html">Organizza</a>
       </nav>
       <div class="public-auth" id="publicAuth"></div>
@@ -32,20 +33,19 @@
 
     <main class="public-main">
       <div class="section-heading" style="margin-bottom:16px">
-        <div><span class="eyebrow">Calendario</span><h1>Cerca eventi</h1></div>
+        <div><span class="eyebrow">Archivio</span><h1>Liste dei tornei</h1></div>
       </div>
-
-      <div class="saved-filters" id="savedFilters"></div>
 
       <div class="search-layout">
         <aside class="facets" id="facets" aria-label="Filtri"></aside>
 
         <div>
+          <section class="panel archive-meta" id="metaPanel" hidden></section>
           <p class="filter-summary" id="filterSummary"></p>
           <div class="panel" style="padding:4px 8px">
             <table class="results-table">
               <thead>
-                <tr><th>Evento</th><th>Data</th><th>Formato</th><th>Dove</th><th>Entry</th></tr>
+                <tr><th>Pos.</th><th>Giocatore</th><th>Archetipo</th><th>Torneo</th><th>Record</th></tr>
               </thead>
               <tbody id="resultsBody"></tbody>
             </table>
@@ -55,11 +55,23 @@
       </div>
     </main>
 
-    <footer class="public-footer">
-      <p>© 2026 Mull2Five · <a href="/docs">API</a></p>
-    </footer>
+    <!-- Dialog: la lista scelta -->
+    <dialog id="deckViewDialog" class="deck-view-dialog">
+      <form method="dialog" class="modal">
+        <header>
+          <div><span class="eyebrow" id="deckViewEyebrow">Lista</span><h2 id="deckViewTitle">Lista</h2></div>
+          <button class="icon-button" value="cancel" formnovalidate>&times;</button>
+        </header>
+        <div id="deckViewBody" class="deck-view-body"></div>
+        <menu>
+          <button class="secondary" id="deckCopy" type="button">Copia testo</button>
+          <button class="secondary" id="deckSave" type="button" hidden>Salva tra le mie liste</button>
+          <button class="primary" value="cancel" formnovalidate>Chiudi</button>
+        </menu>
+      </form>
+    </dialog>
 
     <div id="toast" role="status" aria-live="polite"></div>
-    <script type="module" src="js/events.js"></script>
+    <script type="module" src="js/decklists.js"></script>
   </body>
 </html>
