@@ -44,6 +44,7 @@ async function loadEvent() {
     const isReg  = !!myReg;
     const canReg = session && !isReg && spots > 0 && t.registration_mode === 'open';
     const game = await gameInfo(t.game);
+    const platform = t.is_online ? (game?.online_platforms || []).find((p) => p.code === t.online_platform) : null;
     // Chi organizza, come persona e come negozio: è a lui che il giocatore si rivolge.
     const store = t.organization_name
       ? (t.organization_slug
@@ -62,7 +63,9 @@ async function loadEvent() {
           <span class="badge">${esc(t.format)}</span>
           <h1 style="margin:8px 0">${esc(t.name)}</h1>
           ${organizerLine}
-          ${t.venue ? `<p class="muted-text">${esc(t.venue)}</p>` : ''}
+          ${t.is_online
+            ? `<p class="muted-text">${esc(tr('Online · {dove}', { dove: platform?.name || '' }))}</p>`
+            : t.venue ? `<p class="muted-text">${esc(t.venue)}</p>` : ''}
         </div>
         <div style="display:grid;gap:8px;text-align:right">
           ${isReg
@@ -82,6 +85,7 @@ async function loadEvent() {
             <dt>Data</dt>       <dd>${fmtDate(t.starts_on?.substring(0,10))}${t.start_time ? ' · ' + esc(t.start_time) : ''}</dd>
             <dt class="game-detail">${esc(tr('Gioco'))}</dt> <dd class="game-detail">${esc(game?.name || gameLabel(t.game))}</dd>
             <dt>Formato</dt>    <dd>${esc(t.format)}</dd>
+            ${t.is_online ? `<dt>${esc(tr('Dove'))}</dt> <dd>${esc(tr('Online · {dove}', { dove: platform?.name || '' }))}</dd>` : ''}
             ${t.structure === 'registration_only'
               ? `<dt>${esc(tr('Formula'))}</dt> <dd>${esc(tr('Solo iscrizioni, senza turni'))}</dd>`
               : `<dt>${esc(tr('Match'))}</dt> <dd>${esc(bestOfLabel(t.best_of))}</dd>`}
@@ -104,6 +108,14 @@ async function loadEvent() {
         : '';
       // L'identificativo richiesto è quello dell'editore del gioco.
       document.querySelector('#regIdLabel').textContent = game?.publisher_id_label || 'Wizards Account';
+      // Online serve il nome in gioco: si ripropone l'ultimo usato su quella piattaforma.
+      document.querySelector('#regHandleWrap').style.display = t.is_online ? '' : 'none';
+      if (t.is_online && platform) {
+        document.querySelector('#regHandleLabel').textContent = platform.handle_label;
+        document.querySelector('#regHandle').placeholder = platform.handle_hint || '';
+        const handles = await apiFetch('/auth/me/handles').catch(() => ({}));
+        document.querySelector('#regHandle').value = handles[platform.code] || '';
+      }
       // Chi gestisce i profili dei figli sceglie chi iscrive (X-Act-As vuota: l'account).
       const profiles = await apiFetch('/auth/me/profiles', { headers: { 'X-Act-As': '' } }).catch(() => []);
       const acting = actingAs();
@@ -154,6 +166,7 @@ async function doRegister(t) {
       body: JSON.stringify({
         player_display_name: getSession()?.email || '',
         wizards_account:     document.querySelector('#regWizards').value.trim(),
+        game_handle:         document.querySelector('#regHandle').value.trim(),
         payment_provider:    document.querySelector('#regPayment').value,
         answers:             collectAnswers(),
       }),

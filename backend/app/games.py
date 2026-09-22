@@ -9,7 +9,20 @@ Gli spareggi seguono i regolamenti ufficiali (le fonti in TODO.md, "Parità con
 Melee"): Magic, Lorcana e Star Wars Unlimited usano lo schema del Magic Tournament
 Rules; One Piece e Pokémon hanno il loro.
 """
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
+
+
+@dataclass(frozen=True)
+class OnlinePlatform:
+    """Dove si gioca un torneo online, e come si chiama lì il giocatore."""
+    code: str
+    name: str
+    handle_label: str           # "Arena ID": il nome con cui l'avversario ti trova
+    handle_hint: str = ""       # un esempio da mostrare a chi lo scrive
+    handle_pattern: str = ""    # regex del nome valido; vuota = qualsiasi
+
+
+OTHER_PLATFORM = OnlinePlatform("other", "Altra piattaforma", "nome utente")
 
 
 @dataclass(frozen=True)
@@ -27,6 +40,8 @@ class Game:
     publisher_id_label: str = ""
     # Ricerca carte, regole di mazzo e costruttore di liste: services/decklists.py.
     deck_tools: bool = False
+    # Dove si possono giocare i suoi tornei online.
+    online_platforms: tuple[OnlinePlatform, ...] = (OTHER_PLATFORM,)
 
 
 GAMES: dict[str, Game] = {
@@ -42,6 +57,13 @@ GAMES: dict[str, Game] = {
             tiebreakers="mtr",
             publisher_id_label="Wizards Account",
             deck_tools=True,
+            online_platforms=(
+                # L'Arena ID ha sempre il numero a cinque cifre dopo il cancelletto.
+                OnlinePlatform("arena", "MTG Arena", "Arena ID", "Nome#12345", r".{1,40}#\d{5}"),
+                OnlinePlatform("mtgo", "Magic Online", "nome utente MTGO", "", r"\S.{0,39}"),
+                OnlinePlatform("spelltable", "SpellTable", "nome su SpellTable"),
+                OTHER_PLATFORM,
+            ),
         ),
         Game(
             code="lorcana",
@@ -100,6 +122,10 @@ ALLOWED_SCORES: dict[int, frozenset[tuple[int, int]]] = {
 }
 
 
+def online_platform(game_code: str | None, code: str) -> OnlinePlatform | None:
+    return next((p for p in get_game(game_code).online_platforms if p.code == code), None)
+
+
 def enabled_games() -> list[Game]:
     """I giochi che si possono scegliere per un torneo nuovo (ENABLED_GAMES).
     Quelli spenti restano nel codice e nei tornei che li usano già."""
@@ -128,6 +154,7 @@ def games_catalog() -> list[dict]:
             "tiebreakers": game.tiebreakers,
             "publisher_id_label": game.publisher_id_label,
             "deck_tools": game.deck_tools,
+            "online_platforms": [asdict(platform) for platform in game.online_platforms],
         }
         for game in enabled_games()
     ]

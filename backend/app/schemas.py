@@ -87,6 +87,9 @@ class TournamentCreate(BaseModel):
     pay_at_event: bool = True
     pay_stripe: bool = False
     pay_paypal: bool = False
+    is_online: bool = False
+    online_platform: str = Field(default="", max_length=30)
+    online_link: str = Field(default="", max_length=300, pattern=r"^(https://\S+)?$")
 
     @model_validator(mode="after")
     def _game_and_match_format(self):
@@ -96,6 +99,16 @@ class TournamentCreate(BaseModel):
             raise ValueError(f"Gioco non disponibile: {self.game}")
         if self.best_of is None:
             self.best_of = GAMES[self.game].default_best_of
+        return self
+
+    @model_validator(mode="after")
+    def _online_platform(self):
+        from backend.app.games import online_platform
+
+        if not self.is_online:
+            self.online_platform, self.online_link = "", ""
+        elif not online_platform(self.game, self.online_platform):
+            raise ValueError("Scegli dove si gioca il torneo online")
         return self
 
     @model_validator(mode="after")
@@ -160,6 +173,9 @@ class TournamentUpdate(BaseModel):
     check_in_required: bool | None = None
     round_timer_minutes: int | None = Field(default=None, ge=1, le=120)
     email_notifications_enabled: bool | None = None
+    is_online: bool | None = None
+    online_platform: str | None = Field(default=None, max_length=30)
+    online_link: str | None = Field(default=None, max_length=300, pattern=r"^(https://\S+)?$")
 
 
 class TournamentOut(BaseModel):
@@ -228,12 +244,18 @@ class TournamentOut(BaseModel):
     pay_stripe: bool = False
     pay_paypal: bool = False
     registered_players: int = 0
+    is_online: bool = False
+    online_platform: str = ""
+    # Solo per chi è iscritto o nello staff (/tournaments/mine): altrove è vuoto.
+    online_link: str = ""
 
     model_config = {"from_attributes": True}
 
 
 class RegistrationCreate(BaseModel):
     wizards_account: str = ""
+    # Nei tornei online: il nome in gioco (l'Arena ID su MTG Arena).
+    game_handle: str = Field(default="", max_length=80)
     # Le risposte alle domande del torneo, per id della domanda.
     answers: dict[int, str | bool] = {}
 
@@ -813,8 +835,15 @@ class RegistrationOut(BaseModel):
     team_id: int | None = None
     team_name: str | None = None
     team_seat: int | None = None
+    game_handle: str = ""
+    # Il link della stanza del torneo online: l'iscritto lo trova qui.
+    online_link: str = ""
 
     model_config = {"from_attributes": True}
+
+
+class GameHandleIn(BaseModel):
+    game_handle: str = Field(max_length=80)
 
 
 class OrganizerRegistrationOut(RegistrationOut):
@@ -1171,6 +1200,9 @@ class PairingOut(BaseModel):
     report_score: str = ""
     report_reporter_registration_id: int | None = None
     report_reporter_name: str = ""
+    # I nomi in gioco dei due giocatori: solo nei propri abbinamenti di un torneo online.
+    player_a_handle: str = ""
+    player_b_handle: str = ""
 
 
 class RoundFormatIn(BaseModel):

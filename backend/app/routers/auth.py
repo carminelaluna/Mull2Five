@@ -11,7 +11,7 @@ from backend.app.core.limiter import limiter
 from backend.app.core.lockout import is_locked, record_failed
 from backend.app.core.lockout import reset as lockout_reset
 from backend.app.db import get_db
-from backend.app.models import OAuthAccount, Registration, SavedDeck, User, UserRole
+from backend.app.models import OAuthAccount, Registration, SavedDeck, Tournament, User, UserRole
 from backend.app.schemas import (
     ForgotPasswordIn,
     LoginIn,
@@ -126,6 +126,18 @@ def reset_password(
     db.commit()
     lockout_reset(user.email)   # sblocca eventuale lockout precedente
     return {"detail": "Password aggiornata. Ora puoi accedere."}
+
+
+@router.get("/me/handles")
+def my_handles(user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> dict[str, str]:
+    """L'ultimo nome in gioco usato su ogni piattaforma: l'iscrizione lo ripropone."""
+    rows = db.execute(
+        select(Tournament.online_platform, Registration.game_handle)
+        .join(Tournament, Tournament.id == Registration.tournament_id)
+        .where(Registration.player_id == user.id, Registration.game_handle != "")
+        .order_by(Registration.created_at, Registration.id)
+    ).all()
+    return {platform: handle for platform, handle in rows}   # vince l'ultima iscrizione
 
 
 @router.get("/me/export")

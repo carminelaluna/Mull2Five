@@ -33,8 +33,15 @@ function readState() {
     name: q.get('name') || '',
     // "Storico" non e una pagina a parte: e questa ricerca sui tornei conclusi.
     stato: q.get('stato') === 'conclusi' ? 'conclusi' : 'programma',
+    luogo: ['online', 'negozio'].includes(q.get('luogo')) ? q.get('luogo') : '',
   };
 }
+
+const LUOGHI = [
+  { value: '', label: 'Ovunque' },
+  { value: 'negozio', label: 'Nei negozi' },
+  { value: 'online', label: 'Online' },
+];
 
 const STATI = [
   { value: 'programma', label: 'In programma' },
@@ -50,6 +57,7 @@ function writeState(state, { replace = false } = {}) {
   if (state.radius_km) q.set('radius_km', state.radius_km);
   if (state.name) q.set('name', state.name);
   if (state.stato === 'conclusi') q.set('stato', 'conclusi');
+  if (state.luogo) q.set('luogo', state.luogo);
   const url = `${location.pathname}?${q}`;
   if (replace) history.replaceState(null, '', url);
   else history.pushState(null, '', url);
@@ -114,6 +122,7 @@ function renderFacets(state) {
       <input id="facetName" placeholder="Cerca…" value="${esc(state.name)}" style="width:100%" />
     </div>
     ${radios('Stato', 'stato', STATI, state.stato)}
+    ${radios('Dove si gioca', 'luogo', LUOGHI, state.luogo)}
     ${_games.length > 1 ? checkboxes('Gioco', 'games', _games.map((g) => ({ value: g.code, label: gameLabel(g.code) })), state) : ''}
     ${checkboxes('Tipo di evento', 'event_types', EVENT_TYPES, state)}
     ${checkboxes('Formato', 'formats', formatChoices(state).map((f) => ({ value: f, label: f })), state)}
@@ -132,7 +141,7 @@ function renderFacets(state) {
       const key = input.dataset.facet;
       const next = { ...state };
       if (input.type === 'checkbox') next[key] = toggle(state[key], input.value);
-      else if (key === 'stato') next[key] = input.value;
+      else if (key === 'stato' || key === 'luogo') next[key] = input.value;
       else next[key] = key === 'days' ? +input.value : +input.value || null;
       _page = 1;
       writeState(next);
@@ -180,9 +189,8 @@ function summarize(state, total) {
     : 'eventi di ogni tipo';
   const formats = state.formats.length ? ` in ${state.formats.join(', ')}` : '';
   const rel = state.rel.length ? ` a livello ${state.rel.join('/')}` : '';
-  const where = state.radius_km && _position
-    ? `entro <b>${state.radius_km} km</b> da te`
-    : 'ovunque';
+  const near = state.radius_km && _position ? `entro <b>${state.radius_km} km</b> da te` : 'ovunque';
+  const where = state.luogo === 'online' ? '<b>online</b>' : near + (state.luogo === 'negozio' ? ' nei negozi' : '');
   if (state.stato === 'conclusi') {
     $('#filterSummary').innerHTML =
       `<b>${esc(total)}</b> tornei <b>conclusi</b>: <b>${esc(kinds)}${esc(formats)}${esc(rel)}</b> ${where}.`;
@@ -216,7 +224,7 @@ function renderRows(events) {
       </td>
       <td>${fmtDate(t.starts_on)}<span class="col-sub">${esc(t.start_time || '')}</span></td>
       <td>${esc(t.format)}</td>
-      <td>${esc(t.venue || t.organization_name || '—')}
+      <td>${t.is_online ? '<span class="online-badge">Online</span>' : esc(t.venue || t.organization_name || '—')}
         ${t.distance_km != null ? `<span class="col-sub dist-badge">${t.distance_km} km</span>` : ''}</td>
       <td>${t.entry_fee_cents ? fmtMoney(t.entry_fee_cents) : 'Gratis'}
         <span class="col-sub">${Math.max((t.capacity || 0) - (t.registered_players || 0), 0)} posti</span></td>
@@ -244,6 +252,8 @@ async function run({ keepFocus = false } = {}) {
 
   const q = new URLSearchParams(location.search);
   q.delete('stato');
+  q.delete('luogo');
+  if (state.luogo) q.set('online', state.luogo === 'online' ? 'true' : 'false');
   const conclusi = state.stato === 'conclusi';
   q.set('status', conclusi ? 'completed' : 'published,running');
   // Una finestra "nei prossimi N giorni" non ha senso guardando indietro.

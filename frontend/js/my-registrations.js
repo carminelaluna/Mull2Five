@@ -1,6 +1,6 @@
 import { renderDeck } from './deck-view.js';
 import { esc } from './escape.js';
-import { gameLabel, scoresFor } from './games.js';
+import { gameInfo, gameLabel, scoresFor } from './games.js';
 import { t as tr } from './i18n.js';
 import { actingAs, actingBanner, actingHeaders, bindActingBanner, setActing } from './acting.js';
 
@@ -105,6 +105,21 @@ async function loadRegistrations() {
     container.querySelectorAll('[data-action="reject-result"]').forEach(btn => {
       btn.addEventListener('click', () => rejectResult(btn.dataset.tournamentId, btn.dataset.pairingId));
     });
+    container.querySelectorAll('[data-action="edit-handle"]').forEach((btn) => btn.addEventListener('click', async () => {
+      const hint = btn.dataset.hint ? ` (${tr('es. {x}', { x: btn.dataset.hint })})` : '';
+      const handle = prompt(`${btn.dataset.label}${hint}`, btn.dataset.handle);
+      if (handle === null || handle.trim() === btn.dataset.handle) return;
+      try {
+        await apiFetch(`/tournaments/${btn.dataset.tournamentId}/my-handle`, {
+          method: 'PUT', body: JSON.stringify({ game_handle: handle.trim() }),
+        });
+        toast(tr('Aggiornato ✓'));
+        loadRegistrations();
+      } catch (err) { toast(err.message); }
+    }));
+    container.querySelectorAll('[data-copy]').forEach((btn) => btn.addEventListener('click', () => {
+      navigator.clipboard.writeText(btn.dataset.copy).then(() => toast(tr('Copiato: {x}', { x: btn.dataset.copy })));
+    }));
     container.querySelectorAll('[data-action="self-drop"]').forEach(btn => {
       btn.addEventListener('click', () => selfDrop(btn.dataset.tournamentId, btn.dataset.name));
     });
@@ -125,6 +140,16 @@ async function loadRegistrations() {
 }
 
 async function buildCard(t, reg) {
+  /* Torneo online: dove si gioca e con che nome ti trova l'avversario. */
+  const platform = t.is_online
+    ? ((await gameInfo(t.game))?.online_platforms || []).find((p) => p.code === t.online_platform) : null;
+  const onlineRow = t.is_online ? `<div class="reg-row"><span class="reg-label">${esc(tr('Online'))}</span>
+      <span class="reg-row-body">${esc(platform?.name || '')} · <span class="handle">${esc(reg.game_handle || '—')}</span>
+        ${t.status !== 'completed' ? `<button class="mini-button" data-action="edit-handle" data-tournament-id="${t.id}"
+          data-label="${esc(platform?.handle_label || '')}" data-hint="${esc(platform?.handle_hint || '')}"
+          data-handle="${esc(reg.game_handle || '')}" type="button">${esc(tr('Cambia'))}</button>` : ''}
+        ${reg.online_link ? `<a class="secondary-link" href="${esc(reg.online_link)}" target="_blank" rel="noopener noreferrer">${esc(tr('Apri la stanza ↗'))}</a>` : ''}</span></div>` : '';
+
   /* Stato pagamento */
   const isPaid = ['paid', 'confirmed'].includes(reg.payment_status);
   const payBadge = {
@@ -233,7 +258,8 @@ async function buildCard(t, reg) {
       <div>
         <strong>${esc(t.name)}</strong>
         ${t.organizer_name ? `<small>${esc(tr('Organizzato da {nome}', { nome: t.organizer_name }))}</small>` : ''}
-        ${t.venue ? `<small>${esc(t.venue)}</small>` : ''}
+        ${t.is_online ? `<small>${esc(tr('Online · {dove}', { dove: platform?.name || '' }))}</small>`
+          : t.venue ? `<small>${esc(t.venue)}</small>` : ''}
       </div>
       <div style="display:flex;gap:8px;align-items:center">
         <span class="game-badge game-${esc(t.game || 'mtg')}">${esc(gameLabel(t.game))}</span>
@@ -251,6 +277,7 @@ async function buildCard(t, reg) {
         <span class="reg-row-body">${payBadge}${payActions}</span></div>
       <div class="reg-row"><span class="reg-label">${esc(tr('Lista'))}</span>
         <span class="reg-row-body">${deckBadge}</span></div>
+      ${onlineRow}
       ${reg.pod || reg.fixed_table ? `<div class="reg-row"><span class="reg-label">${esc(tr('Posto'))}</span>
         <span class="reg-row-body">${reg.pod ? `<span class="badge">${esc(tr('Pod {p} · posto {s}', { p: reg.pod, s: reg.pod_seat }))}</span>` : ''}
           ${reg.fixed_table ? `<span class="badge ok">${esc(tr('Tavolo fisso {n}', { n: reg.fixed_table }))}</span>` : ''}</span></div>` : ''}
@@ -278,6 +305,10 @@ function renderMyPairing(t, round, reg) {
   const isA      = mine.player_a_registration_id === reg.id;
   const myName   = isA ? mine.player_a : mine.player_b;
   const opponent = (isA ? mine.player_b : mine.player_a) || 'BYE';
+  // Online l'avversario si cerca col suo nome in gioco: lo si copia e lo si incolla.
+  const oppHandle = isA ? mine.player_b_handle : mine.player_a_handle;
+  const handleChip = oppHandle ? ` <span class="handle">${esc(oppHandle)}</span>
+    <button class="mini-button" data-copy="${esc(oppHandle)}" type="button">${esc(tr('Copia'))}</button>` : '';
 
   const reporter    = mine.report_reporter_registration_id;   // chi ha refertato
   const status      = mine.report_status;                     // '' | pending | confirmed | conflict
@@ -320,7 +351,7 @@ function renderMyPairing(t, round, reg) {
     <span class="eyebrow">Round ${round.number} — Tavolo ${mine.table_number || '—'}</span>
     <div class="pairing-row">
       <span class="table-num">vs</span>
-      <span><strong>${esc(myName)}</strong> vs <strong>${esc(opponent)}</strong></span>
+      <span><strong>${esc(myName)}</strong> vs <strong>${esc(opponent)}</strong>${handleChip}</span>
       ${resultCell}
     </div>
   </div>`;

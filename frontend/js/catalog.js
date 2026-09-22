@@ -113,7 +113,7 @@ export function eventTile(t) {
       <span>${fmtDate(t.starts_on)}${t.start_time ? ` · ${esc(t.start_time)}` : ''}</span>
       <span>${esc(t.format)}</span>
     </div>
-    <div class="tile-meta">${esc(t.venue || t.organization_name || '')}</div>
+    <div class="tile-meta">${t.is_online ? '<span class="online-badge">Online</span>' : esc(t.venue || t.organization_name || '')}</div>
     <div class="tile-foot">
       <span>${t.entry_fee_cents ? fmtMoney(t.entry_fee_cents) : 'Gratis'}</span>
       <span style="color:var(--muted)">${seats} posti</span>

@@ -2,6 +2,7 @@ import csv
 import io
 import math
 import random
+import re
 from datetime import UTC, date, datetime, timedelta
 from math import asin, cos, radians, sin, sqrt
 from typing import Annotated
@@ -15,7 +16,7 @@ from backend.app.core.clock import local_today
 from backend.app.core.config import get_settings
 from backend.app.core.tenant import requested_org
 from backend.app.db import get_db
-from backend.app.games import ALLOWED_SCORES, get_game, is_enabled
+from backend.app.games import ALLOWED_SCORES, get_game, is_enabled, online_platform
 from backend.app.models import (
     Announcement,
     AnnouncementRecipient,
@@ -68,6 +69,7 @@ from backend.app.schemas import (
     DecklistOut,
     DropUnpaidOut,
     FixedTableIn,
+    GameHandleIn,
     ImportIn,
     ImportOut,
     ImportRowOut,
@@ -213,6 +215,7 @@ def tournament_out(tournament: Tournament, registered: int, db: Session) -> Tour
     ).all()
     return TournamentOut.model_validate(tournament).model_copy(update={
         "registered_players": registered,
+        "online_link": "",      # lo vedono solo iscritti e staff: vedi my_tournaments
         "organizer_name": organizer.display_name if organizer else None,
         **inherited,
         "organization_slug": org.slug if org else None,
@@ -392,6 +395,7 @@ def list_tournaments(
     near_lng: float | None = Query(default=None, ge=-180, le=180),
     radius_km: float | None = Query(default=None, gt=0, le=20000),
     status: str | None = None,
+    online: bool | None = None,
     db: Session = Depends(get_db),
 ) -> list[TournamentOut]:
     """Elenco pubblico dei tornei di tutti i negozi, o di uno solo se la
@@ -445,6 +449,8 @@ def list_tournaments(
             Location.name.ilike(pattern), Location.address.ilike(pattern), Location.city.ilike(pattern)
         ))
         stmt = stmt.where(or_(Tournament.venue.ilike(pattern), Tournament.location_id.in_(at_location)))
+    if online is not None:
+        stmt = stmt.where(Tournament.is_online.is_(online))
     if date_from:
         stmt = stmt.where(Tournament.starts_on >= date_from)
     if date_to:
@@ -485,8 +491,9 @@ def my_tournaments(
     ids.update(item.id for item in db.scalars(staff_stmt).all())
     if not ids:
         return []
+    links = dict(db.execute(select(Tournament.id, Tournament.online_link).where(Tournament.id.in_(ids))).all())
     return [
-        t.model_copy(update={"can_manage": t.id in managed})
+        t.model_copy(update={"can_manage": t.id in managed, "online_link": links.get(t.id) or ""})
         for t in tournament_with_counts(select(Tournament).where(Tournament.id.in_(ids)), db)
     ]
 
@@ -637,6 +644,9 @@ def _copy_tournament(src: Tournament, organizer: User, starts_on: date, series_i
         legal_validation_enabled=src.legal_validation_enabled,
         description=src.description,
         season_id=src.season_id,
+        is_online=src.is_online,
+        online_platform=src.online_platform,
+        online_link=src.online_link,
         pay_at_event=src.pay_at_event,
         pay_stripe=src.pay_stripe,
         pay_paypal=src.pay_paypal,
@@ -830,7 +840,7 @@ def close_tournament(
 LOCKED_AFTER_START = frozenset({
     "game", "format", "best_of", "starts_on", "start_time", "capacity", "entry_fee_cents",
     "pay_at_event", "pay_stripe", "pay_paypal", "structure", "swiss_rounds", "top_cut_size",
-    "decklist_required", "check_in_required", "team_size",
+    "decklist_required", "check_in_required", "team_size", "is_online",
 })
 
 
@@ -869,6 +879,15 @@ def _apply_settings(tournament: Tournament, requested: dict, organizer: User, db
             raise HTTPException(status_code=422, detail=f"Gioco non disponibile: {changes['game']}")
         # Cambiando gioco si riparte dal suo formato dei match, se non se ne sceglie un altro.
         changes.setdefault("best_of", GAMES[changes["game"]].default_best_of)
+
+    if {"is_online", "online_platform", "game"} & set(changes):
+        if changes.get("is_online", tournament.is_online):
+            game = changes.get("game", tournament.game)
+            if not online_platform(game, changes.get("online_platform", tournament.online_platform)):
+                raise HTTPException(status_code=422, detail="Scegli dove si gioca il torneo online")
+        else:
+            # Tornato al negozio: piattaforma e link non servono più.
+            changes.update({key: "" for key in ("online_platform", "online_link") if getattr(tournament, key)})
 
     if changes.get("team_size", tournament.team_size) > 1 and changes.get("structure", tournament.structure) != "swiss":
         raise HTTPException(status_code=422, detail="I tornei a squadre si giocano in svizzera")
@@ -1002,6 +1021,44 @@ def delete_tournament(
     db.commit()
 
 
+def check_game_handle(tournament: Tournament, handle: str) -> str:
+    """Il nome in gioco, come lo vuole la piattaforma del torneo online."""
+    platform = online_platform(tournament.game, tournament.online_platform)
+    handle = handle.strip()
+    if not platform:
+        return handle
+    if not handle:
+        raise HTTPException(status_code=422, detail=f"Per giocare online serve il tuo {platform.handle_label}.")
+    if platform.handle_pattern and not re.fullmatch(platform.handle_pattern, handle):
+        raise HTTPException(
+            status_code=422,
+            detail=f"{platform.handle_label} non valido: si scrive come {platform.handle_hint}.",
+        )
+    return handle
+
+
+@router.put("/{tournament_id}/my-handle", response_model=RegistrationOut)
+def update_my_handle(
+    tournament_id: int,
+    payload: GameHandleIn,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> RegistrationOut:
+    """Il giocatore corregge il suo nome in gioco finché il torneo non è concluso."""
+    registration = db.scalar(select(Registration).where(
+        Registration.tournament_id == tournament_id, Registration.player_id == user.id))
+    if not registration or not registration.tournament.is_online:
+        raise HTTPException(status_code=404, detail="Registration not found")
+    if registration.tournament.status in {TournamentStatus.COMPLETED, TournamentStatus.CANCELLED}:
+        raise HTTPException(status_code=409, detail="Il torneo è concluso")
+    registration.game_handle = check_game_handle(registration.tournament, payload.game_handle)
+    db.commit()
+    db.refresh(registration)
+    from backend.app.core.cache import cache_invalidate
+    cache_invalidate(f"registrations:{tournament_id}")
+    return registration_out(registration)
+
+
 @router.post("/{tournament_id}/registrations", response_model=RegistrationOut, status_code=201)
 def register_for_tournament(
     tournament_id: int,
@@ -1036,11 +1093,13 @@ def register_for_tournament(
         raise HTTPException(status_code=409, detail="Already registered")
     check_not_suspended(user, tournament, db)
     answers = validate_answers(tournament.id, payload.answers, db)
+    handle = check_game_handle(tournament, payload.game_handle) if tournament.is_online else ""
     # Torneo pieno → lista d'attesa invece di rifiuto
     registration = Registration(
         tournament_id=tournament_id,
         player_id=user.id,
         wizards_account=payload.wizards_account,
+        game_handle=handle,
         waitlisted=is_full,
     )
     db.add(registration)
@@ -2351,6 +2410,14 @@ def my_pairings(
         # pairing dal round (UPDATE round_id=NULL al commit successivo)
         result.append(round_out(rnd, report_map, pairings=player_pairings))
 
+    if registration.tournament.is_online:
+        # Online l'avversario si cerca col suo nome in gioco: lo vede solo chi ci gioca.
+        by_id = {pairing.id: pairing for pairing in pairings}
+        for rnd_out in result:
+            for item in rnd_out.pairings:
+                pairing = by_id[item.id]
+                item.player_a_handle = pairing.player_a.game_handle
+                item.player_b_handle = pairing.player_b.game_handle if pairing.player_b else ""
     return result
 
 
@@ -3510,6 +3577,8 @@ def registration_out(registration: Registration) -> RegistrationOut:
         dropped=registration.dropped,
         waitlisted=registration.waitlisted,
         **_seating(registration),
+        game_handle=registration.game_handle,
+        online_link=registration.tournament.online_link if registration.tournament.is_online else "",
         player=registration.player,
         decklist_status=registration.decklist.status if registration.decklist else "missing",
         decklist_formats=sorted(d.format for d in registration.decklists),

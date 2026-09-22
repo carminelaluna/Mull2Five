@@ -447,6 +447,11 @@ class Tournament(Base):
     pod_size: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     # 1: individuale; 2 o 3: a squadre (Team Sealed, Team Constructed).
     team_size: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    # Torneo online: dove si gioca (games.py, online_platforms) e il link della
+    # stanza o del server Discord, che vedono solo gli iscritti e lo staff.
+    is_online: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
+    online_platform: Mapped[str] = mapped_column(String(30), default="", server_default="")
+    online_link: Mapped[str] = mapped_column(String(300), default="", server_default="")
     created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
 
     location: Mapped["Location | None"] = relationship()
@@ -515,6 +520,8 @@ class Registration(Base):
     # Nei tornei a squadre: la squadra e il posto (1 = A, 2 = B, 3 = C).
     team_id: Mapped[int | None] = mapped_column(ForeignKey("teams.id", ondelete="SET NULL"), nullable=True, index=True)
     team_seat: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Nei tornei online: il nome con cui l'avversario lo trova (l'Arena ID, per esempio).
+    game_handle: Mapped[str] = mapped_column(String(80), default="", server_default="")
     # Il premio consegnato a fine torneo: cosa, quando e da chi. Ogni consegna e
     # ogni annullamento finiscono anche nel registro del torneo.
     prize_note: Mapped[str] = mapped_column(String(240), default="", server_default="")

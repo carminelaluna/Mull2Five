@@ -373,8 +373,15 @@ function openNewEventDialog() {
         <label>Livello (REL)<select id="nRel">
           ${RELS.map(r => `<option ${r === 'Competitive' ? 'selected' : ''}>${esc(r)}</option>`).join('')}
         </select></label>
-        <label style="grid-column:1/-1;display:none" id="nLocationWrap">${esc(tr('Sede'))}<select id="nLocation"></select></label>
-        <label style="grid-column:1/-1" id="nVenueWrap">Luogo<input id="nVenue" placeholder="Nome e citta" /></label>
+        <div id="nPlace" style="display:contents">
+          <label style="grid-column:1/-1;display:none" id="nLocationWrap">${esc(tr('Sede'))}<select id="nLocation"></select></label>
+          <label style="grid-column:1/-1" id="nVenueWrap">Luogo<input id="nVenue" placeholder="Nome e citta" /></label>
+        </div>
+        <label class="bo-check" style="grid-column:1/-1"><input id="nOnline" type="checkbox"  /> ${esc(tr('Torneo online (MTG Arena, Magic Online, SpellTable…)'))}</label>
+        <div class="bo-pair" id="nOnlineFields" style="display:none">
+          <label id="nPlatformWrap">${esc(tr('Piattaforma'))}<select id="nPlatform"></select></label>
+          <label id="nLinkWrap">${esc(tr('Link per gli iscritti'))}<input id="nLink" type="url" placeholder="${esc(tr('Discord, SpellTable… https://'))}" value="" /></label>
+        </div>
         <label>Data<input id="nDate" type="date" required /></label>
         <label>Orario inizio<input id="nTime" type="time" required value="20:00" /></label>
         <label>Capienza<input id="nCap" type="number" min="2" value="64" /></label>
@@ -407,7 +414,27 @@ function openNewEventDialog() {
   $('#nSubmit').addEventListener('click', createTournament);
   fillGameChoices();
   fillLocationChoices('#nLocation', '#nLocationWrap', '#nVenueWrap', null);
+  bindOnline('n', $('#nGame').value || 'mtg', '');
 }
+
+/* Torneo online: al posto della sede la piattaforma (dal catalogo dei giochi)
+   e il link che vedono solo gli iscritti. */
+async function bindOnline(prefix, gameCode, current) {
+  const box = $(`#${prefix}Online`);
+  const game = await gameInfo(gameCode);
+  $(`#${prefix}Platform`).innerHTML = (game?.online_platforms || []).map((p) =>
+    `<option value="${esc(p.code)}"${p.code === current ? ' selected' : ''}>${esc(p.name)}</option>`).join('');
+  const sync = () => {
+    $(`#${prefix}Place`).style.display = box.checked ? 'none' : 'contents';
+    $(`#${prefix}OnlineFields`).style.display = box.checked ? '' : 'none';
+  };
+  box.addEventListener('change', sync);
+  sync();
+}
+
+const onlineBody = (prefix) => $(`#${prefix}Online`).checked
+  ? { is_online: true, online_platform: $(`#${prefix}Platform`).value, online_link: $(`#${prefix}Link`).value.trim() }
+  : { is_online: false };
 
 /* ── Sedi ─────────────────────────────────────────────────
    Il negozio di chi è collegato e i posti dove gioca. Il torneo sceglie una
@@ -484,8 +511,9 @@ async function createTournament(e) {
     event_type: $('#nType').value,
     rules_enforcement_level: $('#nRel').value,
     // Con una sede scelta il luogo viene da lì: niente testo che lo copra.
-    location_id: +$('#nLocation').value || null,
-    venue: $('#nLocation').value ? '' : $('#nVenue').value.trim(),
+    location_id: $('#nOnline').checked ? null : +$('#nLocation').value || null,
+    venue: $('#nLocation').value || $('#nOnline').checked ? '' : $('#nVenue').value.trim(),
+    ...onlineBody('n'),
     decklist_required: $('#nDeck').checked,
     pay_at_event: $('#nAtEvent').checked,
     pay_stripe: $('#nStripe').checked,
@@ -658,7 +686,7 @@ function contactLine(r) {
   if (r.player_kind === 'profile') {
     return `<small class="muted">${esc(tr('minore · genitore: {nome}', { nome: r.guardian_name || '' }))}${r.guardian_email ? ' · ' + esc(r.guardian_email) : ''}</small>`;
   }
-  return `<small class="muted">${esc(r.player_email)}</small>`;
+  return `<small class="muted">${esc(r.player_email)}${r.game_handle ? ` · <span class="handle">${esc(r.game_handle)}</span>` : ''}</small>`;
 }
 
 function playerRow(r) {
@@ -2412,7 +2440,7 @@ async function renderManifestazione(eventId) {
 const LOCKED_AFTER_START = new Set([
   'game', 'format', 'best_of', 'starts_on', 'start_time', 'capacity', 'entry_fee',
   'pay_at_event', 'pay_stripe', 'pay_paypal', 'structure', 'swiss_rounds', 'top_cut_size',
-  'decklist_required', 'check_in_required', 'team_size',
+  'decklist_required', 'check_in_required', 'team_size', 'is_online',
 ]);
 
 async function renderImpostazioni() {
@@ -2455,8 +2483,15 @@ async function renderImpostazioni() {
         <div class="bo-grid">
           <label>Data<input id="sDate" type="date" value="${esc(String(t.starts_on).slice(0, 10))}" ${lock('starts_on')} /></label>
           <label>Orario inizio<input id="sTime" type="time" value="${esc(t.start_time || '')}" ${lock('start_time')} /></label>
-          <label style="grid-column:1/-1;display:none" id="sLocationWrap">${esc(tr('Sede'))}<select id="sLocation"></select></label>
-          <label style="grid-column:1/-1" id="sVenueWrap">Luogo<input id="sVenue" value="${esc(t.venue || '')}" /></label>
+          <div id="sPlace" style="display:contents">
+            <label style="grid-column:1/-1;display:none" id="sLocationWrap">${esc(tr('Sede'))}<select id="sLocation"></select></label>
+            <label style="grid-column:1/-1" id="sVenueWrap">Luogo<input id="sVenue" value="${esc(t.venue || '')}" /></label>
+          </div>
+        <label class="bo-check" style="grid-column:1/-1"><input id="sOnline" type="checkbox" ${checked(t.is_online)} ${lock('is_online')} /> ${esc(tr('Torneo online (MTG Arena, Magic Online, SpellTable…)'))}</label>
+        <div class="bo-pair" id="sOnlineFields" style="display:none">
+          <label id="sPlatformWrap">${esc(tr('Piattaforma'))}<select id="sPlatform"></select></label>
+          <label id="sLinkWrap">${esc(tr('Link per gli iscritti'))}<input id="sLink" type="url" placeholder="${esc(tr('Discord, SpellTable… https://'))}" value="${esc(t.online_link || '')}" /></label>
+        </div>
         </div>
       </div>
 
@@ -2516,6 +2551,7 @@ async function renderImpostazioni() {
   $('#sGame').addEventListener('change', () => syncFormats(true));
   syncFormats(false);
   fillLocationChoices('#sLocation', '#sLocationWrap', '#sVenueWrap', t.location_id ?? undefined);
+  bindOnline('s', t.game, t.online_platform);
 
   $('#setForm').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -2530,8 +2566,9 @@ async function renderImpostazioni() {
       starts_on: $('#sDate').value,
       start_time: $('#sTime').value || null,
       // 0 toglie la sede; con una sede il luogo scritto si svuota e vale il suo.
-      location_id: +$('#sLocation').value || 0,
-      venue: $('#sLocation').value ? '' : $('#sVenue').value.trim(),
+      location_id: $('#sOnline').checked ? 0 : +$('#sLocation').value || 0,
+      venue: $('#sLocation').value || $('#sOnline').checked ? '' : $('#sVenue').value.trim(),
+      ...onlineBody('s'),
       capacity: +$('#sCap').value,
       entry_fee_cents: Math.round((+$('#sFee').value || 0) * 100),
       pay_at_event: $('#sAtEvent').checked,
