@@ -967,5 +967,8 @@
   "Da dove arrivano": "D'où ils viennent",
   "Diretto": "Direct",
   "Schermi": "Écrans",
-  "Logo di {nome}": "Logo de {nome}"
+  "Logo di {nome}": "Logo de {nome}",
+  "Esci da tutti i dispositivi": "Se déconnecter partout",
+  "Chiude le sessioni aperte altrove: utile se hai usato un computer non tuo.": "Ferme les sessions ouvertes ailleurs : utile si vous avez utilisé un ordinateur qui n'est pas le vôtre.",
+  "Sei uscito da tutti i dispositivi.": "Vous êtes déconnecté partout."
 }

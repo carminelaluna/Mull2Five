@@ -9,7 +9,7 @@ from typing import Annotated
 
 import stripe
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from sqlalchemy import Select, delete, func, or_, select
+from sqlalchemy import Select, and_, delete, func, or_, select
 from sqlalchemy.orm import Session, joinedload, selectinload  # noqa: F401
 
 from backend.app.core.clock import local_today
@@ -77,6 +77,7 @@ from backend.app.schemas import (
     InviteCodeOut,
     ManualPairingIn,
     MetaStatRow,
+    MyRegistrationOut,
     OfficialReportOut,
     OfficialReportRowOut,
     OrganizedTournamentRow,
@@ -164,6 +165,15 @@ def haversine_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
         + cos(radians(lat1)) * cos(radians(lat2)) * sin(d_lng / 2) ** 2
     )
     return 2 * radius * asin(sqrt(a))
+
+
+def bounding_box(lat: float, lng: float, radius_km: float) -> tuple[float, float, float, float]:
+    """Il riquadro che contiene il cerchio: serve a scartare in SQL i tornei
+    lontani prima di calcolare la distanza vera, che costa di più."""
+    lat_span = radius_km / 111.0
+    # Ai poli i meridiani si stringono: il grado di longitudine vale meno.
+    lng_span = radius_km / max(111.0 * math.cos(math.radians(lat)), 1.0)
+    return lat - lat_span, lat + lat_span, lng - lng_span, lng + lng_span
 
 
 def filter_by_distance(
@@ -403,6 +413,8 @@ def list_tournaments(
     radius_km: float | None = Query(default=None, gt=0, le=20000),
     status: str | None = None,
     online: bool | None = None,
+    limit: int = Query(default=500, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
 ) -> list[TournamentOut]:
     """Elenco pubblico dei tornei di tutti i negozi, o di uno solo se la
@@ -462,7 +474,16 @@ def list_tournaments(
         stmt = stmt.where(Tournament.starts_on >= date_from)
     if date_to:
         stmt = stmt.where(Tournament.starts_on <= date_to)
-    stmt = stmt.order_by(Tournament.starts_on.asc())
+    # Cerca vicino: prima si scartano in SQL quelli fuori dal riquadro, poi si
+    # calcola la distanza vera solo sui rimasti (i tornei senza coordinate
+    # proprie le ereditano dal negozio, quindi restano in gioco).
+    if near_lat is not None and near_lng is not None and radius_km is not None:
+        south, north, west, east = bounding_box(near_lat, near_lng, radius_km)
+        stmt = stmt.where(or_(
+            Tournament.latitude.is_(None),
+            and_(Tournament.latitude.between(south, north), Tournament.longitude.between(west, east)),
+        ))
+    stmt = stmt.order_by(Tournament.starts_on.asc()).limit(limit).offset(offset)
     results = tournament_with_counts(stmt, db)
     if near_lat is not None and near_lng is not None:
         results = filter_by_distance(results, near_lat, near_lng, radius_km, db)
@@ -505,6 +526,37 @@ def my_tournaments(
     ]
 
 
+@router.get("/me/registrations", response_model=list[MyRegistrationOut])
+def my_registrations_list(
+    user: User = Depends(get_current_user), db: Session = Depends(get_db)
+) -> list[MyRegistrationOut]:
+    """Le iscrizioni di chi chiama, con il loro torneo: una richiesta sola.
+    Prima la pagina chiedeva tutti i tornei e poi la propria iscrizione a uno a
+    uno: con molti tornei erano centinaia di richieste, e il limite per IP le
+    bloccava."""
+    registrations = db.scalars(
+        select(Registration)
+        .where(Registration.player_id == user.id)
+        .options(
+            joinedload(Registration.player),
+            joinedload(Registration.decklists),
+            joinedload(Registration.payment),
+            joinedload(Registration.tournament),
+        )
+    ).unique().all()
+    if not registrations:
+        return []
+    ids = {reg.tournament_id for reg in registrations}
+    tournaments = {t.id: t for t in tournament_with_counts(select(Tournament).where(Tournament.id.in_(ids)), db)}
+    rows = [
+        MyRegistrationOut(tournament=tournaments[reg.tournament_id], registration=registration_out(reg))
+        for reg in registrations if reg.tournament_id in tournaments
+    ]
+    # I tornei più vicini per primi, come li legge la pagina.
+    rows.sort(key=lambda row: (row.tournament.starts_on, row.tournament.start_time or ""), reverse=True)
+    return rows
+
+
 @router.get("/me/history", response_model=list[PlayerHistoryRowOut])
 def my_history(
     user: User = Depends(get_current_user),
@@ -540,14 +592,17 @@ def my_history(
     return rows
 
 
-@router.get("/players/{email}/public-history", response_model=PlayerPublicProfileOut)
+@router.get("/players/{public_id}/public-history", response_model=PlayerPublicProfileOut)
 def player_public_history(
-    email: str,
+    public_id: str,
     db: Session = Depends(get_db),
 ) -> PlayerPublicProfileOut:
     """Profilo pubblico di un giocatore: storico e statistiche aggregate, calcolate
-    solo dai tornei con classifica pubblica. Nessuna autenticazione richiesta."""
-    player = db.scalar(select(User).where(User.email == email.lower()))
+    solo dai tornei con classifica pubblica. Nessuna autenticazione richiesta.
+
+    Si cerca per identificativo pubblico, non per email: un link condiviso non
+    rivela l'indirizzo di nessuno e non si può chiedere "questa email gioca?"."""
+    player = db.scalar(select(User).where(User.public_id == public_id))
     if not player:
         raise HTTPException(status_code=404, detail="Giocatore non trovato")
     regs = db.scalars(
@@ -606,7 +661,7 @@ def player_public_history(
         ))
 
     return PlayerPublicProfileOut(
-        display_name=player.display_name, email=player.email, role=player.role,
+        display_name=player.display_name, public_id=player.public_id, role=player.role,
         tournaments_played=len(rows), total_points=tot_pts,
         wins=wins, draws=draws, losses=losses, rows=rows, organized=organized,
     )

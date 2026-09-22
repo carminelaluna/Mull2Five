@@ -4,7 +4,7 @@
  * e invia la subscription a /api/push/subscribe. No-op se il browser non supporta
  * le notifiche o se il backend non ha VAPID configurato.
  */
-const TOKEN_KEY = 'mull2five-jwt-v1';
+import { getToken } from './session.js';
 
 export function urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -18,7 +18,7 @@ export function pushSupported() {
 }
 
 async function authFetch(path, opts = {}) {
-  const token = localStorage.getItem(TOKEN_KEY);
+  const token = getToken();
   const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
   if (token) headers.Authorization = `Bearer ${token}`;
   return fetch('/api' + path, { ...opts, headers });

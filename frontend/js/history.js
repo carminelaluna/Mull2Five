@@ -4,40 +4,9 @@
  * decklist (solo se rese pubbliche dall'organizzatore). Endpoint pubblici.
  */
 import { onReady } from './lang.js';   // prima di tutto: la lingua (vedi lang.js)
+import { apiGet, fmtDate, toast, updateAuthNav } from './catalog.js';
 import { renderDeck } from './deck-view.js';
 import { esc } from './escape.js';
-
-const API = '/api';
-const TOKEN_KEY = 'mull2five-jwt-v1';
-
-const fmtDate = (d) => { if (!d) return '—'; const [y, m, dd] = d.split('-'); return `${dd}/${m}/${y}`; };
-function toast(msg) {
-  const el = document.querySelector('#toast'); if (!el) return;
-  el.textContent = msg; el.classList.add('show');
-  clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('show'), 3000);
-}
-
-async function apiGet(path) {
-  const token = localStorage.getItem(TOKEN_KEY);
-  const headers = token ? { Authorization: `Bearer ${token}` } : {};
-  const r = await fetch(API + path, { headers });
-  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.statusText);
-  return r.json();
-}
-
-function getSession() {
-  const t = localStorage.getItem(TOKEN_KEY); if (!t) return null;
-  try { return JSON.parse(atob(t.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))); } catch { return null; }
-}
-function updateAuthNav() {
-  const s = getSession(); const el = document.querySelector('#publicAuth'); if (!el) return;
-  el.innerHTML = s
-    ? `<a class="secondary-link" href="player.html?email=${encodeURIComponent(s.email)}">Profilo</a>
-       <span style="color:var(--muted);font-size:.85rem">${esc(s.email)}</span>
-       <button class="secondary-link" id="logoutBtn" type="button">Esci</button>`
-    : `<a class="secondary-link" href="login.html">Accedi</a><a class="primary-btn" href="login.html">Registrati</a>`;
-  el.querySelector('#logoutBtn')?.addEventListener('click', () => { localStorage.removeItem(TOKEN_KEY); location.reload(); });
-}
 
 let _all = [];
 

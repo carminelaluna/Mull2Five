@@ -5,8 +5,8 @@
  * Stripe o PayPal, quando la conferma del pagamento può essere ancora in viaggio.
  */
 import { onReady } from './lang.js';
-import { actingHeaders } from './acting.js';
 import { esc, fmtDate, fmtMoney, getSession, updateAuthNav } from './catalog.js';
+import { apiRequest } from './session.js';
 import { t as tr } from './i18n.js';
 
 const $ = (s) => document.querySelector(s);
@@ -14,14 +14,8 @@ const params = new URLSearchParams(location.search);
 const TOURNAMENT_ID = Number(params.get('t')) || 0;
 const PAID_ONLINE = params.get('pagamento') === 'ok';
 
-async function api(path) {
-  const token = localStorage.getItem('mull2five-jwt-v1');
-  const r = await fetch(`/api${path}`, {
-    headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...actingHeaders() },
-  });
-  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.statusText);
-  return r.json();
-}
+/* Un genitore vede qui l'iscrizione del profilo che gestisce (X-Act-As). */
+const api = (path) => apiRequest(path, { acting: true });
 
 /* Il torneo come evento di calendario (.ics): ora locale, quattro ore di durata. */
 function icsFile(t) {

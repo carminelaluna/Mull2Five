@@ -175,16 +175,17 @@ def test_public_player_history(client):
     pairing = next(p for p in round1["pairings"] if p["player_b"])
     client.patch(f"/api/tournaments/{tid}/pairings/{pairing['id']}/result",
                  json={"match_wins_a": 2, "match_wins_b": 0, "draws": 0}, headers=org)
-    email = players[0]["email"]
-    r = client.get(f"/api/tournaments/players/{email}/public-history")
+    public_id = client.get("/api/auth/me", headers=players[0]["headers"]).json()["public_id"]
+    r = client.get(f"/api/tournaments/players/{public_id}/public-history")
     assert r.status_code == 200, r.text
     body = r.json()
-    assert body["email"] == email
+    assert body["public_id"] == public_id
+    assert "email" not in body
     assert body["tournaments_played"] >= 1
     assert len(body["rows"]) >= 1
 
-    # email inesistente → 404
-    assert client.get("/api/tournaments/players/nobody@nowhere.it/public-history").status_code == 404
+    # identificativo inesistente → 404
+    assert client.get("/api/tournaments/players/nessuno/public-history").status_code == 404
 
 
 # ── Duplica torneo ────────────────────────────────────────────
@@ -276,7 +277,8 @@ def test_public_profile_shows_organized_tournaments(client):
     org = _register(client, "v2-prof-org2@example.com", role="organizer")
     _make_tournament(client, org, name="FNM Uno", starts_on="2027-06-01")
     _make_tournament(client, org, name="RCQ Due", starts_on="2027-07-01")
-    r = client.get("/api/tournaments/players/v2-prof-org2@example.com/public-history")
+    public_id = client.get("/api/auth/me", headers=org).json()["public_id"]
+    r = client.get(f"/api/tournaments/players/{public_id}/public-history")
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["role"] == "organizer"

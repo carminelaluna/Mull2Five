@@ -90,6 +90,7 @@ def test_players_add_their_id_and_see_the_invite_on_their_profile(client):
     assert client.get("/api/auth/me/publisher-ids", headers=player).json() == {"mtg": "4444444444"}
 
     _play_and_close(client, org, tid, mine["id"])
-    profile = client.get("/api/tournaments/players/official-player@example.com/public-history").json()
+    public_id = client.get("/api/auth/me", headers=player).json()["public_id"]
+    profile = client.get(f"/api/tournaments/players/{public_id}/public-history").json()
     row = next(r for r in profile["rows"] if r["tournament_id"] == tid)
     assert (row["placement"], row["invited"], row["event_type"]) == (1, True, "rcq")

@@ -29,6 +29,8 @@ COPY pyproject.toml README.md ./
 RUN pip install --no-cache-dir .
 
 COPY backend ./backend
+COPY alembic.ini ./
+COPY migrations ./migrations
 COPY --from=frontend /frontend/dist ./frontend/dist
 COPY scripts ./scripts
 

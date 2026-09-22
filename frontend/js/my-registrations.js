@@ -4,43 +4,20 @@ import { renderDeck } from './deck-view.js';
 import { esc } from './escape.js';
 import { gameInfo, gameLabel, scoresFor } from './games.js';
 import { t as tr } from './i18n.js';
-import { actingAs, actingBanner, actingHeaders, bindActingBanner, setActing } from './acting.js';
+import { actingAs, actingBanner, bindActingBanner, setActing } from './acting.js';
+import { toast } from './catalog.js';
+import { apiRequest, clearToken, logout, requireSession } from './session.js';
 
-const API       = '/api';
-const TOKEN_KEY = 'mull2five-jwt-v1';
 
 /* ── Auth guard ──────────────────────────────────────── */
-const token = localStorage.getItem(TOKEN_KEY);
-if (!token) location.replace('login.html?next=my-registrations.html');
-
-function decodeJwt(t) {
-  try { return JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))); }
-  catch { return null; }
-}
-const session = decodeJwt(token);
-if (!session || session.exp < Date.now() / 1000) {
-  localStorage.removeItem(TOKEN_KEY);
-  location.replace('login.html?next=my-registrations.html');
-}
+const session = requireSession();
 
 /* ── Helpers ─────────────────────────────────────────── */
-async function apiFetch(path, opts = {}) {
-  // Chi gestisce il profilo di un figlio vede e fa le cose per lui (X-Act-As).
-  const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, ...actingHeaders(), ...(opts.headers||{}) };
-  const r = await fetch(API + path, { ...opts, headers });
-  if (r.status === 401) { localStorage.removeItem(TOKEN_KEY); location.replace('login.html'); return; }
-  if (!r.ok) throw new Error((await r.json().catch(()=>({}))).detail || r.statusText);
-  return r.status === 204 ? null : r.json();
-}
+// Chi gestisce il profilo di un figlio vede e fa le cose per lui (X-Act-As).
+const apiFetch = (path, opts = {}) => apiRequest(path, { acting: true, requireLogin: true, ...opts });
 
 function fmtDate(d) { if (!d) return '—'; const [y,m,dd]=d.split('-'); return `${dd}/${m}/${y}`; }
 function fmtMoney(v) { return (+v||0).toLocaleString('it-IT',{style:'currency',currency:'EUR'}); }
-function toast(msg) {
-  const el = document.querySelector('#toast');
-  el.textContent = msg; el.classList.add('show');
-  clearTimeout(el._t); el._t = setTimeout(()=>el.classList.remove('show'), 3200);
-}
-
 let _activeFormat = '';   // segmento della lista in modifica
 let _activeTournament = { format: '', name: '' };   // per salvare la lista anche tra le mie
 let _savedDecks = [];
@@ -51,29 +28,20 @@ let _activeIsA          = true;   // sono il giocatore A del pairing?
 /* ── Auth nav ────────────────────────────────────────── */
 function updateAuthNav() {
   const el = document.querySelector('#publicAuth'); if (!el) return;
-  el.innerHTML = `<a class="secondary-link" href="player.html?email=${encodeURIComponent(session.email)}">Profilo</a>
+  el.innerHTML = `<a class="secondary-link" href="player.html?p=${encodeURIComponent(session.pid || '')}">Profilo</a>
     <a class="secondary-link" href="decks.html">${esc(tr('Le mie liste'))}</a>
     <span style="color:var(--muted);font-size:.85rem">${esc(session.email)}</span>
     <button class="secondary-link" id="logoutBtn" type="button">Esci</button>`;
-  el.querySelector('#logoutBtn').addEventListener('click', () => {
-    localStorage.removeItem(TOKEN_KEY); location.replace('index.html');
-  });
+  el.querySelector('#logoutBtn').addEventListener('click', () => logout('index.html'));
 }
 
 /* ── Load registrations ──────────────────────────────── */
 async function loadRegistrations() {
   const container = document.querySelector('#registrationsList');
   try {
-    /* Cerca tutti i tornei e poi la mia iscrizione */
-    const tournaments = await apiFetch('/tournaments?status=published,running,completed');
-    const data = Array.isArray(tournaments) ? tournaments : (tournaments?.items ?? []);
-
-    /* Recupera le mie iscrizioni per ogni torneo */
-    const myRegs = (await Promise.allSettled(
-      data.map(t => apiFetch(`/tournaments/${t.id}/my-registration`)
-        .then(reg => ({ tournament: t, reg }))
-        .catch(() => null))
-    )).filter(r => r.status === 'fulfilled' && r.value).map(r => r.value);
+    /* Iscrizioni e tornei in una richiesta sola (prima ne partiva una per torneo). */
+    const rows = await apiFetch('/tournaments/me/registrations');
+    const myRegs = (rows || []).map(({ tournament, registration }) => ({ tournament, reg: registration }));
 
     if (!myRegs.length) {
       container.innerHTML = `<p class="empty">Non sei iscritto a nessun torneo.
@@ -682,11 +650,23 @@ function setupAccount() {
       busy(exportBtn, false);
     }
   });
+  const allBtn = document.querySelector('#logoutAll');
+  allBtn?.addEventListener('click', async () => {
+    busy(allBtn, true);
+    try {
+      await apiFetch('/auth/logout-all', { method: 'POST' });
+      toast(tr('Sei uscito da tutti i dispositivi.'));
+      setTimeout(() => logout('login.html'), 1200);
+    } catch (err) {
+      toast(err.message);
+      busy(allBtn, false);
+    }
+  });
   document.querySelector('#deleteAccount')?.addEventListener('click', async () => {
     if (!confirm(tr("Eliminare l'account? Email, nome e ID vengono cancellati e non si può tornare indietro."))) return;
     try {
       await apiFetch('/auth/me', { method: 'DELETE' });
-      localStorage.removeItem(TOKEN_KEY);
+      clearToken();
       location.replace('index.html');
     } catch (err) { toast(err.message); }
   });
@@ -741,7 +721,7 @@ async function loadProfiles() {
   try {
     [profiles, minAge] = await Promise.all([
       apiFetch('/auth/me/profiles'),
-      fetch(API + '/auth/rules').then((r) => r.json()).then((r) => r.min_account_age).catch(() => 14),
+      fetch('/api/auth/rules').then((r) => r.json()).then((r) => r.min_account_age).catch(() => 14),
     ]);
   } catch (err) {
     box.innerHTML = `<p class="empty">${esc(err.message)}</p>`;

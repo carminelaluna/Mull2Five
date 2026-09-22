@@ -12,49 +12,24 @@ import { deckToText, manaSymbols, mergeCards, parseDeck, renderDeck } from './de
 import { esc } from './escape.js';
 import { loadGames } from './games.js';
 import { t as tr } from './i18n.js';
-
-const API       = '/api';
-const TOKEN_KEY = 'mull2five-jwt-v1';
-const LOGIN     = 'login.html?next=decks.html';
+import { toast } from './catalog.js';
+import { apiRequest, logout, requireSession } from './session.js';
 
 /* ── Auth guard ──────────────────────────────────────── */
-const token = localStorage.getItem(TOKEN_KEY);
-if (!token) location.replace(LOGIN);
-
-function decodeJwt(t) {
-  try { return JSON.parse(atob(t.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))); }
-  catch { return null; }
-}
-const session = decodeJwt(token);
-if (!session || session.exp < Date.now() / 1000) {
-  localStorage.removeItem(TOKEN_KEY);
-  location.replace(LOGIN);
-}
+const session = requireSession();
 
 /* ── Helpers ─────────────────────────────────────────── */
 const $ = (selector, root = document) => root.querySelector(selector);
 
-async function apiFetch(path, opts = {}) {
-  // Chi gestisce il profilo di un figlio salva le liste per lui (X-Act-As).
-  const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, ...actingHeaders(), ...(opts.headers || {}) };
-  const r = await fetch(API + path, { ...opts, headers });
-  if (r.status === 401) { localStorage.removeItem(TOKEN_KEY); location.replace(LOGIN); throw new Error(tr('Sessione scaduta')); }
-  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.statusText);
-  return r.status === 204 ? null : r.json();
-}
-
-function toast(msg) {
-  const el = $('#toast');
-  el.textContent = msg; el.classList.add('show');
-  clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('show'), 3200);
-}
+// Chi gestisce il profilo di un figlio salva le liste per lui (X-Act-As).
+const apiFetch = (path, opts = {}) => apiRequest(path, { acting: true, requireLogin: true, ...opts });
 
 function updateAuthNav() {
   const el = $('#publicAuth'); if (!el) return;
   el.innerHTML = `<a class="secondary-link" href="my-registrations.html">${esc(tr('Le mie iscrizioni'))}</a>
     <span style="color:var(--muted);font-size:.85rem">${esc(session.email)}</span>
     <button class="secondary-link" id="logoutBtn" type="button">${esc(tr('Esci'))}</button>`;
-  $('#logoutBtn').addEventListener('click', () => { localStorage.removeItem(TOKEN_KEY); location.replace('index.html'); });
+  $('#logoutBtn').addEventListener('click', () => logout('index.html'));
 }
 
 /* ── Stato ───────────────────────────────────────────── */

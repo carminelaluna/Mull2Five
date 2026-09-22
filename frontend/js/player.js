@@ -1,55 +1,20 @@
 import { onReady } from './lang.js';   // prima di tutto: la lingua (vedi lang.js)
+import { apiGet, toast, updateAuthNav } from './catalog.js';
 import { esc } from './escape.js';
 
-const API       = '/api';
-const TOKEN_KEY = 'mull2five-jwt-v1';
 const params    = new URLSearchParams(location.search);
-const EMAIL     = params.get('email');   // URL: /player.html?email=xxx@xxx.com
+const PUBLIC_ID = params.get('p');   // URL: /player.html?p=abc123 (mai l'email)
 
 function fmtDate(d) { if (!d) return '—'; const [y,m,dd]=d.split('-'); return `${dd}/${m}/${y}`; }
-function toast(msg) {
-  const el = document.querySelector('#toast');
-  el.textContent = msg; el.classList.add('show');
-  clearTimeout(el._t); el._t = setTimeout(()=>el.classList.remove('show'), 3200);
-}
-
-function getSession() {
-  const t = localStorage.getItem(TOKEN_KEY); if (!t) return null;
-  try { return JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))); }
-  catch { return null; }
-}
-
-async function apiFetch(path) {
-  const token = localStorage.getItem(TOKEN_KEY);
-  const headers = { 'Content-Type': 'application/json' };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-  const r = await fetch(API + path, { headers });
-  if (!r.ok) throw new Error((await r.json().catch(()=>({}))).detail || r.statusText);
-  return r.json();
-}
-
-/* ── Auth nav ─────────────────────────────────────────── */
-function updateAuthNav() {
-  const s = getSession(); const el = document.querySelector('#publicAuth'); if (!el) return;
-  if (s) {
-    el.innerHTML = `<span style="color:var(--muted);font-size:.85rem">${esc(s.email)}</span>
-      <button class="secondary-link" id="logoutBtn" type="button">Esci</button>`;
-    el.querySelector('#logoutBtn').addEventListener('click', () => { localStorage.removeItem(TOKEN_KEY); location.reload(); });
-  } else {
-    el.innerHTML = `<a class="secondary-link" href="login.html">Accedi</a>
-                    <a class="primary-btn"    href="login.html">Registrati</a>`;
-  }
-}
-
 /* ── Load profile ─────────────────────────────────────── */
 async function loadProfile() {
   const container = document.querySelector('#playerProfile');
-  if (!EMAIL) { container.innerHTML = '<p class="empty">Email giocatore mancante nell\'URL.</p>'; return; }
+  if (!PUBLIC_ID) { container.innerHTML = '<p class="empty">Profilo non trovato: il link potrebbe essere vecchio.</p>'; return; }
 
   try {
     /* Profilo pubblico calcolato dal backend (solo tornei con classifica pubblica) */
-    const profile = await apiFetch(`/tournaments/players/${encodeURIComponent(EMAIL)}/public-history`);
-    const playerName = profile.display_name || EMAIL.split('@')[0];
+    const profile = await apiGet(`/tournaments/players/${encodeURIComponent(PUBLIC_ID)}/public-history`);
+    const playerName = profile.display_name || 'Giocatore';
     const totalW = profile.wins, totalD = profile.draws, totalL = profile.losses;
     const totalPts = profile.total_points, totalTournaments = profile.tournaments_played;
 
@@ -107,7 +72,7 @@ async function loadProfile() {
         <div class="user-avatar" style="width:72px;height:72px;font-size:1.6rem;flex-shrink:0">${initials}</div>
         <div>
           <h1 style="margin:0 0 4px">${esc(playerName)}</h1>
-          <p class="muted-text">${esc(EMAIL)} · <span class="badge">${isOrganizer ? 'Organizzatore' : 'Giocatore'}</span></p>
+          <p class="muted-text"><span class="badge">${isOrganizer ? 'Organizzatore' : 'Giocatore'}</span></p>
         </div>
       </div>
 

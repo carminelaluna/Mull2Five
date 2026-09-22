@@ -1,7 +1,4 @@
-import os
-import subprocess
 from datetime import datetime
-from pathlib import Path
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
@@ -24,8 +21,6 @@ from backend.app.services import wizards_locator
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
-_BACKUP_DIR = Path(os.environ.get("BACKUP_DIR", "./backups"))
-_BACKUP_SCRIPT = Path("scripts/backup_db.sh")
 
 
 @router.get("/wizards-locator", response_model=LocatorStatusOut)
@@ -78,21 +73,6 @@ def list_payments(admin: User = Depends(require_admin), db: Session = Depends(ge
     return db.scalars(select(Payment).order_by(Payment.created_at.desc())).all()
 
 
-@router.get("/backups")
-def list_backups(admin: User = Depends(require_admin)) -> list[dict]:
-    """Elenca i backup del database presenti in BACKUP_DIR (più recenti prima)."""
-    if not _BACKUP_DIR.exists():
-        return []
-    items = []
-    for f in sorted(_BACKUP_DIR.glob("mull2five_*.dump"), reverse=True):
-        stat = f.stat()
-        items.append({
-            "name": f.name,
-            "size_bytes": stat.st_size,
-            "created_at": datetime.fromtimestamp(stat.st_mtime).isoformat(),
-        })
-    return items
-
 
 @router.get("/alerting")
 def alerting_status(admin: User = Depends(require_admin)) -> dict:
@@ -124,19 +104,3 @@ def test_alert(admin: User = Depends(require_admin)) -> dict:
     )
     return {"status": "sent" if sent else "suppressed"}
 
-
-@router.post("/backups", status_code=201)
-def trigger_backup(admin: User = Depends(require_admin)) -> dict:
-    """Lancia subito un backup del database eseguendo scripts/backup_db.sh."""
-    if not _BACKUP_SCRIPT.exists():
-        raise HTTPException(status_code=500, detail="Script di backup non trovato")
-    try:
-        result = subprocess.run(
-            ["bash", str(_BACKUP_SCRIPT)],
-            capture_output=True, text=True, timeout=300, env={**os.environ},
-        )
-    except subprocess.TimeoutExpired:
-        raise HTTPException(status_code=504, detail="Backup in timeout") from None
-    if result.returncode != 0:
-        raise HTTPException(status_code=500, detail=f"Backup fallito: {result.stderr.strip()[:300]}")
-    return {"status": "ok", "output": result.stdout.strip()[-300:]}

@@ -957,5 +957,8 @@
   "Da dove arrivano": "Where they come from",
   "Diretto": "Direct",
   "Schermi": "Screens",
-  "Logo di {nome}": "{nome} logo"
+  "Logo di {nome}": "{nome} logo",
+  "Esci da tutti i dispositivi": "Sign out everywhere",
+  "Chiude le sessioni aperte altrove: utile se hai usato un computer non tuo.": "Closes sessions open elsewhere: useful if you used a computer that isn't yours.",
+  "Sei uscito da tutti i dispositivi.": "You are signed out everywhere."
 }

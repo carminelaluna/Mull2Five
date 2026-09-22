@@ -3,35 +3,20 @@ import { esc } from './escape.js';
 import { bestOfLabel, gameInfo, gameLabel } from './games.js';
 import { t as tr } from './i18n.js';
 import { actingAs, actingBanner, actingHeaders, bindActingBanner, setActing } from './acting.js';
+import { toast, updateAuthNav } from './catalog.js';
 import { busy } from './form-state.js';
+import { apiRequest, getSession } from './session.js';
 import { stickyCta } from './site.js';
 
 const API = '/api';
 const params = new URLSearchParams(location.search);
 const TOURNAMENT_ID = params.get('id');
 
-async function apiFetch(path, opts = {}) {
-  const token = localStorage.getItem('mull2five-jwt-v1');
-  const headers = { 'Content-Type': 'application/json', ...(token ? actingHeaders() : {}), ...(opts.headers || {}) };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-  const r = await fetch(API + path, { ...opts, headers });
-  if (!r.ok) throw new Error((await r.json().catch(()=>({}))).detail || r.statusText);
-  return r.status === 204 ? null : r.json();
-}
+/* Chi gestisce il profilo di un figlio lo iscrive per lui (X-Act-As). */
+const apiFetch = (path, opts = {}) => apiRequest(path, { acting: true, ...opts });
 
 function fmtDate(d) { if (!d) return '—'; const [y,m,dd]=d.split('-'); return `${dd}/${m}/${y}`; }
 function fmtMoney(v) { return (+v||0).toLocaleString('it-IT',{style:'currency',currency:'EUR'}); }
-function toast(msg) {
-  const el = document.querySelector('#toast');
-  el.textContent = msg; el.classList.add('show');
-  clearTimeout(el._t); el._t = setTimeout(()=>el.classList.remove('show'), 3200);
-}
-
-function getSession() {
-  const t = localStorage.getItem('mull2five-jwt-v1'); if (!t) return null;
-  try { return JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))); }
-  catch { return null; }
-}
 
 async function loadEvent() {
   if (!TOURNAMENT_ID) { document.querySelector('#eventDetail').innerHTML = '<p class="empty">ID torneo mancante.</p>'; return; }
@@ -200,20 +185,6 @@ async function doRegister(t) {
   } catch (err) {
     document.querySelector('#regError').textContent = err.message;
     busy(btn, false);
-  }
-}
-
-/* Auth nav */
-function updateAuthNav() {
-  const s = getSession();
-  const el = document.querySelector('#publicAuth'); if (!el) return;
-  if (s) {
-    el.innerHTML = `<span style="color:var(--muted);font-size:.85rem">${esc(s.email)}</span>
-      <button class="secondary-link" id="logoutBtn" type="button">Esci</button>`;
-    el.querySelector('#logoutBtn').addEventListener('click', () => { localStorage.removeItem('mull2five-jwt-v1'); location.reload(); });
-  } else {
-    el.innerHTML = `<a class="secondary-link" href="login.html">Accedi</a>
-                    <a class="primary-btn" href="login.html">Registrati</a>`;
   }
 }
 

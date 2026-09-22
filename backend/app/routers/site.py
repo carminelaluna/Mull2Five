@@ -9,14 +9,16 @@ provenienza e tipo di schermo (PageView). Chi ha Do Not Track o Global Privacy
 Control attivi non viene contato, e nemmeno i bot. Così non serve il consenso
 (vedi cookie.html).
 """
+import hashlib
 import re
+import secrets
 from collections import Counter
 from datetime import timedelta
 from urllib.parse import urlsplit
 from xml.sax.saxutils import escape
 
 from fastapi import APIRouter, Depends, Query, Request, Response
-from sqlalchemy import select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -26,6 +28,7 @@ from backend.app.core.config import get_settings
 from backend.app.core.limiter import limiter
 from backend.app.db import get_db
 from backend.app.models import (
+    AnalyticsDay,
     Event,
     Organization,
     PageView,
@@ -33,6 +36,7 @@ from backend.app.models import (
     Tournament,
     TournamentStatus,
     User,
+    VisitorDay,
 )
 from backend.app.schemas import (
     AnalyticsCountOut,
@@ -131,6 +135,50 @@ def _not_counted(request: Request) -> bool:
             or request.headers.get("dnt") == "1" or request.headers.get("sec-gpc") == "1")
 
 
+# In sviluppo le pagine stanno su localhost e l'API risponde su 127.0.0.1:
+# sono la stessa cosa.
+LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1", "testserver"}
+
+
+def _same_site(host: str, own: set[str]) -> bool:
+    """Vero se il dominio è del sito, anche quando in sviluppo cambia nome."""
+    if not host:
+        return False
+    return host in own or (host in LOCAL_HOSTS and bool(own & LOCAL_HOSTS))
+
+
+def _visitor_code(request: Request, salt: str) -> str:
+    """L'impronta di chi sta guardando, per contarlo una volta sola al giorno.
+    L'IP e lo user agent entrano nel conto ma non vengono mai salvati, e il
+    segreto del giorno si cancella il giorno dopo: il codice resta un numero."""
+    forwarded = request.headers.get("x-forwarded-for", "")
+    ip = forwarded.split(",")[0].strip() or (request.client.host if request.client else "")
+    agent = request.headers.get("user-agent", "")
+    return hashlib.sha256(f"{salt}|{ip}|{agent}".encode()).hexdigest()[:32]
+
+
+def _count_visitor(db: Session, day, request: Request) -> None:
+    """Uno in più se è la prima pagina che questa persona apre oggi."""
+    today = db.get(AnalyticsDay, day)
+    if today is None:
+        today = AnalyticsDay(day=day, salt=secrets.token_hex(16), visitors=0)
+        db.add(today)
+        db.flush()
+        # Il segreto dei giorni passati non serve più: senza, i codici vecchi
+        # non si possono ricollegare a nessuno.
+        db.execute(update(AnalyticsDay).where(AnalyticsDay.day < day).values(salt=""))
+        db.execute(delete(VisitorDay).where(VisitorDay.day < day))
+    code = _visitor_code(request, today.salt)
+    db.add(VisitorDay(day=day, code=code))
+    try:
+        db.commit()
+    except IntegrityError:      # già contato oggi
+        db.rollback()
+        return
+    db.execute(update(AnalyticsDay).where(AnalyticsDay.day == day).values(visitors=AnalyticsDay.visitors + 1))
+    db.commit()
+
+
 def _device(width: int) -> str:
     if width and width < 640:
         return "mobile"
@@ -164,14 +212,24 @@ def page_hit(request: Request, payload: PageHitIn, db: Session = Depends(get_db)
     if not PAGE.match(path):
         return Response(status_code=204)
     host = (urlsplit(payload.referrer).hostname or "").lower().removeprefix("www.")[:120]
-    # Dal sito stesso: lo dice il dominio della pagina che manda il conteggio
-    # (Origin o Referer della richiesta), anche dietro un proxy.
-    sender = request.headers.get("origin") or request.headers.get("referer") or ""
+    # I domini del sito: quello configurato, quello della richiesta e quello che
+    # mette il proxy davanti.
     own = {(urlsplit(url).hostname or "").lower().removeprefix("www.")
-           for url in (site_url(request), sender, str(request.url))} - {""}
-    internal = host in own
-    _count(db, {"day": local_today(), "path": path, "referrer": "" if internal else host,
+           for url in (site_url(request), str(request.url))} - {""}
+    forwarded_host = (request.headers.get("x-forwarded-host") or "").split(",")[0].strip().lower()
+    if forwarded_host:
+        own.add(forwarded_host.removeprefix("www.").split(":")[0])
+    # Il conteggio vale solo se arriva da una pagina del sito: altrimenti
+    # chiunque potrebbe gonfiare i numeri da fuori.
+    sender = request.headers.get("origin") or request.headers.get("referer") or ""
+    sender_host = (urlsplit(sender).hostname or "").lower().removeprefix("www.")
+    if sender and not _same_site(sender_host, own):
+        return Response(status_code=204)
+    internal = _same_site(host, own) and bool(host)
+    day = local_today()
+    _count(db, {"day": day, "path": path, "referrer": "" if internal else host,
                 "device": _device(payload.width)}, entry=0 if internal else 1)
+    _count_visitor(db, day, request)
     return Response(status_code=204)
 
 
@@ -184,6 +242,9 @@ def analytics(
     """Le visite degli ultimi giorni: per giorno, pagine, provenienza e schermi."""
     since = local_today() - timedelta(days=days - 1)
     rows = db.scalars(select(PageView).where(PageView.day >= since)).all()
+    visitors = dict(db.execute(
+        select(AnalyticsDay.day, AnalyticsDay.visitors).where(AnalyticsDay.day >= since)
+    ).all())
     per_day: dict = {since + timedelta(days=i): [0, 0] for i in range(days)}
     pages: Counter = Counter()
     referrers: Counter = Counter()
@@ -204,6 +265,8 @@ def analytics(
         enabled=get_settings().analytics_enabled,
         total_views=sum(v for v, _ in per_day.values()),
         total_entries=sum(e for _, e in per_day.values()),
-        days=[AnalyticsDayOut(day=day, views=v, entries=e) for day, (v, e) in sorted(per_day.items())],
+        total_visitors=sum(visitors.get(day, 0) for day in per_day),
+        days=[AnalyticsDayOut(day=day, views=v, entries=e, visitors=visitors.get(day, 0))
+              for day, (v, e) in sorted(per_day.items())],
         pages=top(pages, 15), referrers=top(referrers, 10), devices=top(devices, 3),
     )

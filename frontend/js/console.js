@@ -13,9 +13,7 @@
 import { esc } from './escape.js';
 import { scoreLabel, scoresFor } from './games.js';
 import { t as tr } from './i18n.js';
-
-const API = '/api';
-const TOKEN_KEY = 'mull2five-jwt-v1';
+import { apiRequest, decodeToken, getToken } from './session.js';
 
 
 function scoreToBody(score) {
@@ -69,7 +67,6 @@ const SHELL = `
  */
 export function mountConsole(host, tournamentId, { screenLinks = true, onClosed = null } = {}) {
   const tid = String(tournamentId);
-  const token = localStorage.getItem(TOKEN_KEY);
 
   let rounds = [];
   let activeRoundId = null;
@@ -79,25 +76,13 @@ export function mountConsole(host, tournamentId, { screenLinks = true, onClosed 
   let deckChecks = [];
   let alive = true;
   // Dal token: serve per sapere quale tavolo e il mio.
-  let myUserId = null;
-  try {
-    myUserId = +JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).sub;
-  } catch { myUserId = null; }
+  const myUserId = +(decodeToken(getToken())?.sub) || null;
   const editing = new Set();   // pairing in correzione
 
   host.innerHTML = `<div class="ctl-console">${SHELL}</div>`;
   const el = (name) => host.querySelector(`[data-el="${name}"]`);
 
-  async function apiFetch(path, opts = {}) {
-    const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, ...(opts.headers || {}) };
-    const r = await fetch(API + path, { ...opts, headers });
-    if (r.status === 401) { localStorage.removeItem(TOKEN_KEY); location.replace('login.html'); return null; }
-    if (!r.ok) {
-      const detail = (await r.json().catch(() => ({}))).detail;
-      throw new Error(detail || r.statusText);
-    }
-    return r.status === 204 ? null : r.json();
-  }
+  const apiFetch = (path, opts = {}) => apiRequest(path, { requireLogin: true, ...opts });
 
   async function call(fn, okMsg) {
     try { await fn(); toast(okMsg); await refresh(); }

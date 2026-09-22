@@ -9,8 +9,30 @@ on:
 jobs:
   # ── Backend ─────────────────────────────────────────
   backend:
-    name: Backend (Python)
+    # In produzione c'e' Postgres: i test girano su entrambi i database, cosi'
+    # le differenze fra i due dialetti si vedono qui e non online.
+    name: Backend (${{ matrix.db }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - db: SQLite
+            database_url: sqlite:///./test.db
+          - db: PostgreSQL
+            database_url: postgresql+psycopg://postgres:postgres@127.0.0.1:5432/mull2five_test
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: mull2five_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+
     steps:
       - uses: actions/checkout@v4
 
@@ -25,10 +47,18 @@ jobs:
       - name: Lint (ruff)
         run: ruff check backend tests
 
+      - name: Migrations apply and match the models
+        run: |
+          alembic upgrade head
+          alembic check
+        env:
+          DATABASE_URL: ${{ matrix.database_url }}
+          SECRET_KEY:   ci-test-secret-key-32-chars-long!!
+
       - name: Tests
         run: pytest --tb=short
         env:
-          DATABASE_URL: sqlite:///./test.db
+          DATABASE_URL: ${{ matrix.database_url }}
           SECRET_KEY:   ci-test-secret-key-32-chars-long!!
 
   # ── Frontend ─────────────────────────────────────────

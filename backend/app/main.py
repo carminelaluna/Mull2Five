@@ -154,12 +154,39 @@ else:
     )
 
 
+# La Content-Security-Policy: script solo dal sito (la build non ne ha di inline),
+# stili anche negli attributi style, immagini anche da fuori (loghi dei negozi,
+# carte di Scryfall), chiamate solo al sito e a Nominatim. Se passa un'iniezione
+# di HTML, uno script esterno non parte. /docs usa gli script di un CDN: lì no.
+CSP = "; ".join((
+    "default-src 'self'",
+    "script-src 'self'",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob: https:",
+    "font-src 'self' data:",
+    "connect-src 'self' https://nominatim.openstreetmap.org",
+    "worker-src 'self'",
+    "manifest-src 'self'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+))
+NO_CSP = ("/docs", "/redoc", "/openapi.json")
+
+
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"]         = "DENY"
     response.headers["Referrer-Policy"]          = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"]       = "geolocation=(self), camera=(), microphone=(), payment=()"
+    if not request.url.path.startswith(NO_CSP):
+        response.headers["Content-Security-Policy"] = CSP
+    # HSTS solo su HTTPS (Render mette il protocollo vero in X-Forwarded-Proto).
+    if request.headers.get("x-forwarded-proto", request.url.scheme) == "https":
+        response.headers["Strict-Transport-Security"] = "max-age=31536000"
     return response
 
 

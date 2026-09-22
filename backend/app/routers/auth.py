@@ -1,9 +1,7 @@
 from datetime import UTC, datetime
-from urllib.parse import urlencode
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from fastapi.responses import RedirectResponse
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
@@ -12,7 +10,7 @@ from backend.app.core.limiter import limiter
 from backend.app.core.lockout import is_locked, record_failed
 from backend.app.core.lockout import reset as lockout_reset
 from backend.app.db import get_db
-from backend.app.models import OAuthAccount, Registration, SavedDeck, Tournament, User, UserRole
+from backend.app.models import Registration, SavedDeck, Tournament, User, UserRole
 from backend.app.schemas import (
     ForgotPasswordIn,
     LoginIn,
@@ -28,11 +26,11 @@ from backend.app.security import (
     create_reset_token,
     get_current_user,
     hash_password,
+    password_needs_rehash,
     verify_password,
     verify_reset_token,
 )
 from backend.app.services.email import send_email
-from backend.app.services.oauth import fetch_apple_profile, fetch_google_profile
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -85,7 +83,29 @@ def login(request: Request, payload: LoginIn, db: Session = Depends(get_db)) -> 
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
 
     lockout_reset(email)   # reset contatore su login riuscito
+    # Un hash fatto con meno giri di quelli attuali si rifà adesso, con la password in mano.
+    if password_needs_rehash(user.password_hash):
+        user.password_hash = hash_password(payload.password)
+        db.commit()
     return TokenOut(access_token=create_access_token(user))
+
+
+@router.post("/refresh", response_model=TokenOut)
+@limiter.limit("30/minute")
+def refresh(request: Request, user: User = Depends(get_current_user)) -> TokenOut:
+    """Un token nuovo al posto di uno ancora valido: chi usa il sito non deve
+    rifare l'accesso, e un token rubato scade comunque presto."""
+    if request.headers.get("X-Act-As"):
+        raise HTTPException(status_code=400, detail="Il token si rinnova per il proprio account")
+    return TokenOut(access_token=create_access_token(user))
+
+
+@router.post("/logout-all")
+def logout_everywhere(user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> dict[str, str]:
+    """Esce da tutti i dispositivi: i token già emessi smettono di valere."""
+    user.token_version = (user.token_version or 0) + 1
+    db.commit()
+    return {"detail": "Sei uscito da tutti i dispositivi."}
 
 
 @router.get("/me", response_model=UserOut)
@@ -120,13 +140,16 @@ def forgot_password(
 def reset_password(
     request: Request, payload: ResetPasswordIn, db: Session = Depends(get_db)
 ) -> dict[str, str]:
-    user_id = verify_reset_token(payload.token)
-    if not user_id:
+    checked = verify_reset_token(payload.token)
+    if not checked:
         raise HTTPException(status_code=400, detail="Token non valido o scaduto")
+    user_id, version = checked
     user = db.get(User, user_id)
-    if not user or not user.is_active:
+    # Il link vale una volta sola: dopo il cambio la versione dei token è un'altra.
+    if not user or not user.is_active or version != (user.token_version or 0):
         raise HTTPException(status_code=400, detail="Token non valido o scaduto")
     user.password_hash = hash_password(payload.new_password)
+    user.token_version = (user.token_version or 0) + 1   # fuori chi aveva la sessione aperta
     db.commit()
     lockout_reset(user.email)   # sblocca eventuale lockout precedente
     return {"detail": "Password aggiornata. Ora puoi accedere."}
@@ -228,96 +251,12 @@ def delete_my_account(
     user.display_name = "Utente eliminato"
     user.password_hash = None
     user.is_active = False
+    user.token_version = (user.token_version or 0) + 1
     # Rimuove i dati personali dalle iscrizioni
     for reg in db.scalars(select(Registration).where(Registration.player_id == user.id)):
         reg.wizards_account = ""
     db.commit()
     return {"detail": "Account eliminato. I tuoi dati personali sono stati rimossi."}
-
-
-@router.get("/oauth/{provider}/login")
-def oauth_login(provider: str):
-    settings = get_settings()
-    redirect_uri = f"{settings.app_url}/api/auth/oauth/{provider}/callback"
-    if provider == "google":
-        if not settings.google_client_id:
-            raise HTTPException(status_code=503, detail="Google OAuth is not configured")
-        params = urlencode(
-            {
-                "client_id": settings.google_client_id,
-                "redirect_uri": redirect_uri,
-                "response_type": "code",
-                "scope": "openid email profile",
-                "access_type": "offline",
-                "prompt": "select_account",
-            }
-        )
-        return {"authorization_url": f"https://accounts.google.com/o/oauth2/v2/auth?{params}"}
-    if provider == "apple":
-        if not settings.apple_client_id:
-            raise HTTPException(status_code=503, detail="Apple OAuth is not configured")
-        params = urlencode(
-            {
-                "client_id": settings.apple_client_id,
-                "redirect_uri": redirect_uri,
-                "response_type": "code id_token",
-                "scope": "name email",
-                "response_mode": "form_post",
-            }
-        )
-        return {"authorization_url": f"https://appleid.apple.com/auth/authorize?{params}"}
-    raise HTTPException(status_code=404, detail="Unsupported OAuth provider")
-
-
-@router.api_route("/oauth/{provider}/callback", methods=["GET", "POST"])
-async def oauth_callback(provider: str, request: Request, db: Session = Depends(get_db)):
-    settings = get_settings()
-    data = dict(request.query_params)
-    if request.method == "POST":
-        form = await request.form()
-        data.update(dict(form))
-    code = data.get("code")
-    if not code:
-        raise HTTPException(status_code=400, detail="Missing OAuth code")
-
-    redirect_uri = f"{settings.app_url}/api/auth/oauth/{provider}/callback"
-    if provider == "google":
-        profile = await fetch_google_profile(code, redirect_uri)
-    elif provider == "apple":
-        profile = await fetch_apple_profile(code, redirect_uri)
-    else:
-        raise HTTPException(status_code=404, detail="Unsupported OAuth provider")
-
-    account = db.scalar(
-        select(OAuthAccount).where(
-            OAuthAccount.provider == provider,
-            OAuthAccount.provider_user_id == profile["provider_user_id"],
-        )
-    )
-    if account:
-        user = account.user
-    else:
-        user = db.scalar(select(User).where(User.email == profile["email"]))
-        if not user:
-            user = User(
-                email=profile["email"],
-                display_name=profile["display_name"],
-                role=UserRole.PLAYER,
-            )
-            db.add(user)
-            db.flush()
-        db.add(
-            OAuthAccount(
-                user_id=user.id,
-                provider=provider,
-                provider_user_id=profile["provider_user_id"],
-            )
-        )
-        db.commit()
-        db.refresh(user)
-
-    token = create_access_token(user)
-    return RedirectResponse(f"{str(settings.frontend_url).rstrip('/')}?token={token}")
 
 
 # ── Età minima e profili dei minori ───────────────────────────

@@ -43,6 +43,8 @@ class UserOut(BaseModel):
     email: str          # str, non EmailStr: la validazione serve solo in input, non in output
     display_name: str
     role: str
+    # L'indirizzo del profilo pubblico (player.html?p=…): l'email non ci finisce.
+    public_id: str = ""
 
     model_config = {"from_attributes": True}
 
@@ -370,6 +372,12 @@ class ImportRowOut(BaseModel):
     name: str
     outcome: Literal["added", "waitlisted", "already", "error"]
     detail: str = ""
+
+
+class MyRegistrationOut(BaseModel):
+    """Un'iscrizione con il suo torneo: quello che serve a "Le mie iscrizioni"."""
+    tournament: TournamentOut
+    registration: RegistrationOut
 
 
 class ScheduleImportIn(BaseModel):
@@ -810,7 +818,8 @@ class OrganizedTournamentRow(BaseModel):
 
 class PlayerPublicProfileOut(BaseModel):
     display_name: str
-    email: str
+    # Identificativo casuale, non l'email: il profilo è pubblico.
+    public_id: str = ""
     role: str = "player"
     tournaments_played: int = 0
     total_points: int = 0
@@ -1461,6 +1470,7 @@ class AnalyticsDayOut(BaseModel):
     day: date
     views: int
     entries: int
+    visitors: int = 0
 
 
 class AnalyticsCountOut(BaseModel):
@@ -1472,6 +1482,7 @@ class AnalyticsOut(BaseModel):
     enabled: bool
     total_views: int
     total_entries: int
+    total_visitors: int = 0
     days: list[AnalyticsDayOut]
     pages: list[AnalyticsCountOut]
     referrers: list[AnalyticsCountOut]

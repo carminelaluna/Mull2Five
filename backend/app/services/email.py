@@ -1,10 +1,37 @@
+"""
+email.py — L'invio delle email.
+
+L'invio parte su un thread a parte: un server SMTP lento non deve far aspettare
+chi si sta iscrivendo a un torneo. Nei test (EMAIL_ASYNC=false) si invia invece
+subito, così quello che si verifica è successo davvero.
+"""
+import logging
 import smtplib
+from concurrent.futures import ThreadPoolExecutor
 from email.message import EmailMessage
 
 from backend.app.core.config import get_settings
 
+logger = logging.getLogger(__name__)
+# Poche email per volta: sono avvisi, non una newsletter.
+_sender = ThreadPoolExecutor(max_workers=2, thread_name_prefix="email")
+
+
+def _deliver(message: EmailMessage) -> None:
+    settings = get_settings()
+    try:
+        with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=10) as smtp:
+            if settings.smtp_use_tls:
+                smtp.starttls()
+            if settings.smtp_username and settings.smtp_password:
+                smtp.login(settings.smtp_username, settings.smtp_password)
+            smtp.send_message(message)
+    except OSError as exc:      # server giù, timeout, credenziali rifiutate
+        logger.warning("Email non inviata a %s: %s", message["To"], exc)
+
 
 def send_email(to_email: str, subject: str, body: str, html_body: str | None = None) -> bool:
+    """Mette l'email in coda (o la manda subito nei test). Vero se c'è qualcosa da mandare."""
     settings = get_settings()
     if not settings.smtp_host:
         return False
@@ -21,12 +48,10 @@ def send_email(to_email: str, subject: str, body: str, html_body: str | None = N
     if html_body:
         message.add_alternative(html_body, subtype="html")
 
-    with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=10) as smtp:
-        if settings.smtp_use_tls:
-            smtp.starttls()
-        if settings.smtp_username and settings.smtp_password:
-            smtp.login(settings.smtp_username, settings.smtp_password)
-        smtp.send_message(message)
+    if settings.email_async:
+        _sender.submit(_deliver, message)
+    else:
+        _deliver(message)
     return True
 
 

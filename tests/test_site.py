@@ -137,3 +137,28 @@ def test_internal_navigation_behind_a_proxy_is_not_a_new_visit(client, db_sessio
                 headers=headers)
     row = db_session.query(PageView).one()
     assert (row.referrer, row.views, row.entries) == ("", 1, 0)
+
+
+def test_unique_visitors_are_counted_without_storing_the_ip(client, db_session):
+    from backend.app.models import AnalyticsDay, VisitorDay
+
+    page = {"path": "/", "referrer": "https://google.com/", "width": 390}
+    hit = lambda headers: client.post("/api/analytics/hit", json=page, headers=headers)  # noqa: E731
+    visitor = {**BROWSER, "X-Forwarded-For": "203.0.113.7"}
+    hit(visitor)
+    hit(visitor)                                   # stessa persona, stesso giorno: una sola
+    hit({**BROWSER, "X-Forwarded-For": "203.0.113.9"})
+
+    day = db_session.query(AnalyticsDay).one()
+    assert day.visitors == 2 and day.salt                # il segreto di oggi c'è
+    codes = [row.code for row in db_session.query(VisitorDay).all()]
+    assert len(codes) == 2 and all(len(code) == 32 for code in codes)
+    assert not any("203.0.113" in code for code in codes)   # l'IP non si salva
+
+
+def test_hits_from_other_sites_are_ignored(client, db_session):
+    from backend.app.models import PageView
+
+    client.post("/api/analytics/hit", headers={**BROWSER, "Origin": "https://sito-furbo.example"},
+                json={"path": "/", "referrer": "https://sito-furbo.example/", "width": 390})
+    assert db_session.query(PageView).count() == 0

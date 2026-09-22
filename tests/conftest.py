@@ -1,7 +1,8 @@
 """
 conftest.py — Configurazione globale per pytest.
 
-I test backend usano SQLite in-memory per isolare ogni sessione.
+I test backend girano su SQLite (veloce) o su Postgres, se DATABASE_URL punta
+la': la CI li esegue su entrambi, perche' in produzione c'e' Postgres.
 I load test in tests/load/ vengono esclusi (vedi pyproject.toml).
 """
 import os
@@ -15,6 +16,10 @@ from sqlalchemy.orm import sessionmaker
 os.environ.setdefault("DATABASE_URL", "sqlite:///./test_ci.db")
 os.environ.setdefault("SECRET_KEY", "test-secret-key-at-least-32-chars-long!")
 os.environ.setdefault("APP_ENV", "test")
+# Centinaia di account nei test: con i giri veri di PBKDF2 la suite durerebbe minuti in più.
+os.environ.setdefault("PASSWORD_HASH_ROUNDS", "1000")
+# Le email nei test partono subito: così si verifica l'invio, non la coda.
+os.environ.setdefault("EMAIL_ASYNC", "false")
 
 from backend.app.core.limiter import limiter  # noqa: E402
 from backend.app.db import Base, get_db  # noqa: E402
@@ -25,9 +30,10 @@ limiter.enabled = False
 
 TEST_DATABASE_URL = os.environ["DATABASE_URL"]
 
+# Su Postgres (CI) non esiste check_same_thread: e' roba di SQLite.
 engine = create_engine(
     TEST_DATABASE_URL,
-    connect_args={"check_same_thread": False},
+    connect_args={"check_same_thread": False} if TEST_DATABASE_URL.startswith("sqlite") else {},
 )
 TestingSessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 

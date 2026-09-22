@@ -7,7 +7,8 @@
  * eventi: ogni ricerca è un link da condividere.
  */
 import './lang.js';   // prima di tutto: la lingua (vedi lang.js)
-import { TOKEN_KEY, apiGet, esc, fmtDate, getSession, updateAuthNav } from './catalog.js';
+import { apiGet, esc, fmtDate, getSession, updateAuthNav } from './catalog.js';
+import { apiRequest } from './session.js';
 import { renderDeck } from './deck-view.js';
 import { loadGames } from './games.js';
 import { t as tr } from './i18n.js';
@@ -238,17 +239,18 @@ async function openDeck(id) {
 
 async function saveOpenDeck() {
   if (!_open) return;
-  const token = localStorage.getItem(TOKEN_KEY);
-  const r = await fetch('/api/decks', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({
-      name: `${_open.archetype || tr('Lista')} — ${_open.player_name}`.slice(0, 120),
-      format: _open.format, archetype: _open.archetype, raw_text: _open.raw_text,
-    }),
-  });
-  if (r.ok) toast(tr('Salvata tra le tue liste ✓'));
-  else toast((await r.json().catch(() => ({}))).detail || tr('Salvataggio non riuscito'));
+  try {
+    await apiRequest('/decks', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: `${_open.archetype || tr('Lista')} — ${_open.player_name}`.slice(0, 120),
+        format: _open.format, archetype: _open.archetype, raw_text: _open.raw_text,
+      }),
+    });
+    toast(tr('Salvata tra le tue liste ✓'));
+  } catch (err) {
+    toast(err.message || tr('Salvataggio non riuscito'));
+  }
 }
 
 /* ── Init ──────────────────────────────────────────────────── */

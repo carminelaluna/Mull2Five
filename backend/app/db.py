@@ -89,6 +89,35 @@ def get_db() -> Generator[Session, None, None]:
         db.close()
 
 
+def sync_alembic() -> None:
+    """Porta il database all'ultima revisione Alembic.
+
+    Un database che non ha mai visto Alembic (quello di produzione di oggi, o
+    uno appena creato da create_all) viene solo timbrato con la revisione di
+    partenza: lo schema c'è già. Dalla prossima revisione in poi si applica
+    davvero, e le colonne nuove non si aggiungono più a mano.
+    """
+    import logging
+    from pathlib import Path
+
+    from alembic import command
+    from alembic.config import Config
+    from sqlalchemy import inspect
+
+    root = Path(__file__).resolve().parents[2]
+    config = Config(str(root / "alembic.ini"))
+    config.set_main_option("script_location", str(root / "migrations"))
+    try:
+        with engine.begin() as connection:
+            config.attributes["connection"] = connection
+            if "alembic_version" in inspect(connection).get_table_names():
+                command.upgrade(config, "head")
+            else:
+                command.stamp(config, "head")
+    except Exception as exc:   # noqa: BLE001 — il sito parte comunque, ma si sa
+        logging.getLogger(__name__).error("Migrazioni non applicate: %s", exc)
+
+
 def create_all() -> None:
     # Retry con backoff: allo startup (es. subito dopo `docker-compose up`) il DB
     # può non essere ancora pronto. Senza retry tutti i worker Gunicorn crashano
@@ -105,6 +134,7 @@ def create_all() -> None:
         try:
             Base.metadata.create_all(bind=engine)
             migrate_existing_schema()
+            sync_alembic()
             seed_default_organization()
             seed_store_owners()
             return
@@ -182,6 +212,9 @@ def migrate_existing_schema() -> None:
             add_nullable_column(connection, columns, "users", "guardian_id", "INTEGER")
             add_column(connection, columns, "users", "is_guest", "BOOLEAN", "0")
             add_nullable_column(connection, columns, "users", "terms_accepted_at", "TIMESTAMP WITH TIME ZONE")
+            add_column(connection, columns, "users", "token_version", "INTEGER", "0")
+            add_column(connection, columns, "users", "public_id", "VARCHAR(16)", "''")
+            _fill_public_ids(connection)
 
         if "registrations" in inspector.get_table_names():
             columns = {col["name"] for col in inspector.get_columns("registrations")}
@@ -450,6 +483,18 @@ def add_column(connection, existing_columns, table_name, column_name, column_typ
         text(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type} DEFAULT {default} NOT NULL")
     )
     existing_columns.add(column_name)
+
+
+def _fill_public_ids(connection) -> None:
+    """Un identificativo pubblico agli account che non ce l'hanno ancora."""
+    from backend.app.models import new_public_id
+
+    rows = connection.execute(text("SELECT id FROM users WHERE public_id IS NULL OR public_id = ''")).fetchall()
+    for (user_id,) in rows:
+        connection.execute(
+            text("UPDATE users SET public_id = :pid WHERE id = :id"),
+            {"pid": new_public_id(), "id": user_id},
+        )
 
 
 def add_nullable_column(connection, existing_columns, table_name, column_name, column_type):

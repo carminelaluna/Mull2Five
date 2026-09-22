@@ -12,6 +12,7 @@
 import { onReady } from './lang.js';
 import { esc } from './escape.js';
 import { t as tr } from './i18n.js';
+import { refreshSession } from './session.js';
 
 const NOTICE_KEY = 'mull2five-privacy-notice-v1';
 
@@ -85,6 +86,7 @@ export function stickyCta(source) {
 onReady(() => {
   countVisit();
   privacyNotice();
+  refreshSession();   // il token si rinnova da solo finché si usa il sito
   // Le pagine con una CTA fissa nell'HTML la segnano con data-sticky-cta.
   const marked = document.querySelector('[data-sticky-cta]');
   if (marked) stickyCta(marked);

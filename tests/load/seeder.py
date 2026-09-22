@@ -89,7 +89,6 @@ def main():
                 "DELETE FROM invite_codes WHERE tournament_id IN (SELECT t.id FROM tournaments t JOIN users u ON t.organizer_id = u.id WHERE u.email LIKE '%%@load.test')",
                 # Tournaments e users
                 "DELETE FROM tournaments WHERE organizer_id IN (SELECT id FROM users WHERE email LIKE '%%@load.test')",
-                "DELETE FROM oauth_accounts WHERE user_id IN (SELECT id FROM users WHERE email LIKE '%%@load.test')",
                 "DELETE FROM users WHERE email LIKE '%%@load.test'",
             ]
             for sql in wipe_sql:

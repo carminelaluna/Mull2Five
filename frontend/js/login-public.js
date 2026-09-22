@@ -1,26 +1,11 @@
 import { onReady } from './lang.js';   // prima di tutto: la lingua (vedi lang.js)
 import { busy, clearErrors, fieldError } from './form-state.js';
-const API       = '/api';
-const TOKEN_KEY = 'mull2five-jwt-v1';
-const REDIRECT  = new URLSearchParams(location.search).get('next') || 'my-registrations.html';
+import { apiRequest, getSession, setToken } from './session.js';
 
-/* Il messaggio d'errore del server: una frase, o la lista di FastAPI per i campi non validi. */
-function detailText(err, fallback) {
-  if (Array.isArray(err.detail)) return err.detail.map((d) => d.msg).join(' · ') || fallback;
-  return err.detail || fallback;
-}
-
-function decodeJwt(t) {
-  try { return JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))); }
-  catch { return null; }
-}
+const REDIRECT = new URLSearchParams(location.search).get('next') || 'my-registrations.html';
 
 /* Se già autenticato, vai alla pagina di destinazione */
-const existing = localStorage.getItem(TOKEN_KEY);
-if (existing) {
-  const p = decodeJwt(existing);
-  if (p && p.exp > Date.now() / 1000) location.replace(REDIRECT);
-}
+if (getSession()) location.replace(REDIRECT);
 
 onReady(() => {
   const tabLogin    = document.querySelector('#tabLogin');
@@ -48,20 +33,14 @@ onReady(() => {
     busy(btn, true, 'Accesso in corso…');
     errEl.textContent = '';
     try {
-      const res = await fetch(API + '/auth/login', {
+      const { access_token } = await apiRequest('/auth/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(detailText(err, 'Credenziali non valide.'));
-      }
-      const { access_token } = await res.json();
-      localStorage.setItem(TOKEN_KEY, access_token);
+      setToken(access_token);
       // Senza ?next esplicito, gli organizzatori partono dal back-office.
       const hasNext = new URLSearchParams(location.search).get('next');
-      const role = decodeJwt(access_token)?.role;
+      const role = getSession()?.role;
       location.replace(hasNext ? REDIRECT : (role === 'organizer' || role === 'admin' ? 'organizer.html' : REDIRECT));
     } catch (err) {
       errEl.textContent = err.message;
@@ -97,31 +76,24 @@ onReady(() => {
 
     busy(btn, true, 'Registrazione in corso…');
     try {
-      const res = await fetch(API + '/auth/register', {
+      const { access_token } = await apiRequest('/auth/register', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ display_name: name, email, password, role, age_confirmed: true, terms_accepted: true }),
       });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        // Email già usata: l'errore va sul campo dell'email.
-        if (res.status === 409) { fieldError(document.querySelector('#regEmail'), 'Questa email ha già un account: accedi.'); busy(btn, false); return; }
-        throw new Error(detailText(err, 'Errore durante la registrazione.'));
-      }
-      const { access_token } = await res.json();
-      localStorage.setItem(TOKEN_KEY, access_token);
+      setToken(access_token);
       // Un organizzatore parte dal back-office; un giocatore dalle sue iscrizioni.
       const hasNext = new URLSearchParams(location.search).get('next');
       location.replace(hasNext ? REDIRECT : (role === 'organizer' ? 'organizer.html' : REDIRECT));
     } catch (err) {
-      errEl.textContent = err.message;
+      if (err.status === 409) fieldError(document.querySelector('#regEmail'), 'Questa email ha già un account: accedi.');
+      else errEl.textContent = err.message;
       busy(btn, false);
     }
   });
 });
 
 // L'età minima la decide il server (MIN_ACCOUNT_AGE).
-fetch(API + '/auth/rules').then((r) => r.json()).then((rules) => {
+fetch('/api/auth/rules').then((r) => r.json()).then((rules) => {
   const years = document.querySelector('#regAgeYears');
   if (years && rules.min_account_age) years.textContent = rules.min_account_age;
 }).catch(() => {});

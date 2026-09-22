@@ -1,7 +1,9 @@
 /**
  * Service Worker — Mull2Five.
- * Strategia: cache-first per gli asset statici (aggiornati in background),
- * network-first per l'API. Riceve anche le notifiche Web Push.
+ * Strategia: le pagine HTML dalla rete (la cache solo da offline), cosi' dopo
+ * un aggiornamento non si vede la versione vecchia; i file con l'hash nel nome
+ * (/assets/) dalla cache, perche' a ogni build cambiano nome; l'API dalla rete.
+ * Riceve anche le notifiche Web Push.
  */
 
 const CACHE = 'mull2five-v2';   // nuova versione: le pagine in cache si riscaricano
@@ -43,6 +45,19 @@ self.addEventListener('fetch', e => {
         new Response(JSON.stringify({ detail: 'Offline — dati non disponibili.' }),
           { status: 503, headers: { 'Content-Type': 'application/json' } })
       )
+    );
+    return;
+  }
+
+  /* Pagine: prima la rete, la cache solo come rete di sicurezza offline. */
+  if (e.request.mode === 'navigate' || e.request.destination === 'document') {
+    e.respondWith(
+      fetch(e.request)
+        .then((resp) => {
+          if (resp.ok) caches.open(CACHE).then((c) => c.put(e.request, resp.clone()));
+          return resp;
+        })
+        .catch(() => caches.match(e.request).then((cached) => cached || caches.match('/index.html')))
     );
     return;
   }

@@ -12,18 +12,17 @@ class Settings(BaseSettings):
     app_url: AnyHttpUrl = "http://127.0.0.1:8000"
     frontend_url: AnyHttpUrl = "http://127.0.0.1:8000"
     secret_key: str = Field(default="dev-secret-change-me", min_length=16)
-    access_token_minutes: int = 60 * 24 * 7
+    # Tre giorni: chi usa il sito resta dentro perché il token si rinnova da solo
+    # (POST /auth/refresh, da js/session.js); chi sparisce per giorni rientra.
+    access_token_minutes: int = 60 * 24 * 3
+    # Giri di PBKDF2-SHA256 per le password nuove; quelle con meno giri si
+    # rifanno al login (security.password_needs_rehash).
+    password_hash_rounds: int = 200_000
     database_url: str = "sqlite:///./mull2five.db"
     # Cartella della build Vite da servire su "/". La imposta il Dockerfile; in
     # sviluppo resta vuota e le pagine le serve Vite.
     frontend_dist: str | None = None
 
-    google_client_id: str | None = None
-    google_client_secret: str | None = None
-    apple_client_id: str | None = None
-    apple_team_id: str | None = None
-    apple_key_id: str | None = None
-    apple_private_key_path: str | None = None
 
     stripe_secret_key: str | None = None
     stripe_webhook_secret: str | None = None
@@ -53,6 +52,8 @@ class Settings(BaseSettings):
     smtp_username: str | None = None
     smtp_password: str | None = None
     smtp_from_email: str = "noreply@mull2five.local"
+    # L'invio parte su un thread a parte: la richiesta non aspetta il server SMTP.
+    email_async: bool = True
     smtp_use_tls: bool = True
 
     # Redis: cache distribuita + lockout condiviso tra worker/istanze.

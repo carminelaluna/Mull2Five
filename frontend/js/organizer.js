@@ -6,49 +6,21 @@
  * ogni postazione vede gli stessi dati in tempo reale (refresh su ogni azione).
  */
 import { onReady } from './lang.js';   // prima di tutto: la lingua (vedi lang.js)
-import { EVENT_TYPES, RELS, typeLabel } from './catalog.js';
+import { EVENT_TYPES, RELS, toast, typeLabel } from './catalog.js';
 import { mountConsole } from './console.js';
 import { renderDeck } from './deck-view.js';
 import { esc } from './escape.js';
 import { bestOfLabel, gameInfo, gameLabel, loadGames, tiebreakerColumns } from './games.js';
 import { t as tr } from './i18n.js';
+import { apiRequest, logout, requireSession } from './session.js';
 
-const API       = '/api';
-const TOKEN_KEY = 'mull2five-jwt-v1';
-const token     = localStorage.getItem(TOKEN_KEY);
-if (!token) location.replace('login.html?next=organizer.html');
-
-function decodeJwt(t) {
-  try { return JSON.parse(atob(t.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))); }
-  catch { return null; }
-}
-const session = decodeJwt(token);
-if (!session || session.exp < Date.now() / 1000) {
-  localStorage.removeItem(TOKEN_KEY); location.replace('login.html?next=organizer.html');
-}
-
-async function apiFetch(path, opts = {}) {
-  const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, ...(opts.headers || {}) };
-  const r = await fetch(API + path, { ...opts, headers });
-  if (r.status === 401) { localStorage.removeItem(TOKEN_KEY); location.replace('login.html'); return; }
-  if (!r.ok) {
-    const detail = (await r.json().catch(() => ({}))).detail;
-    // Un 404 con "Not Found" generico = route assente: backend probabilmente non aggiornato.
-    if (r.status === 404 && (!detail || detail === 'Not Found')) {
-      throw new Error('Endpoint non trovato: riavvia il backend (potrebbe eseguire una versione vecchia).');
-    }
-    const err = new Error(detail || r.statusText);
-    err.status = r.status;
-    throw err;
-  }
-  return r.status === 204 ? null : r.json();
-}
+// Pagina riservata: senza sessione valida si va al login, e poi si torna qui.
+const session = requireSession();
+const apiFetch = (path, opts = {}) => apiRequest(path, { requireLogin: true, ...opts });
 
 const $   = (s) => document.querySelector(s);
 const money = (c, cur = 'EUR') => ((c || 0) / 100).toLocaleString('it-IT', { style: 'currency', currency: cur });
 const fmtDate = (d) => d ? d.substring(0, 10).split('-').reverse().join('/') : '—';
-function toast(m) { const e = $('#toast'); e.textContent = m; e.classList.add('show'); clearTimeout(e._t); e._t = setTimeout(() => e.classList.remove('show'), 3000); }
-
 let _section = 'eventi';     // eventi | community | negozio
 let _myStores = new Set();   // slug dei negozi di cui si fa parte
 let _suspendSlug = null;     // il negozio del torneo aperto, se lo si gestisce: da lì si sospende
@@ -71,10 +43,10 @@ const EVENT_TABS = [
 
 async function init() {
   $('#publicAuth').innerHTML =
-    `<a class="secondary-link" href="player.html?email=${encodeURIComponent(session.email)}">Profilo</a>
+    `<a class="secondary-link" href="player.html?p=${encodeURIComponent(session.pid || '')}">Profilo</a>
      <span style="color:var(--muted);font-size:.85rem">${esc(session.email)}</span>
      <button class="secondary-link" id="logoutBtn" type="button">Esci</button>`;
-  $('#logoutBtn').addEventListener('click', () => { localStorage.removeItem(TOKEN_KEY); location.replace('index.html'); });
+  $('#logoutBtn').addEventListener('click', () => logout('index.html'));
 
   document.querySelectorAll('.bo-nav-item').forEach(b =>
     b.addEventListener('click', () => {
@@ -2134,8 +2106,9 @@ function bindAnalyticsPanel() {
       const bars = a.days.map((d) => `<div class="an-bar" title="${esc(fmtDate(d.day))}: ${d.views}" style="--h:${Math.round((d.views / max) * 100)}%"></div>`).join('');
       $('#anBody').innerHTML = `
         <div class="an-totals">
-          <div><strong>${a.total_views}</strong><span>${esc(tr('pagine viste'))}</span></div>
+          <div><strong>${a.total_visitors}</strong><span>${esc(tr('persone'))}</span></div>
           <div><strong>${a.total_entries}</strong><span>${esc(tr('visite'))}</span></div>
+          <div><strong>${a.total_views}</strong><span>${esc(tr('pagine viste'))}</span></div>
         </div>
         <div class="an-chart" role="img" aria-label="${esc(tr('Pagine viste per giorno'))}">${bars}</div>
         <div class="an-cols">

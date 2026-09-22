@@ -1,3 +1,4 @@
+import secrets
 from datetime import UTC, date, datetime, time, timedelta
 from enum import StrEnum
 
@@ -343,6 +344,11 @@ class SavedDeck(Base):
     updated_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
 
 
+def new_public_id() -> str:
+    """L'identificativo del profilo pubblico: dodici caratteri casuali."""
+    return secrets.token_urlsafe(9)[:12]
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -351,10 +357,16 @@ class User(Base):
         ForeignKey("organizations.id", ondelete="SET NULL"), nullable=True
     )
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    # L'indirizzo del profilo pubblico: casuale, così un link condiviso non
+    # rivela l'email e non si possono cercare le persone per indirizzo.
+    public_id: Mapped[str] = mapped_column(String(16), unique=True, index=True, default=new_public_id)
     display_name: Mapped[str] = mapped_column(String(160))
     role: Mapped[str] = mapped_column(String(32), default=UserRole.PLAYER)
     password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Aumenta quando cambia la password o si esce da tutti i dispositivi: i token
+    # emessi prima (che portano la versione vecchia) smettono di valere.
+    token_version: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     # Quando ha accettato termini e informativa privacy alla registrazione.
     terms_accepted_at: Mapped[datetime | None] = mapped_column(UtcDateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
@@ -367,7 +379,6 @@ class User(Base):
     is_guest: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
 
     guardian: Mapped["User | None"] = relationship(remote_side="User.id", foreign_keys=[guardian_id])
-    oauth_accounts: Mapped[list["OAuthAccount"]] = relationship(back_populates="user")
     tournaments: Mapped[list["Tournament"]] = relationship(back_populates="organizer")
     registrations: Mapped[list["Registration"]] = relationship(
         back_populates="player", foreign_keys="Registration.player_id"
@@ -392,19 +403,6 @@ class PushSubscription(Base):
     created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
 
     user: Mapped[User] = relationship(back_populates="push_subscriptions")
-
-
-class OAuthAccount(Base):
-    __tablename__ = "oauth_accounts"
-    __table_args__ = (UniqueConstraint("provider", "provider_user_id"),)
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
-    provider: Mapped[str] = mapped_column(String(32))
-    provider_user_id: Mapped[str] = mapped_column(String(255))
-    created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
-
-    user: Mapped[User] = relationship(back_populates="oauth_accounts")
 
 
 class Tournament(Base):
@@ -939,3 +937,25 @@ class PageView(Base):
     views: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     # Le pagine da cui si entra nel sito: una per visita.
     entries: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+
+
+class AnalyticsDay(Base):
+    """Il giorno delle statistiche: il segreto con cui si calcolano i codici dei
+    visitatori e quanti ne sono arrivati. Il segreto si cancella il giorno dopo,
+    così i codici rimasti non riportano più a nessuno."""
+    __tablename__ = "analytics_days"
+
+    day: Mapped[date] = mapped_column(Date, primary_key=True)
+    salt: Mapped[str] = mapped_column(String(64), default="", server_default="")
+    visitors: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+
+
+class VisitorDay(Base):
+    """Un codice per visitatore e per giorno, per non contarlo due volte.
+    Non contiene IP né user agent: solo l'impronta con il segreto del giorno."""
+    __tablename__ = "visitor_days"
+    __table_args__ = (UniqueConstraint("day", "code", name="uq_visitor_days"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    day: Mapped[date] = mapped_column(Date, index=True)
+    code: Mapped[str] = mapped_column(String(32))

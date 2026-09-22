@@ -9,20 +9,9 @@
 import { onReady } from './lang.js';   // prima di tutto: la lingua (vedi lang.js)
 import { mountConsole } from './console.js';
 import { esc } from './escape.js';
+import { logout, requireSession } from './session.js';
 
-const TOKEN_KEY = 'mull2five-jwt-v1';
-const token = localStorage.getItem(TOKEN_KEY);
-if (!token) location.replace('login.html?next=control.html');
-
-function decodeJwt(t) {
-  try { return JSON.parse(atob(t.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))); }
-  catch { return null; }
-}
-const session = decodeJwt(token);
-if (!session || session.exp < Date.now() / 1000) {
-  localStorage.removeItem(TOKEN_KEY);
-  location.replace('login.html?next=control.html');
-}
+const session = requireSession();
 
 const $ = (s) => document.querySelector(s);
 
@@ -37,10 +26,7 @@ async function init() {
   $('#publicAuth').innerHTML =
     `<span style="color:var(--muted);font-size:.85rem">${esc(session.email)}</span>
      <button class="secondary-link" id="logoutBtn" type="button">Esci</button>`;
-  $('#logoutBtn').addEventListener('click', () => {
-    localStorage.removeItem(TOKEN_KEY);
-    location.replace('index.html');
-  });
+  $('#logoutBtn').addEventListener('click', () => logout('index.html'));
 
   let mine = [];
   try {

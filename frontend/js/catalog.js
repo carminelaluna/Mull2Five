@@ -8,8 +8,12 @@
 import { esc } from './escape.js';
 import { gameLabel } from './games.js';
 import { t as tr } from './i18n.js';
+import { TOKEN_KEY, errorText, getSession, getToken, logout } from './session.js';
+
 export const API = '/api';
-export const TOKEN_KEY = 'mull2five-jwt-v1';
+// La sessione la tiene session.js: qui si riespongono perché le pagine
+// pubbliche importano tutto da catalog.
+export { TOKEN_KEY, getSession };
 
 export const EVENT_TYPES = [
   { value: 'locals',             label: 'Serate di gioco' },
@@ -63,24 +67,25 @@ export function fmtMoney(cents) {
 }
 
 export async function apiGet(path) {
-  const token = localStorage.getItem(TOKEN_KEY);
+  const token = getToken();
   const r = await fetch(API + path, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
-  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.statusText);
+  if (!r.ok) throw new Error(errorText((await r.json().catch(() => ({}))).detail, r.statusText));
   return r.json();
 }
 
-/* ── Sessione e barra di navigazione ───────────────────────── */
-
-export function getSession() {
-  const t = localStorage.getItem(TOKEN_KEY);
-  if (!t) return null;
-  try {
-    const claims = JSON.parse(atob(t.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
-    return claims.exp > Date.now() / 1000 ? claims : null;
-  } catch { return null; }
+/* Il messaggio in basso: una riga, e sparisce da solo. */
+export function toast(message, ms = 3200) {
+  const el = document.querySelector('#toast');
+  if (!el) return;
+  el.textContent = message;
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), ms);
 }
+
+/* ── Barra di navigazione ──────────────────────────────────── */
 
 export function updateAuthNav() {
   const el = document.querySelector('#publicAuth');
@@ -93,10 +98,7 @@ export function updateAuthNav() {
        <button class="secondary-link" id="logoutBtn" type="button">Esci</button>`
     : `<a class="secondary-link" href="login.html">Accedi</a>
        <a class="primary-btn" href="login.html">Registrati</a>`;
-  el.querySelector('#logoutBtn')?.addEventListener('click', () => {
-    localStorage.removeItem(TOKEN_KEY);
-    location.reload();
-  });
+  el.querySelector('#logoutBtn')?.addEventListener('click', () => logout());
 }
 
 /* ── Schede ────────────────────────────────────────────────── */

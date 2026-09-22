@@ -158,7 +158,7 @@ make test
 │   ├── e2e/              # Playwright
 │   └── *.html            # una pagina per sezione
 ├── tests/                # pytest; tests/load/ per i test di carico (Locust)
-├── scripts/              # dev.sh, backup_db.sh, dati di prova
+├── scripts/              # dev.sh, dati di prova
 ├── .github/workflows/    # CI e backup notturno cifrato
 ├── Dockerfile            # immagine unica: build del frontend + backend
 ├── docker-compose.yml    # PostgreSQL e Redis in locale

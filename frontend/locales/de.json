@@ -969,5 +969,8 @@
   "Da dove arrivano": "Woher sie kommen",
   "Diretto": "Direkt",
   "Schermi": "Bildschirme",
-  "Logo di {nome}": "Logo von {nome}"
+  "Logo di {nome}": "Logo von {nome}",
+  "Esci da tutti i dispositivi": "Überall abmelden",
+  "Chiude le sessioni aperte altrove: utile se hai usato un computer non tuo.": "Schließt anderswo offene Sitzungen: nützlich, wenn du einen fremden Computer benutzt hast.",
+  "Sei uscito da tutti i dispositivi.": "Du bist überall abgemeldet."
 }

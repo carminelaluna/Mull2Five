@@ -945,5 +945,8 @@
   "Da dove arrivano": "De dónde llegan",
   "Diretto": "Directo",
   "Schermi": "Pantallas",
-  "Logo di {nome}": "Logotipo de {nome}"
+  "Logo di {nome}": "Logotipo de {nome}",
+  "Esci da tutti i dispositivi": "Cerrar sesión en todos los dispositivos",
+  "Chiude le sessioni aperte altrove: utile se hai usato un computer non tuo.": "Cierra las sesiones abiertas en otros sitios: útil si has usado un ordenador que no es tuyo.",
+  "Sei uscito da tutti i dispositivi.": "Has cerrado sesión en todos los dispositivos."
 }
