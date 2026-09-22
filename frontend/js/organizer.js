@@ -85,8 +85,15 @@ async function init() {
       render();
     }));
 
+  // ?sezione=negozio apre il Negozio: ci si torna da Stripe dopo aver collegato l'account.
+  const params = new URLSearchParams(location.search);
+  const section = document.querySelector(`.bo-nav-item[data-section="${CSS.escape(params.get('sezione') || '')}"]`);
+  if (section) {
+    _section = section.dataset.section;
+    document.querySelectorAll('.bo-nav-item').forEach((x) => x.classList.toggle('active', x === section));
+  }
   // ?t=ID apre direttamente quell'evento: ci si arriva dai link della regia.
-  const wanted = new URLSearchParams(location.search).get('t');
+  const wanted = params.get('t');
   await loadTournaments();
   // Passa da openEvent, cosi il link profondo prende la stessa scheda di default
   // di un clic sulla scheda dell'evento.
@@ -1739,11 +1746,13 @@ async function renderNegozio() {
   }
   if (!org) { $('#panel').innerHTML = '<p class="empty">Nessun negozio configurato.</p>'; return; }
   const slug = encodeURIComponent(org.slug);
-  const [locations, members, stores, apiKeys] = await Promise.all([
+  const owner = org.my_role === 'owner';
+  const [locations, members, stores, apiKeys, payments] = await Promise.all([
     myLocations().catch(() => []),
     apiFetch(`/organizations/${slug}/members`).catch(() => []),
     apiFetch('/organizations/memberships').catch(() => []),
-    org.my_role === 'owner' ? apiFetch(`/organizations/${slug}/api-keys`).catch(() => []) : [],
+    owner ? apiFetch(`/organizations/${slug}/api-keys`).catch(() => []) : [],
+    owner ? apiFetch(`/organizations/${slug}/payments`).catch(() => null) : null,
   ]);
 
   $('#panel').innerHTML = `${storeSwitcher(stores)}
@@ -1770,12 +1779,14 @@ async function renderNegozio() {
     </form>
   </div>
   ${locationsPanel(locations)}
+  ${paymentsPanel(org, payments)}
   ${staffPanel(org, members)}
   ${apiPanel(org, apiKeys)}`;
   bindStoreSwitcher();
   bindLocationsPanel(org, locations);
   bindStaffPanel(org, members);
   bindApiPanel(org);
+  bindPaymentsPanel(org);
 
   $('#sGeocode').addEventListener('click', async () => {
     const q = [$('#sAddr').value, $('#sCity').value].filter(Boolean).join(', ');
@@ -1901,6 +1912,88 @@ function staffPanel(org, members) {
       <p class="muted" style="grid-column:1/-1;margin:0;font-size:.82rem">${esc(tr('Deve avere già un account. Se era solo giocatore, diventa organizzatore.'))}</p>
     </form>` : ''}
   </div>`;
+}
+
+/* ── Incassi online ──────────────────────────────────────
+   Dove arrivano le quote pagate online: il conto Stripe del negozio (carta,
+   con Stripe Connect) e la sua email PayPal. Li gestisce il titolare. */
+function paymentsPanel(org, pay) {
+  if (org.my_role !== 'owner' || !pay) return '';
+  const [stateLabel, stateClass] = {
+    none: [tr('Non collegato'), ''], pending: [tr('Da completare'), 'warn'], active: [tr('Attivo'), 'ok'],
+  }[pay.stripe_status] || ['', ''];
+  let stripeActions;
+  if (!pay.stripe_available) {
+    stripeActions = `<span class="muted">${esc(tr('Stripe non è configurato sul server.'))}</span>`;
+  } else if (pay.stripe_status === 'none') {
+    stripeActions = `<button class="primary" id="stripeConnect" type="button">${esc(tr('Collega Stripe'))}</button>`;
+  } else {
+    stripeActions = `${pay.stripe_status === 'pending' ? `<button class="primary" id="stripeConnect" type="button">${esc(tr('Completa la configurazione'))}</button>` : ''}
+      <button class="secondary" id="stripeDashboard" type="button">${esc(tr('Dashboard Stripe ↗'))}</button>
+      <button class="secondary danger-outline" id="stripeDisconnect" type="button">${esc(tr('Scollega'))}</button>`;
+  }
+  const fee = pay.platform_fee_percent ? ` ${tr('Commissione della piattaforma: {n}%.', { n: pay.platform_fee_percent })}` : '';
+  return `<div class="panel" style="margin-top:16px">
+    <h3>${esc(tr('Incassi online'))}</h3>
+    <p class="muted" style="margin-top:0;font-size:.85rem">${esc(tr('Collega i conti del negozio e le quote pagate online arrivano a te. Senza, arrivano al conto della piattaforma.') + fee)}</p>
+    <div class="pay-rows">
+      <div class="pay-row">
+        <span class="pay-label">Stripe</span>
+        ${pay.stripe_available
+          ? `<span><span class="pill ${stateClass}">${esc(stateLabel)}</span></span><span class="pay-actions">${stripeActions}</span>`
+          : `<span style="grid-column:2/-1">${stripeActions}</span>`}
+      </div>
+      <form class="pay-row pay-row-form" id="paypalForm">
+        <span class="pay-label">PayPal</span>
+        <input id="paypalEmail" type="email" maxlength="254" placeholder="${esc(tr('email del conto PayPal del negozio'))}" value="${esc(pay.paypal_email || '')}" />
+        <button class="secondary" type="submit">${esc(tr('Salva'))}</button>
+      </form>
+    </div>
+    <p class="muted" style="margin:10px 0 0;font-size:.82rem">${esc(tr('I rimborsi con carta partono da qui e riprendono il bonifico al negozio; quelli PayPal li fai dal conto PayPal del negozio.'))}</p>
+  </div>`;
+}
+
+function bindPaymentsPanel(org) {
+  const base = `/organizations/${encodeURIComponent(org.slug)}`;
+  $('#stripeConnect')?.addEventListener('click', async () => {
+    try {
+      const { url } = await apiFetch(`${base}/stripe/connect`, { method: 'POST' });
+      location.href = url;
+    } catch (err) { toast('Errore: ' + err.message); }
+  });
+  $('#stripeDashboard')?.addEventListener('click', async () => {
+    try {
+      const { url } = await apiFetch(`${base}/stripe/dashboard`, { method: 'POST' });
+      window.open(url, '_blank', 'noopener');
+    } catch (err) { toast('Errore: ' + err.message); }
+  });
+  $('#stripeDisconnect')?.addEventListener('click', async () => {
+    if (!confirm(tr('Scollegare Stripe? I nuovi pagamenti con carta andranno al conto della piattaforma.'))) return;
+    try {
+      await apiFetch(`${base}/stripe`, { method: 'DELETE' });
+      toast(tr('Stripe scollegato.'));
+      renderNegozio();
+    } catch (err) { toast('Errore: ' + err.message); }
+  });
+  $('#paypalForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    try {
+      await apiFetch(`${base}/paypal`, { method: 'PUT', body: JSON.stringify({ paypal_email: $('#paypalEmail').value.trim() }) });
+      toast(tr('Salvato.'));
+    } catch (err) { toast('Errore: ' + err.message); }
+  });
+  // Di ritorno da Stripe: si chiede subito se l'account può incassare.
+  const back = new URLSearchParams(location.search).get('stripe');
+  if (back) {
+    history.replaceState(null, '', location.pathname);
+    apiFetch(`${base}/stripe/refresh`, { method: 'POST' })
+      .then((pay) => {
+        toast(pay.stripe_status === 'active' ? tr('Stripe collegato: i pagamenti con carta arrivano al negozio.')
+          : tr('Stripe non ha ancora finito le verifiche: riprova tra poco.'));
+        renderNegozio();
+      })
+      .catch((err) => toast('Errore: ' + err.message));
+  }
 }
 
 /* ── API pubblica ────────────────────────────────────────

@@ -25,6 +25,7 @@ from backend.app.models import (
     Decklist,
     Event,
     EventStaff,
+    Organization,
     Registration,
     RulesEnforcementLevel,
     StaffRole,
@@ -77,6 +78,8 @@ class WarningContext:
     suspended: dict[int, list[str]] = field(default_factory=dict)
     # tournament_id -> nomi di chi non ha dato l'ID all'editore (solo eventi ufficiali)
     missing_ids: dict[int, list[str]] = field(default_factory=dict)
+    # I negozi dei tornei: servono a sapere dove vanno gli incassi online.
+    stores: dict[int, Organization] = field(default_factory=dict)
 
 
 def build_context(tournaments: list[Tournament], db: Session) -> WarningContext:
@@ -133,6 +136,10 @@ def build_context(tournaments: list[Tournament], db: Session) -> WarningContext:
     ).all()
     for tid, name in suspended:
         ctx.suspended.setdefault(tid, []).append(name)
+
+    store_ids = {t.organization_id for t in tournaments if t.organization_id}
+    if store_ids:
+        ctx.stores = {o.id: o for o in db.scalars(select(Organization).where(Organization.id.in_(store_ids)))}
 
     official = [t.id for t in tournaments if t.event_type in OFFICIAL_EVENT_TYPES or t.invites]
     if official:
@@ -204,6 +211,13 @@ def tournament_warnings(
                 f"La scadenza delle liste ({deadline:%d/%m %H:%M}) è dopo l'inizio del torneo. "
                 "All'avvio le liste si chiudono comunque: ai giocatori stai mostrando "
                 "una scadenza che non vale.")
+
+    store = ctx.stores.get(tournament.organization_id)
+    if (not_started and tournament.entry_fee_cents > 0 and tournament.pay_stripe and settings.stripe_secret_key
+            and store and not store.is_default and not (store.stripe_account_id and store.stripe_charges_enabled)):
+        add("store_stripe_not_connected", "info",
+            "I pagamenti con carta arrivano al conto della piattaforma: collega Stripe "
+            "dalla sezione Negozio perché arrivino al tuo.")
 
     total, missing = ctx.decklists.get(tournament.id, (0, 0))
     if not_started and tournament.decklist_required and missing:

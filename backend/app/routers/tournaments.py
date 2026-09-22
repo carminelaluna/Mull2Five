@@ -2612,13 +2612,16 @@ async def checkout(
         db.refresh(payment)
         return payment
 
+    # L'incasso va al negozio del torneo, se ha collegato i suoi conti.
+    store = db.get(Organization, tournament.organization_id) if tournament.organization_id else None
     session = (
-        await create_stripe_checkout(registration)
+        await create_stripe_checkout(registration, store)
         if payload.provider == "stripe"
-        else await create_paypal_checkout(registration)
+        else await create_paypal_checkout(registration, store)
     )
     payment.provider_checkout_id = session.provider_checkout_id
     payment.checkout_url = session.checkout_url
+    payment.payee = session.payee
     db.commit()
     db.refresh(payment)
     return payment
@@ -2677,7 +2680,11 @@ async def decide_refund(
     settings = get_settings()
     if payment.provider == "stripe" and settings.stripe_secret_key and payment.provider_payment_id:
         stripe.api_key = settings.stripe_secret_key
-        stripe.Refund.create(payment_intent=payment.provider_payment_id)
+        # Pagato al negozio: il rimborso riprende il bonifico e restituisce la quota della piattaforma.
+        store_paid = {"reverse_transfer": True, "refund_application_fee": True} if payment.payee.startswith("stripe:") else {}
+        stripe.Refund.create(payment_intent=payment.provider_payment_id, **store_paid)
+    elif payment.provider == "paypal" and payment.payee.startswith("paypal:"):
+        pass   # l'incasso è sul PayPal del negozio: il rimborso lo fa il negozio da lì, qui si registra
     elif payment.provider == "paypal" and not settings.payment_sandbox_mock:
         await refund_paypal_capture(payment.provider_payment_id)
 

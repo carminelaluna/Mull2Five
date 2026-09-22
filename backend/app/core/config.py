@@ -31,6 +31,9 @@ class Settings(BaseSettings):
     paypal_client_secret: str | None = None
     paypal_env: str = "sandbox"
     payment_sandbox_mock: bool = True
+    # Quota della piattaforma sui pagamenti con carta che vanno a un negozio con
+    # Stripe collegato (0 = tutto al negozio, meno le commissioni di Stripe).
+    platform_fee_percent: float = 0.0
 
     smtp_host: str | None = None
     smtp_port: int = 587

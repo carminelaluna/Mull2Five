@@ -6,11 +6,13 @@ li vede e li crea tutti.
 import re
 from datetime import UTC, date, datetime
 
+import stripe
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import case, select
 from sqlalchemy.orm import Session
 
 from backend.app.core.clock import local_today
+from backend.app.core.config import get_settings
 from backend.app.core.tenant import resolve_org
 from backend.app.db import get_db
 from backend.app.models import (
@@ -39,7 +41,10 @@ from backend.app.schemas import (
     StoreMemberOut,
     StoreMemberRoleIn,
     StoreMembershipOut,
+    StorePaymentsOut,
+    StorePaypalIn,
     StoreProfileOut,
+    StripeLinkOut,
     SuspensionIn,
     SuspensionOut,
 )
@@ -338,6 +343,101 @@ def delete_location(
     db.delete(location)
     db.commit()
     _forget_tournaments()
+
+
+# ── Incassi online del negozio ────────────────────────────
+# Stripe Connect (account Express): il titolare collega il suo account e i
+# pagamenti con carta dei tornei del negozio arrivano lì. PayPal: gli ordini
+# hanno come beneficiario l'email PayPal del negozio.
+
+def _payments_owner_store(slug: str, user: User, db: Session) -> Organization:
+    org = _store(slug, db)
+    if not is_store_owner(user, org.id, db):
+        raise HTTPException(status_code=403, detail="Gli incassi del negozio li gestisce il titolare")
+    return org
+
+
+def _payments_out(org: Organization) -> StorePaymentsOut:
+    settings = get_settings()
+    status = "none" if not org.stripe_account_id else ("active" if org.stripe_charges_enabled else "pending")
+    return StorePaymentsOut(
+        stripe_available=bool(settings.stripe_secret_key), stripe_status=status,
+        stripe_account_id=org.stripe_account_id, paypal_email=org.paypal_email,
+        platform_fee_percent=settings.platform_fee_percent,
+    )
+
+
+def _stripe_client() -> None:
+    settings = get_settings()
+    if not settings.stripe_secret_key:
+        raise HTTPException(status_code=503, detail="Stripe non è configurato sul server")
+    stripe.api_key = settings.stripe_secret_key
+
+
+@router.get("/{slug}/payments", response_model=StorePaymentsOut)
+def store_payments(slug: str, user: User = Depends(require_organizer), db: Session = Depends(get_db)) -> StorePaymentsOut:
+    return _payments_out(_payments_owner_store(slug, user, db))
+
+
+@router.post("/{slug}/stripe/connect", response_model=StripeLinkOut)
+def connect_stripe(slug: str, user: User = Depends(require_organizer), db: Session = Depends(get_db)) -> StripeLinkOut:
+    """Il link per collegare (o finire di configurare) l'account Stripe del negozio."""
+    org = _payments_owner_store(slug, user, db)
+    _stripe_client()
+    if not org.stripe_account_id:
+        account = stripe.Account.create(
+            type="express", country="IT", email=user.email,
+            business_profile={"name": org.name},
+            capabilities={"card_payments": {"requested": True}, "transfers": {"requested": True}},
+            metadata={"organization_id": str(org.id)},
+        )
+        org.stripe_account_id = account.id
+        org.stripe_charges_enabled = False
+        db.commit()
+    back = f"{str(get_settings().frontend_url).rstrip('/')}/organizer.html?sezione=negozio"
+    link = stripe.AccountLink.create(account=org.stripe_account_id, refresh_url=f"{back}&stripe=refresh",
+                                     return_url=f"{back}&stripe=return", type="account_onboarding")
+    return StripeLinkOut(url=link.url)
+
+
+@router.post("/{slug}/stripe/refresh", response_model=StorePaymentsOut)
+def refresh_stripe(slug: str, user: User = Depends(require_organizer), db: Session = Depends(get_db)) -> StorePaymentsOut:
+    """Al ritorno da Stripe: l'account può già incassare?"""
+    org = _payments_owner_store(slug, user, db)
+    if org.stripe_account_id:
+        _stripe_client()
+        org.stripe_charges_enabled = bool(stripe.Account.retrieve(org.stripe_account_id).charges_enabled)
+        db.commit()
+    return _payments_out(org)
+
+
+@router.post("/{slug}/stripe/dashboard", response_model=StripeLinkOut)
+def stripe_dashboard(slug: str, user: User = Depends(require_organizer), db: Session = Depends(get_db)) -> StripeLinkOut:
+    """La dashboard Stripe del negozio: incassi, bonifici, rimborsi."""
+    org = _payments_owner_store(slug, user, db)
+    if not org.stripe_account_id:
+        raise HTTPException(status_code=409, detail="Stripe non è collegato")
+    _stripe_client()
+    return StripeLinkOut(url=stripe.Account.create_login_link(org.stripe_account_id).url)
+
+
+@router.delete("/{slug}/stripe", status_code=204)
+def disconnect_stripe(slug: str, user: User = Depends(require_organizer), db: Session = Depends(get_db)) -> None:
+    """Scollega l'account: i pagamenti tornano alla piattaforma. L'account su Stripe resta del negozio."""
+    org = _payments_owner_store(slug, user, db)
+    org.stripe_account_id = ""
+    org.stripe_charges_enabled = False
+    db.commit()
+
+
+@router.put("/{slug}/paypal", response_model=StorePaymentsOut)
+def set_store_paypal(
+    slug: str, payload: StorePaypalIn, user: User = Depends(require_organizer), db: Session = Depends(get_db),
+) -> StorePaymentsOut:
+    org = _payments_owner_store(slug, user, db)
+    org.paypal_email = payload.paypal_email.strip().lower()
+    db.commit()
+    return _payments_out(org)
 
 
 # ── Chiavi dell'API pubblica ──────────────────────────────

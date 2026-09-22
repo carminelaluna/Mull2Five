@@ -220,6 +220,9 @@ def migrate_existing_schema() -> None:
             add_nullable_column(connection, columns, "organizations", "latitude",  "FLOAT")
             add_nullable_column(connection, columns, "organizations", "longitude", "FLOAT")
             add_column(connection, columns, "organizations", "is_premium",  "BOOLEAN", "0")
+            add_column(connection, columns, "organizations", "stripe_account_id", "VARCHAR(64)", "''")
+            add_column(connection, columns, "organizations", "stripe_charges_enabled", "BOOLEAN", "0")
+            add_column(connection, columns, "organizations", "paypal_email", "VARCHAR(254)", "''")
 
         if "seasons" in inspector.get_table_names():
             columns = {col["name"] for col in inspector.get_columns("seasons")}
@@ -257,6 +260,7 @@ def migrate_existing_schema() -> None:
             columns = {col["name"] for col in inspector.get_columns("payments")}
             add_column(connection, columns, "payments", "refund_reason", "TEXT", "''")
             add_nullable_column(connection, columns, "payments", "refund_requested_at", "DATETIME")
+            add_column(connection, columns, "payments", "payee", "VARCHAR(300)", "''")
 
         # Indici per le query più frequenti durante il carico
         _ensure_index(connection, "idx_registrations_tournament", "registrations", "tournament_id")

@@ -1001,3 +1001,14 @@ table.meta-table { min-width: 0; }
 /* Il selettore della lingua in fondo all'header: piccolo, come i link del profilo. */
 .public-header .lang-select { width: auto; flex: none; min-height: 0; padding: 5px 8px; border-radius: 8px; background: transparent; color: var(--muted); font-size: .82rem; font-weight: 700; }
 .public-header .lang-select:hover { color: var(--ink); }
+
+/* Incassi online del negozio: un conto per riga, etichetta, stato e azioni allineati. */
+.pay-rows { display: grid; gap: 10px; }
+.pay-row { display: grid; grid-template-columns: 90px auto minmax(0, 1fr); align-items: center; gap: 12px; }
+.pay-row-form { grid-template-columns: 90px minmax(0, 1fr) auto; margin: 0; }
+.pay-label { color: var(--muted); font-size: .78rem; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; }
+.pay-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+@media (max-width: 640px) {
+  .pay-row, .pay-row-form { grid-template-columns: 1fr; }
+  .pay-actions { justify-content: flex-start; }
+}

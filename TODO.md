@@ -207,7 +207,7 @@ pagamenti ai negozi in fondo, sono il pezzo più grosso.
 - [x] 20. ID dell'editore e programmi ufficiali: ID evento (EventLink) e inviti (1 negli RCQ), report ufficiale con ID dei giocatori e inviti (anche CSV), ID completabile da staff e giocatore, avviso per gli ID mancanti, ID riproposto all'iscrizione e inviti sul profilo pubblico
 - [x] 21. API pubblica con chiavi: chiavi del negozio create e revocate dal titolare (solo l'hash nel database, la chiave si vede una volta), /api/v1 in sola lettura per tornei, iscritti (senza dati personali), abbinamenti e classifiche, limite di richieste per chiave
 - [x] 22. Interfaccia in 5 lingue (italiano, inglese, spagnolo, francese, tedesco): selettore nell'header, dizionari con circa 850 voci per lingua, traduzione automatica del markup e dei testi disegnati dalle pagine; restano in italiano i messaggi del server
-- [ ] 23. Pagamenti ai negozi (Stripe Connect, PayPal del negozio)
+- [x] 23. Pagamenti ai negozi: Stripe Connect (account Express del negozio, pagamenti con carta come destination charge, quota della piattaforma PLATFORM_FEE_PERCENT, rimborsi che riprendono il bonifico, stato dal webhook account.updated) e PayPal con l'email del negozio come beneficiario; avviso quando il negozio non è collegato
 - [ ] App mobile: resta per dopo
 
 Spareggi (dai regolamenti ufficiali):

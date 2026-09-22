@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from backend.app.core.config import get_settings
 from backend.app.db import get_db
-from backend.app.models import Payment, PaymentStatus, Registration
+from backend.app.models import Organization, Payment, PaymentStatus, Registration
 from backend.app.schemas import SandboxPaymentOut
 
 router = APIRouter(prefix="/payments", tags=["payments"])
@@ -64,6 +64,14 @@ async def stripe_webhook(
         event = stripe.Webhook.construct_event(payload, stripe_signature, settings.stripe_webhook_secret)
     except Exception as exc:
         raise HTTPException(status_code=400, detail="Invalid Stripe webhook") from exc
+
+    if event["type"] == "account.updated":
+        # L'account di un negozio: può incassare o no (verifiche Stripe in sospeso).
+        account = event["data"]["object"]
+        store = db.scalar(select(Organization).where(Organization.stripe_account_id == account["id"]))
+        if store:
+            store.stripe_charges_enabled = bool(account.get("charges_enabled"))
+            db.commit()
 
     if event["type"] == "checkout.session.completed":
         session = event["data"]["object"]

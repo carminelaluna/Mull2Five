@@ -1085,6 +1085,23 @@ class DecklistCreate(BaseModel):
     format: str = Field(default="", max_length=80)
 
 
+class StorePaymentsOut(BaseModel):
+    """Dove arrivano gli incassi online del negozio."""
+    stripe_available: bool          # la piattaforma ha Stripe configurato
+    stripe_status: str              # none | pending | active
+    stripe_account_id: str = ""
+    paypal_email: str = ""
+    platform_fee_percent: float = 0.0
+
+
+class StorePaypalIn(BaseModel):
+    paypal_email: str = Field(default="", max_length=254, pattern=r"^([^@\s]+@[^@\s]+\.[^@\s]+)?$")
+
+
+class StripeLinkOut(BaseModel):
+    url: str
+
+
 class ApiKeyIn(BaseModel):
     name: str = Field(min_length=1, max_length=80)
 

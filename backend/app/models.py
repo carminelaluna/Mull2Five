@@ -172,6 +172,11 @@ class Organization(Base):
     latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     is_premium: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
+    # Incassi online al negozio: l'account Stripe collegato (Connect Express) e se
+    # può già incassare; l'email PayPal che riceve gli ordini.
+    stripe_account_id: Mapped[str] = mapped_column(String(64), default="", server_default="")
+    stripe_charges_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
+    paypal_email: Mapped[str] = mapped_column(String(254), default="", server_default="")
     created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
 
 
@@ -637,6 +642,8 @@ class Payment(Base):
     refund_requested_at: Mapped[datetime | None] = mapped_column(UtcDateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
     paid_at: Mapped[datetime | None] = mapped_column(UtcDateTime(timezone=True), nullable=True)
+    # Chi riceve l'incasso: "stripe:acct_…" o "paypal:email" per il negozio, vuoto per la piattaforma.
+    payee: Mapped[str] = mapped_column(String(300), default="", server_default="")
 
     registration: Mapped[Registration] = relationship(back_populates="payment")
 
