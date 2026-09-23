@@ -4,6 +4,10 @@ tavolo e registro dei deck check.
 """
 from datetime import date, timedelta
 
+import jwt
+
+from backend.app.core.config import get_settings
+
 
 def _register_user(client, email, role="player"):
     client.post("/api/auth/register", json={
@@ -16,10 +20,7 @@ def _register_user(client, email, role="player"):
 
 
 def _user_id(headers) -> int:
-    from jose import jwt
-
-    from backend.app.core.config import get_settings
-
+    """L'id sta nel claim `sub` del token."""
     token = headers["Authorization"].split()[1]
     return int(jwt.decode(token, get_settings().secret_key, algorithms=["HS256"])["sub"])
 

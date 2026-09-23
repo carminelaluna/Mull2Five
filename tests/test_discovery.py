@@ -4,6 +4,10 @@ profili negozio, circuiti pubblici e tag giocatore.
 """
 from datetime import date, timedelta
 
+import jwt
+
+from backend.app.core.config import get_settings
+
 # Duomo di Milano e Mole Antonelliana: ~126 km in linea d'aria.
 MILANO = (45.4642, 9.1900)
 TORINO = (45.0703, 7.6869)
@@ -21,10 +25,6 @@ def _register_user(client, email, role="player", name=None):
 
 def _user_id(headers) -> int:
     """L'id sta nel claim `sub` del token: evita di indovinare la numerazione."""
-    from jose import jwt
-
-    from backend.app.core.config import get_settings
-
     token = headers["Authorization"].split()[1]
     return int(jwt.decode(token, get_settings().secret_key, algorithms=["HS256"])["sub"])
 
