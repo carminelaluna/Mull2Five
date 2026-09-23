@@ -15,6 +15,22 @@ import { t as tr } from './i18n.js';
 import { refreshSession } from './session.js';
 
 const NOTICE_KEY = 'mull2five-privacy-notice-v1';
+// Finché il sito è in prova lo dice in cima a ogni pagina.
+// Quando non lo è più: false, e la striscia sparisce da tutto il sito.
+const TESTING = true;
+
+/* L'altezza la misura il browser: sul telefono la frase va a capo, e header e
+   filtri devono scendere di altrettanto. */
+function testingBanner() {
+  if (!TESTING) return;
+  const bar = document.createElement('div');
+  bar.className = 'testing-banner';
+  bar.textContent = tr('Sito in testing: puoi trovare errori o pagine incomplete.');
+  document.body.prepend(bar);
+  const measure = () => document.documentElement.style.setProperty('--testing-h', `${bar.offsetHeight}px`);
+  measure();
+  addEventListener('resize', measure);
+}
 
 function countVisit() {
   if (navigator.doNotTrack === '1' || window.doNotTrack === '1' || navigator.globalPrivacyControl) return;
@@ -84,6 +100,7 @@ export function stickyCta(source) {
 }
 
 onReady(() => {
+  testingBanner();
   countVisit();
   privacyNotice();
   refreshSession();   // il token si rinnova da solo finché si usa il sito
