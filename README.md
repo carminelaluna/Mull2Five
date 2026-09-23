@@ -33,7 +33,7 @@ da più PC contemporaneamente, pensata anche per tornei grandi.
 
 ### Infrastruttura
 - Redis (cache + lockout), Web Push (VAPID), Prometheus `/metrics`, alerting email/Telegram + watchdog DB
-- Schema creato e aggiornato all'avvio (migrazioni additive), backup PostgreSQL cifrati ogni notte (GitHub Actions)
+- Schema descritto dai modelli e aggiornato da Alembic all'avvio, backup PostgreSQL cifrati ogni notte (GitHub Actions)
 - Rate limiting (slowapi), account lockout, JWT expiry, CSP headers
 - GitHub Actions CI/CD; test: pytest (backend) + Vitest + Playwright E2E
 
