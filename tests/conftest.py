@@ -6,14 +6,22 @@ la': la CI li esegue su entrambi, perche' in produzione c'e' Postgres.
 I load test in tests/load/ vengono esclusi (vedi pyproject.toml).
 """
 import os
+import tempfile
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-# Forza SQLite in-memory per i test
-os.environ.setdefault("DATABASE_URL", "sqlite:///./test_ci.db")
+# Il database dei test sta nella cartella temporanea di sistema, non nel repo.
+# Sotto WSL il repo e' su /mnt/c, cioe' il disco Windows: li' SQLite e' lento e i
+# lock non sono affidabili, e la suite falliva a caso — test diversi a ogni giro,
+# tutti verdi se rilanciati da soli. Spostato il file su disco nativo: 320 verdi
+# in 4 minuti e mezzo invece di 3-4 rossi in 8-27 minuti.
+# Un file per processo: due pytest insieme non si cancellano le tabelle a vicenda.
+# La CI passa il suo DATABASE_URL (SQLite e PostgreSQL), quindi qui non cambia niente.
+TEST_DB_PATH = os.path.join(tempfile.gettempdir(), f"m2f_test_{os.getpid()}.db")
+os.environ.setdefault("DATABASE_URL", f"sqlite:///{TEST_DB_PATH}")
 os.environ.setdefault("SECRET_KEY", "test-secret-key-at-least-32-chars-long!")
 os.environ.setdefault("APP_ENV", "test")
 # Centinaia di account nei test: con i giri veri di PBKDF2 la suite durerebbe minuti in più.
@@ -81,3 +89,13 @@ def all_games(monkeypatch):
 
     monkeypatch.setattr(get_settings(), "enabled_games", "all")
 
+
+def pytest_sessionfinish(session, exitstatus):
+    """Finita la suite, il database dei test non serve piu."""
+    if os.environ.get("DATABASE_URL", "") != f"sqlite:///{TEST_DB_PATH}":
+        return
+    for suffix in ("", "-wal", "-shm"):
+        try:
+            os.unlink(TEST_DB_PATH + suffix)
+        except OSError:
+            pass
