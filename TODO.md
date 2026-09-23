@@ -205,6 +205,14 @@ decisioni tue.
   vietano la raccolta automatica: la strada pulita è chiedere il permesso al
   WPN. File: `backend/app/services/wizards_locator.py`.
 
+## Infrastruttura (dal guasto in produzione del 23 settembre 2026)
+
+- [ ] **Il deploy non aspetta la CI.** Render pubblica al push comunque: il 23/09 la CI era rossa e il deploy è uscito. Attivare l'attesa dei check nel cruscotto Render.
+- [ ] **Un deploy rotto sembra riuscito.** `sync_alembic` cattura l'errore di migrazione e il sito parte lo stesso: due deploy hanno fallito la migrazione e Render ha scritto "Your service is live". Decidere se l'avvio deve fallire quando una migrazione non passa.
+- [ ] **Nessun avviso quando il sito si rompe.** `send_alert` copre i 500 ma dipende da `ALERT_EMAIL`, vuoto in `.env.example`. Impostarlo in Render e provarlo.
+- [ ] **Ripristino dal backup mai provato.** Il backup notturno cifrato gira e la procedura è in `HOSTING.md`, ma non è mai stata eseguita. Farlo su un database di prova.
+- [ ] **Non c'è uno staging.** Ogni modifica va diritta sul sito vivo. Un secondo servizio Render con un database di prova.
+
 ## Da monitorare
 
 - [ ] Testare refund PayPal con account sandbox reale e webhook `PAYMENT.CAPTURE.COMPLETED`.
