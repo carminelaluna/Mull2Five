@@ -2,7 +2,17 @@ import secrets
 from datetime import UTC, date, datetime, time, timedelta
 from enum import StrEnum
 
-from sqlalchemy import Boolean, Date, Float, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    Date,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.app.core.clock import local_zone
@@ -407,6 +417,7 @@ class PushSubscription(Base):
 
 class Tournament(Base):
     __tablename__ = "tournaments"
+    __table_args__ = (Index("idx_tournaments_event_type", "event_type"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     organizer_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
@@ -535,7 +546,11 @@ class Tournament(Base):
 
 class Registration(Base):
     __tablename__ = "registrations"
-    __table_args__ = (UniqueConstraint("tournament_id", "player_id"),)
+    __table_args__ = (
+        UniqueConstraint("tournament_id", "player_id"),
+        Index("idx_registrations_tournament", "tournament_id"),
+        Index("idx_registrations_player", "player_id"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     tournament_id: Mapped[int] = mapped_column(ForeignKey("tournaments.id", ondelete="CASCADE"))
@@ -598,7 +613,10 @@ class Decklist(Base):
     di unicita non impedirebbe due liste principali sulla stessa iscrizione.
     """
     __tablename__ = "decklists"
-    __table_args__ = (UniqueConstraint("registration_id", "format"),)
+    __table_args__ = (
+        UniqueConstraint("registration_id", "format"),
+        Index("idx_decklists_registration", "registration_id"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     registration_id: Mapped[int] = mapped_column(
@@ -634,6 +652,7 @@ class DecklistRevision(Base):
 
 class Payment(Base):
     __tablename__ = "payments"
+    __table_args__ = (Index("idx_payments_registration", "registration_id"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     registration_id: Mapped[int] = mapped_column(
@@ -658,7 +677,10 @@ class Payment(Base):
 
 class Round(Base):
     __tablename__ = "rounds"
-    __table_args__ = (UniqueConstraint("tournament_id", "number"),)
+    __table_args__ = (
+        UniqueConstraint("tournament_id", "number"),
+        Index("idx_rounds_tournament", "tournament_id"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     tournament_id: Mapped[int] = mapped_column(ForeignKey("tournaments.id", ondelete="CASCADE"))
@@ -678,6 +700,7 @@ class Round(Base):
 
 class Pairing(Base):
     __tablename__ = "pairings"
+    __table_args__ = (Index("idx_pairings_round", "round_id"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     round_id: Mapped[int] = mapped_column(ForeignKey("rounds.id", ondelete="CASCADE"))
@@ -760,7 +783,10 @@ class AnnouncementRecipient(Base):
     gia ricevuto per email, e cancellarlo renderebbe pubblico un annuncio che
     pubblico non era."""
     __tablename__ = "announcement_recipients"
-    __table_args__ = (UniqueConstraint("announcement_id", "user_id"),)
+    __table_args__ = (
+        UniqueConstraint("announcement_id", "user_id"),
+        Index("idx_announcement_recipients_user", "user_id"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     announcement_id: Mapped[int] = mapped_column(
@@ -880,7 +906,10 @@ class TournamentStaff(Base):
     In più il capojudge nomina e rimuove i judge sotto di lui: è l'organizzatore a
     nominare lui, e ce n'è al massimo uno per torneo."""
     __tablename__ = "tournament_staff"
-    __table_args__ = (UniqueConstraint("tournament_id", "user_id"),)
+    __table_args__ = (
+        UniqueConstraint("tournament_id", "user_id"),
+        Index("idx_tournament_staff_user", "user_id"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     tournament_id: Mapped[int] = mapped_column(ForeignKey("tournaments.id", ondelete="CASCADE"))

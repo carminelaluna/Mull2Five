@@ -50,6 +50,10 @@ jobs:
       - name: Migrations apply and match the models
         run: |
           alembic upgrade head
+          # Come in produzione: il database passa anche dall'avvio dell'app, che
+          # crea gli indici del carico. Su un database appena migrato il controllo
+          # non li vedrebbe, e una differenza vera resterebbe nascosta.
+          python -c "from backend.app.db import create_all; create_all()"
           alembic check
         env:
           DATABASE_URL: ${{ matrix.database_url }}
