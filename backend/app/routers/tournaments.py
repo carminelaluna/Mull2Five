@@ -20,6 +20,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
+from backend.app.core.cache import cache_invalidate
 from backend.app.core.clock import local_today
 from backend.app.core.config import get_settings
 from backend.app.core.tenant import requested_org
@@ -85,6 +86,7 @@ from backend.app.schemas import (
 from backend.app.security import get_current_user, require_organizer
 from backend.app.services.audit import write_audit
 from backend.app.services.email import event_announcement_html, send_email
+from backend.app.services.notifications import notify_tournament_started
 from backend.app.services.pairings import (
     NO_ROUNDS,
     calculate_standings,
@@ -526,7 +528,6 @@ def repeat_tournament(
 ) -> list[TournamentOut]:
     """Ripete il torneo: ogni copia ha le stesse impostazioni, la sua data e
     nessun iscritto. Stanno tutte nella stessa serie, per modificarle insieme."""
-    from backend.app.core.cache import cache_invalidate
 
     src = load_owned_tournament(tournament_id, organizer, db)
     new_dates, _ = _repeat_plan(src, payload, db)
@@ -558,7 +559,6 @@ def duplicate_tournament(
     db.add(copy)
     db.commit()
     db.refresh(copy)
-    from backend.app.core.cache import cache_invalidate
     cache_invalidate("tournaments:")
     return tournament_out(copy, 0, db)
 
@@ -582,7 +582,6 @@ def import_schedule(
     lo stesso file. Con dry_run dice cosa creerebbe, senza toccare niente."""
     from pydantic import ValidationError
 
-    from backend.app.core.cache import cache_invalidate
 
     check_location(payload.location_id, organizer, db)
     game = get_game("mtg")
@@ -657,7 +656,6 @@ def create_tournament(
     db.add(tournament)
     db.commit()
     db.refresh(tournament)
-    from backend.app.core.cache import cache_invalidate
     cache_invalidate("tournaments:")
     return tournament_out(tournament, 0, db)
 
@@ -687,12 +685,7 @@ def start_tournament(
     tournament.status = TournamentStatus.RUNNING
     db.add(tournament)
     result = create_round_for_tournament(tournament, db)
-    # Notifica email giocatori idonei
-    try:
-        from backend.app.services.notifications import notify_tournament_started
-        notify_tournament_started(tournament, eligible_registrations(tournament, db))
-    except Exception:
-        pass
+    notify_tournament_started(tournament, eligible_registrations(tournament, db))
     return result
 
 
@@ -713,7 +706,6 @@ def close_tournament(
         db.add(rnd)
     db.commit()
     db.refresh(tournament)
-    from backend.app.core.cache import cache_invalidate
     cache_invalidate(f"public-display:{tournament_id}")
     count = db.scalar(select(func.count(Registration.id)).where(Registration.tournament_id == tournament.id))
     return tournament_out(tournament, count or 0, db)
@@ -835,7 +827,6 @@ def update_tournament(
     Con ?series=true le stesse modifiche vanno anche ai tornei successivi della
     serie non ancora iniziati. La data resta la loro; chi non può prenderle
     (capienza sotto gli iscritti, quota già pagata) resta com'era e viene elencato."""
-    from backend.app.core.cache import cache_invalidate
 
     tournament = load_owned_tournament(tournament_id, organizer, db)
     changes = _apply_settings(tournament, payload.model_dump(exclude_unset=True), organizer, db)

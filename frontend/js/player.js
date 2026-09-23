@@ -1,11 +1,10 @@
 import { onReady } from './lang.js';   // prima di tutto: la lingua (vedi lang.js)
-import { apiGet, updateAuthNav } from './catalog.js';
+import { apiGet, fmtDate, updateAuthNav } from './catalog.js';
 import { esc } from './escape.js';
 
 const params    = new URLSearchParams(location.search);
 const PUBLIC_ID = params.get('p');   // URL: /player.html?p=abc123 (mai l'email)
 
-function fmtDate(d) { if (!d) return '—'; const [y,m,dd]=d.split('-'); return `${dd}/${m}/${y}`; }
 /* ── Load profile ─────────────────────────────────────── */
 async function loadProfile() {
   const container = document.querySelector('#playerProfile');
@@ -41,7 +40,7 @@ async function loadProfile() {
       return `<tr>
         <td><a href="${href}"><strong>${esc(o.name)}</strong></a></td>
         <td>${esc(o.format)}</td>
-        <td>${fmtDate(typeof o.starts_on === 'string' ? o.starts_on : '')}</td>
+        <td>${fmtDate(o.starts_on)}</td>
         <td><span class="badge ${o.status === 'completed' ? '' : 'ok'}">${statusLabel[o.status] || o.status}</span></td>
         <td>${o.registered_players}</td>
       </tr>`;

@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
+from backend.app.core.cache import cache_get, cache_set
 from backend.app.db import get_db
 from backend.app.models import (
     Organization,
@@ -127,7 +128,6 @@ def close_season(
 @router.get("/{season_id}/leaderboard", response_model=list[LeaderboardRowOut])
 def season_leaderboard(season_id: int, db: Session = Depends(get_db)) -> list[LeaderboardRowOut]:
     """Classifica cumulativa della stagione — pubblica, cache 30s."""
-    from backend.app.core.cache import cache_get, cache_set
     cache_key = f"leaderboard:{season_id}"
     cached = cache_get(cache_key)
     if cached is not None:

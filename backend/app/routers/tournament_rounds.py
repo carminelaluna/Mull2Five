@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
+from backend.app.core.cache import cache_get, cache_invalidate, cache_set
 from backend.app.db import get_db
 from backend.app.models import (
     AuditLog,
@@ -55,6 +56,7 @@ from backend.app.schemas import (
 )
 from backend.app.security import get_current_user, require_organizer
 from backend.app.services.audit import write_audit
+from backend.app.services.notifications import notify_pairings_ready
 from backend.app.services.pairings import (
     apply_pairing_result,
     calculate_standings,
@@ -87,7 +89,6 @@ def get_standings(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[StandingOut]:
-    from backend.app.core.cache import cache_get, cache_set
     tournament = db.get(Tournament, tournament_id)
     if not tournament:
         raise HTTPException(status_code=404, detail="Torneo non trovato")
@@ -223,13 +224,7 @@ def create_round(
             )
 
     result = create_round_for_tournament(tournament, db)
-    # Notifica email pairings pronti
-    try:
-        from backend.app.services.notifications import notify_pairings_ready
-        regs = eligible_registrations(tournament, db)
-        notify_pairings_ready(tournament, result.number, regs)
-    except Exception:
-        pass
+    notify_pairings_ready(tournament, result.number, eligible_registrations(tournament, db))
     return result
 
 
@@ -355,7 +350,6 @@ def report_result(
         raise HTTPException(status_code=404, detail="Partita non trovata")
     apply_pairing_result(tournament_id, pairing, payload, db)
     db.refresh(pairing.round)
-    from backend.app.core.cache import cache_invalidate
     cache_invalidate(f"standings:{tournament_id}")       # standings cambiano dopo ogni risultato
     cache_invalidate(f"result-reports:{tournament_id}")  # report map obsoleta
     cache_invalidate(f"my-pairings:{tournament_id}")     # card giocatori obsoleta
@@ -397,7 +391,6 @@ def correct_pairing_result(
                  f"Tavolo {pairing.table_number} round {pairing.round.number}: {old} → {new}")
     db.commit()
     db.refresh(pairing.round)
-    from backend.app.core.cache import cache_invalidate
     cache_invalidate(f"standings:{tournament_id}")
     cache_invalidate(f"my-pairings:{tournament_id}")
     return round_out(pairing.round)
@@ -455,7 +448,6 @@ def regenerate_round(
         db.delete(p)
     db.delete(latest)
     db.commit()
-    from backend.app.core.cache import cache_invalidate
     cache_invalidate(f"standings:{tournament_id}")
     cache_invalidate(f"my-pairings:{tournament_id}")
     return create_round_for_tournament(tournament, db)
@@ -565,7 +557,6 @@ def report_player_result(
     db.refresh(pairing.round)
     # Invalida PRIMA di ricostruire: così l'avversario vede subito il report e
     # gli compare la sezione "Conferma / Chiama Judge" (no attesa del TTL cache).
-    from backend.app.core.cache import cache_invalidate
     cache_invalidate(f"result-reports:{tournament_id}")
     cache_invalidate(f"my-pairings:{tournament_id}")
     return round_out(pairing.round, latest_result_reports(tournament_id, db))
@@ -600,7 +591,6 @@ def confirm_player_result(
     db.add(report)
     db.commit()
     db.refresh(pairing.round)
-    from backend.app.core.cache import cache_invalidate
     cache_invalidate(f"standings:{tournament_id}")
     cache_invalidate(f"result-reports:{tournament_id}")
     cache_invalidate(f"my-pairings:{tournament_id}")
@@ -628,7 +618,6 @@ def reject_player_result(
     db.add(report)
     db.commit()
     db.refresh(pairing.round)
-    from backend.app.core.cache import cache_invalidate
     cache_invalidate(f"result-reports:{tournament_id}")
     cache_invalidate(f"my-pairings:{tournament_id}")
     return round_out(pairing.round, latest_result_reports(tournament_id, db))
@@ -676,7 +665,6 @@ def public_display(tournament_id: int, db: Session = Depends(get_db)) -> PublicD
     Restituisce pairing del round corrente (se pairings_public), scadenza timer
     e standings (se standings_public). Cache 10s: regge il polling di più schermi.
     """
-    from backend.app.core.cache import cache_get, cache_set
     cache_key = f"public-display:{tournament_id}"
     cached = cache_get(cache_key)
     if cached is not None:
@@ -753,7 +741,6 @@ def restart_round_timer(
     rnd.ends_at = now + timedelta(minutes=payload.minutes)
     db.commit()
     db.refresh(rnd)
-    from backend.app.core.cache import cache_invalidate
     cache_invalidate(f"public-display:{tournament_id}")
     return round_out(rnd, latest_result_reports(tournament_id, db))
 
@@ -770,7 +757,6 @@ def stop_round_timer(
     rnd.ends_at = None
     db.commit()
     db.refresh(rnd)
-    from backend.app.core.cache import cache_invalidate
     cache_invalidate(f"public-display:{tournament_id}")
     return round_out(rnd, latest_result_reports(tournament_id, db))
 
@@ -791,7 +777,6 @@ def extend_round_timer(
     rnd.ends_at = base + timedelta(minutes=payload.minutes)
     db.commit()
     db.refresh(rnd)
-    from backend.app.core.cache import cache_invalidate
     cache_invalidate(f"public-display:{tournament_id}")
     return round_out(rnd, latest_result_reports(tournament_id, db))
 
@@ -826,7 +811,6 @@ def extend_table_timer(
     pairing.extra_seconds = (pairing.extra_seconds or 0) + payload.minutes * 60
     db.commit()
     db.refresh(pairing.round)
-    from backend.app.core.cache import cache_invalidate
     cache_invalidate(f"public-display:{tournament_id}")
     return round_out(pairing.round, latest_result_reports(tournament_id, db))
 
@@ -952,7 +936,6 @@ def assign_table(
             raise HTTPException(status_code=422, detail="Il tavolo si assegna a chi è nello staff")
     pairing.assigned_judge_id = payload.user_id
     db.commit()
-    from backend.app.core.cache import cache_invalidate
     cache_invalidate(f"public-display:{tournament_id}")
     return round_out(db.get(Round, pairing.round_id), latest_result_reports(tournament_id, db))
 
@@ -1134,7 +1117,6 @@ def penalize_tardiness(
     tavolino l'avversario vince con il punteggio pieno del formato; con il game
     loss la partita si gioca e la penalità resta scritta. Chi non si è
     presentato si può anche ritirare dal torneo, così non viene più abbinato."""
-    from backend.app.core.cache import cache_invalidate
 
     tournament = load_tournament_for_staff(tournament_id, user, db)
     pairing = db.scalar(

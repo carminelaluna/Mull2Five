@@ -9,28 +9,25 @@ from backend.app.core.config import get_settings
 from backend.app.db import get_db
 from backend.app.models import Organization, Payment, PaymentStatus, Registration
 from backend.app.schemas import SandboxPaymentOut
+from backend.app.services.notifications import notify_payment_confirmed
 
 router = APIRouter(prefix="/payments", tags=["payments"])
 
 
 def _on_payment_paid(db: Session, payment: Payment) -> None:
-    """Dopo che un pagamento diventa PAID: invia la ricevuta email (#45) e ferma
-    il timer di pagamento della waitlist (#32). Non solleva mai."""
-    try:
-        reg = db.scalar(
-            select(Registration)
-            .where(Registration.id == payment.registration_id)
-            .options(joinedload(Registration.player), joinedload(Registration.tournament))
-        )
-        if not reg:
-            return
-        reg.promoted_at = None   # ha pagato: conferma promozione dalla waitlist
-        db.add(reg)
-        db.commit()
-        from backend.app.services.notifications import notify_payment_confirmed
-        notify_payment_confirmed(reg, payment.amount_cents / 100)
-    except Exception:  # noqa: BLE001
-        pass
+    """Un pagamento è appena diventato PAID: la ricevuta al giocatore e via il
+    timer che lo rimetterebbe in lista d'attesa."""
+    reg = db.scalar(
+        select(Registration)
+        .where(Registration.id == payment.registration_id)
+        .options(joinedload(Registration.player), joinedload(Registration.tournament))
+    )
+    if not reg:
+        return
+    reg.promoted_at = None
+    db.add(reg)
+    db.commit()
+    notify_payment_confirmed(reg, payment.amount_cents / 100)
 
 
 @router.post("/sandbox/{payment_id}/complete", response_model=SandboxPaymentOut)

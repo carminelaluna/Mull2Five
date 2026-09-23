@@ -7,7 +7,7 @@
  * eventi: ogni ricerca è un link da condividere.
  */
 import './lang.js';   // prima di tutto: la lingua (vedi lang.js)
-import { apiGet, esc, fmtDate, getSession, updateAuthNav } from './catalog.js';
+import { apiGet, esc, fmtDate, getSession, toast, updateAuthNav } from './catalog.js';
 import { apiRequest } from './session.js';
 import { renderDeck } from './deck-view.js';
 import { loadGames } from './games.js';
@@ -30,12 +30,6 @@ const TOPS = [
 
 let _formats = [];
 let _open = null;   // la lista aperta nella finestra
-
-function toast(msg) {
-  const el = $('#toast');
-  el.textContent = msg; el.classList.add('show');
-  clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('show'), 3200);
-}
 
 /* ── Stato = querystring ───────────────────────────────────── */
 

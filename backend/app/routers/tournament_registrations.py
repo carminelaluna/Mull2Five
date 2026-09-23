@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
+from backend.app.core.cache import cache_get, cache_invalidate, cache_set
 from backend.app.db import get_db
 from backend.app.games import online_platform
 from backend.app.models import (
@@ -76,6 +77,7 @@ from backend.app.schemas import (
 from backend.app.security import get_current_user, require_organizer
 from backend.app.services.audit import write_audit
 from backend.app.services.decklists import validate_card_legality, validate_decklist
+from backend.app.services.notifications import notify_registration_confirmed
 from backend.app.services.pairings import (
     decklists_locked,
     eligible_registrations,
@@ -87,6 +89,7 @@ from backend.app.services.registrations import (
     prior_penalties,
     promote_from_waitlist,
 )
+from backend.app.services.standings import compute_team_standings
 from backend.app.services.stores import active_suspension
 from backend.app.services.tournament_access import (
     load_owned_tournament,
@@ -268,7 +271,6 @@ def replace_fields(
             db.execute(delete(RegistrationAnswer).where(RegistrationAnswer.field_id == field_id))
             db.delete(field)
     db.commit()
-    from backend.app.core.cache import cache_invalidate
     cache_invalidate(f"registrations:{tournament.id}")
     return [_field_out(f) for f in fields_of(tournament.id, db)]
 
@@ -289,7 +291,6 @@ def update_my_publisher_id(
     registration.wizards_account = payload.publisher_id.strip()
     db.commit()
     db.refresh(registration)
-    from backend.app.core.cache import cache_invalidate
     cache_invalidate(f"registrations:{tournament_id}")
     return registration_out(registration)
 
@@ -311,7 +312,6 @@ def update_my_handle(
     registration.game_handle = check_game_handle(registration.tournament, payload.game_handle)
     db.commit()
     db.refresh(registration)
-    from backend.app.core.cache import cache_invalidate
     cache_invalidate(f"registrations:{tournament_id}")
     return registration_out(registration)
 
@@ -364,15 +364,9 @@ def register_for_tournament(
     save_answers(registration.id, answers, db)
     db.commit()
     db.refresh(registration)
-    from backend.app.core.cache import cache_invalidate
     cache_invalidate("tournaments:")               # il count cambia
     cache_invalidate(f"registrations:{tournament_id}")  # lista iscritti cambia
-    # Notifica email
-    try:
-        from backend.app.services.notifications import notify_registration_confirmed
-        notify_registration_confirmed(registration)
-    except Exception:
-        pass
+    notify_registration_confirmed(registration)
     return registration_out(registration)
 
 
@@ -387,7 +381,6 @@ def list_registrations(
     """Lista iscritti con paginazione (default 100/pagina).
     Usa ?page=2 per la pagina successiva, ?page_size=50 per ridurre il carico.
     """
-    from backend.app.core.cache import cache_get, cache_set
     tournament = db.get(Tournament, tournament_id)
     if not tournament or not owns_tournament(tournament, organizer, db):
         raise HTTPException(status_code=404, detail="Torneo non trovato")
@@ -432,7 +425,6 @@ def my_registration(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> RegistrationOut:
-    from backend.app.core.cache import cache_get, cache_set
     cache_key = f"my-reg:{tournament_id}:{user.id}"
     cached = cache_get(cache_key)
     if cached is not None:
@@ -529,7 +521,6 @@ def self_drop(
     registration.dropped = True
     db.commit()
     db.refresh(registration)
-    from backend.app.core.cache import cache_invalidate
     cache_invalidate(f"registrations:{tournament_id}")
     cache_invalidate(f"my-reg:{tournament_id}:{user.id}")
     # Il drop di un iscritto attivo libera un posto per la waitlist
@@ -577,7 +568,6 @@ def cancel_registration(
     registration.waitlisted = False
     db.add(registration)
     db.commit()
-    from backend.app.core.cache import cache_invalidate
     cache_invalidate(f"registrations:{tournament_id}")
     cache_invalidate(f"my-reg:{tournament_id}:{user.id}")
     if was_active:
@@ -655,7 +645,6 @@ def create_penalty(
     db.add(penalty)
     db.commit()
     db.refresh(penalty)
-    from backend.app.core.cache import cache_invalidate
     cache_invalidate("registrations:")   # "precedenti" nelle liste degli altri tornei
     return penalty
 
@@ -770,7 +759,6 @@ def drop_unpaid(
 ) -> DropUnpaidOut:
     """Prima dell'inizio, toglie chi occupa un posto senza aver pagato: i posti
     tornano liberi e salgono quelli in lista d'attesa. Con dry_run dice solo chi."""
-    from backend.app.core.cache import cache_invalidate
 
     tournament = load_owned_tournament(tournament_id, organizer, db)
     if tournament.status not in {TournamentStatus.DRAFT, TournamentStatus.PUBLISHED}:
@@ -818,7 +806,6 @@ def set_fixed_table(
 ) -> OrganizerRegistrationOut:
     """Un tavolo fisso per chi ne ha bisogno (una sedia a rotelle, un tavolo
     vicino all'uscita): dal turno dopo i suoi match si giocano lì."""
-    from backend.app.core.cache import cache_invalidate
 
     tournament = load_tournament_for_staff(tournament_id, user, db)
     registration = load_registration_for_tournament(tournament_id, registration_id, db)
@@ -872,7 +859,6 @@ def set_team_seat(
 ) -> list[TeamOut]:
     """Mette un iscritto a un posto della squadra (o lo libera). Chi era a quel
     posto torna senza squadra; chi è già in un'altra squadra non si sposta da solo."""
-    from backend.app.core.cache import cache_invalidate
 
     tournament = _team_editable(tournament_id, organizer, db)
     team = db.get(Team, team_id)
@@ -894,7 +880,6 @@ def set_team_seat(
 
 @router.get("/{tournament_id}/team-standings", response_model=list[TeamStandingOut])
 def team_standings(tournament_id: int, db: Session = Depends(get_db)) -> list[dict]:
-    from backend.app.services.standings import compute_team_standings
 
     tournament = db.get(Tournament, tournament_id)
     if not tournament:
@@ -922,7 +907,6 @@ def create_pods(
     """Divide chi gioca in pod di draft il più possibile uguali (18 giocatori in
     pod da 8 fanno tre pod da 6) e assegna i posti a caso. Si rifanno finché il
     torneo non è iniziato."""
-    from backend.app.core.cache import cache_invalidate
 
     tournament = load_owned_tournament(tournament_id, organizer, db)
     if tournament.status not in {TournamentStatus.DRAFT, TournamentStatus.PUBLISHED}:
@@ -954,7 +938,6 @@ def clear_pods(
     organizer: User = Depends(require_organizer),
     db: Session = Depends(get_db),
 ) -> None:
-    from backend.app.core.cache import cache_invalidate
 
     tournament = load_owned_tournament(tournament_id, organizer, db)
     if tournament.status not in {TournamentStatus.DRAFT, TournamentStatus.PUBLISHED}:
@@ -975,7 +958,6 @@ def set_byes(
     db: Session = Depends(get_db),
 ) -> OrganizerRegistrationOut:
     """Bye assegnati: si decidono prima dell'inizio, poi i turni sono già fatti."""
-    from backend.app.core.cache import cache_invalidate
 
     tournament = load_owned_tournament(tournament_id, organizer, db)
     if tournament.status not in {TournamentStatus.DRAFT, TournamentStatus.PUBLISHED}:
@@ -1000,7 +982,6 @@ def set_prize(
 ) -> OrganizerRegistrationOut:
     """Segna il premio consegnato, o lo annulla. Resta scritto nel registro chi
     l'ha dato e quando: a fine serata si ritrova se qualcuno è rimasto senza."""
-    from backend.app.core.cache import cache_invalidate
 
     tournament = load_owned_tournament(tournament_id, organizer, db)
     registration = load_registration_for_tournament(tournament_id, registration_id, db)
@@ -1043,7 +1024,6 @@ def mark_registration_paid(
     payment.paid_at = datetime.now(UTC)
     db.add(payment)
     db.commit()
-    from backend.app.core.cache import cache_invalidate
     cache_invalidate(f"registrations:{tournament_id}")
     cache_invalidate(f"my-reg:{tournament_id}:{registration.player_id}")
     return organizer_registration_out(
@@ -1116,7 +1096,6 @@ def add_walk_in(
             paid_at=datetime.now(UTC),
         ))
     db.commit()
-    from backend.app.core.cache import cache_invalidate
     cache_invalidate(f"registrations:{tournament_id}")
     cache_invalidate("tournaments:")
     return organizer_registration_out(
@@ -1204,7 +1183,6 @@ def import_registrations(
         write_audit(db, tournament.id, organizer.id, "registrations_imported",
                      f"{added} iscritti, {waiting} in lista d'attesa, {len(rows) - added - waiting} saltati")
         db.commit()
-        from backend.app.core.cache import cache_invalidate
         cache_invalidate(f"registrations:{tournament.id}")
         cache_invalidate("tournaments:")
     return ImportOut(rows=rows, added=added, waitlisted=waiting, skipped=len(rows) - added - waiting)
@@ -1320,7 +1298,6 @@ def submit_decklist_for_registration(
     ))
     db.commit()
     db.refresh(decklist)
-    from backend.app.core.cache import cache_invalidate
     cache_invalidate(f"registrations:{tournament_id}")
     return decklist
 
@@ -1339,6 +1316,5 @@ def set_publisher_id(
     registration.wizards_account = payload.publisher_id.strip()
     db.commit()
     db.refresh(registration)
-    from backend.app.core.cache import cache_invalidate
     cache_invalidate(f"registrations:{tournament_id}")
     return registration_out(registration)

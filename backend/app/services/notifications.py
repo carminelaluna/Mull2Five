@@ -1,9 +1,16 @@
 """
-Notifiche email per eventi del torneo.
-Tutte le funzioni sono async fire-and-forget: vengono lanciate con
-asyncio.create_task() dal router, quindi non bloccano la risposta API.
+notifications.py — Le email che il torneo manda da solo.
+
+Iscrizione confermata, abbinamenti pronti, torneo avviato, pagamento
+incassato. Le rotte chiamano queste funzioni e basta: non aspettano niente e
+non devono proteggersi da niente, perché a mandare davvero è send_email, che
+usa un suo thread e tiene per sé i guai di SMTP (email.py).
+
+C'era un giro in più — le email passavano da un executor di asyncio preso con
+get_event_loop() — che dentro una rotta sincrona, cioè in un thread del pool di
+FastAPI, sollevava RuntimeError: nessuna email partiva, e i chiamanti lo
+ingoiavano. Da qui in poi si manda e si prova con un test (test_notifications).
 """
-import asyncio
 import logging
 from typing import TYPE_CHECKING
 
@@ -13,20 +20,6 @@ if TYPE_CHECKING:
 from backend.app.services.email import event_announcement_html, send_email
 
 logger = logging.getLogger(__name__)
-
-
-def _send_async(to: str, subject: str, body: str, html: str) -> None:
-    """Wrapper sincrono per inviare email in un thread separato."""
-    try:
-        send_email(to, subject, body, html)
-    except Exception as exc:
-        logger.warning("Email not sent to %s: %s", to, exc)
-
-
-def fire_email(to: str, subject: str, body: str, html: str) -> None:
-    """Lancia l'invio email in background senza attendere il risultato."""
-    loop = asyncio.get_event_loop()
-    loop.run_in_executor(None, _send_async, to, subject, body, html)
 
 
 # ── Template helpers ─────────────────────────────────
@@ -93,7 +86,7 @@ def notify_registration_confirmed(registration: "Registration") -> None:
     subject, body, html = _registration_confirmed(
         registration.player.display_name, tournament
     )
-    fire_email(registration.player.email, subject, body, html)
+    send_email(registration.player.email, subject, body, html)
 
 
 def notify_pairings_ready(tournament: "Tournament", round_number: int, registrations: list) -> None:
@@ -104,7 +97,7 @@ def notify_pairings_ready(tournament: "Tournament", round_number: int, registrat
             subject, body, html = _pairings_ready(
                 reg.player.display_name, tournament, round_number
             )
-            fire_email(reg.player.email, subject, body, html)
+            send_email(reg.player.email, subject, body, html)
 
 
 def notify_tournament_started(tournament: "Tournament", registrations: list) -> None:
@@ -113,7 +106,7 @@ def notify_tournament_started(tournament: "Tournament", registrations: list) -> 
     for reg in registrations:
         if reg.player and reg.player.email:
             subject, body, html = _tournament_started(reg.player.display_name, tournament)
-            fire_email(reg.player.email, subject, body, html)
+            send_email(reg.player.email, subject, body, html)
 
 
 def push_to_tournament(
@@ -174,4 +167,4 @@ def notify_payment_confirmed(registration: "Registration", amount: float) -> Non
     subject, body, html = _payment_confirmed(
         registration.player.display_name, tournament, amount
     )
-    fire_email(registration.player.email, subject, body, html)
+    send_email(registration.player.email, subject, body, html)

@@ -5,7 +5,7 @@ import { esc } from './escape.js';
 import { gameInfo, gameLabel, scoresFor } from './games.js';
 import { t as tr } from './i18n.js';
 import { actingAs, actingBanner, bindActingBanner, setActing } from './acting.js';
-import { toast } from './catalog.js';
+import { fmtDate, fmtMoney, toast } from './catalog.js';
 import { apiRequest, clearToken, logout, requireSession } from './session.js';
 
 
@@ -16,8 +16,6 @@ const session = requireSession();
 // Chi gestisce il profilo di un figlio vede e fa le cose per lui (X-Act-As).
 const apiFetch = (path, opts = {}) => apiRequest(path, { acting: true, requireLogin: true, ...opts });
 
-function fmtDate(d) { if (!d) return '—'; const [y,m,dd]=d.split('-'); return `${dd}/${m}/${y}`; }
-function fmtMoney(v) { return (+v||0).toLocaleString('it-IT',{style:'currency',currency:'EUR'}); }
 let _activeFormat = '';   // segmento della lista in modifica
 let _activeTournament = { format: '', name: '' };   // per salvare la lista anche tra le mie
 let _savedDecks = [];
@@ -262,8 +260,8 @@ async function buildCard(t, reg) {
     <!-- Una riga per argomento, con l'etichetta a sinistra: ogni cosa ha il suo posto. -->
     <div class="reg-card-rows">
       <div class="reg-row"><span class="reg-label">${esc(tr('Quando'))}</span>
-        <span class="reg-row-body">${fmtDate(t.starts_on?.substring(0,10))}${t.start_time ? ' · ' + esc(t.start_time) : ''}
-          · ${esc(tr('Quota'))} ${fmtMoney((t.entry_fee_cents || 0) / 100)}</span></div>
+        <span class="reg-row-body">${fmtDate(t.starts_on)}${t.start_time ? ' · ' + esc(t.start_time) : ''}
+          · ${esc(tr('Quota'))} ${fmtMoney(t.entry_fee_cents)}</span></div>
       <div class="reg-row"><span class="reg-label">${esc(tr('Pagamento'))}</span>
         <span class="reg-row-body">${payBadge}${payActions}</span></div>
       <div class="reg-row"><span class="reg-label">${esc(tr('Lista'))}</span>
@@ -809,7 +807,7 @@ async function loadHistory() {
       <thead><tr><th>Torneo</th><th>Data</th><th>Formato</th><th>Piazzamento</th><th>Record</th><th>Punti</th></tr></thead>
       <tbody>${_history.map(r => `<tr data-tid="${r.tournament_id}" tabindex="0" role="button">
         <td><strong>${esc(r.tournament_name)}</strong></td>
-        <td>${fmtDate(typeof r.starts_on === 'string' ? r.starts_on : '')}</td>
+        <td>${fmtDate(r.starts_on)}</td>
         <td>${esc(r.format)}</td>
         <td>${r.placement ? `${r.placement}º` : '—'}</td>
         <td>${esc(r.record || '—')}</td>

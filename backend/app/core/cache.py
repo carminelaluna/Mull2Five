@@ -63,8 +63,3 @@ def cache_invalidate(prefix: str) -> None:
     keys = scan_prefix(_PREFIX + prefix)
     if keys:
         get_redis().delete(*keys)
-
-
-def cache_stats() -> dict:
-    keys = scan_prefix(_PREFIX)
-    return {"total": len(keys), "backend": "redis" if redis_is_real() else "memory"}

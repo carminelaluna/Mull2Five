@@ -29,6 +29,7 @@ import httpx
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from backend.app.core.cache import cache_invalidate
 from backend.app.core.clock import local_today
 from backend.app.core.config import get_settings
 from backend.app.models import (
@@ -143,10 +144,6 @@ def _local_start(event: dict) -> datetime | None:
 
 def event_url(event_id: str, city: str) -> str:
     return f"{LOCATOR}/search?query={quote(city)}&searchType=magic-events&eventId={quote(event_id)}"
-
-
-def store_url(store_id: str) -> str:
-    return f"{LOCATOR}/store/{quote(store_id)}"
 
 
 def _generic_site(url: str) -> bool:
@@ -279,7 +276,6 @@ def import_events(events: list[dict], db: Session, city: str = "") -> ImportRepo
             tournament.status = TournamentStatus.CANCELLED
             report.cancelled += 1
     db.commit()
-    from backend.app.core.cache import cache_invalidate
     cache_invalidate("tournaments:")
     return report
 

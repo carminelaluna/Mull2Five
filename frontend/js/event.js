@@ -3,7 +3,7 @@ import { esc } from './escape.js';
 import { bestOfLabel, gameInfo, gameLabel } from './games.js';
 import { t as tr } from './i18n.js';
 import { actingAs, actingBanner, bindActingBanner, setActing } from './acting.js';
-import { updateAuthNav } from './catalog.js';
+import { fmtDate, fmtMoney, updateAuthNav } from './catalog.js';
 import { busy } from './form-state.js';
 import { apiRequest, getSession } from './session.js';
 import { stickyCta } from './site.js';
@@ -14,8 +14,6 @@ const TOURNAMENT_ID = params.get('id');
 /* Chi gestisce il profilo di un figlio lo iscrive per lui (X-Act-As). */
 const apiFetch = (path, opts = {}) => apiRequest(path, { acting: true, ...opts });
 
-function fmtDate(d) { if (!d) return '—'; const [y,m,dd]=d.split('-'); return `${dd}/${m}/${y}`; }
-function fmtMoney(v) { return (+v||0).toLocaleString('it-IT',{style:'currency',currency:'EUR'}); }
 
 async function loadEvent() {
   if (!TOURNAMENT_ID) { document.querySelector('#eventDetail').innerHTML = '<p class="empty">ID torneo mancante.</p>'; return; }
@@ -66,7 +64,7 @@ async function loadEvent() {
             : isReg
             ? '<span class="badge ok" style="font-size:1rem">✓ Iscritto</span>'
             : canReg
-              ? `<button class="primary" id="registerBtn" type="button">Iscriviti — ${fmtMoney((t.entry_fee_cents||0)/100)}</button>`
+              ? `<button class="primary" id="registerBtn" type="button">Iscriviti — ${fmtMoney(t.entry_fee_cents)}</button>`
               : !session
                 ? `<a class="primary" id="eventCta" href="login.html?next=${encodeURIComponent(location.pathname + location.search)}" style="text-align:center;text-decoration:none;padding:10px 18px;border-radius:8px">Accedi per iscriverti</a>`
                 : `<span class="badge warn">${spots === 0 ? 'Torneo pieno' : 'Iscrizioni chiuse'}</span>`}
@@ -77,7 +75,7 @@ async function loadEvent() {
         <div class="panel">
           <h3>Dettagli</h3>
           <dl class="info-dl">
-            <dt>Data</dt>       <dd>${fmtDate(t.starts_on?.substring(0,10))}${t.start_time ? ' · ' + esc(t.start_time) : ''}</dd>
+            <dt>Data</dt>       <dd>${fmtDate(t.starts_on)}${t.start_time ? ' · ' + esc(t.start_time) : ''}</dd>
             <dt class="game-detail">${esc(tr('Gioco'))}</dt> <dd class="game-detail">${esc(game?.name || gameLabel(t.game))}</dd>
             <dt>Formato</dt>    <dd>${esc(t.format)}</dd>
             ${t.is_online ? `<dt>${esc(tr('Dove'))}</dt> <dd>${esc(tr('Online · {dove}', { dove: platform?.name || '' }))}</dd>` : ''}
@@ -87,7 +85,7 @@ async function loadEvent() {
             ${(t.team_size || 1) > 1 ? `<dt>${esc(tr('Formula'))}</dt> <dd>${esc(tr('Squadre da {n}', { n: t.team_size }))}</dd>` : ''}
             ${organizer ? `<dt>${esc(tr('Organizzatore'))}</dt> <dd>${esc(organizer)}</dd>` : ''}
             <dt>REL</dt>        <dd>${esc(t.rules_enforcement_level || 'Regular')}</dd>
-            <dt>Entry fee</dt>  <dd>${fmtMoney((t.entry_fee_cents||0)/100)}</dd>
+            <dt>Entry fee</dt>  <dd>${fmtMoney(t.entry_fee_cents)}</dd>
             ${imported
               ? (t.capacity ? `<dt>Posti</dt> <dd>${t.capacity}</dd>` : '')
               : `<dt>Posti</dt> <dd>${spots} / ${t.capacity}</dd>`}

@@ -83,10 +83,6 @@ def parse_decklist(raw_text: str) -> list[DeckEntry]:
     return entries
 
 
-def parse_card_names(raw_text: str) -> list[str]:
-    return [entry.name for entry in parse_decklist(raw_text)]
-
-
 def validate_decklist(raw_text: str, tournament_format: str, game: str = "mtg") -> DeckValidation:
     entries = parse_decklist(raw_text)
     main_count = sum(entry.quantity for entry in entries if entry.section == "main")

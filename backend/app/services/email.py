@@ -9,6 +9,7 @@ import logging
 import smtplib
 from concurrent.futures import ThreadPoolExecutor
 from email.message import EmailMessage
+from html import escape
 
 from backend.app.core.config import get_settings
 
@@ -56,9 +57,11 @@ def send_email(to_email: str, subject: str, body: str, html_body: str | None = N
 
 
 def event_announcement_html(event_name: str, title: str, body: str) -> str:
-    escaped_body = body.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-    escaped_title = title.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-    escaped_event = event_name.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    """L'annuncio in una email leggibile. Il testo lo scrive l'organizzatore, e
+    finisce dentro l'HTML: va passato da escape, non incollato."""
+    escaped_body = escape(body)
+    escaped_title = escape(title)
+    escaped_event = escape(event_name)
     return f"""\
 <!doctype html>
 <html>

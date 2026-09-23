@@ -30,6 +30,17 @@ from backend.app.schemas import (
     RoundOut,
     StandingOut,
 )
+from backend.app.services.standings import (
+    Match as StandingMatch,
+)
+from backend.app.services.standings import (
+    Player as StandingPlayer,
+)
+from backend.app.services.standings import (
+    TeamMatch,
+    compute_standings,
+    compute_team_standings,
+)
 
 NO_ROUNDS = "Evento di sola iscrizione: non ci sono turni. Quando è finito, chiudilo."
 
@@ -204,7 +215,6 @@ def complete_teams(tournament: Tournament, eligible: list[Registration], db: Ses
 
 def team_matches(tournament_id: int, db: Session) -> list:
     """Gli incontri fra squadre giocati finora, ricostruiti dai match individuali."""
-    from backend.app.services.standings import TeamMatch
 
     team_of = dict(db.execute(
         select(Registration.id, Registration.team_id).where(Registration.tournament_id == tournament_id)
@@ -234,7 +244,6 @@ def team_matches(tournament_id: int, db: Session) -> list:
 def team_round_groups(tournament: Tournament, eligible: list[Registration], db: Session) -> list[list[Registration]]:
     """Gli abbinamenti di un turno a squadre, come gruppi da due (un match) o
     da uno (un bye). Primo turno a caso, poi svizzera sulla classifica a squadre."""
-    from backend.app.services.standings import compute_team_standings
 
     teams = complete_teams(tournament, eligible, db)
     if len(teams) < 2:
@@ -452,9 +461,6 @@ def planned_swiss_rounds(tournament: Tournament, eligible_count: int) -> int:
 
 def calculate_standings(tournament_id: int, db: Session) -> list[StandingOut]:
     """La classifica del torneo, con gli spareggi del suo gioco (services/standings.py)."""
-    from backend.app.services.standings import Match as StandingMatch
-    from backend.app.services.standings import Player as StandingPlayer
-    from backend.app.services.standings import compute_standings
 
     tournament = db.get(Tournament, tournament_id)
     registrations = db.scalars(
@@ -477,10 +483,6 @@ def calculate_standings(tournament_id: int, db: Session) -> list[StandingOut]:
         total_rounds=swiss_rounds,
     )
     return [StandingOut(**row) for row in rows]
-
-
-def average(values: list[float]) -> float:
-    return sum(values) / len(values) if values else 0.0
 
 
 def round_out(

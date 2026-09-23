@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
+from backend.app.core.cache import cache_invalidate
 from backend.app.models import (
     Penalty,
     Registration,
@@ -61,7 +62,6 @@ def promote_from_waitlist(tournament: Tournament, db: Session) -> None:
     next_in_line.waitlisted = False
     next_in_line.promoted_at = datetime.now(UTC)   # parte il timer per il pagamento (#32)
     db.commit()
-    from backend.app.core.cache import cache_invalidate
     cache_invalidate(f"registrations:{tournament.id}")
     cache_invalidate(f"my-reg:{tournament.id}:{next_in_line.player_id}")
     try:

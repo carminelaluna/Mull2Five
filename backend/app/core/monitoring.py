@@ -66,7 +66,3 @@ def metrics_response() -> Response:
     if not _ENABLED:
         return Response("prometheus_client non installato\n", media_type="text/plain")
     return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
-
-
-def monitoring_enabled() -> bool:
-    return _ENABLED

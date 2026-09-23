@@ -8,9 +8,10 @@ from datetime import UTC, date, datetime
 
 import stripe
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy import case, select
+from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
+from backend.app.core.cache import cache_invalidate
 from backend.app.core.clock import local_today
 from backend.app.core.config import get_settings
 from backend.app.core.tenant import resolve_org
@@ -66,22 +67,36 @@ def _slugify(name: str) -> str:
     return slug or "org"
 
 
-def _org_out(org: Organization, db: Session) -> OrganizationOut:
-    from sqlalchemy import func
+def _org_counts(org_ids: list[int], db: Session) -> dict[int, tuple[int, int]]:
+    """Tornei in arrivo e tornei passati, per ogni negozio, in una query sola.
 
+    L'elenco pubblico dei negozi ne mostra tanti insieme: una query a testa
+    voleva dire un viaggio al database a testa, e il database sta altrove."""
+    if not org_ids:
+        return {}
     today = local_today()
-    counts = db.execute(
+    rows = db.execute(
         select(
+            Tournament.organization_id,
             func.sum(case((Tournament.starts_on >= today, 1), else_=0)),
             func.sum(case((Tournament.starts_on < today, 1), else_=0)),
-        ).where(
-            Tournament.organization_id == org.id,
+        )
+        .where(
+            Tournament.organization_id.in_(org_ids),
             Tournament.status != TournamentStatus.CANCELLED,
         )
-    ).first()
+        .group_by(Tournament.organization_id)
+    ).all()
+    return {row[0]: (int(row[1] or 0), int(row[2] or 0)) for row in rows}
+
+
+def _org_out(org: Organization, db: Session, counts: tuple[int, int] | None = None) -> OrganizationOut:
+    """Un negozio come lo vede l'API. `counts` è per chi ne serializza tanti e
+    i conteggi li ha già presi tutti insieme."""
+    upcoming, past = counts if counts is not None else _org_counts([org.id], db).get(org.id, (0, 0))
     return OrganizationOut.model_validate(org).model_copy(update={
-        "upcoming_count": int(counts[0] or 0),
-        "past_count": int(counts[1] or 0),
+        "upcoming_count": upcoming,
+        "past_count": past,
     })
 
 
@@ -97,7 +112,9 @@ def list_organizations(
     stmt = select(Organization)
     if premium_only:
         stmt = stmt.where(Organization.is_premium.is_(True))
-    orgs = [_org_out(o, db) for o in db.scalars(stmt.order_by(Organization.name)).all()]
+    found = db.scalars(stmt.order_by(Organization.name)).all()
+    counts = _org_counts([o.id for o in found], db)
+    orgs = [_org_out(o, db, counts.get(o.id, (0, 0))) for o in found]
     if near_lat is None or near_lng is None:
         return orgs
     located = []
@@ -505,7 +522,6 @@ def _keep_place(tournament: Tournament) -> None:
 
 def _forget_tournaments() -> None:
     """Le liste in cache mostrano ancora la sede vecchia: via."""
-    from backend.app.core.cache import cache_invalidate
 
     cache_invalidate("tournaments:")
 

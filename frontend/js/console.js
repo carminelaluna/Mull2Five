@@ -10,6 +10,7 @@
  * pestano i piedi e `destroy()` ferma i timer, altrimenti il ciclo di refresh
  * continuerebbe a riscrivere un pannello che non esiste più.
  */
+import { toast } from './catalog.js';
 import { esc } from './escape.js';
 import { scoreLabel, scoresFor } from './games.js';
 import { t as tr } from './i18n.js';
@@ -25,15 +26,6 @@ function fmt(sec) {
   const over = sec < 0;
   const s = Math.abs(Math.floor(sec));
   return `${over ? '-' : ''}${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
-}
-
-function toast(msg) {
-  const el = document.querySelector('#toast');
-  if (!el) return;
-  el.textContent = msg;
-  el.classList.add('show');
-  clearTimeout(el._t);
-  el._t = setTimeout(() => el.classList.remove('show'), 3000);
 }
 
 const SHELL = `
