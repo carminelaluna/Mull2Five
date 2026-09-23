@@ -23,6 +23,7 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 from alembic import op
 
+from backend.app.db import Base
 from backend.app.models import new_public_id
 
 revision: str = "0002_backfill_public_ids"
@@ -31,11 +32,8 @@ branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 
-def _catch_up_schema(connection) -> None:
-    """Aggiunge quello che i modelli dichiarano e il database non ha."""
-    from backend.app.db import Base
-
-    # Tabelle mancanti (con i loro indici): le fa SQLAlchemy.
+def _add_missing_tables_and_columns(connection) -> None:
+    """Le tabelle e le colonne che i modelli dichiarano e il database non ha."""
     Base.metadata.create_all(bind=connection, checkfirst=True)
 
     inspector = sa.inspect(connection)
@@ -45,9 +43,23 @@ def _catch_up_schema(connection) -> None:
             continue
         colonne = {c["name"] for c in inspector.get_columns(table.name)}
         for column in table.columns:
-            if column.name in colonne:
-                continue
-            op.add_column(table.name, _addable(column))
+            if column.name not in colonne:
+                op.add_column(table.name, _addable(column))
+
+
+def _add_missing_indexes(connection) -> None:
+    """Gli indici, per ultimi.
+
+    Una colonna appena aggiunta parte con lo stesso valore su tutte le righe:
+    se l'indice è unico va creato dopo che i valori veri ci sono, altrimenti
+    con più di una riga fallisce — ed è quello che è successo in produzione
+    con ix_users_public_id, dove ogni riga aveva la stringa vuota.
+    """
+    inspector = sa.inspect(connection)
+    esistenti = set(inspector.get_table_names())
+    for table in Base.metadata.sorted_tables:
+        if table.name not in esistenti:
+            continue
         indici = {i["name"] for i in inspector.get_indexes(table.name)}
         for index in table.indexes:
             if index.name not in indici:
@@ -76,7 +88,7 @@ def _addable(column: sa.Column) -> sa.Column:
 
 def upgrade() -> None:
     connection = op.get_bind()
-    _catch_up_schema(connection)
+    _add_missing_tables_and_columns(connection)
     rows = connection.execute(
         sa.text("SELECT id FROM users WHERE public_id IS NULL OR public_id = ''")
     ).fetchall()
@@ -85,6 +97,7 @@ def upgrade() -> None:
             sa.text("UPDATE users SET public_id = :pid WHERE id = :id"),
             {"pid": new_public_id(), "id": user_id},
         )
+    _add_missing_indexes(connection)
 
 
 def downgrade() -> None:
