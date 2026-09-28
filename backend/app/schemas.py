@@ -1448,6 +1448,9 @@ class StandingOut(BaseModel):
     position: int
     registration_id: int
     name: str
+    # Chi si è ritirato resta in classifica con quello che ha fatto, ma dal
+    # turno dopo non viene più abbinato: va detto, o sembra un errore.
+    dropped: bool = False
     pod: int = 1
     points: int
     record: str

@@ -41,6 +41,12 @@ Una **sconfitta a tavolino** (match loss) e una **squalifica** chiudono il
 tavolo 2-0 per l'avversario, da sole. Un **game loss** no: quella è una
 partita, il match si gioca lo stesso.
 
+## Chi si ritira
+
+Dal turno successivo non viene più abbinato, ma **resta in classifica** con
+quello che ha fatto fino a lì — segnato come "ritirato". I suoi spareggi si
+calcolano sui turni che ha giocato davvero, senza gonfiarli con quelli saltati.
+
 ## Se c'è uno scorekeeper
 
 Con uno scorekeeper nello staff, il risultato che inserisce un judge non va

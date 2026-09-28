@@ -413,7 +413,7 @@ export function mountConsole(host, tournamentId, { screenLinks = true, onClosed 
         ? `<div class="table-scroll"><table class="bo">
              <thead><tr><th>#</th><th>${esc(tr('Giocatore'))}</th><th>${esc(tr('Punti'))}</th><th>${esc(tr('Record'))}</th></tr></thead>
              <tbody>${standings.map((s) => `<tr>
-               <td>${s.position ?? '—'}</td><td>${esc(s.display_name || '')}</td>
+               <td>${s.position ?? '—'}</td><td>${esc(s.name || '')}${s.dropped ? ` <span class="muted">${esc(tr('ritirato'))}</span>` : ''}</td>
                <td>${s.points ?? 0}</td><td>${esc(s.record || '')}</td></tr>`).join('')}</tbody>
            </table></div>`
         : `<p class="empty">${esc(tr('Ancora nessun risultato.'))}</p>`;

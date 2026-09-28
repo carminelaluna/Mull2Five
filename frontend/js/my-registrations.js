@@ -303,7 +303,7 @@ async function buildCard(t, reg) {
 function fullStandings(standings, myRegId) {
   const righe = standings.map((s) => `<tr${s.registration_id === myRegId ? ' class="mine"' : ''}>
     <td>${s.position ?? '—'}</td>
-    <td>${esc(s.display_name || '')}</td>
+    <td>${esc(s.name || '')}${s.dropped ? ` <span class="muted">${esc(tr('ritirato'))}</span>` : ''}</td>
     <td>${s.points ?? 0}</td>
     <td>${esc(s.record ?? '')}</td>
   </tr>`).join('');

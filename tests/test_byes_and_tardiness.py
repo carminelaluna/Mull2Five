@@ -165,3 +165,29 @@ def test_a_game_loss_leaves_the_match_to_be_played(client):
 
     riga = client.get(f"/api/tournaments/{tid}/rounds", headers=org).json()[-1]["pairings"][0]
     assert riga["result"] in ("", None)
+
+
+def test_whoever_drops_leaves_the_pairings_but_stays_in_the_standings(client):
+    """Dal turno dopo non viene più abbinato, ma quello che ha fatto resta."""
+    org = _register_user(client, "drop-org@example.com", role="organizer")
+    tid, regs = _tournament(client, org, 4, prefix="drop")
+    primo = client.post(f"/api/tournaments/{tid}/start", headers=org).json()
+    for p in primo["pairings"]:
+        if p["player_b_registration_id"]:
+            client.patch(f"/api/tournaments/{tid}/pairings/{p['id']}/result", headers=org,
+                         json={"match_wins_a": 2, "match_wins_b": 0})
+
+    ritirato = regs[0]
+    assert client.patch(f"/api/tournaments/{tid}/registrations/{ritirato}/drop",
+                        headers=org, params={"dropped": True}).status_code == 200
+
+    secondo = client.post(f"/api/tournaments/{tid}/rounds", headers=org).json()
+    abbinati = {p["player_a_registration_id"] for p in secondo["pairings"]} \
+        | {p["player_b_registration_id"] for p in secondo["pairings"]}
+    assert ritirato not in abbinati
+
+    classifica = client.get(f"/api/tournaments/{tid}/standings", headers=org).json()
+    riga = next(s for s in classifica if s["registration_id"] == ritirato)
+    assert riga["dropped"] is True
+    assert riga["name"]              # il nome c'è: la classifica espone "name"
+    assert all(s["name"] for s in classifica)

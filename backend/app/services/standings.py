@@ -190,6 +190,8 @@ def compute_standings(
                 order[i], order[i + 1] = second, first
 
     names = {p.id: p.name for p in players}
+    # Chi si è ritirato resta in classifica, ma va segnalato.
+    dropped = {p.id for p in players if p.dropped}
     rows = []
     for position, pid in enumerate(order, start=1):
         r = records[pid]
@@ -198,6 +200,7 @@ def compute_standings(
             "position": position,
             "registration_id": pid,
             "name": names[pid],
+            "dropped": pid in dropped,
             "points": r.points,
             "record": f"{r.wins}/{r.losses}/{r.draws}",
             **values,
