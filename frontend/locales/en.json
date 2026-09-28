@@ -1040,5 +1040,22 @@
   "Sito in testing: puoi trovare errori o pagine incomplete.": "Site in testing: you may run into errors or unfinished pages.",
   "Altro…": "Other…",
   "Nome del formato": "Format name",
-  "Nome del locale": "Venue name"
+  "Nome del locale": "Venue name",
+  "Segnalazioni": "Reports",
+  "Segnalazione al sito": "Report to the site",
+  "aperta da": "opened by",
+  "In attesa": "Waiting",
+  "Risposta": "Answered",
+  "Chiusa": "Closed",
+  "Chiudi conversazione": "Close conversation",
+  "Apri conversazione ({n})": "Open conversation ({n})",
+  "Riapri": "Reopen",
+  "Rispondi": "Reply",
+  "Chiudi la segnalazione": "Close the report",
+  "Non hai aperto nessuna segnalazione.": "You have not opened any report.",
+  "Nessuna segnalazione ricevuta.": "No reports received.",
+  "Nessun torneo a cui sei iscritto": "No tournament you are registered for",
+  "Scrivi un oggetto e cosa è successo.": "Write a subject and what happened.",
+  "Segnalazione inviata.": "Report sent.",
+  "Invia": "Send"
 }

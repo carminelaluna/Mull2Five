@@ -1051,5 +1051,22 @@
   "Sito in testing: puoi trovare errori o pagine incomplete.": "Seite im Test: Fehler und unfertige Seiten sind möglich.",
   "Altro…": "Andere…",
   "Nome del formato": "Name des Formats",
-  "Nome del locale": "Name des Ortes"
+  "Nome del locale": "Name des Ortes",
+  "Segnalazioni": "Meldungen",
+  "Segnalazione al sito": "Meldung an die Seite",
+  "aperta da": "eröffnet von",
+  "In attesa": "Wartet",
+  "Risposta": "Beantwortet",
+  "Chiusa": "Geschlossen",
+  "Chiudi conversazione": "Unterhaltung schließen",
+  "Apri conversazione ({n})": "Unterhaltung öffnen ({n})",
+  "Riapri": "Wieder öffnen",
+  "Rispondi": "Antworten",
+  "Chiudi la segnalazione": "Meldung schließen",
+  "Non hai aperto nessuna segnalazione.": "Du hast keine Meldung eröffnet.",
+  "Nessuna segnalazione ricevuta.": "Keine Meldungen erhalten.",
+  "Nessun torneo a cui sei iscritto": "Kein Turnier, für das du angemeldet bist",
+  "Scrivi un oggetto e cosa è successo.": "Schreibe einen Betreff und was passiert ist.",
+  "Segnalazione inviata.": "Meldung gesendet.",
+  "Invia": "Senden"
 }

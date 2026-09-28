@@ -1494,3 +1494,40 @@ class AnalyticsOut(BaseModel):
     pages: list[AnalyticsCountOut]
     referrers: list[AnalyticsCountOut]
     devices: list[AnalyticsCountOut]
+
+
+# ── Segnalazioni ──────────────────────────────────────────
+class TicketCreate(BaseModel):
+    """Chi apre sceglie a chi: l'organizzatore del torneo, o chi tiene il sito."""
+    scope: Literal["organizer", "admin"] = "admin"
+    tournament_id: int | None = None
+    subject: str = Field(min_length=3, max_length=180)
+    body: str = Field(min_length=3, max_length=4000)
+
+
+class TicketMessageIn(BaseModel):
+    body: str = Field(min_length=1, max_length=4000)
+
+
+class TicketMessageOut(BaseModel):
+    id: int
+    author_id: int
+    author_name: str
+    body: str
+    created_at: datetime
+    model_config = {"from_attributes": True}
+
+
+class TicketOut(BaseModel):
+    id: int
+    scope: str
+    status: str
+    subject: str
+    tournament_id: int | None = None
+    tournament_name: str | None = None
+    opened_by_id: int
+    opened_by_name: str
+    created_at: datetime
+    updated_at: datetime
+    messages: list[TicketMessageOut] = []
+    model_config = {"from_attributes": True}

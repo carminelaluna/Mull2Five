@@ -44,6 +44,7 @@ export default defineConfig({
         'event-page':       'event-page.html',     // programma di una manifestazione
         login:              'login.html',
         history:            'history.html',
+        tickets:            'tickets.html',       // segnalazioni: le mie e quelle ricevute
         event:              'event.html',
         'my-registrations': 'my-registrations.html',
         decks:              'decks.html',          // le mie liste e il costruttore

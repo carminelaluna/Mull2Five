@@ -1175,3 +1175,21 @@ input[type="checkbox"][aria-invalid="true"] { outline: 2px solid var(--danger); 
 .an-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: .88rem; }
 .an-list li { display: flex; justify-content: space-between; gap: 10px; }
 .an-list span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── Segnalazioni ─────────────────────────────────────────
+   Le schede "Le mie" / "Ricevute" e la conversazione: i messaggi di chi legge
+   restano a sinistra, i propri vanno a destra, come in una chat. */
+.tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+.tab {
+  padding: 8px 14px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--panel); color: var(--muted);
+  font-weight: 700; font-size: .88rem;
+}
+.tab.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+
+.ticket-thread { display: grid; gap: 10px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+.ticket-msg {
+  padding: 10px 12px; border-radius: 10px; background: var(--panel-2);
+  border: 1px solid var(--line); max-width: 46rem;
+}
+.ticket-msg.mine { margin-left: auto; background: var(--accent-dim); border-color: var(--accent); }

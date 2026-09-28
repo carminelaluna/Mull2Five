@@ -1048,5 +1048,22 @@
   "Sito in testing: puoi trovare errori o pagine incomplete.": "Site en test : vous pouvez rencontrer des erreurs ou des pages incomplètes.",
   "Altro…": "Autre…",
   "Nome del formato": "Nom du format",
-  "Nome del locale": "Nom du lieu"
+  "Nome del locale": "Nom du lieu",
+  "Segnalazioni": "Signalements",
+  "Segnalazione al sito": "Signalement au site",
+  "aperta da": "ouverte par",
+  "In attesa": "En attente",
+  "Risposta": "Répondu",
+  "Chiusa": "Fermé",
+  "Chiudi conversazione": "Fermer la conversation",
+  "Apri conversazione ({n})": "Ouvrir la conversation ({n})",
+  "Riapri": "Rouvrir",
+  "Rispondi": "Répondre",
+  "Chiudi la segnalazione": "Fermer le signalement",
+  "Non hai aperto nessuna segnalazione.": "Vous n’avez ouvert aucun signalement.",
+  "Nessuna segnalazione ricevuta.": "Aucun signalement reçu.",
+  "Nessun torneo a cui sei iscritto": "Aucun tournoi auquel vous êtes inscrit",
+  "Scrivi un oggetto e cosa è successo.": "Écrivez un objet et ce qui s’est passé.",
+  "Segnalazione inviata.": "Signalement envoyé.",
+  "Invia": "Envoyer"
 }

@@ -33,6 +33,7 @@ from backend.app.routers import (
     seasons,
     site,
     tags,
+    tickets,
     tournament_registrations,
     tournament_rounds,
     tournaments,
@@ -208,6 +209,7 @@ app.include_router(admin.router, prefix="/api")
 app.include_router(push.router, prefix="/api")
 app.include_router(organizations.router, prefix="/api")
 app.include_router(tags.router, prefix="/api")
+app.include_router(tickets.router, prefix="/api")
 app.include_router(events.router, prefix="/api")
 app.include_router(games.router, prefix="/api")
 app.include_router(decks.router, prefix="/api")

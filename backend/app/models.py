@@ -995,3 +995,61 @@ class VisitorDay(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     day: Mapped[date] = mapped_column(Date, index=True)
     code: Mapped[str] = mapped_column(String(32))
+
+class TicketScope(StrEnum):
+    """A chi va la segnalazione: al negozio che organizza, o a chi tiene il sito."""
+    ORGANIZER = "organizer"
+    ADMIN = "admin"
+
+
+class TicketStatus(StrEnum):
+    OPEN = "open"          # aperta, nessuno ha ancora risposto
+    ANSWERED = "answered"  # risposta data, si aspetta il giocatore
+    CLOSED = "closed"
+
+
+class Ticket(Base):
+    """Una segnalazione aperta da un giocatore.
+
+    Due livelli, e non uno solo: quello che riguarda un torneo (un risultato
+    sbagliato, un pagamento, un compagno da aggiungere) lo risolve chi lo
+    organizza; quello che riguarda il sito (un account, una cosa rotta) arriva
+    a noi. Il giocatore sceglie il destinatario aprendola.
+    """
+
+    __tablename__ = "tickets"
+    __table_args__ = (Index("idx_tickets_opened_by", "opened_by_id"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    opened_by_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    scope: Mapped[str] = mapped_column(String(20), default=TicketScope.ADMIN, server_default="admin")
+    # Il torneo di cui si parla: decide anche quale organizzatore la legge.
+    tournament_id: Mapped[int | None] = mapped_column(
+        ForeignKey("tournaments.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    subject: Mapped[str] = mapped_column(String(180))
+    status: Mapped[str] = mapped_column(String(20), default=TicketStatus.OPEN, server_default="open")
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
+    updated_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
+
+    opened_by: Mapped[User] = relationship()
+    tournament: Mapped["Tournament | None"] = relationship()
+    messages: Mapped[list["TicketMessage"]] = relationship(
+        back_populates="ticket", cascade="all, delete-orphan", order_by="TicketMessage.created_at"
+    )
+
+
+class TicketMessage(Base):
+    """Un intervento nella conversazione: la segnalazione e le risposte."""
+
+    __tablename__ = "ticket_messages"
+    __table_args__ = (Index("idx_ticket_messages_ticket", "ticket_id"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    ticket_id: Mapped[int] = mapped_column(ForeignKey("tickets.id", ondelete="CASCADE"), index=True)
+    author_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    body: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
+
+    ticket: Mapped[Ticket] = relationship(back_populates="messages")
+    author: Mapped[User] = relationship()

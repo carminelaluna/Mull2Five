@@ -1041,5 +1041,22 @@
   "Sito in testing: puoi trovare errori o pagine incomplete.": "Sitio en pruebas: puedes encontrar errores o páginas incompletas.",
   "Altro…": "Otro…",
   "Nome del formato": "Nombre del formato",
-  "Nome del locale": "Nombre del local"
+  "Nome del locale": "Nombre del local",
+  "Segnalazioni": "Incidencias",
+  "Segnalazione al sito": "Incidencia al sitio",
+  "aperta da": "abierta por",
+  "In attesa": "En espera",
+  "Risposta": "Respondida",
+  "Chiusa": "Cerrada",
+  "Chiudi conversazione": "Cerrar conversación",
+  "Apri conversazione ({n})": "Abrir conversación ({n})",
+  "Riapri": "Reabrir",
+  "Rispondi": "Responder",
+  "Chiudi la segnalazione": "Cerrar la incidencia",
+  "Non hai aperto nessuna segnalazione.": "No has abierto ninguna incidencia.",
+  "Nessuna segnalazione ricevuta.": "Ninguna incidencia recibida.",
+  "Nessun torneo a cui sei iscritto": "Ningún torneo en el que estés inscrito",
+  "Scrivi un oggetto e cosa è successo.": "Escribe un asunto y qué ha pasado.",
+  "Segnalazione inviata.": "Incidencia enviada.",
+  "Invia": "Enviar"
 }
