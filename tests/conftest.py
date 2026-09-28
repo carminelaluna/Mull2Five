@@ -10,7 +10,6 @@ import tempfile
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 # Il database dei test sta nella cartella temporanea di sistema, non nel repo.
@@ -38,11 +37,14 @@ limiter.enabled = False
 
 TEST_DATABASE_URL = os.environ["DATABASE_URL"]
 
-# Su Postgres (CI) non esiste check_same_thread: e' roba di SQLite.
-engine = create_engine(
-    TEST_DATABASE_URL,
-    connect_args={"check_same_thread": False} if TEST_DATABASE_URL.startswith("sqlite") else {},
-)
+# L'engine è quello dell'app, non un secondo sullo stesso file.
+#
+# Prima ce n'erano due, con due pool: la fixture creava e cancellava le tabelle
+# col suo mentre l'avvio dell'app scriveva col proprio, e ogni tanto una
+# richiesta trovava il database a metà — 401 con un token buono, risposte
+# d'errore al posto delle liste, un test diverso rosso a ogni giro.
+from backend.app.db import engine  # noqa: E402
+
 TestingSessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 
 
@@ -57,6 +59,10 @@ def db_session():
 
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
+    # Il negozio di default lo creava l'avvio dell'app, che qui non gira più.
+    from backend.app.db import seed_default_organization
+
+    seed_default_organization()
     session = TestingSessionLocal()
     yield session
     session.close()
@@ -76,8 +82,9 @@ def client(db_session):
             pass
 
     app.dependency_overrides[get_db] = override_get_db
-    with TestClient(app) as c:
-        yield c
+    # Senza `with`: non parte il lifespan, che rifarebbe lo schema e lancerebbe
+    # i task di fondo a ogni singolo test. Lo schema lo fa già la fixture.
+    yield TestClient(app)
     app.dependency_overrides.clear()
 
 

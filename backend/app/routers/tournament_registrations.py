@@ -7,7 +7,6 @@ invito, le liste dei mazzi, le squadre e i pod di draft. Le rotte stanno
 sotto /tournaments come le altre: qui cambia solo il file.
 """
 import math
-import random
 import re
 from datetime import UTC, datetime, timedelta
 
@@ -82,6 +81,7 @@ from backend.app.services.email import send_email
 from backend.app.services.notifications import notify_registration_confirmed
 from backend.app.services.pairings import (
     decklists_locked,
+    draw,
     eligible_registrations,
     team_matches,
 )
@@ -952,7 +952,8 @@ def create_pods(
     players = eligible_registrations(tournament, db)
     if len(players) < 2:
         raise HTTPException(status_code=409, detail="Servono almeno due giocatori pronti a giocare")
-    random.shuffle(players)
+    # Riproducibile: rifare i pod sullo stesso torneo dà lo stesso sorteggio.
+    draw(tournament.id, len(players)).shuffle(players)
     count = math.ceil(len(players) / payload.pod_size)
     base, extra = divmod(len(players), count)
     for reg in db.scalars(select(Registration).where(Registration.tournament_id == tournament.id)):

@@ -45,6 +45,22 @@ from backend.app.services.standings import (
 NO_ROUNDS = "Evento di sola iscrizione: non ci sono turni. Quando è finito, chiudilo."
 
 
+def draw(*parts: int) -> random.Random:
+    """Un sorteggio riproducibile.
+
+    Al primo turno non c'è una classifica e l'ordine è arbitrario: va bene
+    qualunque, purché si possa rifare. Con random.shuffle globale la stessa
+    situazione dava abbinamenti diversi a ogni chiamata — impossibile da
+    verificare, e la suite falliva a caso su un test diverso ogni volta.
+    Seminando dal torneo (e da cosa c'è già) l'esito resta arbitrario ma
+    ricostruibile.
+    """
+    seme = 0
+    for parte in parts:
+        seme = seme * 1_000_003 + int(parte)
+    return random.Random(seme)
+
+
 def validate_pairing_registration(tournament_id: int, registration_id: int, db: Session) -> None:
     exists = db.scalar(
         select(func.count(Registration.id)).where(
@@ -233,7 +249,7 @@ def pair_order(tournament: Tournament, eligible: list[Registration], phase: str,
 
     if not tournament.rounds:
         shuffled = eligible[:]
-        random.shuffle(shuffled)
+        draw(tournament.id, len(shuffled)).shuffle(shuffled)
         return shuffled
 
     standings = calculate_standings(tournament.id, db)
@@ -293,7 +309,7 @@ def team_round_groups(tournament: Tournament, eligible: list[Registration], db: 
     played = team_matches(tournament.id, db)
     if not tournament.rounds:
         ordered = [team for team, _ in teams]
-        random.shuffle(ordered)
+        draw(tournament.id, len(ordered)).shuffle(ordered)
     else:
         table = compute_team_standings({t.id: t.name for t, _ in teams}, played)
         ordered = [by_id[row["team_id"]][0] for row in table]

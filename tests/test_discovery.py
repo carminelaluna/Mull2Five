@@ -161,9 +161,15 @@ def test_organizer_edits_only_his_own_store(client):
 
 
 def _default_org_with_slug(db_session, slug):
-    """Un negozio di default come lo lasciava un database di prima del rebrand."""
+    """Un negozio di default come lo lasciava un database di prima del rebrand.
+
+    Il default lo semina già la fixture: qui si riparte da zero, perché è
+    proprio la semina che si sta verificando."""
     from backend.app.models import Organization
 
+    for vecchio in db_session.query(Organization).filter_by(is_default=True).all():
+        db_session.delete(vecchio)
+    db_session.commit()
     org = Organization(slug=slug, name="Mull2Five", is_default=True)
     db_session.add(org)
     db_session.commit()
