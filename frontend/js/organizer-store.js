@@ -7,6 +7,7 @@
  * e una sezione intera e non tocca i tornei: parla solo con /organizations.
  */
 import { toast } from './catalog.js';
+import { cityInput } from './city-input.js';
 import { esc } from './escape.js';
 import { t as tr } from './i18n.js';
 import { $, apiFetch, fmtDate, session } from './organizer-common.js';
@@ -90,6 +91,7 @@ export async function renderNegozio() {
   ${apiPanel(org, apiKeys)}
   ${locatorPanel()}
   ${analyticsPanel()}`;
+  cityInput($('#sCity'));
   bindStoreSwitcher();
   bindLocatorPanel();
   bindAnalyticsPanel();
@@ -157,6 +159,7 @@ async function renderNoStore() {
   </div>
   ${locatorPanel()}
   ${analyticsPanel()}`;
+  cityInput($('#nsCity'));
   bindStoreSwitcher();
   bindLocatorPanel();
   bindAnalyticsPanel();
@@ -554,6 +557,7 @@ function bindLocationsPanel(org, locations) {
     $('#lId').value = loc?.id ?? '';
     $('#lName').value = loc?.name ?? '';
     $('#lCity').value = loc?.city ?? '';
+    cityInput($('#lCity'));
     $('#lAddr').value = loc?.address ?? '';
     $('#lLat').value = loc?.latitude ?? '';
     $('#lLng').value = loc?.longitude ?? '';

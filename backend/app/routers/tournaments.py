@@ -426,6 +426,7 @@ def _copy_tournament(src: Tournament, organizer: User, starts_on: date, series_i
         allow_intentional_draws=src.allow_intentional_draws,
         rules_enforcement_level=src.rules_enforcement_level,
         venue=src.venue,
+        city=src.city,
         location_id=src.location_id,
         start_time=src.start_time,
         capacity=src.capacity,
@@ -624,6 +625,7 @@ def import_schedule(
                 starts_on=item.starts_on, start_time=item.start_time, capacity=row.capacity,
                 entry_fee_cents=row.entry_fee_cents, description=item.description,
                 location_id=payload.location_id, venue="" if payload.location_id else payload.venue,
+                city="" if payload.location_id else payload.city,
                 status="published" if payload.publish else "draft",
                 decklist_required=payload.decklist_required,
             ))

@@ -9,6 +9,7 @@ import { onReady } from './lang.js';   // prima di tutto: la lingua (vedi lang.j
 import { EVENT_TYPES, RELS, toast, typeLabel } from './catalog.js';
 import { mountConsole } from './console.js';
 import { renderDeck } from './deck-view.js';
+import { cityInput } from './city-input.js';
 import { esc } from './escape.js';
 import { bindFormatPicker, formatOptions, formatPicker, formatValue } from './formats.js';
 import { bestOfLabel, gameInfo, gameLabel, loadGames, tiebreakerColumns } from './games.js';
@@ -356,7 +357,8 @@ function openNewEventDialog() {
         </select></label>
         <div id="nPlace" style="display:contents">
           <label style="grid-column:1/-1;display:none" id="nLocationWrap">${esc(tr('Sede'))}<select id="nLocation"></select></label>
-          <label style="grid-column:1/-1" id="nVenueWrap">Luogo<input id="nVenue" placeholder="Nome e citta" /></label>
+          <label id="nVenueWrap">Luogo<input id="nVenue" maxlength="180" placeholder="${esc(tr('Nome del locale'))}" /></label>
+          <label id="nCityWrap">${esc(tr('Città'))}<input id="nCity" maxlength="120" placeholder="Milano" /></label>
         </div>
         <label class="bo-check" style="grid-column:1/-1"><input id="nOnline" type="checkbox"  /> ${esc(tr('Torneo online (MTG Arena, Magic Online, SpellTable…)'))}</label>
         <div class="bo-pair" id="nOnlineFields" style="display:none">
@@ -395,8 +397,9 @@ function openNewEventDialog() {
   dlg.showModal();
   $('#nSubmit').addEventListener('click', createTournament);
   fillGameChoices();
-  fillLocationChoices('#nLocation', '#nLocationWrap', '#nVenueWrap', null);
+  fillLocationChoices('#nLocation', '#nLocationWrap', '#nVenueWrap, #nCityWrap', null);
   bindFormatPicker('nFormat');
+  cityInput($('#nCity'));
   bindOnline('n', $('#nGame').value || 'mtg', '');
 }
 
@@ -429,7 +432,10 @@ async function fillLocationChoices(selectSel, wrapSel, venueWrapSel, current) {
   // Un negozio con una sola sede la propone già scelta per i tornei nuovi.
   if (current === null && locations.length === 1) select.value = String(locations[0].id);
   $(wrapSel).style.display = '';
-  const sync = () => { $(venueWrapSel).style.display = select.value ? 'none' : ''; };
+  const sync = () => {
+    const nascosto = select.value ? 'none' : '';
+    document.querySelectorAll(venueWrapSel).forEach((el) => { el.style.display = nascosto; });
+  };
   select.addEventListener('change', sync);
   sync();
 }
@@ -473,6 +479,7 @@ async function createTournament(e) {
     // Con una sede scelta il luogo viene da lì: niente testo che lo copra.
     location_id: $('#nOnline').checked ? null : +$('#nLocation').value || null,
     venue: $('#nLocation').value || $('#nOnline').checked ? '' : $('#nVenue').value.trim(),
+    city: $('#nLocation').value || $('#nOnline').checked ? '' : $('#nCity').value.trim(),
     ...onlineBody('n'),
     decklist_required: $('#nDeck').checked,
     pay_at_event: $('#nAtEvent').checked,
@@ -1118,7 +1125,8 @@ function openScheduleImportDialog() {
         <label style="grid-column:1/-1">${esc(tr('File'))}<input id="scFile" type="file" accept=".csv,.txt,text/csv,text/plain" /></label>
         <label style="grid-column:1/-1">${esc(tr('Oppure incolla qui'))}<textarea id="scText" style="min-height:110px" placeholder="nome;data;ora;formato;quota;posti&#10;Friday Night Magic;02/10/2026;20:30;Standard;5;24"></textarea></label>
         <label style="grid-column:1/-1;display:none" id="scLocationWrap">${esc(tr('Sede'))}<select id="scLocation"></select></label>
-        <label style="grid-column:1/-1" id="scVenueWrap">${esc(tr('Luogo'))}<input id="scVenue" maxlength="180" placeholder="${esc(tr('Nome e città'))}" /></label>
+        <label id="scVenueWrap">${esc(tr('Luogo'))}<input id="scVenue" maxlength="180" /></label>
+        <label id="scCityWrap">${esc(tr('Città'))}<input id="scCity" maxlength="120" placeholder="Milano" /></label>
         <label>${esc(tr('Posti se non indicati'))}<input id="scCap" type="number" min="2" max="4096" value="32" /></label>
         <div style="grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px 20px">
           <label class="bo-check"><input id="scPublish" type="checkbox" checked /> ${esc(tr('Pubblica subito'))}</label>
@@ -1133,7 +1141,8 @@ function openScheduleImportDialog() {
       </menu>
     </form>`;
   dlg.showModal();
-  fillLocationChoices('#scLocation', '#scLocationWrap', '#scVenueWrap', null);
+  fillLocationChoices('#scLocation', '#scLocationWrap', '#scVenueWrap, #scCityWrap', null);
+  cityInput($('#scCity'));
 
   const template = $('#scTemplate');
   // Il BOM fa aprire a Excel il file in UTF-8, con le lettere accentate giuste.
@@ -1147,7 +1156,7 @@ function openScheduleImportDialog() {
     if (file) $('#scText').value = await readTextFile(file);
     stale();
   });
-  ['#scText', '#scLocation', '#scVenue', '#scCap', '#scPublish', '#scDeck'].forEach((sel) => {
+  ['#scText', '#scLocation', '#scVenue', '#scCity', '#scCap', '#scPublish', '#scDeck'].forEach((sel) => {
     $(sel).addEventListener('input', stale);
     $(sel).addEventListener('change', stale);
   });
@@ -1157,6 +1166,7 @@ function openScheduleImportDialog() {
     body: JSON.stringify({
       csv_text: $('#scText').value,
       location_id: Number($('#scLocation').value) || null,
+      city: $('#scCity').value.trim(),
       venue: $('#scVenue').value.trim(),
       capacity: Number($('#scCap').value) || 32,
       publish: $('#scPublish').checked,
@@ -2070,7 +2080,8 @@ function openManifestazioneDialog() {
         <label style="grid-column:1/-1">Nome<input id="evName" required placeholder="Weekend di primavera" /></label>
         <label>Dal<input id="evFrom" type="date" required value="${oggi}" /></label>
         <label>Al<input id="evTo" type="date" /></label>
-        <label style="grid-column:1/-1">Luogo<input id="evVenue" placeholder="Nome e citta" /></label>
+        <label>Luogo<input id="evVenue" maxlength="180" /></label>
+        <label>${esc(tr('Città'))}<input id="evCity" maxlength="120" placeholder="Milano" /></label>
         <label style="grid-column:1/-1">Descrizione<textarea id="evDesc" style="min-height:70px"></textarea></label>
         <label class="bo-check"><input id="evPub" type="checkbox" checked /> Pagina pubblica</label>
       </div>
@@ -2086,6 +2097,7 @@ function openManifestazioneDialog() {
       starts_on: $('#evFrom').value,
       ends_on: $('#evTo').value || null,
       venue: $('#evVenue').value.trim(),
+      city: $('#evCity').value.trim(),
       description: $('#evDesc').value.trim(),
       is_public: $('#evPub').checked,
     };
@@ -2202,7 +2214,8 @@ async function renderManifestazione(eventId) {
         <label style="grid-column:1/-1">Nome<input id="evEName" value="${esc(ev.name)}" /></label>
         <label>Dal<input id="evEFrom" type="date" value="${esc(String(ev.starts_on).slice(0, 10))}" /></label>
         <label>Al<input id="evETo" type="date" value="${ev.ends_on ? esc(String(ev.ends_on).slice(0, 10)) : ''}" /></label>
-        <label style="grid-column:1/-1">Luogo<input id="evEVenue" value="${esc(ev.venue)}" /></label>
+        <label>Luogo<input id="evEVenue" maxlength="180" value="${esc(ev.venue)}" /></label>
+        <label>${esc(tr('Città'))}<input id="evECity" maxlength="120" value="${esc(ev.city || '')}" /></label>
         <label style="grid-column:1/-1">Descrizione<textarea id="evEDesc" style="min-height:70px">${esc(ev.description)}</textarea></label>
         <label class="bo-check"><input id="evEPub" type="checkbox" ${ev.is_public ? 'checked' : ''} /> Pagina pubblica</label>
         <button class="primary" type="submit" style="grid-column:1/-1">Salva</button>
@@ -2332,7 +2345,8 @@ async function renderImpostazioni() {
           <label>Orario inizio<input id="sTime" type="time" value="${esc(t.start_time || '')}" ${lock('start_time')} /></label>
           <div id="sPlace" style="display:contents">
             <label style="grid-column:1/-1;display:none" id="sLocationWrap">${esc(tr('Sede'))}<select id="sLocation"></select></label>
-            <label style="grid-column:1/-1" id="sVenueWrap">Luogo<input id="sVenue" value="${esc(t.venue || '')}" /></label>
+            <label id="sVenueWrap">Luogo<input id="sVenue" maxlength="180" value="${esc(t.venue || '')}" /></label>
+            <label id="sCityWrap">${esc(tr('Città'))}<input id="sTCity" maxlength="120" value="${esc(t.city || '')}" /></label>
           </div>
         <label class="bo-check" style="grid-column:1/-1"><input id="sOnline" type="checkbox" ${checked(t.is_online)} ${lock('is_online')} /> ${esc(tr('Torneo online (MTG Arena, Magic Online, SpellTable…)'))}</label>
         <div class="bo-pair" id="sOnlineFields" style="display:none">
@@ -2397,7 +2411,8 @@ async function renderImpostazioni() {
   $('#sGame').addEventListener('change', () => syncFormats(true));
   syncFormats(false);
   bindFormatPicker('sFormat');
-  fillLocationChoices('#sLocation', '#sLocationWrap', '#sVenueWrap', t.location_id ?? undefined);
+  cityInput($('#sTCity'));
+  fillLocationChoices('#sLocation', '#sLocationWrap', '#sVenueWrap, #sCityWrap', t.location_id ?? undefined);
   bindOnline('s', t.game, t.online_platform);
 
   $('#setForm').addEventListener('submit', async (e) => {
@@ -2417,6 +2432,7 @@ async function renderImpostazioni() {
       // 0 toglie la sede; con una sede il luogo scritto si svuota e vale il suo.
       location_id: $('#sOnline').checked ? 0 : +$('#sLocation').value || 0,
       venue: $('#sLocation').value || $('#sOnline').checked ? '' : $('#sVenue').value.trim(),
+      city: $('#sLocation').value || $('#sOnline').checked ? '' : $('#sTCity').value.trim(),
       ...onlineBody('s'),
       capacity: +$('#sCap').value,
       entry_fee_cents: Math.round((+$('#sFee').value || 0) * 100),

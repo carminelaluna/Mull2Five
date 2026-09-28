@@ -138,6 +138,7 @@ class Event(Base):
     name: Mapped[str] = mapped_column(String(180))
     description: Mapped[str] = mapped_column(Text, default="", server_default="")
     venue: Mapped[str] = mapped_column(String(180), default="", server_default="")
+    city: Mapped[str] = mapped_column(String(120), default="", server_default="")
     starts_on: Mapped[date] = mapped_column(Date)
     ends_on: Mapped[date | None] = mapped_column(Date, nullable=True)
     is_public: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1")
@@ -435,6 +436,7 @@ class Tournament(Base):
     allow_intentional_draws: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1")
     rules_enforcement_level: Mapped[str] = mapped_column(String(40), default="Competitive")
     venue: Mapped[str] = mapped_column(String(180), default="")
+    city: Mapped[str] = mapped_column(String(120), default="", server_default="")
     # Coordinate del luogo: se assenti vale la posizione del negozio.
     latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
@@ -504,6 +506,11 @@ class Tournament(Base):
     def place(self) -> str:
         """Dove si gioca: il luogo scritto a mano vince, altrimenti la sede scelta."""
         return self.venue or (self.location.label if self.location else "")
+
+    @property
+    def place_city(self) -> str:
+        """La città: quella del torneo, o quella della sede scelta."""
+        return self.city or (self.location.city if self.location else "")
 
     @property
     def starts_at(self) -> datetime | None:

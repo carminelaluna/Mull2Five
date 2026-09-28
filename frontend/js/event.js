@@ -3,7 +3,7 @@ import { esc } from './escape.js';
 import { bestOfLabel, gameInfo, gameLabel } from './games.js';
 import { t as tr } from './i18n.js';
 import { actingAs, actingBanner, bindActingBanner, setActing } from './acting.js';
-import { fmtDate, fmtMoney, updateAuthNav } from './catalog.js';
+import { fmtDate, fmtMoney, updateAuthNav, placeLabel } from './catalog.js';
 import { busy } from './form-state.js';
 import { apiRequest, getSession } from './session.js';
 import { stickyCta } from './site.js';
@@ -59,7 +59,7 @@ async function loadEvent() {
           ${organizerLine}
           ${t.is_online
             ? `<p class="muted-text">${esc(tr('Online · {dove}', { dove: platform?.name || '' }))}</p>`
-            : t.venue ? `<p class="muted-text">${esc(t.venue)}</p>` : ''}
+            : placeLabel(t) ? `<p class="muted-text">${esc(placeLabel(t))}</p>` : ''}
           ${imported ? `<p class="muted-text locator-note">${esc(tr('Dal Wizards Event Locator: iscrizione e pagamento si fanno presso il negozio.'))}</p>` : ''}
         </div>
         <div style="display:grid;gap:8px;text-align:right">

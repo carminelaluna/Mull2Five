@@ -162,3 +162,23 @@ def test_hits_from_other_sites_are_ignored(client, db_session):
     client.post("/api/analytics/hit", headers={**BROWSER, "Origin": "https://sito-furbo.example"},
                 json={"path": "/", "referrer": "https://sito-furbo.example/", "width": 390})
     assert db_session.query(PageView).count() == 0
+
+
+def test_known_cities_come_from_what_the_site_already_has(client):
+    """Le città si scrivevano a mano: qui si propongono quelle già in uso."""
+    org = client.post("/api/auth/register", json={
+        "email": "citta-org@example.com", "display_name": "Citta Org",
+        "password": "supersecret123", "role": "organizer"})
+    assert org.status_code in (200, 201), org.text
+    login = client.post("/api/auth/login", json={
+        "email": "citta-org@example.com", "password": "supersecret123"})
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+
+    assert client.get("/api/cities").json() == []
+
+    client.post("/api/organizations/mine", headers=headers,
+                json={"name": "Negozio di prova", "city": "Roma"})
+
+    assert client.get("/api/cities").json() == ["Roma"]
+    assert client.get("/api/cities", params={"q": "ro"}).json() == ["Roma"]
+    assert client.get("/api/cities", params={"q": "mi"}).json() == []

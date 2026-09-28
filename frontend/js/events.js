@@ -10,8 +10,7 @@ import { gameLabel, loadGames } from './games.js';
 import { t as tr } from './i18n.js';
 import {
   DATE_RANGES, DISTANCES, EVENT_TYPES, FORMATS, RELS,
-  apiGet, askPosition, esc, fmtDate, fmtMoney, savedPosition, typeLabel, updateAuthNav,
-} from './catalog.js';
+  apiGet, askPosition, esc, fmtDate, fmtMoney, savedPosition, typeLabel, updateAuthNav, placeLabel } from './catalog.js';
 
 const $ = (s) => document.querySelector(s);
 const SAVED_KEY = 'mull2five-saved-searches-v1';
@@ -226,7 +225,7 @@ function renderRows(events) {
       </td>
       <td>${fmtDate(t.starts_on)}<span class="col-sub">${esc(t.start_time || '')}</span></td>
       <td>${esc(t.format)}</td>
-      <td>${t.is_online ? '<span class="online-badge">Online</span>' : esc(t.venue || t.organization_name || '—')}
+      <td>${t.is_online ? '<span class="online-badge">Online</span>' : esc(placeLabel(t) || t.organization_name || '—')}
         ${t.distance_km != null ? `<span class="col-sub dist-badge">${t.distance_km} km</span>` : ''}</td>
       <td>${t.entry_fee_cents ? fmtMoney(t.entry_fee_cents) : 'Gratis'}
         <span class="col-sub">${t.source === 'wizards' ? esc(tr('Iscrizione in negozio'))

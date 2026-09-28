@@ -103,6 +103,12 @@ export function updateAuthNav() {
 
 /* ── Schede ────────────────────────────────────────────────── */
 
+/** Dove si gioca, in una riga: il luogo e la città, separati da una virgola. */
+export function placeLabel(t) {
+  return [t.venue, t.city].filter(Boolean).join(', ');
+}
+
+
 export function eventTile(t) {
   const seats = Math.max((t.capacity || 0) - (t.registered_players || 0), 0);
   return `<a class="tile" href="event.html?id=${t.id}">
@@ -116,7 +122,7 @@ export function eventTile(t) {
       <span>${fmtDate(t.starts_on)}${t.start_time ? ` · ${esc(t.start_time)}` : ''}</span>
       <span>${esc(t.format)}</span>
     </div>
-    <div class="tile-meta">${t.is_online ? '<span class="online-badge">Online</span>' : esc(t.venue || t.organization_name || '')}</div>
+    <div class="tile-meta">${t.is_online ? '<span class="online-badge">Online</span>' : esc(placeLabel(t) || t.organization_name || '')}</div>
     <div class="tile-foot">
       <span>${t.entry_fee_cents ? fmtMoney(t.entry_fee_cents) : esc(tr('Gratis'))}</span>
       <span style="color:var(--muted)">${esc(t.source === 'wizards' ? tr('Iscrizione in negozio') : tr('{n} posti', { n: seats }))}</span>

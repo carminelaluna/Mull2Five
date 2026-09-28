@@ -88,7 +88,7 @@ def tournament_out(tournament: Tournament, registered: int, db: Session) -> Tour
     location = tournament.location
     # La sede presta al torneo quello che non ha di suo: il luogo scritto e le
     # coordinate, così compare anche nella ricerca per distanza.
-    inherited = {"venue": tournament.place}
+    inherited = {"venue": tournament.place, "city": tournament.place_city}
     if location:
         inherited["location_name"] = location.name
         if tournament.latitude is None and location.latitude is not None:

@@ -270,3 +270,23 @@ def analytics(
               for day, (v, e) in sorted(per_day.items())],
         pages=top(pages, 15), referrers=top(referrers, 10), devices=top(devices, 3),
     )
+
+
+# ── Città già note ────────────────────────────────────────
+# Le città si scrivevano a mano e finivano scritte in tre modi ("Roma", "roma",
+# "ROMA"). Qui si restituiscono quelle che il sito conosce già, così la seconda
+# persona che apre un negozio a Roma sceglie quella di chi c'era prima. Nessun
+# elenco esterno: cresce con i dati, e a database vuoto non propone niente.
+@api_router.get("/cities", response_model=list[str])
+def known_cities(q: str = "", db: Session = Depends(get_db)) -> list[str]:
+    from backend.app.models import Event, Location, Organization, Tournament
+
+    prefisso = q.strip().lower()
+    conteggio: dict[str, int] = {}
+    for colonna in (Organization.city, Location.city, Tournament.city, Event.city):
+        for (citta,) in db.execute(select(colonna).where(colonna != "")).all():
+            pulita = citta.strip()
+            if pulita and pulita.lower().startswith(prefisso):
+                conteggio[pulita] = conteggio.get(pulita, 0) + 1
+    # Le più usate per prime: sono quelle giuste più spesso.
+    return [c for c, _ in sorted(conteggio.items(), key=lambda kv: (-kv[1], kv[0]))][:10]

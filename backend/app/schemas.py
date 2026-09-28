@@ -63,6 +63,7 @@ class TournamentCreate(BaseModel):
     event_type: Literal["locals", "prerelease", "rcq", "store_championship", "premier", "other"] = "locals"
     rules_enforcement_level: str = "Competitive"
     venue: str = ""
+    city: str = Field(default="", max_length=120)
     latitude: float | None = Field(default=None, ge=-90, le=90)
     longitude: float | None = Field(default=None, ge=-180, le=180)
     starts_on: date
@@ -171,6 +172,7 @@ class TournamentUpdate(BaseModel):
     event_type: Literal["locals", "prerelease", "rcq", "store_championship", "premier", "other"] | None = None
     rules_enforcement_level: str | None = Field(default=None, max_length=40)
     venue: str | None = Field(default=None, max_length=180)
+    city: str | None = Field(default=None, max_length=120)
     description: str | None = None
     refund_policy: str | None = None
     starts_on: date | None = None
@@ -219,6 +221,7 @@ class TournamentOut(BaseModel):
     event_type: str = "locals"
     rules_enforcement_level: str
     venue: str
+    city: str = ""
     latitude: float | None = None
     longitude: float | None = None
     # Popolato solo dalla ricerca per distanza.
@@ -386,6 +389,7 @@ class ScheduleImportIn(BaseModel):
     # Dove si gioca, per tutti: una sede del negozio o un luogo scritto.
     location_id: int | None = None
     venue: str = Field(default="", max_length=180)
+    city: str = Field(default="", max_length=120)
     # Per le righe senza la colonna dei posti.
     capacity: int = Field(default=32, gt=1, le=4096)
     publish: bool = True
@@ -606,6 +610,7 @@ class EventCreate(BaseModel):
     name: str = Field(min_length=3, max_length=180)
     description: str = ""
     venue: str = ""
+    city: str = Field(default="", max_length=120)
     starts_on: date
     ends_on: date | None = None
     is_public: bool = True
@@ -615,6 +620,7 @@ class EventUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=3, max_length=180)
     description: str | None = None
     venue: str | None = None
+    city: str | None = Field(default=None, max_length=120)
     starts_on: date | None = None
     ends_on: date | None = None
     is_public: bool | None = None
@@ -626,6 +632,7 @@ class EventOut(BaseModel):
     name: str
     description: str = ""
     venue: str = ""
+    city: str = ""
     starts_on: date
     ends_on: date | None = None
     is_public: bool = True
