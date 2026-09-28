@@ -69,6 +69,7 @@ export function mountConsole(host, tournamentId, { screenLinks = true, onClosed 
   let tournament = null;
   let myRole = 'none';
   let deckChecks = [];
+  let repairing = null;   // il tavolo che si sta riabbinando a mano
   let alive = true;
   // Dal token: serve per sapere quale tavolo e il mio.
   const myUserId = +(decodeToken(getToken())?.sub) || null;
@@ -169,6 +170,42 @@ export function mountConsole(host, tournamentId, { screenLinks = true, onClosed 
       data-name="${esc(name)}" type="button" title="${esc(tr('Non si è presentato: sconfitta a tavolino'))}">🚫 ${esc(name)}</button>`;
   }
 
+  /* Gli abbinamenti si correggono a mano solo sull'ultimo turno e prima che
+     il tavolo abbia un risultato: il backend rifiuta il resto, ma inutile
+     offrire un pulsante che non può funzionare. */
+  function canEditPairing(round) {
+    return canRunRounds()
+      && !judgeView
+      && String(round.id) === String(rounds.at(-1)?.id);
+  }
+
+  /* Chi si può mettere a questo tavolo: tutti quelli abbinati nel turno, più
+     gli eventuali bye. Il doppione lo rifiuta il server, con il suo motivo. */
+  function pairingChoices(round) {
+    const visti = new Map();
+    for (const p of round.pairings) {
+      if (p.player_a_registration_id) visti.set(p.player_a_registration_id, p.player_a);
+      if (p.player_b_registration_id) visti.set(p.player_b_registration_id, p.player_b);
+    }
+    return [...visti.entries()];
+  }
+
+  function pairingEditor(round, p) {
+    const scelte = pairingChoices(round);
+    const opts = (selected, vuoto) =>
+      (vuoto ? `<option value="">${esc(tr('— nessuno (bye)'))}</option>` : '')
+      + scelte.map(([id, nome]) =>
+        `<option value="${id}"${String(id) === String(selected) ? ' selected' : ''}>${esc(nome)}</option>`).join('');
+    return `<div class="ctl-row repair-row">
+      <label>${esc(tr('Tavolo'))}<input type="number" min="1" data-repair="table" value="${p.table_number}" style="width:5rem" /></label>
+      <select data-repair="a">${opts(p.player_a_registration_id, false)}</select>
+      <span>vs</span>
+      <select data-repair="b">${opts(p.player_b_registration_id, true)}</select>
+      <button class="mini-button primary" data-action="repair-save" data-pid="${p.id}" type="button">${esc(tr('Salva'))}</button>
+      <button class="mini-button" data-action="repair-cancel" type="button">${esc(tr('Annulla'))}</button>
+    </div>`;
+  }
+
   function renderRow(round, p) {
     const isBye = !p.player_b;
     const finalScore = p.result && p.result !== '' ? `${p.match_wins_a}-${p.match_wins_b}` : '';
@@ -248,6 +285,7 @@ export function mountConsole(host, tournamentId, { screenLinks = true, onClosed 
         ? `<button class="mini-button judge-chip${mine ? ' mine' : ''}" data-action="unassign" data-pid="${p.id}" type="button" title="Libera il tavolo">👤 ${esc(p.assigned_judge_name)}</button>`
         : (finalScore ? '' : `<button class="mini-button" data-action="assign" data-pid="${p.id}" type="button">Prendo io</button>`)}
       ${finalScore ? '' : `<button class="mini-button" data-action="cycle-status" data-pid="${p.id}" data-next="${stato === 'playing' ? 'called' : stato === 'called' ? 'attention' : 'playing'}" type="button" title="Cambia stato">⚑</button>`}
+      ${finalScore || isBye || !canEditPairing(round) ? '' : `<button class="mini-button" data-action="repair" data-pid="${p.id}" type="button" title="${esc(tr('Cambia gli avversari di questo tavolo'))}">✎</button>`}
       ${judgeTools}
       <span>${control}</span>
     </div>`;
@@ -287,8 +325,28 @@ export function mountConsole(host, tournamentId, { screenLinks = true, onClosed 
 
 
     tables.innerHTML = (pairings.length
-      ? pairings.map((p) => renderRow(round, p)).join('')
+      ? pairings.map((p) => (String(p.id) === String(repairing) ? pairingEditor(round, p) : renderRow(round, p))).join('')
       : '<p class="empty" style="margin:0">Tutti i tavoli hanno un risultato. ✓</p>');
+
+    tables.querySelectorAll('[data-action="repair"]').forEach((btn) =>
+      btn.addEventListener('click', () => { repairing = btn.dataset.pid; render(); }));
+    tables.querySelector('[data-action="repair-cancel"]')?.addEventListener('click', () => {
+      repairing = null;
+      render();
+    });
+    tables.querySelector('[data-action="repair-save"]')?.addEventListener('click', (e) => {
+      const riga = e.target.closest('.repair-row');
+      const valore = (nome) => riga.querySelector(`[data-repair="${nome}"]`).value;
+      repairing = null;
+      call(() => apiFetch(`/tournaments/${tid}/pairings/${e.target.dataset.pid}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          table_number: Number(valore('table')) || 1,
+          player_a_registration_id: Number(valore('a')),
+          player_b_registration_id: Number(valore('b')) || null,
+        }),
+      }), tr('Abbinamento aggiornato.'));
+    });
 
     tables.querySelectorAll('[data-action="result"]').forEach((sel) =>
       sel.addEventListener('change', () => submitResult(sel.dataset.pid, sel.value, sel.dataset.correct === '1')));

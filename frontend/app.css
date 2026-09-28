@@ -1193,3 +1193,8 @@ input[type="checkbox"][aria-invalid="true"] { outline: 2px solid var(--danger); 
   border: 1px solid var(--line); max-width: 46rem;
 }
 .ticket-msg.mine { margin-left: auto; background: var(--accent-dim); border-color: var(--accent); }
+
+/* La riga di un tavolo mentre se ne cambiano gli avversari a mano. */
+.repair-row { flex-wrap: wrap; gap: 8px; align-items: end; }
+.repair-row label { display: grid; gap: 4px; font-size: .78rem; color: var(--muted); }
+.repair-row select { min-width: 10rem; }

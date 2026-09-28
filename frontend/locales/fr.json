@@ -1074,5 +1074,8 @@
   "Creato: {nome}. Ora il genitore lo vede fra i suoi profili.": "Créé : {nome}. Le parent le voit désormais parmi ses profils.",
   "Questa parte è di chi organizza": "Cette partie est pour les organisateurs",
   "Il tuo account è da giocatore. Se organizzi tornei, scrivici e ti abilitiamo.": "Votre compte est un compte joueur. Si vous organisez des tournois, écrivez-nous et nous l’activerons.",
-  "Scrivici": "Écrivez-nous"
+  "Scrivici": "Écrivez-nous",
+  "Cambia gli avversari di questo tavolo": "Changer les joueurs de cette table",
+  "— nessuno (bye)": "— personne (bye)",
+  "Abbinamento aggiornato.": "Appariement mis à jour."
 }

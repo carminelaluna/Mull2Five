@@ -1066,5 +1066,8 @@
   "Creato: {nome}. Ora il genitore lo vede fra i suoi profili.": "Created: {nome}. The parent now sees it among their profiles.",
   "Questa parte è di chi organizza": "This part is for organizers",
   "Il tuo account è da giocatore. Se organizzi tornei, scrivici e ti abilitiamo.": "Your account is a player account. If you run tournaments, write to us and we will enable it.",
-  "Scrivici": "Write to us"
+  "Scrivici": "Write to us",
+  "Cambia gli avversari di questo tavolo": "Change who plays at this table",
+  "— nessuno (bye)": "— nobody (bye)",
+  "Abbinamento aggiornato.": "Pairing updated."
 }
