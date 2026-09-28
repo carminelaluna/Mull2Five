@@ -1198,3 +1198,8 @@ input[type="checkbox"][aria-invalid="true"] { outline: 2px solid var(--danger); 
 .repair-row { flex-wrap: wrap; gap: 8px; align-items: end; }
 .repair-row label { display: grid; gap: 4px; font-size: .78rem; color: var(--muted); }
 .repair-row select { min-width: 10rem; }
+
+/* La propria riga, dentro classifica e abbinamenti visti dal giocatore. */
+.bo tr.mine > td { background: var(--accent-dim); font-weight: 700; }
+.reg-extra { margin-top: 10px; }
+.reg-extra > summary { cursor: pointer; font-weight: 700; font-size: .88rem; }

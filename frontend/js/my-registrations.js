@@ -209,7 +209,9 @@ async function buildCard(t, reg) {
     if (lastRound) pairingsHtml = renderMyPairing(t, lastRound, reg);
   } catch { /* pezzo in piu: senza, la pagina resta quella che e */ }
 
-  /* Standings */
+  /* La classifica: la propria riga sempre in vista, la tabella intera a
+     richiesta. Prima si vedeva solo la propria posizione, e per sapere come
+     stavano gli altri bisognava cercare lo schermo in sala. */
   let standingsHtml = '';
   if (t.status === 'running' || t.status === 'completed') {
     try {
@@ -221,7 +223,18 @@ async function buildCard(t, reg) {
           · ${me.points ?? 0} punti
           · ${esc(me.record ?? '')}</div>`;
       }
-    } catch { /* pezzo in piu: senza, la pagina resta quella che e */ }
+      if (standings?.length) standingsHtml += fullStandings(standings, reg.id);
+    } catch { /* la classifica può essere nascosta: la pagina resta quella che è */ }
+  }
+
+  /* Tutti gli abbinamenti del turno, non solo il proprio. */
+  let allPairingsHtml = '';
+  if (t.status === 'running' || t.status === 'completed') {
+    try {
+      const rounds = await apiFetch(`/tournaments/${t.id}/rounds`);
+      const last = Array.isArray(rounds) ? rounds.at(-1) : null;
+      if (last?.pairings?.length) allPairingsHtml = allPairings(last, reg.id);
+    } catch { /* gli abbinamenti possono essere nascosti */ }
   }
 
   const statusLabel = { published:'Aperto', running:'In corso', completed:'Concluso', cancelled:'Annullato' }[t.status] || t.status;
@@ -282,7 +295,47 @@ async function buildCard(t, reg) {
     </div>
     ${standingsHtml}
     ${pairingsHtml}
+    ${allPairingsHtml}
   </article>`;
+}
+
+/** La classifica per intero, chiusa: si apre chi vuole vedere gli altri. */
+function fullStandings(standings, myRegId) {
+  const righe = standings.map((s) => `<tr${s.registration_id === myRegId ? ' class="mine"' : ''}>
+    <td>${s.position ?? '—'}</td>
+    <td>${esc(s.display_name || '')}</td>
+    <td>${s.points ?? 0}</td>
+    <td>${esc(s.record ?? '')}</td>
+  </tr>`).join('');
+  return `<details class="reg-extra">
+    <summary>${esc(tr('Classifica completa'))}</summary>
+    <div class="table-scroll"><table class="bo">
+      <thead><tr><th>#</th><th>${esc(tr('Giocatore'))}</th><th>${esc(tr('Punti'))}</th><th>${esc(tr('Record'))}</th></tr></thead>
+      <tbody>${righe}</tbody></table></div>
+  </details>`;
+}
+
+/** Gli abbinamenti di tutto il turno, col proprio tavolo in evidenza. */
+function allPairings(round, myRegId) {
+  const righe = (round.pairings || [])
+    .slice()
+    .sort((a, b) => (a.table_number || 0) - (b.table_number || 0))
+    .map((p) => {
+      const mio = p.player_a_registration_id === myRegId || p.player_b_registration_id === myRegId;
+      const punteggio = p.result ? `${p.match_wins_a} – ${p.match_wins_b}` : '';
+      return `<tr${mio ? ' class="mine"' : ''}>
+        <td>${p.table_number ?? ''}</td>
+        <td>${esc(p.player_a || '')}</td>
+        <td>${esc(p.player_b || 'BYE')}</td>
+        <td>${esc(punteggio)}</td>
+      </tr>`;
+    }).join('');
+  return `<details class="reg-extra">
+    <summary>${esc(tr('Tutti gli abbinamenti del turno {n}', { n: round.number }))}</summary>
+    <div class="table-scroll"><table class="bo">
+      <thead><tr><th>${esc(tr('Tavolo'))}</th><th>${esc(tr('Giocatore'))}</th><th>${esc(tr('Avversario'))}</th><th>${esc(tr('Risultato'))}</th></tr></thead>
+      <tbody>${righe}</tbody></table></div>
+  </details>`;
 }
 
 function renderMyPairing(t, round, reg) {

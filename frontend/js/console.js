@@ -51,6 +51,11 @@ const SHELL = `
   <div class="ctl-tabs" data-el="tabs"></div>
   <div class="panel" data-el="tables"><p class="empty">Caricamento…</p></div>
 
+  <details class="panel" data-el="standingsBox" style="margin-top:12px">
+    <summary>Classifica</summary>
+    <div data-el="standings"><p class="empty">Caricamento…</p></div>
+  </details>
+
   <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
     <button class="secondary" data-el="genRound" type="button">Genera round successivo</button>
     <button class="secondary" data-el="closeTournament" type="button" style="display:none">🏁 Chiudi torneo</button>
@@ -69,6 +74,7 @@ export function mountConsole(host, tournamentId, { screenLinks = true, onClosed 
   let tournament = null;
   let myRole = 'none';
   let deckChecks = [];
+  let standings = [];
   let repairing = null;   // il tavolo che si sta riabbinando a mano
   let alive = true;
   // Dal token: serve per sapere quale tavolo e il mio.
@@ -99,6 +105,9 @@ export function mountConsole(host, tournamentId, { screenLinks = true, onClosed 
     try { tournament = await apiFetch(`/tournaments/${tid}`); } catch { tournament = null; }
     try { myRole = (await apiFetch(`/tournaments/${tid}/my-role`))?.role || 'none'; } catch { myRole = 'none'; }
     try { deckChecks = await apiFetch(`/tournaments/${tid}/deck-checks`) || []; } catch { deckChecks = []; }
+    // La classifica serve in sala quanto gli abbinamenti: chi chiede "a che punto sono"
+    // non deve mandare l'organizzatore in un'altra pagina.
+    try { standings = await apiFetch(`/tournaments/${tid}/standings`) || []; } catch { standings = []; }
     if (!alive) return;   // il pannello può essere stato smontato durante le fetch
     if (!rounds.some((r) => String(r.id) === String(activeRoundId))) activeRoundId = rounds.at(-1)?.id ?? null;
     render();
@@ -310,6 +319,18 @@ export function mountConsole(host, tournamentId, { screenLinks = true, onClosed 
     tabs.querySelectorAll('[data-round]').forEach((b) =>
       b.addEventListener('click', () => { activeRoundId = b.dataset.round; render(); }));
     el('judgeToggle').addEventListener('click', () => { judgeView = !judgeView; render(); });
+
+    const box = el('standings');
+    if (box) {
+      box.innerHTML = standings.length
+        ? `<div class="table-scroll"><table class="bo">
+             <thead><tr><th>#</th><th>${esc(tr('Giocatore'))}</th><th>${esc(tr('Punti'))}</th><th>${esc(tr('Record'))}</th></tr></thead>
+             <tbody>${standings.map((s) => `<tr>
+               <td>${s.position ?? '—'}</td><td>${esc(s.display_name || '')}</td>
+               <td>${s.points ?? 0}</td><td>${esc(s.record || '')}</td></tr>`).join('')}</tbody>
+           </table></div>`
+        : `<p class="empty">${esc(tr('Ancora nessun risultato.'))}</p>`;
+    }
 
     const tables = el('tables');
     if (!round) {
