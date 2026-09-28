@@ -24,13 +24,16 @@ monitor o per i judge, che nel back-office non entrano.
 - Il **cronometro del tavolo** e i pulsanti +2′ / +5′ per il tempo supplementare.
 - **Prendo io** — un judge si assegna il tavolo, così due judge non ci vanno
   insieme.
-- **⚑** — cambia lo stato del tavolo: in gioco, chiamato, serve judge.
+- **⚑** — apre gli strumenti del judge per quel tavolo: warning, game loss,
+  deck check, non presentato e lo stato del tavolo. La vede solo chi arbitra;
+  a un giocatore non compare.
 - **✎** — cambia chi gioca a quel tavolo o il numero del tavolo. Compare solo
   sull'ultimo turno e solo finché non c'è un risultato.
 
 ## La vista judge
 
-Un interruttore in alto. Aggiunge, su ogni tavolo:
+Un interruttore in alto: apre gli stessi strumenti della bandierina, ma su
+tutti i tavoli insieme. Su ogni tavolo:
 
 - **⚠ warning** e **GL game loss** per ciascuno dei due giocatori;
 - **🔍 deck check**, con il segno di spunta se quella lista è già stata

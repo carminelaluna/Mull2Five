@@ -1101,5 +1101,8 @@
   "Referto confermato.": "Rapport confirmé.",
   "Risultato corretto.": "Résultat corrigé.",
   "Risultato registrato.": "Résultat enregistré.",
-  "ritirato": "retiré"
+  "ritirato": "retiré",
+  "Warning, game loss, deck check e stato del tavolo": "Warning, game loss, deck check et état de la table",
+  "Stato: {stato}": "État : {stato}",
+  "in gioco": "en jeu"
 }

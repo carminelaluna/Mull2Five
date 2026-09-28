@@ -236,9 +236,6 @@ decisioni tue.
       capienza e va visto fra gli iscritti. Nessuna modifica: il comportamento era già
       questo. Dal turno dopo non viene più abbinato e in classifica resta, segnato
       "ritirato" (vedi `docs/regia.md`).
-- [~] **Accantonata** (29/09/2026) — la bandierina sul turno. "Non deve chiamare
-      judge ma warning" si legge in due modi: rinominare lo stato del tavolo,
-      oppure far dare la penalità dal pulsante. Da riprendere con la decisione.
 - [ ] Togliere "mark absent game".
 - [ ] Aggiungere l'abbinamento manuale.
 - [ ] I giocatori devono vedere tutti gli abbinamenti e la classifica; la classifica anche all'organizzatore.

@@ -82,6 +82,7 @@ export function mountConsole(host, tournamentId, { screenLinks = true, onClosed 
   let standings = [];
   let bracket = [];
   let repairing = null;   // il tavolo che si sta riabbinando a mano
+  let penaltiesFor = null;   // il tavolo di cui è aperto il pannello del judge
   let alive = true;
   // Dal token: serve per sapere quale tavolo e il mio.
   const myUserId = +(decodeToken(getToken())?.sub) || null;
@@ -102,6 +103,8 @@ export function mountConsole(host, tournamentId, { screenLinks = true, onClosed 
   const canRunRounds = () => ['organizer', 'head_judge'].includes(myRole);
   /* Il referto di un judge lo conferma chi tiene il tabellone, non chi l'ha scritto. */
   const canConfirm = () => ['organizer', 'head_judge', 'scorekeeper'].includes(myRole);
+  /* Warning e game loss li dà chi arbitra: a un giocatore la bandierina non compare. */
+  const canJudge = () => ['organizer', 'head_judge', 'scorekeeper', 'judge'].includes(myRole);
   const activeRound = () => rounds.find((r) => String(r.id) === String(activeRoundId));
 
   /* ── Dati ──────────────────────────────────────────────── */
@@ -294,8 +297,17 @@ export function mountConsole(host, tournamentId, { screenLinks = true, onClosed 
       control = `<select data-action="result" data-pid="${p.id}"${correct}>${opts.join('')}</select>`;
     }
 
+    // Lo stato dedotto batte quello manuale: se il risultato c'e, il tavolo e
+    // chiuso qualunque cosa dica table_status.
+    const stato = finalScore ? 'done'
+      : p.report_status === 'conflict' ? 'disputed'
+      : (p.table_status || 'playing');
+    const statoLabel = {
+      playing: '', called: 'chiamato', attention: 'serve judge',
+      disputed: 'contestato', done: '',
+    }[stato];
     let judgeTools = '';
-    if (judgeView && !isBye) {
+    if ((judgeView || String(p.id) === String(penaltiesFor)) && !isBye) {
       const btn = (rid, kind, cls, label) =>
         `<button class="mini-button ${cls}" data-action="penalty" data-rid="${rid}" data-kind="${kind}" type="button">${label}</button>`;
       // Il segno di spunta dice che quella lista e gia stata controllata: senza,
@@ -314,6 +326,9 @@ export function mountConsole(host, tournamentId, { screenLinks = true, onClosed 
         ${dc(p.player_a_registration_id, p.player_a)}
         ${dc(p.player_b_registration_id, p.player_b)}
         ${finalScore ? '' : noShow(p, p.player_a_registration_id, p.player_a) + noShow(p, p.player_b_registration_id, p.player_b)}
+        ${finalScore ? '' : `<button class="mini-button" data-action="cycle-status" data-pid="${p.id}"
+          data-next="${stato === 'playing' ? 'called' : stato === 'called' ? 'attention' : 'playing'}"
+          type="button">${esc(tr('Stato: {stato}', { stato: statoLabel || tr('in gioco') }))}</button>`}
       </span>`;
     }
 
@@ -328,15 +343,6 @@ export function mountConsole(host, tournamentId, { screenLinks = true, onClosed 
         <button class="mini-button" data-action="extend-table" data-pid="${p.id}" data-min="5" type="button">+5′</button>`;
     }
 
-    // Lo stato dedotto batte quello manuale: se il risultato c'e, il tavolo e
-    // chiuso qualunque cosa dica table_status.
-    const stato = finalScore ? 'done'
-      : p.report_status === 'conflict' ? 'disputed'
-      : (p.table_status || 'playing');
-    const statoLabel = {
-      playing: '', called: 'chiamato', attention: 'serve judge',
-      disputed: 'contestato', done: '',
-    }[stato];
     const mine = String(p.assigned_judge_id || '') === String(myUserId);
 
     return `<div class="ctl-row status-${esc(stato)}">
@@ -347,7 +353,9 @@ export function mountConsole(host, tournamentId, { screenLinks = true, onClosed 
       ${p.assigned_judge_name
         ? `<button class="mini-button judge-chip${mine ? ' mine' : ''}" data-action="unassign" data-pid="${p.id}" type="button" title="Libera il tavolo">👤 ${esc(p.assigned_judge_name)}</button>`
         : (finalScore ? '' : `<button class="mini-button" data-action="assign" data-pid="${p.id}" type="button">Prendo io</button>`)}
-      ${finalScore ? '' : `<button class="mini-button" data-action="cycle-status" data-pid="${p.id}" data-next="${stato === 'playing' ? 'called' : stato === 'called' ? 'attention' : 'playing'}" type="button" title="Cambia stato">⚑</button>`}
+      ${canJudge() && !isBye ? `<button class="mini-button${String(p.id) === String(penaltiesFor) ? ' active' : ''}"
+        data-action="toggle-penalties" data-pid="${p.id}" type="button"
+        title="${esc(tr('Warning, game loss, deck check e stato del tavolo'))}">⚑</button>` : ''}
       ${finalScore || isBye || !canEditPairing(round) ? '' : `<button class="mini-button" data-action="repair" data-pid="${p.id}" type="button" title="${esc(tr('Cambia gli avversari di questo tavolo'))}">✎</button>`}
       ${judgeTools}
       <span>${control}</span>
@@ -438,6 +446,11 @@ export function mountConsole(host, tournamentId, { screenLinks = true, onClosed 
       ? pairings.map((p) => (String(p.id) === String(repairing) ? pairingEditor(round, p) : renderRow(round, p))).join('')
       : '<p class="empty" style="margin:0">Tutti i tavoli hanno un risultato. ✓</p>');
 
+    tables.querySelectorAll('[data-action="toggle-penalties"]').forEach((btn) =>
+      btn.addEventListener('click', () => {
+        penaltiesFor = String(penaltiesFor) === btn.dataset.pid ? null : btn.dataset.pid;
+        render();
+      }));
     tables.querySelectorAll('[data-action="confirm-report"]').forEach((btn) =>
       btn.addEventListener('click', () => call(
         () => apiFetch(`/tournaments/${tid}/pairings/${btn.dataset.pid}/confirm-report`, { method: 'POST' }),

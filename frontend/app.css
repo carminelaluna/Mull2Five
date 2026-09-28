@@ -1225,3 +1225,6 @@ input[type="checkbox"][aria-invalid="true"] { outline: 2px solid var(--danger); 
 .br-side span { color: var(--muted); font-variant-numeric: tabular-nums; }
 .br-side.won { background: var(--accent-dim); color: var(--accent); font-weight: 700; }
 .br-side.won span { color: var(--accent); }
+
+/* La bandierina del tavolo, quando il pannello del judge è aperto. */
+.mini-button.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
