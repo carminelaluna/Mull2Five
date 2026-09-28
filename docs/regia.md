@@ -47,6 +47,9 @@ Dal turno successivo non viene più abbinato, ma **resta in classifica** con
 quello che ha fatto fino a lì — segnato come "ritirato". I suoi spareggi si
 calcolano sui turni che ha giocato davvero, senza gonfiarli con quelli saltati.
 
+Il posto **non** torna libero e l'iscrizione resta fra i Giocatori: chi si
+ritira ha quasi sempre già giocato, quindi continua a contare come presente.
+
 ## Se c'è uno scorekeeper
 
 Con uno scorekeeper nello staff, il risultato che inserisce un judge non va
