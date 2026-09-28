@@ -114,3 +114,46 @@ def test_no_email_goes_to_invalid_addresses(monkeypatch):
 
     monkeypatch.setattr(email.smtplib, "SMTP", refuse)
     assert email.send_email("guest-1@guests.mull2five.invalid", "x", "y") is False
+
+
+def test_a_desk_signup_with_an_email_can_then_log_in(client, monkeypatch):
+    """Al banco con l'email nasce un account vero, e arriva l'invito.
+
+    Prima l'account nasceva senza password e senza avviso: chi si era iscritto
+    di persona non riusciva più a entrare e non capiva perché.
+    """
+    from backend.app.core.config import get_settings
+    from backend.app.services import email as email_service
+
+    monkeypatch.setattr(get_settings(), "smtp_host", "smtp.example.com")
+    inviate = []
+
+    class FakeSMTP:
+        def __init__(self, *a, **k):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *e):
+            return False
+
+        def starttls(self):
+            pass
+
+        def login(self, *a):
+            pass
+
+        def send_message(self, message):
+            inviate.append(message)
+
+    monkeypatch.setattr(email_service.smtplib, "SMTP", FakeSMTP)
+
+    org = _register_user(client, "banco-org@example.com", role="organizer")
+    tid = _tournament(client, org)
+    iscritto = client.post(f"/api/tournaments/{tid}/walk-in", headers=org, json={
+        "email": "nuovo@example.com", "display_name": "Nuovo Giocatore"})
+    assert iscritto.status_code == 201, iscritto.text
+
+    assert [m["To"] for m in inviate] == ["nuovo@example.com"]
+    assert "password" in str(inviate[0].get_content()).lower()

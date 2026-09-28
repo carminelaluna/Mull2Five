@@ -16,6 +16,7 @@ from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from backend.app.core.cache import cache_get, cache_invalidate, cache_set
+from backend.app.core.config import get_settings
 from backend.app.db import get_db
 from backend.app.games import online_platform
 from backend.app.models import (
@@ -74,9 +75,10 @@ from backend.app.schemas import (
     TeamStandingOut,
     WalkInIn,
 )
-from backend.app.security import get_current_user, require_organizer
+from backend.app.security import create_reset_token, get_current_user, require_organizer
 from backend.app.services.audit import write_audit
 from backend.app.services.decklists import validate_card_legality, validate_decklist
+from backend.app.services.email import send_email
 from backend.app.services.notifications import notify_registration_confirmed
 from backend.app.services.pairings import (
     decklists_locked,
@@ -1067,6 +1069,25 @@ def mark_registration_paid(
     )
 
 
+def _invite_to_set_a_password(player: User, tournament: Tournament) -> None:
+    """Il conto è nato al banco, senza che il giocatore lo sapesse.
+
+    Finora restava senza password e quindi inaccessibile: chi si era iscritto
+    di persona non riusciva più a entrare, e non capiva perché. Si manda lo
+    stesso link del reset, che vale mezz'ora, e da lì si sceglie la password.
+    """
+    settings = get_settings()
+    link = f"{str(settings.frontend_url).rstrip('/')}/reset-password.html?token={create_reset_token(player)}"
+    send_email(
+        player.email,
+        f"Mull2Five — Il tuo account per {tournament.name}",
+        f"Ciao {player.display_name},\n\n"
+        f'ti abbiamo iscritto a "{tournament.name}" e ti abbiamo aperto un account.\n'
+        f"Scegli la tua password da qui (il link vale 30 minuti):\n{link}\n\n"
+        'Se il link è scaduto, usa "Password dimenticata" dalla pagina di accesso.',
+    )
+
+
 @router.post("/{tournament_id}/walk-in", response_model=OrganizerRegistrationOut, status_code=201)
 def add_walk_in(
     tournament_id: int,
@@ -1096,6 +1117,8 @@ def add_walk_in(
         )
         db.add(player)
         db.flush()
+        if email:
+            _invite_to_set_a_password(player, tournament)
     existing = db.scalar(
         select(Registration).where(
             Registration.tournament_id == tournament_id,
