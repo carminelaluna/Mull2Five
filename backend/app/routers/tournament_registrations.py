@@ -12,7 +12,7 @@ import re
 from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from backend.app.core.cache import cache_get, cache_invalidate, cache_set
@@ -623,6 +623,39 @@ def player_card(
     )
 
 
+def _close_match_against(tournament: Tournament, registration_id: int, round_id: int | None,
+                         db: Session) -> None:
+    """Un match loss (o una squalifica) chiude il match 2-0 per l'avversario.
+
+    Un game loss no: quello è una partita, e il match si gioca lo stesso.
+    Si tocca solo un tavolo ancora senza risultato: se il referto c'è già, lo
+    si corregge dal tavolo, dove resta scritto chi l'ha cambiato.
+    """
+    stmt = (
+        select(Pairing)
+        .join(Round, Round.id == Pairing.round_id)
+        .where(
+            Round.tournament_id == tournament.id,
+            or_(
+                Pairing.player_a_registration_id == registration_id,
+                Pairing.player_b_registration_id == registration_id,
+            ),
+        )
+        .order_by(Round.number.desc())
+    )
+    if round_id:
+        stmt = stmt.where(Pairing.round_id == round_id)
+    pairing = db.scalars(stmt).first()
+    if not pairing or not pairing.player_b_registration_id or pairing.result:
+        return
+    perde_a = pairing.player_a_registration_id == registration_id
+    pairing.match_wins_a = 0 if perde_a else 2
+    pairing.match_wins_b = 2 if perde_a else 0
+    pairing.draws = 0
+    pairing.result = "B" if perde_a else "A"
+    db.add(pairing)
+
+
 @router.post("/{tournament_id}/penalties", response_model=PenaltyOut, status_code=201)
 def create_penalty(
     tournament_id: int,
@@ -643,9 +676,12 @@ def create_penalty(
         is_private=payload.is_private,
     )
     db.add(penalty)
+    if payload.kind in {"match_loss", "disqualification"}:
+        _close_match_against(tournament, payload.registration_id, payload.round_id, db)
     db.commit()
     db.refresh(penalty)
     cache_invalidate("registrations:")   # "precedenti" nelle liste degli altri tornei
+    cache_invalidate(f"rounds:{tournament.id}")
     return penalty
 
 

@@ -134,3 +134,34 @@ def test_the_player_must_be_at_that_table(client):
     other = next(r for r in regs.values() if r not in {table["player_a_registration_id"], table["player_b_registration_id"]})
     assert client.post(f"/api/tournaments/{tid}/pairings/{table['id']}/tardiness", headers=org,
                        json={"registration_id": other}).status_code == 422
+
+
+def test_a_match_loss_closes_the_table_two_nil(client):
+    """Match loss e squalifica chiudono il match per l'avversario; il game loss no."""
+    org = _register_user(client, "ml-org@example.com", role="organizer")
+    tid, _ = _tournament(client, org, 2, prefix="ml")
+    started = client.post(f"/api/tournaments/{tid}/start", headers=org)
+    assert started.status_code == 200, started.text
+    turno = started.json()
+    perde = turno["pairings"][0]["player_a_registration_id"]
+
+    dato = client.post(f"/api/tournaments/{tid}/penalties", headers=org, json={
+        "registration_id": perde, "round_id": turno["id"],
+        "kind": "match_loss", "note": "Assente al tavolo"})
+    assert dato.status_code == 201, dato.text
+
+    riga = client.get(f"/api/tournaments/{tid}/rounds", headers=org).json()[-1]["pairings"][0]
+    assert (riga["match_wins_a"], riga["match_wins_b"], riga["result"]) == (0, 2, "B")
+
+
+def test_a_game_loss_leaves_the_match_to_be_played(client):
+    org = _register_user(client, "gl-org@example.com", role="organizer")
+    tid, _ = _tournament(client, org, 2, prefix="gl")
+    turno = client.post(f"/api/tournaments/{tid}/start", headers=org).json()
+
+    client.post(f"/api/tournaments/{tid}/penalties", headers=org, json={
+        "registration_id": turno["pairings"][0]["player_a_registration_id"],
+        "round_id": turno["id"], "kind": "game_loss", "note": "Mazzo non mescolato"})
+
+    riga = client.get(f"/api/tournaments/{tid}/rounds", headers=org).json()[-1]["pairings"][0]
+    assert riga["result"] in ("", None)
