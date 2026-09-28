@@ -10,6 +10,7 @@ import { EVENT_TYPES, RELS, toast, typeLabel } from './catalog.js';
 import { mountConsole } from './console.js';
 import { renderDeck } from './deck-view.js';
 import { esc } from './escape.js';
+import { bindFormatPicker, formatOptions, formatPicker, formatValue } from './formats.js';
 import { bestOfLabel, gameInfo, gameLabel, loadGames, tiebreakerColumns } from './games.js';
 import { t as tr } from './i18n.js';
 import { $, apiFetch, fmtDate, money, session } from './organizer-common.js';
@@ -346,8 +347,7 @@ function openNewEventDialog() {
       <div class="bo-grid">
         <label>Nome<input id="nName" required placeholder="RCQ Modern" /></label>
         <label id="nGameWrap">${esc(tr('Gioco'))}<select id="nGame"></select></label>
-        <label>Formato<input id="nFormat" value="Modern" list="nFormatList" autocomplete="off" />
-          <datalist id="nFormatList"></datalist></label>
+        <label>Formato${formatPicker('nFormat', ['Modern'], 'Modern')}</label>
         <label>Tipo evento<select id="nType">
           ${EVENT_TYPES.map(t => `<option value="${t.value}">${esc(t.label)}</option>`).join('')}
         </select></label>
@@ -396,6 +396,7 @@ function openNewEventDialog() {
   $('#nSubmit').addEventListener('click', createTournament);
   fillGameChoices();
   fillLocationChoices('#nLocation', '#nLocationWrap', '#nVenueWrap', null);
+  bindFormatPicker('nFormat');
   bindOnline('n', $('#nGame').value || 'mtg', '');
 }
 
@@ -444,8 +445,7 @@ async function fillGameChoices() {
   $('#nGameWrap').style.display = games.length > 1 ? '' : 'none';
   const apply = () => {
     const game = games.find((g) => g.code === select.value) || games[0];
-    $('#nFormatList').innerHTML = game.formats.map((f) => `<option value="${esc(f)}"></option>`).join('');
-    if (!game.formats.includes($('#nFormat').value)) $('#nFormat').value = game.formats[0];
+    $('#nFormat').innerHTML = formatOptions(game.formats, formatValue('nFormat'));
     $('#nBestOf').value = String(game.default_best_of);
   };
   select.addEventListener('change', apply);
@@ -456,7 +456,7 @@ async function createTournament(e) {
   e.preventDefault();
   const body = {
     name: $('#nName').value.trim(),
-    format: $('#nFormat').value.trim() || 'Modern',
+    format: formatValue('nFormat') || 'Modern',
     game: $('#nGame').value || 'mtg',
     best_of: +$('#nBestOf').value || null,
     allow_intentional_draws: $('#nIds').checked,
@@ -2305,8 +2305,7 @@ async function renderImpostazioni() {
           <label style="grid-column:1/-1">Nome<input id="sName" required value="${esc(t.name)}" /></label>
           <label ${games.length > 1 ? '' : 'style="display:none"'}>${esc(tr('Gioco'))}<select id="sGame" ${lock('game')}>
             ${games.map((g) => option(g.code, g.name, t.game || 'mtg')).join('')}</select></label>
-          <label>Formato<input id="sFormat" list="sFormatList" value="${esc(t.format)}" ${lock('format')} />
-            <datalist id="sFormatList"></datalist></label>
+          <label>Formato${formatPicker('sFormat', (games.find((g) => g.code === t.game) || games[0])?.formats || [], t.format)}</label>
           <label>Tipo evento<select id="sType">
             ${EVENT_TYPES.map((x) => option(x.value, x.label, t.event_type)).join('')}</select></label>
           <label>Livello (REL)<select id="sRel">
@@ -2381,14 +2380,14 @@ async function renderImpostazioni() {
   const syncFormats = (fromUser) => {
     const game = games.find((g) => g.code === $('#sGame').value) || games[0];
     if (!game) return;
-    $('#sFormatList').innerHTML = game.formats.map((f) => `<option value="${esc(f)}"></option>`).join('');
+    $('#sFormat').innerHTML = formatOptions(game.formats, formatValue('sFormat'));
     if (fromUser) {
-      if (!game.formats.includes($('#sFormat').value)) $('#sFormat').value = game.formats[0];
       $('#sBestOf').value = String(game.default_best_of);
     }
   };
   $('#sGame').addEventListener('change', () => syncFormats(true));
   syncFormats(false);
+  bindFormatPicker('sFormat');
   fillLocationChoices('#sLocation', '#sLocationWrap', '#sVenueWrap', t.location_id ?? undefined);
   bindOnline('s', t.game, t.online_platform);
 
@@ -2398,7 +2397,7 @@ async function renderImpostazioni() {
     const body = {
       name: $('#sName').value.trim(),
       game: $('#sGame').value,
-      format: $('#sFormat').value.trim(),
+      format: formatValue('sFormat'),
       event_type: $('#sType').value,
       rules_enforcement_level: $('#sRel').value,
       sanction_id: $('#sSanction').value.trim(),
