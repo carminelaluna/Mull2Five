@@ -1073,5 +1073,12 @@
   "Abbinamento aggiornato.": "Emparejamiento actualizado.",
   "Classifica completa": "Clasificación completa",
   "Tutti gli abbinamenti del turno {n}": "Todos los emparejamientos de la ronda {n}",
-  "Ancora nessun risultato.": "Todavía sin resultados."
+  "Ancora nessun risultato.": "Todavía sin resultados.",
+  "Seleziona {nome}": "Seleccionar {nome}",
+  "Togli dal torneo": "Quitar del torneo",
+  "{n} selezionati": "{n} seleccionados",
+  "Chi ha pagato resta: prima va rimborsato.": "Quien ha pagado se queda: primero hay que reembolsarle.",
+  "Fatti {n}. Fuori: {chi}": "{n} hechos. Fuera: {chi}",
+  "Fatti {n}.": "{n} hechos.",
+  "Togliere {n} iscritti dal torneo?": "¿Quitar {n} inscritos del torneo?"
 }

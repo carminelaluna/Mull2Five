@@ -1073,5 +1073,12 @@
   "Classifica completa": "Full standings",
   "Record": "Record",
   "Tutti gli abbinamenti del turno {n}": "All pairings for round {n}",
-  "Ancora nessun risultato.": "No results yet."
+  "Ancora nessun risultato.": "No results yet.",
+  "Seleziona {nome}": "Select {nome}",
+  "Togli dal torneo": "Remove from the tournament",
+  "{n} selezionati": "{n} selected",
+  "Chi ha pagato resta: prima va rimborsato.": "Whoever paid stays: refund them first.",
+  "Fatti {n}. Fuori: {chi}": "{n} done. Left out: {chi}",
+  "Fatti {n}.": "{n} done.",
+  "Togliere {n} iscritti dal torneo?": "Remove {n} players from the tournament?"
 }

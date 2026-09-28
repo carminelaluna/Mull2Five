@@ -233,7 +233,12 @@ decisioni tue.
 **Interfaccia**
 - [ ] Città con completamento a tendina all'iscrizione del negozio (e dove si scrive una città).
 - [ ] "Luogo" va separato in **luogo** e **città**.
-- [ ] Scheda Giocatori: selezione multipla, check-in di massa, eliminazione di massa (solo non paganti).
+- [ ] I posti occupati contano anche i ritirati: `tournament_with_counts` somma tutte
+      le iscrizioni, ritirati e lista d'attesa compresi, e la verifica della capienza
+      esclude solo la lista d'attesa. Un torneo con un ritirato mostra un posto in
+      meno di quelli veri. Toccare la capienza è un lavoro a parte: va deciso se un
+      ritirato libera il posto (lo lascia intendere `drop-unpaid`) e poi allineate le
+      due cose.
 - [~] **Accantonata** (29/09/2026) — la bandierina sul turno. "Non deve chiamare
       judge ma warning" si legge in due modi: rinominare lo stato del tavolo,
       oppure far dare la penalità dal pulsante. Da riprendere con la decisione.

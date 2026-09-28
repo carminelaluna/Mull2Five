@@ -1203,3 +1203,14 @@ input[type="checkbox"][aria-invalid="true"] { outline: 2px solid var(--danger); 
 .bo tr.mine > td { background: var(--accent-dim); font-weight: 700; }
 .reg-extra { margin-top: 10px; }
 .reg-extra > summary { cursor: pointer; font-weight: 700; font-size: .88rem; }
+
+/* Selezione multipla nella scheda Giocatori. */
+.players .pick-cell { width: 34px; text-align: center; }
+.players .pick-cell input { width: auto; min-height: 0; margin: 0; }
+.bulk-bar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin-bottom: 10px; padding: 8px 12px;
+  border: 1px solid var(--accent); border-radius: 10px; background: var(--accent-dim);
+  font-weight: 700; font-size: .88rem;
+}
+.bulk-bar button:disabled { opacity: .45; cursor: not-allowed; }

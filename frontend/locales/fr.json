@@ -1080,5 +1080,12 @@
   "Abbinamento aggiornato.": "Appariement mis à jour.",
   "Classifica completa": "Classement complet",
   "Tutti gli abbinamenti del turno {n}": "Tous les appariements du tour {n}",
-  "Ancora nessun risultato.": "Pas encore de résultats."
+  "Ancora nessun risultato.": "Pas encore de résultats.",
+  "Seleziona {nome}": "Sélectionner {nome}",
+  "Togli dal torneo": "Retirer du tournoi",
+  "{n} selezionati": "{n} sélectionnés",
+  "Chi ha pagato resta: prima va rimborsato.": "Qui a payé reste : il faut d’abord le rembourser.",
+  "Fatti {n}. Fuori: {chi}": "{n} faits. Exclus : {chi}",
+  "Fatti {n}.": "{n} faits.",
+  "Togliere {n} iscritti dal torneo?": "Retirer {n} inscrits du tournoi ?"
 }

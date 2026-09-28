@@ -1083,5 +1083,12 @@
   "Abbinamento aggiornato.": "Paarung aktualisiert.",
   "Classifica completa": "Vollständige Tabelle",
   "Tutti gli abbinamenti del turno {n}": "Alle Paarungen der Runde {n}",
-  "Ancora nessun risultato.": "Noch keine Ergebnisse."
+  "Ancora nessun risultato.": "Noch keine Ergebnisse.",
+  "Seleziona {nome}": "{nome} auswählen",
+  "Togli dal torneo": "Aus dem Turnier nehmen",
+  "{n} selezionati": "{n} ausgewählt",
+  "Chi ha pagato resta: prima va rimborsato.": "Wer bezahlt hat, bleibt: erst erstatten.",
+  "Fatti {n}. Fuori: {chi}": "{n} erledigt. Übersprungen: {chi}",
+  "Fatti {n}.": "{n} erledigt.",
+  "Togliere {n} iscritti dal torneo?": "{n} Angemeldete aus dem Turnier nehmen?"
 }

@@ -40,6 +40,8 @@ from backend.app.models import (
     UserRole,
 )
 from backend.app.schemas import (
+    BulkRegistrationsIn,
+    BulkResultOut,
     ByesIn,
     DecklistCreate,
     DecklistOut,
@@ -786,6 +788,74 @@ def set_drop(
     if dropped and not registration.waitlisted:
         promote_from_waitlist(tournament, db)
     return organizer_registration_out(registration)
+
+
+def _selected(tournament_id: int, ids: list[int], db: Session) -> list[Registration]:
+    """Le iscrizioni scelte, solo quelle di questo torneo."""
+    return list(db.scalars(
+        select(Registration)
+        .where(Registration.tournament_id == tournament_id, Registration.id.in_(ids))
+        .options(joinedload(Registration.player), joinedload(Registration.payment))
+    ).unique().all())
+
+
+def _nome(registration: Registration) -> str:
+    return registration.player.display_name if registration.player else f"#{registration.id}"
+
+
+@router.post("/{tournament_id}/registrations/bulk-check-in", response_model=BulkResultOut)
+def bulk_check_in(
+    tournament_id: int,
+    payload: BulkRegistrationsIn,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> BulkResultOut:
+    """Check-in di tutti quelli spuntati: al banco la fila non aspetta un clic
+    per volta. Chi si è ritirato resta fuori."""
+    tournament = load_tournament_for_staff(tournament_id, user, db)
+    fatti, saltati = 0, []
+    for registration in _selected(tournament.id, payload.registration_ids, db):
+        if registration.dropped:
+            saltati.append(f"{_nome(registration)} (ritirato)")
+            continue
+        if not registration.checked_in:
+            registration.checked_in = True
+            db.add(registration)
+            fatti += 1
+    db.commit()
+    cache_invalidate(f"registrations:{tournament_id}")
+    return BulkResultOut(done=fatti, skipped=saltati)
+
+
+@router.post("/{tournament_id}/registrations/bulk-drop", response_model=BulkResultOut)
+def bulk_drop(
+    tournament_id: int,
+    payload: BulkRegistrationsIn,
+    organizer: User = Depends(require_organizer),
+    db: Session = Depends(get_db),
+) -> BulkResultOut:
+    """Toglie dal torneo quelli spuntati, ma solo se non hanno pagato.
+
+    Chi ha pagato no: prima si rimborsa, altrimenti si toglie dal tabellone
+    qualcuno che ha dei soldi dentro. L'iscrizione resta nello storico segnata
+    come ritirata, come fa già l'annullamento del giocatore.
+    """
+    tournament = load_owned_tournament(tournament_id, organizer, db)
+    fatti, saltati = 0, []
+    for registration in _selected(tournament.id, payload.registration_ids, db):
+        if registration.payment and registration.payment.status == PaymentStatus.PAID:
+            saltati.append(f"{_nome(registration)} (ha pagato)")
+            continue
+        if not registration.dropped:
+            registration.dropped = True
+            db.add(registration)
+            fatti += 1
+    db.commit()
+    cache_invalidate(f"registrations:{tournament_id}")
+    cache_invalidate("tournaments:")
+    if fatti:
+        promote_from_waitlist(tournament, db)   # i posti liberati vanno a chi aspetta
+    return BulkResultOut(done=fatti, skipped=saltati)
 
 
 @router.post("/{tournament_id}/drop-unpaid", response_model=DropUnpaidOut)

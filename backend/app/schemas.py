@@ -1537,3 +1537,14 @@ class TicketOut(BaseModel):
     updated_at: datetime
     messages: list[TicketMessageOut] = []
     model_config = {"from_attributes": True}
+
+
+class BulkRegistrationsIn(BaseModel):
+    """Un'azione su più iscritti insieme, scelti dalla scheda Giocatori."""
+    registration_ids: list[int] = Field(min_length=1, max_length=500)
+
+
+class BulkResultOut(BaseModel):
+    """Quanti ne ha presi e chi è rimasto fuori, con il motivo."""
+    done: int
+    skipped: list[str] = []

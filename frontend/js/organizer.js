@@ -702,6 +702,8 @@ function playerRow(r) {
   const answers = answersLine(r).replace('<br>', '');
 
   return `<tr data-reg="${r.id}">
+    <td class="pick-cell"><input type="checkbox" class="pick" data-pick="${r.id}"
+      data-paid="${paid ? '1' : ''}" aria-label="${esc(tr('Seleziona {nome}', { nome: name }))}" /></td>
     <td>
       ${cell(
         `<strong>${esc(name)}</strong>
@@ -756,11 +758,61 @@ function playerRow(r) {
   </tr>`;
 }
 
+/* ── Azioni su più iscritti ───────────────────────────────
+   Al banco la fila non aspetta un clic per volta. Chi ha pagato non si toglie
+   con una spunta: prima lo si rimborsa, e il server lo rifiuta comunque. */
+function bindBulkActions(t) {
+  const barra = $('#gBulk');
+  const scelti = () => [...document.querySelectorAll('#gBody .pick:checked')];
+
+  const aggiorna = () => {
+    const presi = scelti();
+    barra.hidden = !presi.length;
+    if (!presi.length) return;
+    const paganti = presi.filter((c) => c.dataset.paid).length;
+    $('#gBulkCount').textContent = tr('{n} selezionati', { n: presi.length });
+    // Se sono tutti paganti non c'è niente da togliere: meglio dirlo prima.
+    $('#gBulkDrop').disabled = paganti === presi.length;
+    $('#gBulkDrop').title = paganti
+      ? tr('Chi ha pagato resta: prima va rimborsato.')
+      : '';
+  };
+
+  $('#gPickAll').addEventListener('change', (e) => {
+    // Solo le righe visibili: se c'è un filtro, "tutti" vuol dire quelli lì.
+    document.querySelectorAll('#gBody tr:not([hidden]) .pick')
+      .forEach((c) => { c.checked = e.target.checked; });
+    aggiorna();
+  });
+  $('#gBody').addEventListener('change', (e) => {
+    if (e.target.classList.contains('pick')) aggiorna();
+  });
+
+  const manda = async (percorso, conferma) => {
+    const ids = scelti().map((c) => Number(c.dataset.pick));
+    if (!ids.length || (conferma && !confirm(conferma(ids.length)))) return;
+    try {
+      const esito = await apiFetch(`/tournaments/${t.id}/registrations/${percorso}`, {
+        method: 'POST', body: JSON.stringify({ registration_ids: ids }),
+      });
+      toast(esito.skipped.length
+        ? tr('Fatti {n}. Fuori: {chi}', { n: esito.done, chi: esito.skipped.join(', ') })
+        : tr('Fatti {n}.', { n: esito.done }));
+      await loadTournaments();
+      renderGiocatori();
+    } catch (err) { toast('Errore: ' + err.message); }
+  };
+
+  $('#gBulkCheckIn').addEventListener('click', () => manda('bulk-check-in'));
+  $('#gBulkDrop').addEventListener('click', () => manda('bulk-drop',
+    (n) => tr('Togliere {n} iscritti dal torneo?', { n })));
+}
+
 function drawGiocatori(t) {
   _suspendSlug = t.can_manage && _myStores.has(t.organization_slug) ? t.organization_slug : null;
   _byesEditable = t.can_manage && ['draft', 'published'].includes(t.status) && !registrationOnly(t);
   const rows = _players.map(playerRow).join('')
-    || '<tr><td colspan="6" class="muted">Nessun iscritto: usa "Iscrivi al banco".</td></tr>';
+    || '<tr><td colspan="7" class="muted">Nessun iscritto: usa "Iscrivi al banco".</td></tr>';
   const conLista = _players.filter(r => (r.decklist_status || 'missing') !== 'missing').length;
   const pagati = _players.filter(r => ['paid', 'confirmed'].includes(r.payment_status)).length;
   const presenti = _players.filter(r => r.checked_in).length;
@@ -804,8 +856,14 @@ function drawGiocatori(t) {
       </details>
 
       <input id="gFilter" placeholder="Filtra per nome, email o tag…" style="width:100%;margin-bottom:10px" />
+      <div class="bulk-bar" id="gBulk" hidden>
+        <span id="gBulkCount"></span>
+        <button class="secondary" id="gBulkCheckIn" type="button">${esc(tr('Check-in'))}</button>
+        <button class="secondary danger-outline" id="gBulkDrop" type="button">${esc(tr('Togli dal torneo'))}</button>
+      </div>
 <div class="table-scroll">      <table class="bo players">
         <thead><tr>
+          <th class="pick-cell"><input type="checkbox" id="gPickAll" aria-label="${esc(tr('Seleziona tutti'))}" /></th>
           <th>Giocatore</th><th>Pagamento</th><th>Check-in</th><th>Lista</th><th>Penalità</th><th></th>
         </tr></thead>
         <tbody id="gBody">${rows}</tbody>
@@ -814,6 +872,7 @@ function drawGiocatori(t) {
     <div id="teamsBox"></div>
     <div id="podsBox"></div>`;
 
+  bindBulkActions(t);
   $('#gWalkIn').addEventListener('click', () => openWalkInDialog(t.id));
   renderTeams(t);
   renderPods(t);
