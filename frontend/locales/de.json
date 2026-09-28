@@ -1090,5 +1090,12 @@
   "Chi ha pagato resta: prima va rimborsato.": "Wer bezahlt hat, bleibt: erst erstatten.",
   "Fatti {n}. Fuori: {chi}": "{n} erledigt. Übersprungen: {chi}",
   "Fatti {n}.": "{n} erledigt.",
-  "Togliere {n} iscritti dal torneo?": "{n} Angemeldete aus dem Turnier nehmen?"
+  "Togliere {n} iscritti dal torneo?": "{n} Angemeldete aus dem Turnier nehmen?",
+  "Round {n}": "Runde {n}",
+  "Turno {n}": "Runde {n}",
+  "Finale": "Finale",
+  "Semifinali": "Halbfinale",
+  "Quarti": "Viertelfinale",
+  "Ottavi": "Achtelfinale",
+  "Top {n}": "Top {n}"
 }

@@ -1080,5 +1080,12 @@
   "Chi ha pagato resta: prima va rimborsato.": "Quien ha pagado se queda: primero hay que reembolsarle.",
   "Fatti {n}. Fuori: {chi}": "{n} hechos. Fuera: {chi}",
   "Fatti {n}.": "{n} hechos.",
-  "Togliere {n} iscritti dal torneo?": "¿Quitar {n} inscritos del torneo?"
+  "Togliere {n} iscritti dal torneo?": "¿Quitar {n} inscritos del torneo?",
+  "Round {n}": "Ronda {n}",
+  "Turno {n}": "Ronda {n}",
+  "Finale": "Final",
+  "Semifinali": "Semifinales",
+  "Quarti": "Cuartos",
+  "Ottavi": "Octavos",
+  "Top {n}": "Top {n}"
 }

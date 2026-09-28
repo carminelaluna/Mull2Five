@@ -1214,3 +1214,14 @@ input[type="checkbox"][aria-invalid="true"] { outline: 2px solid var(--danger); 
   font-weight: 700; font-size: .88rem;
 }
 .bulk-bar button:disabled { opacity: .45; cursor: not-allowed; }
+
+/* Il tabellone del taglio finale: una colonna per turno, dai quarti alla finale. */
+.br-grid { display: flex; gap: 20px; overflow-x: auto; padding-bottom: 4px; }
+.br-col { min-width: 190px; display: grid; gap: 10px; align-content: start; }
+.br-col h4 { margin: 0; font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.br-match { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--panel-2); }
+.br-side { display: flex; justify-content: space-between; gap: 8px; padding: 7px 10px; font-size: .86rem; }
+.br-side + .br-side { border-top: 1px solid var(--line); }
+.br-side span { color: var(--muted); font-variant-numeric: tabular-nums; }
+.br-side.won { background: var(--accent-dim); color: var(--accent); font-weight: 700; }
+.br-side.won span { color: var(--accent); }

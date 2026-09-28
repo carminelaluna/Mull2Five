@@ -1087,5 +1087,12 @@
   "Chi ha pagato resta: prima va rimborsato.": "Qui a payé reste : il faut d’abord le rembourser.",
   "Fatti {n}. Fuori: {chi}": "{n} faits. Exclus : {chi}",
   "Fatti {n}.": "{n} faits.",
-  "Togliere {n} iscritti dal torneo?": "Retirer {n} inscrits du tournoi ?"
+  "Togliere {n} iscritti dal torneo?": "Retirer {n} inscrits du tournoi ?",
+  "Round {n}": "Tour {n}",
+  "Turno {n}": "Tour {n}",
+  "Finale": "Finale",
+  "Semifinali": "Demi-finales",
+  "Quarti": "Quarts",
+  "Ottavi": "Huitièmes",
+  "Top {n}": "Top {n}"
 }

@@ -1080,5 +1080,12 @@
   "Chi ha pagato resta: prima va rimborsato.": "Whoever paid stays: refund them first.",
   "Fatti {n}. Fuori: {chi}": "{n} done. Left out: {chi}",
   "Fatti {n}.": "{n} done.",
-  "Togliere {n} iscritti dal torneo?": "Remove {n} players from the tournament?"
+  "Togliere {n} iscritti dal torneo?": "Remove {n} players from the tournament?",
+  "Round {n}": "Round {n}",
+  "Turno {n}": "Round {n}",
+  "Finale": "Final",
+  "Semifinali": "Semi-finals",
+  "Quarti": "Quarter-finals",
+  "Ottavi": "Round of 16",
+  "Top {n}": "Top {n}"
 }

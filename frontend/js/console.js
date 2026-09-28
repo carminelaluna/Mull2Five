@@ -56,6 +56,11 @@ const SHELL = `
     <div data-el="standings"><p class="empty">Caricamento…</p></div>
   </details>
 
+  <details class="panel" data-el="bracketBox" style="margin-top:12px;display:none" open>
+    <summary>Tabellone</summary>
+    <div data-el="bracket"><p class="empty">Caricamento…</p></div>
+  </details>
+
   <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
     <button class="secondary" data-el="genRound" type="button">Genera round successivo</button>
     <button class="secondary" data-el="closeTournament" type="button" style="display:none">🏁 Chiudi torneo</button>
@@ -75,6 +80,7 @@ export function mountConsole(host, tournamentId, { screenLinks = true, onClosed 
   let myRole = 'none';
   let deckChecks = [];
   let standings = [];
+  let bracket = [];
   let repairing = null;   // il tavolo che si sta riabbinando a mano
   let alive = true;
   // Dal token: serve per sapere quale tavolo e il mio.
@@ -108,6 +114,7 @@ export function mountConsole(host, tournamentId, { screenLinks = true, onClosed 
     // La classifica serve in sala quanto gli abbinamenti: chi chiede "a che punto sono"
     // non deve mandare l'organizzatore in un'altra pagina.
     try { standings = await apiFetch(`/tournaments/${tid}/standings`) || []; } catch { standings = []; }
+    try { bracket = await apiFetch(`/tournaments/${tid}/bracket`) || []; } catch { bracket = []; }
     if (!alive) return;   // il pannello può essere stato smontato durante le fetch
     if (!rounds.some((r) => String(r.id) === String(activeRoundId))) activeRoundId = rounds.at(-1)?.id ?? null;
     render();
@@ -215,6 +222,45 @@ export function mountConsole(host, tournamentId, { screenLinks = true, onClosed 
     </div>`;
   }
 
+  /* Il tabellone del taglio finale: una colonna per turno, dai quarti alla
+     finale. Compare solo quando c'è, e resta aperto: in sala è quello che
+     tutti guardano. */
+  function renderBracket() {
+    const box = el('bracketBox');
+    if (!box) return;
+    if (!bracket.length) { box.style.display = 'none'; return; }
+    box.style.display = '';
+
+    const perTurno = new Map();
+    for (const m of bracket) {
+      if (!perTurno.has(m.round_number)) perTurno.set(m.round_number, []);
+      perTurno.get(m.round_number).push(m);
+    }
+    const colonne = [...perTurno.entries()].sort((a, b) => a[0] - b[0]).map(([numero, partite]) => {
+      const titolo = { 1: tr('Finale'), 2: tr('Semifinali'), 4: tr('Quarti'), 8: tr('Ottavi') }[partite.length]
+        || tr('Turno {n}', { n: numero });
+      const righe = partite.sort((a, b) => a.table_number - b.table_number).map((m) => {
+        const vinto = (nome) => (m.winner && m.winner === nome ? ' won' : '');
+        return `<div class="br-match">
+          <div class="br-side${vinto(m.player_a)}">${esc(m.player_a || '—')}<span>${m.match_wins_a}</span></div>
+          <div class="br-side${vinto(m.player_b)}">${esc(m.player_b || 'BYE')}<span>${m.match_wins_b}</span></div>
+        </div>`;
+      }).join('');
+      return `<div class="br-col"><h4>${esc(titolo)}</h4>${righe}</div>`;
+    }).join('');
+    el('bracket').innerHTML = `<div class="br-grid">${colonne}</div>`;
+  }
+
+  /* Nel taglio finale "Round 5" non dice niente: quello che serve sapere è a
+     che punto del tabellone si è, e lo dicono i tavoli ancora in gioco. */
+  function roundName(round) {
+    const fase = round.phase || 'swiss';
+    if (fase === 'swiss') return tr('Round {n}', { n: round.number });
+    const partite = (round.pairings || []).filter((p) => p.player_b).length;
+    return { 1: tr('Finale'), 2: tr('Semifinali'), 4: tr('Quarti'), 8: tr('Ottavi') }[partite]
+      || tr('Top {n}', { n: partite * 2 });
+  }
+
   function renderRow(round, p) {
     const isBye = !p.player_b;
     const finalScore = p.result && p.result !== '' ? `${p.match_wins_a}-${p.match_wins_b}` : '';
@@ -300,20 +346,53 @@ export function mountConsole(host, tournamentId, { screenLinks = true, onClosed 
     </div>`;
   }
 
+  /* Un referto per volta, e in fretta.
+
+     Prima ogni risultato rileggeva sei endpoint e ridisegnava tutto: con
+     quaranta tavoli da riportare sembrava che la pagina si ricaricasse a ogni
+     clic. La rotta restituisce già il turno aggiornato, quindi si sostituisce
+     quello e si ridisegna; classifica e tabellone si aggiornano dopo, senza
+     far aspettare chi sta inserendo. */
   async function submitResult(pairingId, score, isCorrection) {
     if (!score) return;
     editing.delete(String(pairingId));
     const path = isCorrection ? `/pairings/${pairingId}/correct` : `/pairings/${pairingId}/result`;
-    await call(
-      () => apiFetch(`/tournaments/${tid}${path}`, { method: 'PATCH', body: JSON.stringify(scoreToBody(score)) }),
-      isCorrection ? 'Risultato corretto.' : 'Risultato registrato.');
+    try {
+      const aggiornato = await apiFetch(`/tournaments/${tid}${path}`, {
+        method: 'PATCH', body: JSON.stringify(scoreToBody(score)),
+      });
+      const i = rounds.findIndex((r) => String(r.id) === String(aggiornato.id));
+      if (i >= 0) rounds[i] = aggiornato;
+      render();
+      toast(isCorrection ? tr('Risultato corretto.') : tr('Risultato registrato.'));
+      refreshDerived();
+    } catch (e) {
+      toast('Errore: ' + e.message);
+      await refresh();   // non si sa più com'è messo il tavolo: si rilegge
+    }
+  }
+
+  /* Classifica e tabellone cambiano a ogni risultato, ma non servono subito:
+     si aggiornano per conto loro e la schermata si ridisegna quando arrivano. */
+  let derivedPending = null;
+  function refreshDerived() {
+    clearTimeout(derivedPending);
+    derivedPending = setTimeout(async () => {
+      const [s, b] = await Promise.all([
+        apiFetch(`/tournaments/${tid}/standings`).catch(() => null),
+        apiFetch(`/tournaments/${tid}/bracket`).catch(() => null),
+      ]);
+      if (s) standings = s;
+      if (b) bracket = b;
+      render();
+    }, 600);
   }
 
   function render() {
     const round = activeRound();
     const tabs = el('tabs');
     tabs.innerHTML = rounds.map((r) =>
-      `<button class="ctl-tab${String(r.id) === String(activeRoundId) ? ' active' : ''}" data-round="${r.id}" type="button">Round ${r.number}</button>`
+      `<button class="ctl-tab${String(r.id) === String(activeRoundId) ? ' active' : ''}" data-round="${r.id}" type="button">${esc(roundName(r))}</button>`
     ).join('') + `<button class="ctl-tab judge${judgeView ? ' active' : ''}" data-el="judgeToggle" type="button">⚖ Judge</button>`;
 
     tabs.querySelectorAll('[data-round]').forEach((b) =>
@@ -332,13 +411,15 @@ export function mountConsole(host, tournamentId, { screenLinks = true, onClosed 
         : `<p class="empty">${esc(tr('Ancora nessun risultato.'))}</p>`;
     }
 
+    renderBracket();
+
     const tables = el('tables');
     if (!round) {
       tables.innerHTML = '<p class="empty">Nessun round. Avvia il torneo e genera il primo round.</p>';
       el('roundLabel').textContent = '';
       return;
     }
-    el('roundLabel').textContent = `Round ${round.number}`;
+    el('roundLabel').textContent = roundName(round);
 
     const pairings = round.pairings
       .filter((p) => !judgeView || (p.player_b && !p.result))
