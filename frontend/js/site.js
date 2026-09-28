@@ -12,7 +12,7 @@
 import { onReady } from './lang.js';
 import { esc } from './escape.js';
 import { t as tr } from './i18n.js';
-import { refreshSession } from './session.js';
+import { getSession, refreshSession } from './session.js';
 
 const NOTICE_KEY = 'mull2five-privacy-notice-v1';
 // Finché il sito è in prova lo dice in cima a ogni pagina.
@@ -30,6 +30,14 @@ function testingBanner() {
   const measure = () => document.documentElement.style.setProperty('--testing-h', `${bar.offsetHeight}px`);
   measure();
   addEventListener('resize', measure);
+}
+
+/* Il back-office non è per chi gioca: a un giocatore la voce "Organizza" non
+   compare nemmeno. A chi non è collegato resta, perché lì è un invito. */
+function hideOrganizerNav() {
+  const s = getSession();
+  if (!s || s.role === 'organizer' || s.role === 'admin') return;
+  document.querySelectorAll('.public-nav a[href="organizer.html"]').forEach((a) => a.remove());
 }
 
 function countVisit() {
@@ -101,6 +109,7 @@ export function stickyCta(source) {
 
 onReady(() => {
   testingBanner();
+  hideOrganizerNav();
   countVisit();
   privacyNotice();
   refreshSession();   // il token si rinnova da solo finché si usa il sito

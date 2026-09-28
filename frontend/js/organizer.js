@@ -40,7 +40,26 @@ const EVENT_TABS = [
   { id: 'risultati',  label: 'Risultati' },
 ];
 
+/* Un giocatore che arriva qui (link vecchio, indirizzo scritto a mano) non
+   vede una pagina vuota: gli si dice perché, e dove andare. */
+function organizerOnly() {
+  if (['organizer', 'admin'].includes(session.role)) return true;
+  document.querySelector('.bo-layout, main')?.replaceChildren();
+  document.querySelector('main').innerHTML = `<div class="status-page">
+    <div>
+      <h1>${esc(tr('Questa parte è di chi organizza'))}</h1>
+      <p class="muted">${esc(tr('Il tuo account è da giocatore. Se organizzi tornei, scrivici e ti abilitiamo.'))}</p>
+      <div class="hero-cta">
+        <a class="primary-btn" href="events.html">${esc(tr('Trova un torneo'))}</a>
+        <a class="secondary-link" href="tickets.html">${esc(tr('Scrivici'))}</a>
+      </div>
+    </div>
+  </div>`;
+  return false;
+}
+
 async function init() {
+  if (!organizerOnly()) return;
   $('#publicAuth').innerHTML =
     `<a class="secondary-link" href="player.html?p=${encodeURIComponent(session.pid || '')}">Profilo</a>
      <span style="color:var(--muted);font-size:.85rem">${esc(session.email)}</span>

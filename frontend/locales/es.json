@@ -1064,5 +1064,8 @@
   "Su richiesta del genitore, che arriva come segnalazione al sito.": "A petición del padre o la madre, que llega como incidencia al sitio.",
   "Email del genitore": "Email del padre o la madre",
   "Crea il profilo": "Crear el perfil",
-  "Creato: {nome}. Ora il genitore lo vede fra i suoi profili.": "Creado: {nome}. Ahora aparece entre los perfiles del padre o la madre."
+  "Creato: {nome}. Ora il genitore lo vede fra i suoi profili.": "Creado: {nome}. Ahora aparece entre los perfiles del padre o la madre.",
+  "Questa parte è di chi organizza": "Esta parte es de quien organiza",
+  "Il tuo account è da giocatore. Se organizzi tornei, scrivici e ti abilitiamo.": "Tu cuenta es de jugador. Si organizas torneos, escríbenos y te habilitamos.",
+  "Scrivici": "Escríbenos"
 }

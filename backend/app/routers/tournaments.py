@@ -92,6 +92,7 @@ from backend.app.services.pairings import (
     calculate_standings,
     create_round_for_tournament,
     eligible_registrations,
+    why_not_eligible,
 )
 from backend.app.services.payments import (
     create_paypal_checkout,
@@ -683,7 +684,7 @@ def start_tournament(
     if tournament.status not in {TournamentStatus.PUBLISHED, TournamentStatus.DRAFT}:
         raise HTTPException(status_code=409, detail="Il torneo è già iniziato o chiuso")
     if len(eligible_registrations(tournament, db)) < 2:
-        raise HTTPException(status_code=409, detail="Servono almeno due giocatori idonei")
+        raise HTTPException(status_code=409, detail=why_not_eligible(tournament, db))
     tournament.status = TournamentStatus.RUNNING
     db.add(tournament)
     result = create_round_for_tournament(tournament, db)

@@ -169,10 +169,8 @@ export function mountConsole(host, tournamentId, { screenLinks = true, onClosed 
       data-name="${esc(name)}" type="button" title="${esc(tr('Non si è presentato: sconfitta a tavolino'))}">🚫 ${esc(name)}</button>`;
   }
 
-  function renderRow(round, p, allowNoShow) {
+  function renderRow(round, p) {
     const isBye = !p.player_b;
-    const absentBox = (id) => (allowNoShow
-      ? `<label class="absent-chk"><input type="checkbox" data-absent="${id}"> ass.</label>` : '');
     const finalScore = p.result && p.result !== '' ? `${p.match_wins_a}-${p.match_wins_b}` : '';
 
     let control;
@@ -243,7 +241,7 @@ export function mountConsole(host, tournamentId, { screenLinks = true, onClosed 
 
     return `<div class="ctl-row status-${esc(stato)}">
       <span class="table-num">T${p.table_number}</span>
-      <span class="names"><strong>${esc(p.player_a)}</strong>${absentBox(p.player_a_registration_id)} vs <strong>${esc(p.player_b || 'BYE')}</strong>${p.player_b ? absentBox(p.player_b_registration_id) : ''}</span>
+      <span class="names"><strong>${esc(p.player_a)}</strong> vs <strong>${esc(p.player_b || 'BYE')}</strong></span>
       ${tableClock}
       ${statoLabel ? `<span class="tbl-state">${esc(statoLabel)}</span>` : ''}
       ${p.assigned_judge_name
@@ -287,27 +285,10 @@ export function mountConsole(host, tournamentId, { screenLinks = true, onClosed 
       .filter((p) => !judgeView || (p.player_b && !p.result))
       .sort((a, b) => a.table_number - b.table_number);
 
-    // L'ultimo round senza risultati si può rigenerare segnando gli assenti.
-    const isLatest = String(round.id) === String(rounds.at(-1)?.id);
-    const noResults = !round.pairings.some((p) => p.result && p.player_b);
-    const canRegen = !judgeView && canRunRounds() && isLatest && noResults;
-    const noShowBar = canRegen
-      ? `<div class="noshow-bar">
-           <button class="mini-button" data-el="regen" type="button">♻ Segna assenti &amp; rigenera</button>
-           <small style="color:var(--muted)">Spunta gli assenti, poi rigenera gli abbinamenti.</small>
-         </div>` : '';
 
-    tables.innerHTML = noShowBar + (pairings.length
-      ? pairings.map((p) => renderRow(round, p, canRegen)).join('')
+    tables.innerHTML = (pairings.length
+      ? pairings.map((p) => renderRow(round, p)).join('')
       : '<p class="empty" style="margin:0">Tutti i tavoli hanno un risultato. ✓</p>');
-
-    el('regen')?.addEventListener('click', () => {
-      const ids = [...tables.querySelectorAll('input[data-absent]:checked')].map((c) => +c.dataset.absent);
-      if (!ids.length && !window.confirm('Nessun assente selezionato: rigenerare comunque gli abbinamenti?')) return;
-      call(() => apiFetch(`/tournaments/${tid}/rounds/regenerate`, {
-        method: 'POST', body: JSON.stringify({ drop_registration_ids: ids }),
-      }), 'Round rigenerato.');
-    });
 
     tables.querySelectorAll('[data-action="result"]').forEach((sel) =>
       sel.addEventListener('change', () => submitResult(sel.dataset.pid, sel.value, sel.dataset.correct === '1')));

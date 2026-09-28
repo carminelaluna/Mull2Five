@@ -99,6 +99,47 @@ def eligible_registrations(tournament: Tournament, db: Session) -> list[Registra
     ]
 
 
+def why_not_eligible(tournament: Tournament, db: Session) -> str:
+    """Perché non si parte, nome per nome.
+
+    "Servono almeno due giocatori idonei" non diceva né cosa manca né a chi, e
+    chi sta al banco con la fila davanti deve saperlo subito.
+    """
+    registrations = db.scalars(
+        select(Registration)
+        .where(Registration.tournament_id == tournament.id)
+        .options(
+            selectinload(Registration.player),
+            selectinload(Registration.decklists),
+            selectinload(Registration.payment),
+        )
+    ).all()
+    mancanze: dict[str, list[str]] = {}
+
+    def segna(motivo: str, registration: Registration) -> None:
+        nome = registration.player.display_name if registration.player else f"#{registration.id}"
+        mancanze.setdefault(motivo, []).append(nome)
+
+    for registration in registrations:
+        if registration.dropped:
+            continue                      # si è ritirato: non è una cosa da sistemare
+        if registration.waitlisted:
+            segna("in lista d'attesa", registration)
+        elif not registration.payment or registration.payment.status != PaymentStatus.PAID:
+            segna("non ha pagato", registration)
+        elif tournament.check_in_required and not registration.checked_in:
+            segna("non ha fatto il check-in", registration)
+        elif tournament.decklist_required and not (
+            registration.decklist and registration.decklist.status == DecklistStatus.VALID
+        ):
+            segna("senza lista valida", registration)
+
+    if not mancanze:
+        return "Servono almeno due giocatori idonei: iscrivine altri."
+    pezzi = [f"{motivo}: {', '.join(sorted(nomi))}" for motivo, nomi in sorted(mancanze.items())]
+    return "Servono almeno due giocatori idonei — " + "; ".join(pezzi) + "."
+
+
 def create_round_for_tournament(tournament: Tournament, db: Session) -> RoundOut:
     if tournament.structure == TournamentStructure.REGISTRATION_ONLY:
         raise HTTPException(status_code=409, detail=NO_ROUNDS)
