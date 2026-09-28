@@ -383,6 +383,14 @@ textarea {
   padding: 11px 12px;
 }
 
+/* La tendina che si apre la disegna il sistema, e prende i colori dallo
+   sfondo del <select>: con uno sfondo trasparente esce bianca in mezzo a un
+   sito scuro. Dichiarare il colore anche sulle opzioni la tiene scura. */
+option {
+  background: var(--panel);
+  color: var(--ink);
+}
+
 input:focus,
 select:focus,
 textarea:focus {

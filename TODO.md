@@ -234,7 +234,9 @@ decisioni tue.
 - [ ] Città con completamento a tendina all'iscrizione del negozio (e dove si scrive una città).
 - [ ] "Luogo" va separato in **luogo** e **città**.
 - [ ] Scheda Giocatori: selezione multipla, check-in di massa, eliminazione di massa (solo non paganti).
-- [ ] La bandierina sul turno deve segnalare un warning, non chiamare il judge.
+- [~] **Accantonata** (29/09/2026) — la bandierina sul turno. "Non deve chiamare
+      judge ma warning" si legge in due modi: rinominare lo stato del tavolo,
+      oppure far dare la penalità dal pulsante. Da riprendere con la decisione.
 - [ ] Togliere "mark absent game".
 - [ ] Aggiungere l'abbinamento manuale.
 - [ ] I giocatori devono vedere tutti gli abbinamenti e la classifica; la classifica anche all'organizzatore.

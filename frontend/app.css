@@ -1016,7 +1016,7 @@ table.meta-table { min-width: 0; }
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .82rem; white-space: pre; overflow-x: auto; }
 
 /* Il selettore della lingua in fondo all'header: piccolo, come i link del profilo. */
-.public-header .lang-select { width: auto; flex: none; min-height: 0; padding: 5px 8px; border-radius: 8px; background: transparent; color: var(--muted); font-size: .82rem; font-weight: 700; }
+.public-header .lang-select { width: auto; flex: none; min-height: 0; padding: 5px 8px; border-radius: 8px; background: var(--bg); color: var(--muted); font-size: .82rem; font-weight: 700; }
 .public-header .lang-select:hover { color: var(--ink); }
 
 /* Incassi online del negozio: un conto per riga, etichetta, stato e azioni allineati. */

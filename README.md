@@ -191,6 +191,15 @@ VITE_API_URL=http://127.0.0.1:8000/api
 
 ---
 
+## Come funziona il sito
+
+Una guida per parte, in [`docs/`](docs/README.md): il
+[back-office](docs/back-office.md) (compresi **Community e tag**), la
+[regia](docs/regia.md), il [lato pubblico](docs/pubblico.md) e
+[chi può fare cosa](docs/ruoli.md).
+
+---
+
 ## Convenzioni del codice
 
 - **Nomi in inglese, parole in italiano.** Variabili, funzioni, tabelle e campi si

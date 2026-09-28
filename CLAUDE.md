@@ -27,6 +27,11 @@ wsl bash -lc 'cd "/mnt/c/Users/Zero/Documents/Project/Tournament Organizer" && .
 - **Mai modificare i file mentre pytest gira**, e sappi che fermare il task
   Windows non ferma il pytest dentro WSL.
 
+## Come funziona il sito
+
+`docs/` spiega ogni parte: back-office (Community e tag compresi), regia, lato
+pubblico, ruoli. Da aggiornare quando si cambia cosa fa una schermata.
+
 ## Regole del progetto
 
 - Nomi in inglese nel codice, commenti e interfaccia in italiano.
