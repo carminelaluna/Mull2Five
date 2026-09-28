@@ -736,10 +736,10 @@ async function loadProfiles() {
           ${p.registrations ? '' : `<button class="secondary" data-drop-profile="${p.id}" type="button">${esc(tr('Elimina'))}</button>`}
         </span>
       </div>`).join('')}
-    <form id="profileForm" class="profile-form">
-      <input id="profileName" required minlength="2" maxlength="160" placeholder="${esc(tr('Nome e cognome del ragazzo'))}" />
-      <button class="secondary" type="submit">${esc(tr('Aggiungi profilo'))}</button>
-    </form>`;
+    <p class="muted-text" style="font-size:.85rem">
+      ${esc(tr('Per aggiungere un profilo scrivici: nasce un account per un minore, quindi lo creiamo noi.'))}
+      <a class="secondary-link" href="tickets.html">${esc(tr('Chiedi un profilo'))}</a>
+    </p>`;
   box.querySelectorAll('[data-act-as]').forEach((b) => b.addEventListener('click', () => {
     setActing({ id: b.dataset.actAs, name: b.dataset.name });
     location.reload();
@@ -751,14 +751,6 @@ async function loadProfiles() {
       loadProfiles();
     } catch (err) { toast(err.message); }
   }));
-  box.querySelector('#profileForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    try {
-      await apiFetch('/auth/me/profiles', { method: 'POST', body: JSON.stringify({ display_name: box.querySelector('#profileName').value.trim() }) });
-      toast(tr('Profilo aggiunto.'));
-      loadProfiles();
-    } catch (err) { toast(err.message); }
-  });
 }
 
 /* ── Notifiche Web Push ──────────────────────────────── */

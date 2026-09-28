@@ -1,4 +1,5 @@
 from datetime import datetime
+from uuid import uuid4
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
@@ -7,12 +8,14 @@ from sqlalchemy.orm import Session
 
 from backend.app.core.config import get_settings
 from backend.app.db import get_db
-from backend.app.models import Organization, Payment, Tournament, User
+from backend.app.models import Organization, Payment, Tournament, User, UserRole
 from backend.app.schemas import (
+    AdminProfileIn,
     LocatorImportIn,
     LocatorImportOut,
     LocatorStatusOut,
     PaymentOut,
+    ProfileOut,
     TournamentOut,
     UserOut,
 )
@@ -104,3 +107,40 @@ def test_alert(admin: User = Depends(require_admin)) -> dict:
     )
     return {"status": "sent" if sent else "suppressed"}
 
+
+@router.post("/profiles", response_model=ProfileOut, status_code=201)
+def create_managed_profile(
+    payload: AdminProfileIn,
+    _: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> ProfileOut:
+    """Crea il profilo di un minore per chi lo gestirà.
+
+    Non si crea più da soli dal proprio profilo: il genitore apre una
+    segnalazione al sito e arriva qui, così qualcuno guarda chi sta chiedendo
+    cosa prima che nasca un account per un minore.
+    """
+    from backend.app.routers.auth import MAX_PROFILES, _profile_out
+
+    guardian = db.scalar(select(User).where(User.email == payload.guardian_email.lower()))
+    if not guardian:
+        raise HTTPException(status_code=404, detail="Account non trovato")
+    if guardian.guardian_id or guardian.is_guest:
+        raise HTTPException(status_code=409, detail="Un profilo gestito non ne gestisce altri")
+    quanti = db.scalar(
+        select(func.count(User.id)).where(User.guardian_id == guardian.id, User.is_active.is_(True))
+    ) or 0
+    if quanti >= MAX_PROFILES:
+        raise HTTPException(status_code=409, detail=f"Al massimo {MAX_PROFILES} profili per account")
+
+    profile = User(
+        email=f"profile-{uuid4().hex}@profiles.mull2five.invalid",
+        display_name=payload.display_name.strip(),
+        role=UserRole.PLAYER,
+        password_hash=None,
+        guardian_id=guardian.id,
+    )
+    db.add(profile)
+    db.commit()
+    db.refresh(profile)
+    return _profile_out(profile, db)

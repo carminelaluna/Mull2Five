@@ -1,5 +1,4 @@
 from datetime import UTC, datetime
-from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import delete, func, select
@@ -14,7 +13,6 @@ from backend.app.models import Registration, SavedDeck, Tournament, User, UserRo
 from backend.app.schemas import (
     ForgotPasswordIn,
     LoginIn,
-    ProfileIn,
     ProfileOut,
     ResetPasswordIn,
     TokenOut,
@@ -279,35 +277,16 @@ def _profile_out(profile: User, db: Session) -> ProfileOut:
 
 @router.get("/me/profiles", response_model=list[ProfileOut])
 def my_profiles(user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> list[ProfileOut]:
-    """I profili che questo account gestisce: figli, ragazzi sotto l'età minima."""
+    """I profili che questo account gestisce: figli, ragazzi sotto l'età minima.
+
+    Non si creano da qui: il genitore apre una segnalazione al sito e il profilo
+    lo crea un admin (POST /api/admin/profiles). Chi lo gestisce lo iscrive, lo
+    paga e ne segue i tornei come prima.
+    """
     profiles = db.scalars(
         select(User).where(User.guardian_id == user.id, User.is_active.is_(True)).order_by(User.display_name)
     ).all()
     return [_profile_out(p, db) for p in profiles]
-
-
-@router.post("/me/profiles", response_model=ProfileOut, status_code=201)
-def create_profile(
-    payload: ProfileIn, user: User = Depends(get_current_user), db: Session = Depends(get_db)
-) -> ProfileOut:
-    """Un profilo gestito: solo il nome, niente email né password. Lo iscrive, lo
-    paga e ne segue i tornei chi lo gestisce; al tavolo gioca con il suo nome."""
-    if user.guardian_id or user.is_guest:
-        raise HTTPException(status_code=403, detail="Un profilo gestito non ne crea altri")
-    count = db.scalar(select(func.count(User.id)).where(User.guardian_id == user.id, User.is_active.is_(True))) or 0
-    if count >= MAX_PROFILES:
-        raise HTTPException(status_code=409, detail=f"Al massimo {MAX_PROFILES} profili per account")
-    profile = User(
-        email=f"profile-{uuid4().hex}@profiles.mull2five.invalid",
-        display_name=payload.display_name.strip(),
-        role=UserRole.PLAYER,
-        password_hash=None,
-        guardian_id=user.id,
-    )
-    db.add(profile)
-    db.commit()
-    db.refresh(profile)
-    return _profile_out(profile, db)
 
 
 @router.delete("/me/profiles/{profile_id}", status_code=204)

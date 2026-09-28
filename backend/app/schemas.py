@@ -26,6 +26,12 @@ class ProfileIn(BaseModel):
     display_name: str = Field(min_length=2, max_length=160)
 
 
+class AdminProfileIn(BaseModel):
+    """Un profilo gestito creato da un admin, su richiesta di chi lo gestirà."""
+    guardian_email: EmailStr
+    display_name: str = Field(min_length=2, max_length=160)
+
+
 class ProfileOut(BaseModel):
     id: int
     display_name: str

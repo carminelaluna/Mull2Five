@@ -1068,5 +1068,11 @@
   "Nessun torneo a cui sei iscritto": "Kein Turnier, für das du angemeldet bist",
   "Scrivi un oggetto e cosa è successo.": "Schreibe einen Betreff und was passiert ist.",
   "Segnalazione inviata.": "Meldung gesendet.",
-  "Invia": "Senden"
+  "Invia": "Senden",
+  "Per aggiungere un profilo scrivici: nasce un account per un minore, quindi lo creiamo noi.": "Für ein weiteres Profil schreib uns: es entsteht ein Konto für eine minderjährige Person, das legen wir an.",
+  "Chiedi un profilo": "Profil anfragen",
+  "Su richiesta del genitore, che arriva come segnalazione al sito.": "Auf Wunsch der Eltern, der als Meldung an die Seite eingeht.",
+  "Email del genitore": "E-Mail der Eltern",
+  "Crea il profilo": "Profil anlegen",
+  "Creato: {nome}. Ora il genitore lo vede fra i suoi profili.": "Angelegt: {nome}. Die Eltern sehen es jetzt unter ihren Profilen."
 }

@@ -1065,5 +1065,11 @@
   "Nessun torneo a cui sei iscritto": "Aucun tournoi auquel vous êtes inscrit",
   "Scrivi un oggetto e cosa è successo.": "Écrivez un objet et ce qui s’est passé.",
   "Segnalazione inviata.": "Signalement envoyé.",
-  "Invia": "Envoyer"
+  "Invia": "Envoyer",
+  "Per aggiungere un profilo scrivici: nasce un account per un minore, quindi lo creiamo noi.": "Pour ajouter un profil, écrivez-nous : il s’agit d’un compte de mineur, c’est donc nous qui le créons.",
+  "Chiedi un profilo": "Demander un profil",
+  "Su richiesta del genitore, che arriva come segnalazione al sito.": "À la demande du parent, qui arrive comme signalement au site.",
+  "Email del genitore": "E-mail du parent",
+  "Crea il profilo": "Créer le profil",
+  "Creato: {nome}. Ora il genitore lo vede fra i suoi profili.": "Créé : {nome}. Le parent le voit désormais parmi ses profils."
 }

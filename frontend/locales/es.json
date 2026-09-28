@@ -1058,5 +1058,11 @@
   "Nessun torneo a cui sei iscritto": "Ningún torneo en el que estés inscrito",
   "Scrivi un oggetto e cosa è successo.": "Escribe un asunto y qué ha pasado.",
   "Segnalazione inviata.": "Incidencia enviada.",
-  "Invia": "Enviar"
+  "Invia": "Enviar",
+  "Per aggiungere un profilo scrivici: nasce un account per un minore, quindi lo creiamo noi.": "Para añadir un perfil escríbenos: se crea una cuenta de un menor, así que la hacemos nosotros.",
+  "Chiedi un profilo": "Pedir un perfil",
+  "Su richiesta del genitore, che arriva come segnalazione al sito.": "A petición del padre o la madre, que llega como incidencia al sitio.",
+  "Email del genitore": "Email del padre o la madre",
+  "Crea il profilo": "Crear el perfil",
+  "Creato: {nome}. Ora il genitore lo vede fra i suoi profili.": "Creado: {nome}. Ahora aparece entre los perfiles del padre o la madre."
 }

@@ -36,12 +36,29 @@ def test_minimum_age_at_signup(client):
     assert refused.status_code == 422 and "genitore" in refused.json()["detail"]
 
 
-def test_a_parent_registers_and_follows_the_child(client):
+def _admin(client, db_session, email="prof-admin@example.com"):
+    """Un admin: i profili dei minori li crea lui, su richiesta del genitore."""
+    from backend.app.models import User, UserRole
+
+    headers = _register_user(client, email, role="organizer")
+    db_session.query(User).filter_by(email=email).one().role = UserRole.ADMIN
+    db_session.commit()
+    return headers
+
+
+def _profilo(client, admin, genitore_email, nome):
+    creato = client.post("/api/admin/profiles", headers=admin,
+                         json={"guardian_email": genitore_email, "display_name": nome})
+    assert creato.status_code == 201, creato.text
+    return creato.json()
+
+
+def test_a_parent_registers_and_follows_the_child(client, db_session):
     org = _register_user(client, "prof-org@example.com", role="organizer")
     tid = _tournament(client, org)
     parent = _register_user(client, "genitore@example.com")
 
-    child = client.post("/api/auth/me/profiles", headers=parent, json={"display_name": "Luca Rossi"}).json()
+    child = _profilo(client, _admin(client, db_session), "genitore@example.com", "Luca Rossi")
     assert [p["display_name"] for p in client.get("/api/auth/me/profiles", headers=parent).json()] == ["Luca Rossi"]
 
     as_child = {**parent, "X-Act-As": str(child["id"])}
@@ -62,14 +79,17 @@ def test_a_parent_registers_and_follows_the_child(client):
     assert export["managed_profiles"][0]["tournaments"] == [tid]
 
 
-def test_only_the_parent_acts_for_the_child(client):
+def test_only_the_parent_acts_for_the_child(client, db_session):
     parent = _register_user(client, "genitore2@example.com")
-    child = client.post("/api/auth/me/profiles", headers=parent, json={"display_name": "Anna"}).json()
+    admin = _admin(client, db_session, "prof-admin2@example.com")
+    child = _profilo(client, admin, "genitore2@example.com", "Anna")
     stranger = _register_user(client, "estraneo@example.com")
     assert client.get("/api/auth/me", headers={**stranger, "X-Act-As": str(child["id"])}).status_code == 403
-    # Un profilo non ne crea altri, e senza tornei si può togliere.
-    assert client.post("/api/auth/me/profiles", headers={**parent, "X-Act-As": str(child["id"])},
-                       json={"display_name": "Nipote"}).status_code == 403
+    # I profili li crea solo un admin: il genitore chiede, non si serve da solo.
+    assert client.post("/api/admin/profiles", headers=parent,
+                       json={"guardian_email": "genitore2@example.com",
+                             "display_name": "Nipote"}).status_code == 403
+    # Senza tornei giocati si può togliere.
     assert client.delete(f"/api/auth/me/profiles/{child['id']}", headers=parent).status_code == 204
 
 

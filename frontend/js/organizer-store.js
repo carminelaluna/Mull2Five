@@ -90,11 +90,13 @@ export async function renderNegozio() {
   ${staffPanel(org, members)}
   ${apiPanel(org, apiKeys)}
   ${locatorPanel()}
-  ${analyticsPanel()}`;
+  ${analyticsPanel()}
+  ${profilesPanel()}`;
   cityInput($('#sCity'));
   bindStoreSwitcher();
   bindLocatorPanel();
   bindAnalyticsPanel();
+  bindProfilesPanel();
   bindLocationsPanel(org, locations);
   bindStaffPanel(org, members);
   bindApiPanel(org);
@@ -158,11 +160,13 @@ async function renderNoStore() {
     </form>
   </div>
   ${locatorPanel()}
-  ${analyticsPanel()}`;
+  ${analyticsPanel()}
+  ${profilesPanel()}`;
   cityInput($('#nsCity'));
   bindStoreSwitcher();
   bindLocatorPanel();
   bindAnalyticsPanel();
+  bindProfilesPanel();
   $('#newStore').addEventListener('submit', async (e) => {
     e.preventDefault();
     try {
@@ -289,6 +293,44 @@ function bindLocatorPanel() {
 /* ── Visite al sito (solo admin) ─────────────────────────
    Statistiche anonime senza cookie (backend/app/routers/site.py): pagine viste,
    visite (gli ingressi nel sito), da dove arrivano e su che schermi. */
+/* ── Profili dei minori (solo admin) ─────────────────────
+   Non si creano più dal proprio profilo: il genitore apre una segnalazione al
+   sito e il profilo nasce qui, così qualcuno guarda chi chiede cosa prima che
+   esista un account per un minore. */
+function profilesPanel() {
+  if (session.role !== 'admin') return '';
+  return `<div class="panel" style="margin-top:16px">
+    <h3>${esc(tr('Profili dei minori'))}</h3>
+    <p class="muted" style="margin-top:0;font-size:.85rem">${esc(tr('Su richiesta del genitore, che arriva come segnalazione al sito.'))}</p>
+    <form id="profileAdminForm" class="bo-grid">
+      <label class="span-2">${esc(tr('Email del genitore'))}<input id="paEmail" type="email" required /></label>
+      <label class="span-2">${esc(tr('Nome e cognome del ragazzo'))}<input id="paName" required minlength="2" maxlength="160" /></label>
+      <button class="primary" type="submit" style="grid-column:1/-1">${esc(tr('Crea il profilo'))}</button>
+    </form>
+    <p class="muted" id="paResult" style="margin:10px 0 0;font-size:.85rem" hidden></p>
+  </div>`;
+}
+
+function bindProfilesPanel() {
+  $('#profileAdminForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const esito = $('#paResult');
+    try {
+      const creato = await apiFetch('/admin/profiles', {
+        method: 'POST',
+        body: JSON.stringify({ guardian_email: $('#paEmail').value.trim(), display_name: $('#paName').value.trim() }),
+      });
+      esito.hidden = false;
+      esito.textContent = tr('Creato: {nome}. Ora il genitore lo vede fra i suoi profili.', { nome: creato.display_name });
+      $('#paName').value = '';
+    } catch (err) {
+      esito.hidden = false;
+      esito.textContent = err.message;
+    }
+  });
+}
+
+
 function analyticsPanel() {
   if (session.role !== 'admin') return '';
   return `<div class="panel" style="margin-top:16px">

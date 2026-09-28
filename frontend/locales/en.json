@@ -1057,5 +1057,11 @@
   "Nessun torneo a cui sei iscritto": "No tournament you are registered for",
   "Scrivi un oggetto e cosa è successo.": "Write a subject and what happened.",
   "Segnalazione inviata.": "Report sent.",
-  "Invia": "Send"
+  "Invia": "Send",
+  "Per aggiungere un profilo scrivici: nasce un account per un minore, quindi lo creiamo noi.": "To add a profile, write to us: it creates an account for a minor, so we make it ourselves.",
+  "Chiedi un profilo": "Request a profile",
+  "Su richiesta del genitore, che arriva come segnalazione al sito.": "At the parent's request, which arrives as a report to the site.",
+  "Email del genitore": "Parent's email",
+  "Crea il profilo": "Create the profile",
+  "Creato: {nome}. Ora il genitore lo vede fra i suoi profili.": "Created: {nome}. The parent now sees it among their profiles."
 }
