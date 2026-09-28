@@ -213,6 +213,38 @@ decisioni tue.
 - [ ] **Ripristino dal backup mai provato.** Il backup notturno cifrato gira e la procedura è in `HOSTING.md`, ma non è mai stata eseguita. Farlo su un database di prova.
 - [ ] **Non c'è uno staging.** Ogni modifica va diritta sul sito vivo. Un secondo servizio Render con un database di prova.
 
+## Segnalazioni dal campo (28 settembre 2026)
+
+**Bug**
+- [ ] Report 1-1 rifiutato: `Errore: draws: Input should be less than or equal to 0`.
+- [ ] Iscrivendo a mano o da lista il contatore degli iscritti non sale.
+- [ ] Import giocatori: si è costretti a premere "Anteprima" prima di poter importare.
+- [ ] Torneo concluso: con data futura ci si può ancora iscrivere. Va bloccato.
+- [ ] Game loss: la partita deve chiudersi 2-0 per l'avversario.
+- [ ] Cliccare sulla lingua cambia il tema dell'interfaccia.
+- [ ] "Almeno due giocatori idonei": dire *cosa* manca e *a chi*.
+- [ ] Inserire tanti risultati di fila sembra ricaricare la pagina: più veloce e senza sfarfallio.
+
+**Permessi**
+- [ ] Un player non deve vedere la scheda Organizzazione.
+- [ ] Solo il capojudge può avviare il turno successivo.
+- [ ] Scorekeeper: un judge normale inserisce il risultato, lo scorekeeper lo conferma.
+
+**Interfaccia**
+- [ ] Città con completamento a tendina all'iscrizione del negozio (e dove si scrive una città).
+- [ ] "Luogo" va separato in **luogo** e **città**.
+- [ ] Scheda Giocatori: selezione multipla, check-in di massa, eliminazione di massa (solo non paganti).
+- [ ] La bandierina sul turno deve segnalare un warning, non chiamare il judge.
+- [ ] Togliere "mark absent game".
+- [ ] Aggiungere l'abbinamento manuale.
+- [ ] I giocatori devono vedere tutti gli abbinamenti e la classifica; la classifica anche all'organizzatore.
+
+**Funzioni nuove**
+- [ ] Iscrizione al banco di chi non ha ancora un account: crearlo contestualmente.
+- [ ] Gestione dei ticket. Togliere "Family" dal profilo: al suo posto si apre un ticket.
+- [ ] Gestione del top 8.
+- [ ] Community: chiarire cosa succede dopo aver aggiunto i tag (richiesta incompleta).
+
 ## Da monitorare
 
 - [ ] Testare refund PayPal con account sandbox reale e webhook `PAYMENT.CAPTURE.COMPLETED`.

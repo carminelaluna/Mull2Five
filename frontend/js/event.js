@@ -27,7 +27,11 @@ async function loadEvent() {
       : null;
     const spots  = Math.max(t.capacity - (t.registered_players || 0), 0);
     const isReg  = !!myReg;
-    const canReg = session && !isReg && spots > 0 && t.registration_mode === 'open';
+    // Solo i tornei ancora aperti: uno concluso o annullato non accetta
+    // iscrizioni nemmeno se la data è più avanti (il server risponde 404).
+    const aperto = ['published', 'running'].includes(t.status)
+      && (t.status !== 'running' || t.late_registration_enabled);
+    const canReg = session && !isReg && spots > 0 && t.registration_mode === 'open' && aperto;
     const game = await gameInfo(t.game);
     const platform = t.is_online ? (game?.online_platforms || []).find((p) => p.code === t.online_platform) : null;
     // Tornei vetrina dal Wizards Event Locator: ci si iscrive presso il negozio.

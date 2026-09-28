@@ -17,9 +17,12 @@ import { t as tr } from './i18n.js';
 import { apiRequest, decodeToken, getToken } from './session.js';
 
 
+/* `draws` sono le partite finite pari dentro il match, e non ne tracciamo:
+   un 1-1 è un match pari con due partite giocate, non una patta di gioco.
+   Mandarne una faceva rifiutare il referto dal server. */
 function scoreToBody(score) {
   const [a, b] = score.split('-').map(Number);
-  return { match_wins_a: a, match_wins_b: b, draws: a === 1 && b === 1 ? 1 : 0 };
+  return { match_wins_a: a, match_wins_b: b, draws: 0 };
 }
 
 function fmt(sec) {

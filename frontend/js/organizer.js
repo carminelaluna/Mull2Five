@@ -1026,12 +1026,20 @@ function openImportDialog(t) {
     </form>`;
   dlg.showModal();
 
+  /* L'anteprima si fa da sola appena c'è una lista: prima "Importa" restava
+     spento finché non la si chiedeva a mano, e non si capiva perché. */
+  let attesa = null;
+  const anteprima = () => {
+    clearTimeout(attesa);
+    $('#imGo').disabled = true;
+    if ($('#imText').value.trim()) attesa = setTimeout(() => $('#imCheck').click(), 400);
+  };
   $('#imFile').addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if (file) $('#imText').value = await readTextFile(file);
-    $('#imGo').disabled = true;
+    anteprima();
   });
-  $('#imText').addEventListener('input', () => { $('#imGo').disabled = true; });
+  $('#imText').addEventListener('input', anteprima);
 
   const send = (dryRun) => apiFetch(`/tournaments/${t.id}/import`, {
     method: 'POST',
@@ -1064,6 +1072,7 @@ function openImportDialog(t) {
       const done = await send(false);
       dlg.close();
       toast(tr("Importati {n} giocatori ({w} in lista d'attesa).", { n: done.added + done.waitlisted, w: done.waitlisted }));
+      await loadTournaments();   // il conteggio degli iscritti sulla scheda
       renderGiocatori();
     } catch (err) {
       toast('Errore: ' + err.message);
