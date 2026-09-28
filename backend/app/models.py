@@ -27,8 +27,14 @@ class UserRole(StrEnum):
 
 class StaffRole(StrEnum):
     """Incarico sul singolo torneo, indipendente dal ruolo dell'account: lo stesso
-    utente può essere capojudge a un torneo, judge a un altro e giocatore a un terzo."""
+    utente può essere capojudge a un torneo, judge a un altro e giocatore a un terzo.
+
+    Lo **scorekeeper** tiene il tabellone: un judge riporta il risultato dal
+    tavolo, lui lo conferma prima che entri in classifica. Dove non c'è, i
+    judge scrivono direttamente, come prima.
+    """
     HEAD_JUDGE = "head_judge"
+    SCOREKEEPER = "scorekeeper"
     JUDGE = "judge"
 
 
@@ -741,7 +747,14 @@ class PairingResultReport(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     pairing_id: Mapped[int] = mapped_column(ForeignKey("pairings.id", ondelete="CASCADE"))
-    reporter_registration_id: Mapped[int] = mapped_column(ForeignKey("registrations.id", ondelete="CASCADE"))
+    # Chi propone il risultato: un giocatore (la sua iscrizione) oppure un
+    # judge (il suo utente). Uno dei due, mai tutti e due.
+    reporter_registration_id: Mapped[int | None] = mapped_column(
+        ForeignKey("registrations.id", ondelete="CASCADE"), nullable=True
+    )
+    reported_by_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
     match_wins_a: Mapped[int] = mapped_column(Integer, default=0)
     match_wins_b: Mapped[int] = mapped_column(Integer, default=0)
     draws: Mapped[int] = mapped_column(Integer, default=0)
@@ -751,7 +764,8 @@ class PairingResultReport(Base):
     resolved_at: Mapped[datetime | None] = mapped_column(UtcDateTime(timezone=True), nullable=True)
 
     pairing: Mapped[Pairing] = relationship()
-    reporter: Mapped[Registration] = relationship()
+    reporter: Mapped["Registration | None"] = relationship()
+    reported_by: Mapped["User | None"] = relationship()
 
 
 class Announcement(Base):

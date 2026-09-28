@@ -22,8 +22,12 @@ Indipendente dal ruolo: un giocatore può essere capojudge di un torneo.
 - **Capojudge** — uno solo per torneo. Fa scorrere i turni, rigenera gli
   abbinamenti, nomina e rimuove i judge. Non elimina il torneo e non vede i
   pagamenti.
+- **Scorekeeper** — tiene il tabellone. Quando c'è, un judge **propone** il
+  risultato dal tavolo e lui lo conferma prima che entri in classifica: due
+  paia di occhi su ogni referto. Non può confermare quello che ha proposto lui.
 - **Judge** — arbitra: risultati, penalità, deck check, tempo supplementare.
-  Non decide la struttura del torneo.
+  Non decide la struttura del torneo. Dove non c'è uno scorekeeper, i suoi
+  risultati entrano direttamente, come prima.
 
 ## Il negozio
 
@@ -40,6 +44,7 @@ Indipendente dal ruolo: un giocatore può essere capojudge di un torneo.
 | Avviare il torneo | organizzatore del torneo |
 | Generare il turno successivo | organizzatore **o capojudge** |
 | Inserire un risultato | organizzatore, capojudge, judge |
+| Confermare un referto | organizzatore, capojudge, scorekeeper (non chi l'ha proposto) |
 | Dare una penalità | organizzatore, capojudge, judge |
 | Nominare un judge | organizzatore **o capojudge** |
 | Nominare il capojudge | solo l'organizzatore |

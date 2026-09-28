@@ -1097,5 +1097,11 @@
   "Semifinali": "Halbfinale",
   "Quarti": "Viertelfinale",
   "Ottavi": "Achtelfinale",
-  "Top {n}": "Top {n}"
+  "Top {n}": "Top {n}",
+  "Scorekeeper": "Punkterichter",
+  "Proposto": "Vorgeschlagen",
+  "in attesa del tabellone": "wartet auf den Punkterichter",
+  "Referto confermato.": "Meldung bestätigt.",
+  "Risultato corretto.": "Ergebnis korrigiert.",
+  "Risultato registrato.": "Ergebnis erfasst."
 }

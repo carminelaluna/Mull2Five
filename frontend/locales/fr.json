@@ -1094,5 +1094,11 @@
   "Semifinali": "Demi-finales",
   "Quarti": "Quarts",
   "Ottavi": "Huitièmes",
-  "Top {n}": "Top {n}"
+  "Top {n}": "Top {n}",
+  "Scorekeeper": "Marqueur",
+  "Proposto": "Proposé",
+  "in attesa del tabellone": "en attente du marqueur",
+  "Referto confermato.": "Rapport confirmé.",
+  "Risultato corretto.": "Résultat corrigé.",
+  "Risultato registrato.": "Résultat enregistré."
 }

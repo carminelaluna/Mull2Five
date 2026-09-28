@@ -562,11 +562,11 @@ class LeaderboardRowOut(BaseModel):
 
 class StaffIn(BaseModel):
     email: EmailStr
-    role: Literal["head_judge", "judge"] = "judge"
+    role: Literal["head_judge", "scorekeeper", "judge"] = "judge"
 
 
 class StaffRoleIn(BaseModel):
-    role: Literal["head_judge", "judge"]
+    role: Literal["head_judge", "scorekeeper", "judge"]
 
 
 class StaffOut(BaseModel):
@@ -579,7 +579,7 @@ class StaffOut(BaseModel):
 
 class TournamentRoleOut(BaseModel):
     """Che cosa sei su questo torneo: serve alla UI per decidere cosa mostrare."""
-    role: Literal["organizer", "head_judge", "judge", "player", "none"]
+    role: Literal["organizer", "head_judge", "scorekeeper", "judge", "player", "none"]
     can_manage_judges: bool
 
 

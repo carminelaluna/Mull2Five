@@ -1087,5 +1087,11 @@
   "Semifinali": "Semi-finals",
   "Quarti": "Quarter-finals",
   "Ottavi": "Round of 16",
-  "Top {n}": "Top {n}"
+  "Top {n}": "Top {n}",
+  "Scorekeeper": "Scorekeeper",
+  "Proposto": "Proposed",
+  "in attesa del tabellone": "waiting for the scorekeeper",
+  "Referto confermato.": "Report confirmed.",
+  "Risultato corretto.": "Result corrected.",
+  "Risultato registrato.": "Result recorded."
 }

@@ -23,7 +23,9 @@ from backend.app.models import (
     Registration,
     ResultReportStatus,
     Round,
+    StaffRole,
     Tournament,
+    TournamentStaff,
     TournamentStatus,
     TournamentStructure,
     User,
@@ -78,6 +80,7 @@ from backend.app.services.tournament_access import (
     load_tournament_for_head_judge,
     load_tournament_for_staff,
     owns_tournament,
+    staff_role,
 )
 
 router = APIRouter(prefix="/tournaments", tags=["tournaments"])
@@ -321,16 +324,17 @@ def _build_bracket(tournament_id: int, db: Session) -> list[BracketMatchOut]:
     return matches
 
 
-@router.patch("/{tournament_id}/pairings/{pairing_id}/result", response_model=RoundOut)
-def report_result(
-    tournament_id: int,
-    pairing_id: int,
-    payload: PairingResultIn,
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-) -> RoundOut:
-    # Organizzatore proprietario o staff/judge invitato
-    load_tournament_for_staff(tournament_id, user, db)
+def tournament_has_scorekeeper(tournament_id: int, db: Session) -> bool:
+    """Se qualcuno tiene il tabellone, i judge propongono invece di scrivere."""
+    return bool(db.scalar(
+        select(TournamentStaff.id).where(
+            TournamentStaff.tournament_id == tournament_id,
+            TournamentStaff.role == StaffRole.SCOREKEEPER,
+        ).limit(1)
+    ))
+
+
+def _load_pairing_of_round(tournament_id: int, pairing_id: int, db: Session) -> Pairing:
     pairing = db.scalar(
         select(Pairing)
         .join(Round)
@@ -348,12 +352,93 @@ def report_result(
     )
     if not pairing:
         raise HTTPException(status_code=404, detail="Partita non trovata")
-    apply_pairing_result(tournament_id, pairing, payload, db)
-    db.refresh(pairing.round)
+    return pairing
+
+
+def _invalidate_round_caches(tournament_id: int) -> None:
     cache_invalidate(f"standings:{tournament_id}")       # standings cambiano dopo ogni risultato
     cache_invalidate(f"result-reports:{tournament_id}")  # report map obsoleta
     cache_invalidate(f"my-pairings:{tournament_id}")     # card giocatori obsoleta
+
+
+@router.patch("/{tournament_id}/pairings/{pairing_id}/result", response_model=RoundOut)
+def report_result(
+    tournament_id: int,
+    pairing_id: int,
+    payload: PairingResultIn,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> RoundOut:
+    """Il risultato dal tavolo.
+
+    Con uno scorekeeper nello staff il judge **propone**: il referto resta in
+    attesa e in classifica ci va solo quando lo conferma chi tiene il
+    tabellone. Senza scorekeeper, i judge scrivono direttamente come prima —
+    non si aggiunge un passaggio a chi non l'ha chiesto.
+    """
+    tournament = load_tournament_for_staff(tournament_id, user, db)
+    pairing = _load_pairing_of_round(tournament_id, pairing_id, db)
+
+    if staff_role(tournament_id, user.id, db) == StaffRole.JUDGE             and not owns_tournament(tournament, user, db)             and tournament_has_scorekeeper(tournament_id, db):
+        if not pairing.player_b_registration_id:
+            raise HTTPException(status_code=409, detail="Il risultato di un bye è automatico")
+        ensure_allowed_score(payload, pairing, db)
+        db.add(PairingResultReport(
+            pairing_id=pairing.id,
+            reported_by_user_id=user.id,
+            match_wins_a=payload.match_wins_a,
+            match_wins_b=payload.match_wins_b,
+            draws=payload.draws,
+        ))
+        db.commit()
+        db.refresh(pairing.round)
+        _invalidate_round_caches(tournament_id)
+        return round_out(pairing.round, latest_result_reports(tournament_id, db))
+
+    apply_pairing_result(tournament_id, pairing, payload, db)
+    db.refresh(pairing.round)
+    _invalidate_round_caches(tournament_id)
     return round_out(pairing.round)
+
+
+@router.post("/{tournament_id}/pairings/{pairing_id}/confirm-report", response_model=RoundOut)
+def confirm_staff_report(
+    tournament_id: int,
+    pairing_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> RoundOut:
+    """Conferma il referto proposto da un judge, e lo mette in classifica.
+
+    Lo fa chi tiene il tabellone, il capojudge o l'organizzatore — non chi
+    l'ha proposto: due paia di occhi, che è tutto il senso del ruolo.
+    """
+    tournament = load_tournament_for_staff(tournament_id, user, db)
+    ruolo = staff_role(tournament_id, user.id, db)
+    if not owns_tournament(tournament, user, db)             and ruolo not in {StaffRole.SCOREKEEPER, StaffRole.HEAD_JUDGE}:
+        raise HTTPException(status_code=403, detail="Conferma chi tiene il tabellone")
+
+    report = latest_open_report(pairing_id, db)
+    if not report:
+        raise HTTPException(status_code=404, detail="Non c'è nessun referto da confermare")
+    if report.reported_by_user_id == user.id:
+        raise HTTPException(status_code=409, detail="Il referto lo conferma qualcun altro")
+
+    pairing = _load_pairing_of_round(tournament_id, pairing_id, db)
+    apply_pairing_result(
+        tournament_id,
+        pairing,
+        PairingResultIn(match_wins_a=report.match_wins_a, match_wins_b=report.match_wins_b,
+                        draws=report.draws),
+        db,
+    )
+    report.status = ResultReportStatus.CONFIRMED
+    report.resolved_at = datetime.now(UTC)
+    db.add(report)
+    db.commit()
+    db.refresh(pairing.round)
+    _invalidate_round_caches(tournament_id)
+    return round_out(pairing.round, latest_result_reports(tournament_id, db))
 
 
 # ── #39 Correzione risultato post-torneo + audit log ──────────

@@ -91,6 +91,8 @@ async function init() {
   else render();
 }
 
+const STAFF_LABEL = { head_judge: 'capojudge', scorekeeper: 'scorekeeper', judge: 'judge' };
+
 const isClosed = (t) => ['completed', 'cancelled'].includes(t.status);
 
 // tournament_id -> avvisi. Riempita dalla lista, aggiornata entrando nel torneo.
@@ -2229,7 +2231,7 @@ async function renderManifestazione(eventId) {
   const staffRows = staff.map((m) => `
     <tr>
       <td><strong>${esc(m.display_name)}</strong><br><small class="muted">${esc(m.email)}</small></td>
-      <td><span class="pill ${m.role === 'head_judge' ? 'ok' : ''}">${m.role === 'head_judge' ? 'capojudge' : 'judge'}</span></td>
+      <td><span class="pill ${m.role === 'head_judge' ? 'ok' : ''}">${esc(STAFF_LABEL[m.role] || m.role)}</span></td>
       <td class="row-actions">
         <button class="mini-button" data-drop-staff="${m.id}" type="button" style="color:var(--danger)">Rimuovi</button>
       </td>
@@ -2280,6 +2282,7 @@ async function renderManifestazione(eventId) {
         <label>Email<input id="evStaffEmail" type="email" required placeholder="judge@email.com" /></label>
         <label>Ruolo<select id="evStaffRole">
           <option value="judge">Judge</option>
+          <option value="scorekeeper">${esc(tr('Scorekeeper'))}</option>
           <option value="head_judge">Capojudge</option>
         </select></label>
         <button class="primary" type="submit">Nomina</button>
@@ -2686,6 +2689,7 @@ async function renderStaff() {
           <label>Email<input id="stEmail" type="email" required placeholder="judge@email.com" /></label>
           <label>Ruolo<select id="stRole">
             <option value="judge">Judge</option>
+            <option value="scorekeeper">${esc(tr('Scorekeeper'))}</option>
             ${isOrganizer && !hasHeadJudge ? '<option value="head_judge">Capojudge</option>' : ''}
           </select></label>
           <button class="primary" type="submit">Nomina</button>

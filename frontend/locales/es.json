@@ -1087,5 +1087,11 @@
   "Semifinali": "Semifinales",
   "Quarti": "Cuartos",
   "Ottavi": "Octavos",
-  "Top {n}": "Top {n}"
+  "Top {n}": "Top {n}",
+  "Scorekeeper": "Anotador",
+  "Proposto": "Propuesto",
+  "in attesa del tabellone": "esperando al anotador",
+  "Referto confermato.": "Reporte confirmado.",
+  "Risultato corretto.": "Resultado corregido.",
+  "Risultato registrato.": "Resultado registrado."
 }

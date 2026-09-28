@@ -100,6 +100,8 @@ export function mountConsole(host, tournamentId, { screenLinks = true, onClosed 
   const isClosed = () => ['completed', 'cancelled'].includes(tournament?.status);
   /* Chi fa scorrere i round: organizzatore e capojudge. Il judge arbitra i tavoli. */
   const canRunRounds = () => ['organizer', 'head_judge'].includes(myRole);
+  /* Il referto di un judge lo conferma chi tiene il tabellone, non chi l'ha scritto. */
+  const canConfirm = () => ['organizer', 'head_judge', 'scorekeeper'].includes(myRole);
   const activeRound = () => rounds.find((r) => String(r.id) === String(activeRoundId));
 
   /* ── Dati ──────────────────────────────────────────────── */
@@ -268,6 +270,12 @@ export function mountConsole(host, tournamentId, { screenLinks = true, onClosed 
     let control;
     if (isBye) {
       control = '<span class="badge ok">BYE · 2 – 0</span>';
+    } else if (p.report_status === 'pending' && !finalScore) {
+      // Proposto da un judge: in classifica ci va quando qualcun altro conferma.
+      control = `<span class="badge warn">${esc(tr('Proposto'))} ${esc((p.report_score || '').replace('-', ' – '))}</span>
+        ${canConfirm()
+          ? `<button class="mini-button primary" data-action="confirm-report" data-pid="${p.id}" type="button">${esc(tr('Conferma'))}</button>`
+          : `<span class="muted" style="font-size:.78rem">${esc(tr('in attesa del tabellone'))}</span>`}`;
     } else if (finalScore && !editing.has(String(p.id))) {
       control = `<span class="badge ok">${finalScore.replace('-', ' – ')} 🔒</span>
         <button class="mini-button" data-action="edit" data-pid="${p.id}" type="button">Modifica</button>`;
@@ -430,6 +438,10 @@ export function mountConsole(host, tournamentId, { screenLinks = true, onClosed 
       ? pairings.map((p) => (String(p.id) === String(repairing) ? pairingEditor(round, p) : renderRow(round, p))).join('')
       : '<p class="empty" style="margin:0">Tutti i tavoli hanno un risultato. ✓</p>');
 
+    tables.querySelectorAll('[data-action="confirm-report"]').forEach((btn) =>
+      btn.addEventListener('click', () => call(
+        () => apiFetch(`/tournaments/${tid}/pairings/${btn.dataset.pid}/confirm-report`, { method: 'POST' }),
+        tr('Referto confermato.'))));
     tables.querySelectorAll('[data-action="repair"]').forEach((btn) =>
       btn.addEventListener('click', () => { repairing = btn.dataset.pid; render(); }));
     tables.querySelector('[data-action="repair-cancel"]')?.addEventListener('click', () => {

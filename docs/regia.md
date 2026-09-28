@@ -41,6 +41,14 @@ Una **sconfitta a tavolino** (match loss) e una **squalifica** chiudono il
 tavolo 2-0 per l'avversario, da sole. Un **game loss** no: quella è una
 partita, il match si gioca lo stesso.
 
+## Se c'è uno scorekeeper
+
+Con uno scorekeeper nello staff, il risultato che inserisce un judge non va
+subito in classifica: il tavolo mostra "Proposto 2 – 1" e resta lì finché chi
+tiene il tabellone preme **Conferma**. Chi ha proposto non può confermare da
+solo. Se nello staff non c'è nessuno scorekeeper non cambia niente: i judge
+scrivono direttamente.
+
 ## Chi può fare cosa
 
 Far scorrere i turni e chiudere il torneo sono cose da **organizzatore o

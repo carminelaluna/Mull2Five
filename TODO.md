@@ -223,12 +223,10 @@ decisioni tue.
 - [ ] Game loss: la partita deve chiudersi 2-0 per l'avversario.
 - [ ] Cliccare sulla lingua cambia il tema dell'interfaccia.
 - [ ] "Almeno due giocatori idonei": dire *cosa* manca e *a chi*.
-- [ ] Inserire tanti risultati di fila sembra ricaricare la pagina: più veloce e senza sfarfallio.
 
 **Permessi**
 - [ ] Un player non deve vedere la scheda Organizzazione.
 - [ ] Solo il capojudge può avviare il turno successivo.
-- [ ] Scorekeeper: un judge normale inserisce il risultato, lo scorekeeper lo conferma.
 
 **Interfaccia**
 - [ ] Città con completamento a tendina all'iscrizione del negozio (e dove si scrive una città).
@@ -249,7 +247,6 @@ decisioni tue.
 **Funzioni nuove**
 - [ ] Iscrizione al banco di chi non ha ancora un account: crearlo contestualmente.
 - [ ] Gestione dei ticket. Togliere "Family" dal profilo: al suo posto si apre un ticket.
-- [ ] Gestione del top 8.
 - [ ] Community: chiarire cosa succede dopo aver aggiunto i tag (richiesta incompleta).
 
 ## Da monitorare

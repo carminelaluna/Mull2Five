@@ -26,7 +26,7 @@ from backend.app.services.stores import store_role
 
 # Dal piu forte al piu debole: serve a scegliere quando un utente ha due
 # incarichi, uno sul torneo e uno sull'evento che lo contiene.
-_STAFF_RANK = {StaffRole.HEAD_JUDGE: 2, StaffRole.JUDGE: 1}
+_STAFF_RANK = {StaffRole.HEAD_JUDGE: 3, StaffRole.SCOREKEEPER: 2, StaffRole.JUDGE: 1}
 
 
 def staff_role(tournament_id: int, user_id: int, db: Session) -> str | None:
