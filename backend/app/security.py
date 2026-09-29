@@ -73,6 +73,14 @@ def password_needs_rehash(password_hash: str | None) -> bool:
 
 # ── Token ────────────────────────────────────────────────────────────────
 
+# PyJWT rifiuta un token il cui `iat` sia anche solo un millesimo avanti
+# all'orologio che lo rilegge. Fra l'emissione e la verifica l'orologio puo'
+# correggersi all'indietro, e la sessione appena aperta viene respinta. Per la
+# RFC 7519 `iat` e' informativo — la scadenza qui la fanno `exp` e `tv` — quindi
+# concediamo lo scarto che chiunque concede.
+SCARTO_OROLOGIO = timedelta(seconds=60)
+
+
 def create_access_token(user: User) -> str:
     settings = get_settings()
     expires = datetime.now(UTC) + timedelta(minutes=settings.access_token_minutes)
@@ -93,7 +101,7 @@ def verify_reset_token(token: str) -> tuple[int, int] | None:
     """(user_id, versione dei token) se il token di reset è valido, altrimenti None."""
     settings = get_settings()
     try:
-        payload = jwt.decode(token, settings.secret_key, algorithms=["HS256"])
+        payload = jwt.decode(token, settings.secret_key, algorithms=["HS256"], leeway=SCARTO_OROLOGIO)
         if payload.get("purpose") != "password-reset":
             return None
         return int(payload.get("sub", "0")), int(payload.get("tv", 0))
@@ -111,7 +119,7 @@ def get_current_user(
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
-        payload = jwt.decode(token, settings.secret_key, algorithms=["HS256"])
+        payload = jwt.decode(token, settings.secret_key, algorithms=["HS256"], leeway=SCARTO_OROLOGIO)
         user_id = int(payload.get("sub", "0"))
         version = int(payload.get("tv", 0))
     except (jwt.PyJWTError, ValueError):

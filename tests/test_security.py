@@ -5,6 +5,10 @@ Gli hash già salvati (fatti con passlib) restano validi con l'implementazione
 della libreria standard; i token portano una versione che il cambio password e
 "esci da tutti i dispositivi" fanno scadere; le pagine hanno la loro CSP.
 """
+from datetime import UTC, datetime, timedelta
+
+import jwt
+
 from backend.app.core.config import get_settings
 from backend.app.models import User
 from backend.app.security import (
@@ -93,3 +97,22 @@ def test_security_headers(client):
 
 def test_social_login_is_gone(client):
     assert client.get("/api/auth/oauth/google/login").status_code == 404
+
+
+def test_orologio_leggermente_avanti(client):
+    """Un `iat` di qualche secondo nel futuro non deve chiudere la sessione.
+
+    Fra l'emissione del token e la sua rilettura l'orologio puo' correggersi
+    all'indietro: succedeva in prova, e buttava fuori l'utente appena entrato.
+    """
+    token = _register(client, "orologio@example.com")
+    chiave = get_settings().secret_key
+    payload = jwt.decode(token, chiave, algorithms=["HS256"])
+
+    payload["iat"] = datetime.now(UTC) + timedelta(seconds=5)
+    avanti = jwt.encode(payload, chiave, algorithm="HS256")
+    assert client.get("/api/auth/me", headers=_auth(avanti)).status_code == 200
+
+    payload["iat"] = datetime.now(UTC) + timedelta(hours=1)
+    domani = jwt.encode(payload, chiave, algorithm="HS256")
+    assert client.get("/api/auth/me", headers=_auth(domani)).status_code == 401

@@ -57,6 +57,11 @@ pubblico, ruoli. Da aggiornare quando si cambia cosa fa una schermata.
 - **Il deploy non aspetta la CI**: un push con la CI rossa va in produzione lo stesso.
 - SQLite su `/mnt/c` è inaffidabile: il database dei test sta in `/tmp`, uno per
   processo (`tests/conftest.py`).
+- **Un orologio che si corregge all'indietro buttava fuori chi era appena
+  entrato**: PyJWT rifiuta un token il cui `iat` sia anche solo un millesimo
+  avanti. Erano i rossi intermittenti della suite — sempre un 401, ogni volta su
+  un test diverso. `SCARTO_OROLOGIO` in `backend/app/security.py` concede
+  sessanta secondi.
 
 ## Dov'è arrivato
 
@@ -64,7 +69,7 @@ Parità con Melee completata (26 passi), checklist di lancio fatta, revisione
 critica chiusa tranne tre punti. Il backend è diviso in `tournaments.py`,
 `tournament_registrations.py`, `tournament_rounds.py` più i servizi; il
 back-office in `organizer.js`, `organizer-store.js`, `organizer-common.js`.
-ESLint sul frontend, Alembic sullo schema, 322 test.
+ESLint sul frontend, Alembic sullo schema, 339 test.
 
 ## Cosa resta — in ordine
 
@@ -88,6 +93,3 @@ Dettaglio in `TODO.md` (14 voci aperte). Quelle che contano:
 **Rimandabili**
 Locator (spento per le condizioni d'uso di Wizards), ri-podding, app mobile,
 e le idee in fondo al TODO.
-
-**Da tenere d'occhio**: la suite ha rossi intermittenti su test diversi che
-passano da soli — interferenza fra test, non ancora diagnosticata.
