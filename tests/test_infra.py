@@ -22,14 +22,25 @@ def test_health_degrades_when_the_schema_is_behind(client):
     Senza questo il sito sembra sano mentre gli endpoint che toccano la colonna
     mancante danno 500 — ed è successo davvero, il 23/09/2026.
     """
+    from sqlalchemy import inspect, text
+
     from backend.app.db import engine
 
-    # `alembic_version` non è fra i modelli, quindi le fixture non la ripuliscono:
-    # se restasse, ogni test successivo vedrebbe uno schema indietro.
+    # In locale il database dei test non passa mai da Alembic; in CI sì, perché
+    # il workflow applica le migrazioni prima di pytest. La prova deve valere in
+    # entrambi i casi. E `alembic_version` non è fra i modelli, quindi le
+    # fixture non la ripuliscono: va rimessa com'era, o i test seguenti
+    # vedrebbero uno schema indietro.
     with engine.begin() as connection:
-        connection.exec_driver_sql(
-            "CREATE TABLE alembic_version (version_num VARCHAR(32) NOT NULL)")
-        connection.exec_driver_sql("INSERT INTO alembic_version VALUES ('0001_baseline')")
+        c_era = "alembic_version" in inspect(connection).get_table_names()
+        prima = connection.execute(
+            text("SELECT version_num FROM alembic_version")).scalar() if c_era else None
+        if c_era:
+            connection.execute(text("UPDATE alembic_version SET version_num = '0001_baseline'"))
+        else:
+            connection.exec_driver_sql(
+                "CREATE TABLE alembic_version (version_num VARCHAR(32) NOT NULL)")
+            connection.execute(text("INSERT INTO alembic_version VALUES ('0001_baseline')"))
     try:
         body = client.get("/health").json()
         assert body["status"] == "degraded"
@@ -38,7 +49,11 @@ def test_health_degrades_when_the_schema_is_behind(client):
         assert body["schema"]["indietro"] is True
     finally:
         with engine.begin() as connection:
-            connection.exec_driver_sql("DROP TABLE alembic_version")
+            if c_era:
+                connection.execute(text("UPDATE alembic_version SET version_num = :v"),
+                                   {"v": prima})
+            else:
+                connection.exec_driver_sql("DROP TABLE alembic_version")
 
     assert client.get("/health").json()["status"] == "ok"
 
