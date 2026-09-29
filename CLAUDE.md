@@ -56,6 +56,13 @@ cambia cosa fa una schermata.
   l'errore e il sito parte lo stesso, dando 500 sugli endpoint interessati. Si
   vede solo nei log di Render.
 - **Il deploy non aspetta la CI**: un push con la CI rossa va in produzione lo stesso.
+- **Un cambio di schema può bloccare il deploy per sempre.** Le migrazioni
+  girano dentro l'avvio dell'app e uvicorn apre la porta solo dopo: se un
+  `ALTER TABLE` aspetta un lock — l'istanza vecchia è ancora viva e serve
+  traffico — Render non vede nessuna porta e dice `Timed Out / no open ports`.
+  Il 29/09/2026 è successo con `0006_tag_author`; riprodotto in locale. Si sblocca
+  sospendendo il servizio (l'istanza vecchia molla le connessioni) e poi
+  rilanciando. La cura vera è togliere le migrazioni dall'avvio.
 - SQLite su `/mnt/c` è inaffidabile: il database dei test sta in `/tmp`, uno per
   processo (`tests/conftest.py`).
 - **Un orologio che si corregge all'indietro buttava fuori chi era appena
