@@ -17,6 +17,12 @@ def _register_user(client, email, role="player"):
     return {"Authorization": f"Bearer {login.json()['access_token']}"}
 
 
+def _store(client, org, name):
+    """I tag sono del negozio: chi li usa ne deve avere uno."""
+    opened = client.post("/api/organizations/mine", headers=org, json={"name": name})
+    assert opened.status_code == 201, opened.text
+
+
 def _tournament(client, org, name="Serata Modern"):
     created = client.post("/api/tournaments", headers=org, json={
         "name": name, "format": "Modern",
@@ -58,6 +64,7 @@ def _titles(client, tid, headers):
 def _sala(client):
     """Un torneo con due iscritti, di cui uno etichettato "Nuovi"."""
     org = _register_user(client, "ann-org@example.com", role="organizer")
+    _store(client, org, "Negozio Annunci")
     tid = _tournament(client, org)
     nuovo = _enroll(client, tid, "ann-nuovo@example.com")
     veterano = _enroll(client, tid, "ann-vet@example.com")
@@ -122,26 +129,39 @@ def test_the_audience_is_counted_before_the_announcement_is_written(client):
     assert conteggio(mirato) == {"recipients": 1, "total": 2, "label": "Nuovi"}
 
 
-def test_a_tag_of_another_store_cannot_be_used(client, db_session):
+def test_a_tag_of_another_store_cannot_be_used(client):
     """I clienti etichettati da un altro negozio non sono una platea disponibile."""
-    from sqlalchemy import select
-
-    from backend.app.models import Organization, User
-
     tid, org, _, _, _ = _sala(client)
-    altra = Organization(slug="negozio-rivale", name="Negozio Rivale")
-    db_session.add(altra)
-    db_session.commit()
     rivale = _register_user(client, "ann-altro-org@example.com", role="organizer")
-    utente = db_session.scalar(select(User).where(User.email == "ann-altro-org@example.com"))
-    utente.organization_id = altra.id
-    db_session.commit()
+    _store(client, rivale, "Negozio Rivale")
     suo_tag = _tag(client, rivale, "Clienti suoi")
 
     rifiutato = client.post(f"/api/tournaments/{tid}/announcements", headers=org, json={
         "title": "Non dovrebbe partire", "body": "...", "tag_ids": [suo_tag],
     })
     assert rifiutato.status_code == 404, rifiutato.text
+
+
+def test_without_a_store_announcements_go_to_everyone(client):
+    """Chi non ha un negozio non ha tag: l'annuncio va a tutti, e i tag di un
+    negozio non diventano suoi solo perché ne conosce l'id."""
+    _, _, _, _, tag_negozio = _sala(client)
+    solo = _register_user(client, "ann-solo@example.com", role="organizer")
+    tid = _tournament(client, solo, name="Serata senza negozio")
+    iscritto = _enroll(client, tid, "ann-solo-player@example.com")
+
+    platea = client.get(f"/api/tournaments/{tid}/announcements/audience", headers=solo)
+    assert platea.status_code == 200, platea.text
+    assert platea.json()["recipients"] == 1
+    rifiutato = client.post(f"/api/tournaments/{tid}/announcements", headers=solo, json={
+        "title": "Non dovrebbe partire", "body": "...", "tag_ids": [tag_negozio],
+    })
+    assert rifiutato.status_code == 404, rifiutato.text
+
+    assert client.post(f"/api/tournaments/{tid}/announcements", headers=solo, json={
+        "title": "Per tutti", "body": "Si comincia alle 21",
+    }).status_code == 201
+    assert _titles(client, tid, iscritto) == ["Per tutti"]
 
 
 def test_deleting_the_tag_does_not_make_the_announcement_public(client):

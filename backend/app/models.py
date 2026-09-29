@@ -897,6 +897,11 @@ class PlayerTag(Base):
     name: Mapped[str] = mapped_column(String(60))
     color: Mapped[str] = mapped_column(String(9), default="#d8b465")
     description: Mapped[str] = mapped_column(String(240), default="")
+    # Chi l'ha creato. Conta per i tag nati nel negozio di default, prima che
+    # servisse un negozio per usarli: chi li ha creati se li porta nel suo.
+    created_by_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
 
     assignments: Mapped[list["PlayerTagAssignment"]] = relationship(

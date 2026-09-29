@@ -21,6 +21,7 @@ from backend.app.models import (
     Event,
     Location,
     Organization,
+    PlayerTag,
     StoreMember,
     StoreRole,
     Suspension,
@@ -193,8 +194,8 @@ def create_my_store(
     user: User = Depends(require_organizer),
     db: Session = Depends(get_db),
 ) -> OrganizationOut:
-    """Apre il proprio negozio: chi lo crea ne è il titolare. I tornei e gli
-    eventi organizzati finora senza negozio vengono con lui."""
+    """Apre il proprio negozio: chi lo crea ne è il titolare. I tornei, gli
+    eventi e i tag creati finora senza negozio vengono con lui."""
     base = _slugify(payload.name)
     slug, n = base, 1
     while slug in RESERVED_SLUGS or db.scalar(select(Organization.id).where(Organization.slug == slug)):
@@ -214,6 +215,13 @@ def create_my_store(
                 # La sede era del negozio di prima: resta scritta, non collegata.
                 if model is Tournament and row.location:
                     _keep_place(row)
+    # Anche i tag creati nel negozio di default, quando non serviva un negozio per
+    # usarli. Questo è nuovo e non ne ha altri: i nomi non si scontrano.
+    own_tags = select(PlayerTag).where(
+        PlayerTag.organization_id == default_id, PlayerTag.created_by_id == user.id
+    )
+    for tag in db.scalars(own_tags).all():
+        tag.organization_id = org.id
     user.organization_id = org.id
     db.commit()
     _forget_tournaments()

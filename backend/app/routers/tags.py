@@ -3,8 +3,9 @@ Router tag giocatore — etichette che il negozio applica ai propri clienti.
 
 Servono a due cose: filtrare gli iscritti in back-office ("chi sono i nuovi?")
 e mandare annunci mirati a un sottoinsieme invece che a tutti. Il tag vive dentro
-l'organizzazione che l'ha creato: lo stesso utente può essere "Habitué" da un
-negozio e sconosciuto da un altro.
+il negozio che l'ha creato e lo vede solo il suo staff: lo stesso utente può essere
+"Habitué" da un negozio e sconosciuto da un altro. Chi non fa parte di un negozio
+non ne ha: il negozio di default è di tutti, e i suoi tag lo sarebbero pure.
 """
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
@@ -14,6 +15,7 @@ from backend.app.db import get_db
 from backend.app.models import Organization, PlayerTag, PlayerTagAssignment, User
 from backend.app.schemas import PlayerTagIn, PlayerTagOut, TagAssignIn, UserOut
 from backend.app.security import require_organizer
+from backend.app.services.stores import can_manage_store
 
 router = APIRouter(prefix="/tags", tags=["tags"])
 
@@ -28,6 +30,22 @@ def org_id_for(user: User, db: Session) -> int:
     return default
 
 
+def tag_store_id(user: User, db: Session) -> int | None:
+    """Il negozio di cui si usano i tag: quello per cui si lavora, se se ne fa parte."""
+    org_id = user.organization_id
+    return org_id if org_id and can_manage_store(user, org_id, db) else None
+
+
+def _store_id(user: User, db: Session) -> int:
+    org_id = tag_store_id(user, db)
+    if org_id is None:
+        raise HTTPException(
+            status_code=403,
+            detail="I tag sono del negozio: apri il tuo dalla sezione Negozio per usarli",
+        )
+    return org_id
+
+
 def _tag_out(tag: PlayerTag, db: Session) -> PlayerTagOut:
     count = db.scalar(
         select(func.count(PlayerTagAssignment.id)).where(PlayerTagAssignment.tag_id == tag.id)
@@ -36,8 +54,9 @@ def _tag_out(tag: PlayerTag, db: Session) -> PlayerTagOut:
 
 
 def _load_tag(tag_id: int, organizer: User, db: Session) -> PlayerTag:
+    store_id = _store_id(organizer, db)
     tag = db.get(PlayerTag, tag_id)
-    if not tag or tag.organization_id != org_id_for(organizer, db):
+    if not tag or tag.organization_id != store_id:
         raise HTTPException(status_code=404, detail="Tag non trovato")
     return tag
 
@@ -49,7 +68,7 @@ def list_tags(
 ) -> list[PlayerTagOut]:
     tags = db.scalars(
         select(PlayerTag)
-        .where(PlayerTag.organization_id == org_id_for(organizer, db))
+        .where(PlayerTag.organization_id == _store_id(organizer, db))
         .order_by(PlayerTag.name)
     ).all()
     return [_tag_out(t, db) for t in tags]
@@ -61,14 +80,15 @@ def create_tag(
     organizer: User = Depends(require_organizer),
     db: Session = Depends(get_db),
 ) -> PlayerTagOut:
-    org_id = org_id_for(organizer, db)
+    org_id = _store_id(organizer, db)
     name = payload.name.strip()
     if db.scalar(
         select(PlayerTag.id).where(PlayerTag.organization_id == org_id, PlayerTag.name == name)
     ):
         raise HTTPException(status_code=409, detail="Esiste già un tag con questo nome")
     tag = PlayerTag(
-        organization_id=org_id, name=name, color=payload.color, description=payload.description
+        organization_id=org_id, name=name, color=payload.color, description=payload.description,
+        created_by_id=organizer.id,
     )
     db.add(tag)
     db.commit()
@@ -165,10 +185,12 @@ def unassign_tag(
     db.commit()
 
 
-def tags_for_users(user_ids: list[int], org_id: int, db: Session) -> dict[int, list[PlayerTagOut]]:
+def tags_for_users(
+    user_ids: list[int], org_id: int | None, db: Session
+) -> dict[int, list[PlayerTagOut]]:
     """Tag per utente, in una query sola: serve a decorare la lista iscritti
-    senza una query per riga."""
-    if not user_ids:
+    senza una query per riga. Senza negozio non ce ne sono."""
+    if not user_ids or org_id is None:
         return {}
     rows = db.execute(
         select(PlayerTagAssignment.user_id, PlayerTag)

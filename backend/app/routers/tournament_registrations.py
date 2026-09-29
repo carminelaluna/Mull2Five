@@ -411,10 +411,10 @@ def list_registrations(
             selectinload(Registration.decklist_revisions),  # conta revisioni senza N+1
         )
     ).all()
-    from backend.app.routers.tags import tags_for_users
+    from backend.app.routers.tags import tag_store_id, tags_for_users
 
     player_tags = tags_for_users(
-        [r.player_id for r in registrations], organizer.organization_id or 0, db
+        [r.player_id for r in registrations], tag_store_id(organizer, db), db
     )
     answers = answers_for([item.id for item in registrations], db)
     prior = prior_penalty_counts(tournament_id, [item.player_id for item in registrations], db)

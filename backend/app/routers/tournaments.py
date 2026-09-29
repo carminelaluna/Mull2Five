@@ -950,7 +950,7 @@ def resolve_audience(
     Con dei tag e chi ne porta almeno uno — un'unione, non un'intersezione: "Nuovi"
     e "Commander" insieme vogliono dire entrambi i gruppi, non chi sta in tutti e due.
     """
-    from backend.app.routers.tags import org_id_for
+    from backend.app.routers.tags import tag_store_id
 
     base = (
         select(User)
@@ -961,12 +961,11 @@ def resolve_audience(
         return list(db.scalars(base).all()), ""
 
     # I tag di un altro negozio non si possono usare: sono suoi clienti, non nostri.
+    # Chi un negozio non ce l'ha non ne ha di suoi.
+    store_id = tag_store_id(organizer, db)
     tags = db.scalars(
-        select(PlayerTag).where(
-            PlayerTag.id.in_(tag_ids),
-            PlayerTag.organization_id == org_id_for(organizer, db),
-        )
-    ).all()
+        select(PlayerTag).where(PlayerTag.id.in_(tag_ids), PlayerTag.organization_id == store_id)
+    ).all() if store_id else []
     if len(tags) != len(set(tag_ids)):
         raise HTTPException(status_code=404, detail="Tag non trovato")
 

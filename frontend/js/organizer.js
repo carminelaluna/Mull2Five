@@ -1521,11 +1521,15 @@ async function renderAnnunci() {
   let tags = [];
   // Se i tag non arrivano si puo ancora mandare a tutti, che e il caso normale:
   // l'errore non blocca il modulo, ma va detto, non confuso con "non ci sono tag".
+  // Un 403 invece e proprio "non ci sono tag": sono del negozio, e un negozio non c'e.
   let erroreTag = null;
   try {
     [list, tags] = await Promise.all([
       apiFetch(`/tournaments/${t.id}/announcements`).then(r => r || []),
-      apiFetch('/tags').then(r => r || []).catch((err) => { erroreTag = err; return []; }),
+      apiFetch('/tags').then(r => r || []).catch((err) => {
+        if (err.status !== 403) erroreTag = err;
+        return [];
+      }),
     ]);
   } catch (err) {
     $('#panel').innerHTML = `<p class="empty">Errore: ${esc(err.message)}</p>`;
@@ -1903,6 +1907,9 @@ onReady(init);
    iscritti del torneo attivo. */
 async function renderTag() {
   $('#panel').innerHTML = '<p class="empty">Caricamento tag…</p>';
+  try { await myStore(); } catch (err) {
+    if (err.status === 404) return renderTagNoStore();
+  }
   let tags = [];
   try { tags = await apiFetch('/tags'); } catch (err) { toast('Errore: ' + err.message); }
 
@@ -2002,6 +2009,21 @@ async function renderTag() {
       renderTag();
     } catch (err) { toast('Errore: ' + err.message); }
   });
+}
+
+/** I tag sono clienti del negozio e li vede solo il suo staff: senza negozio
+    non ce ne sono, e quelli creati prima vengono con chi lo apre. */
+function renderTagNoStore() {
+  $('#panel').innerHTML = `
+    <div class="panel">
+      <h3>${esc(tr('Tag del negozio'))}</h3>
+      <p class="muted" style="margin-top:0">${esc(tr('I tag etichettano i clienti di un negozio e li vede solo il suo staff: per usarli apri il tuo negozio. I tag che hai creato finora vengono con te.'))}</p>
+      <button class="primary" id="tgOpenStore" type="button">${esc(tr('Apri il negozio'))}</button>
+    </div>
+    <div id="suspBox"></div>`;
+  $('#tgOpenStore').addEventListener('click', () =>
+    document.querySelector('.bo-nav-item[data-section="negozio"]')?.click());
+  renderSuspensions();
 }
 
 /* ── SOSPENSIONI ─────────────────────────────────────────
