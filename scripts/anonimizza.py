@@ -57,7 +57,16 @@ def main(argv: list[str]) -> int:
         print("L'indirizzo va scritto a mano: non viene letto da .env.")
         return 2
 
-    engine = create_engine(argv[1])
+    # `pg_restore` vuole `postgresql://`, SQLAlchemy con quel prefisso cerca
+    # psycopg2, che qui non c'è. Nella stessa procedura servono entrambe le
+    # forme: le accettiamo tutte e due, invece di far inciampare chi copia
+    # l'indirizzo dal comando precedente.
+    url = argv[1]
+    for prefisso in ("postgresql://", "postgres://"):
+        if url.startswith(prefisso):
+            url = "postgresql+psycopg://" + url[len(prefisso):]
+            break
+    engine = create_engine(url)
     with engine.connect() as connection:
         nome, server, utenti = connection.execute(text(
             "SELECT current_database(), coalesce(inet_server_addr()::text, 'locale'), "
