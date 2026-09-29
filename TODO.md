@@ -253,10 +253,9 @@ decisioni tue.
 - [ ] Stripe Connect sull'account vero: il codice c'è (passo 23), ma vanno attivati
       Connect e il webhook `account.updated` nel cruscotto Stripe, e provato un
       pagamento a un negozio collegato.
-- [ ] `.env` di sviluppo scaduto: punta a `postgresql://…@localhost:5432/arcana_events`,
-      ma su quella porta ora c'è il PostgreSQL di un altro progetto. L'API di sviluppo
-      va avviata con `DATABASE_URL=sqlite:///./manabind_dev.db`. Da sistemare nel `.env`
-      (o da riportare su Docker come fa `make dev`) prima che qualcuno ci perda un'ora.
+- [x] `.env` di sviluppo rimesso a posto: puntava a un PostgreSQL su `localhost:5432`
+      che ora è di un altro progetto. Ora punta al file SQLite di sviluppo, quindi l'API
+      parte senza dover ricordare una variabile d'ambiente.
 - [x] Aggiunta suite `unittest` persistente invece degli smoke test inline.
 
 ## Idee per dopo

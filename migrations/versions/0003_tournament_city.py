@@ -1,6 +1,6 @@
 """La città del torneo, separata dal luogo.
 
-Prima "Luogo" era un campo solo ("Arcana Games, via Roma 1, Milano") e la città
+Prima "Luogo" era un campo solo ("Tana del Drago, via Roma 1, Milano") e la città
 non si poteva né cercare né proporre. Ora sono due campi: il luogo e la città.
 
 Revision ID: 0003_tournament_city

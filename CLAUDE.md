@@ -16,7 +16,7 @@ Il lato Python gira **sotto WSL**, non Windows (`.venv/bin`, non `.venv/Scripts`
 wsl bash -lc 'cd "/mnt/c/Users/Zero/Documents/Project/Tournament Organizer" && ./.venv/bin/python -m pytest -q'
 ```
 
-- **API di sviluppo**: va avviata con `DATABASE_URL=sqlite:///./manabind_dev.db`.
+- **API di sviluppo**: va avviata con `DATABASE_URL=sqlite:///./mull2five_dev.db`.
   Il `.env` punta a un PostgreSQL su `localhost:5432` che ora è di un altro
   progetto. Gira **senza `--reload`**: dopo una modifica al backend va riavviata,
   altrimenti serve codice vecchio.
@@ -70,7 +70,7 @@ Parità con Melee completata (26 passi), checklist di lancio fatta, revisione
 critica chiusa tranne tre punti. Il backend è diviso in `tournaments.py`,
 `tournament_registrations.py`, `tournament_rounds.py` più i servizi; il
 back-office in `organizer.js`, `organizer-store.js`, `organizer-common.js`.
-ESLint sul frontend, Alembic sullo schema, 339 test.
+ESLint sul frontend, Alembic sullo schema, 343 test.
 
 ## Cosa resta — in ordine
 

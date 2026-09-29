@@ -113,7 +113,7 @@ def test_the_owner_connects_the_store_stripe_account(client, fake_stripe):
 
 def test_card_payments_go_to_the_store_and_refunds_reverse_the_transfer(client, fake_stripe, monkeypatch):
     monkeypatch.setattr(get_settings(), "platform_fee_percent", 5.0)
-    owner, slug = _store(client, "pay-owner2@example.com", "Arcana")
+    owner, slug = _store(client, "pay-owner2@example.com", "Tana del Drago")
     assert _connect(client, owner, slug)["stripe_status"] == "active"
     tid = _tournament(client, owner)
 

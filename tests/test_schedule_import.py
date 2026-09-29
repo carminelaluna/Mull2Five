@@ -115,7 +115,7 @@ def test_preview_then_import_the_store_calendar(client, db_session):
 
 
 def test_drafts_and_locations(client):
-    owner, slug = _store(client, "calendar-owner2@example.com", "Arcana")
+    owner, slug = _store(client, "calendar-owner2@example.com", "Tana del Drago")
     location = client.post(f"/api/organizations/{slug}/locations", headers=owner,
                            json={"name": "Sala grande", "address": "Via Roma 1", "city": "Pavia"}).json()
     csv_text = f"nome;data;formato\nCommander Night;{_day(3)};Commander\n"

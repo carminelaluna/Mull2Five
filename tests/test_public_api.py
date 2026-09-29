@@ -46,7 +46,7 @@ def test_the_owner_creates_a_key_that_is_shown_once(client):
 
 
 def test_a_key_reads_only_its_store_and_no_personal_data(client):
-    owner, slug, tid = _store_with_tournament(client, "api-owner2@example.com", "Arcana")
+    owner, slug, tid = _store_with_tournament(client, "api-owner2@example.com", "Tana del Drago")
     _, _, other_tid = _store_with_tournament(client, "api-owner3@example.com", "Dadi e Mana")
     key = client.post(f"/api/organizations/{slug}/api-keys", headers=owner, json={"name": "Overlay"}).json()["key"]
     api = {"X-API-Key": key}
