@@ -406,31 +406,56 @@ def _revisione(nome: str):
 def test_existing_tags_are_credited_to_whoever_first_assigned_them(db_session):
     """Prima non si scriveva chi creava un tag: la migrazione lo attribuisce a chi
     l'ha assegnato per primo, così se lo porta nel negozio che apre."""
+    from datetime import datetime
+
+    import sqlalchemy as sa
     from alembic.migration import MigrationContext
     from alembic.operations import Operations
     from sqlalchemy import text
 
     from backend.app.db import engine
 
-    # player_tags com'era prima della colonna created_by_id.
+    # player_tags com'era prima della colonna created_by_id. Disegnata con
+    # SQLAlchemy invece che con un CREATE TABLE scritto a mano: il tipo delle
+    # date lo rende il dialetto, e questa prova deve valere anche su PostgreSQL,
+    # dove "DATETIME" non esiste.
+    prima = sa.MetaData()
+    tag = sa.Table(
+        "player_tags", prima,
+        sa.Column("id", sa.Integer, primary_key=True, autoincrement=False),
+        sa.Column("organization_id", sa.Integer, nullable=False),
+        sa.Column("name", sa.String(60), nullable=False),
+        sa.Column("color", sa.String(9), nullable=False),
+        sa.Column("description", sa.String(240), nullable=False),
+        sa.Column("created_at", sa.DateTime, nullable=False),
+    )
+    assegnazioni = sa.Table(
+        "player_tag_assignments", prima,
+        sa.Column("id", sa.Integer, primary_key=True, autoincrement=False),
+        sa.Column("tag_id", sa.Integer, nullable=False),
+        sa.Column("user_id", sa.Integer, nullable=False),
+        sa.Column("assigned_by_id", sa.Integer, nullable=True),
+        sa.Column("created_at", sa.DateTime, nullable=False),
+    )
     with engine.begin() as connection:
-        connection.exec_driver_sql("DROP TABLE player_tag_assignments")
-        connection.exec_driver_sql("DROP TABLE player_tags")
-        connection.exec_driver_sql(
-            "CREATE TABLE player_tags (id INTEGER PRIMARY KEY, organization_id INTEGER NOT NULL, "
-            "name VARCHAR(60) NOT NULL, color VARCHAR(9) NOT NULL, "
-            "description VARCHAR(240) NOT NULL, created_at DATETIME NOT NULL)")
-        connection.exec_driver_sql(
-            "CREATE TABLE player_tag_assignments (id INTEGER PRIMARY KEY, tag_id INTEGER NOT NULL, "
-            "user_id INTEGER NOT NULL, assigned_by_id INTEGER, created_at DATETIME NOT NULL)")
-        connection.exec_driver_sql(
-            "INSERT INTO player_tags VALUES "
-            "(1, 1, 'Nuovi', '#d8b465', '', '2026-01-01'), "
-            "(2, 1, 'Mai usato', '#d8b465', '', '2026-01-01')")
-        connection.exec_driver_sql(
-            "INSERT INTO player_tag_assignments VALUES "
-            "(1, 1, 50, 8, '2026-02-01'), (2, 1, 51, 7, '2026-01-15'), "
-            "(3, 1, 52, NULL, '2026-01-10')")
+        prima.drop_all(connection, checkfirst=True)
+        prima.create_all(connection)
+        connection.execute(tag.insert(), [
+            {"id": 1, "organization_id": 1, "name": "Nuovi", "color": "#d8b465",
+             "description": "", "created_at": datetime(2026, 1, 1)},
+            {"id": 2, "organization_id": 1, "name": "Mai usato", "color": "#d8b465",
+             "description": "", "created_at": datetime(2026, 1, 1)},
+        ])
+        # Il primo per data e' il 7, non il primo per id: la migrazione deve
+        # ordinare per created_at. Il 52 non ha autore e non deve vincere.
+        connection.execute(assegnazioni.insert(), [
+            {"id": 1, "tag_id": 1, "user_id": 50, "assigned_by_id": 8,
+             "created_at": datetime(2026, 2, 1)},
+            {"id": 2, "tag_id": 1, "user_id": 51, "assigned_by_id": 7,
+             "created_at": datetime(2026, 1, 15)},
+            {"id": 3, "tag_id": 1, "user_id": 52, "assigned_by_id": None,
+             "created_at": datetime(2026, 1, 10)},
+        ])
 
     # Due volte: `sync_alembic` la esegue una sola volta, ma una revisione che
     # riparte su un database già aggiornato non deve rompere niente.

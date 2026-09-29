@@ -57,6 +57,12 @@ Un tag è un'etichetta che **il tuo negozio** mette ai propri clienti: "Nuovo",
 "Habitué", "Gioca solo Commander". Vive dentro il tuo negozio — la stessa
 persona può essere "Habitué" da te e sconosciuta altrove.
 
+**Servono un negozio.** I tag li vede e li usa solo chi fa parte dello staff del
+negozio a cui appartengono. Chi un negozio non ce l'ha ancora non ha tag: la
+scheda Community glielo dice e indica dove aprirlo, e gli annunci vanno a tutti
+gli iscritti. I tag creati prima, quando bastava essere organizzatori, seguono
+chi li ha creati dentro il negozio che apre.
+
 Si crea in Community (nome, colore, descrizione) e si assegna in blocco:
 scegli un torneo, scegli il tag, spunti i giocatori e assegni.
 
