@@ -170,3 +170,42 @@ gratuito ne concede due), prima di averne bisogno davvero.
   senza visite.
 
 Costo: 0 € finché bastano i piani gratuiti.
+
+## I due ambienti
+
+Dal 29/09/2026 non c'è più un solo ramo: il passo 2 qui sopra è superato.
+
+| | Ramo | Servizio | Database |
+|---|---|---|---|
+| Produzione | `main` | `mull2five` | Supabase, progetto di produzione |
+| Staging | `develop` | `mull2five-staging` | Supabase, progetto separato |
+
+Si lavora su `develop`, si guarda lo staging, si fonde in `main`. Il push su
+`main` è l'unico gesto che tocca il sito vivo.
+
+La configurazione dei servizi sta in [`render.yaml`](../render.yaml), che elenca
+anche cosa lo staging deve cambiare. Tre variabili, se sbagliate, fanno danni:
+
+- `DATABASE_URL` → il progetto Supabase **separato**. Puntarlo a quello di
+  produzione cancella dati veri.
+- `STRIPE_*`, `PAYPAL_*` → chiavi di **test**. Con quelle vere una prova incassa
+  soldi da un giocatore.
+- `SMTP_*` → vuote. Altrimenti lo staging manda email a persone vere.
+
+E `APP_ENV=staging`, che tiene lo staging fuori dai motori di ricerca: una copia
+risponde `Disallow: /` e manda `X-Robots-Tag: noindex` (`core/config.py`,
+`is_copy`).
+
+**Verifica, appena è su:**
+
+```bash
+curl -s https://mull2five-staging.onrender.com/robots.txt   # deve dire Disallow: /
+curl -s https://mull2five-staging.onrender.com/health       # commit e revisione dello schema
+```
+
+**Il database di staging va riempito.** Con tre righe dentro non intercetta
+niente: è la trappola del 23/09/2026, dove una migrazione sembrava buona e in
+produzione è morta su un errore di unicità che con poche righe non si vede.
+Serve un ripristino dal backup notturno, **anonimizzato prima di esistere** —
+email, nomi e liste sostituiti, pagamenti cancellati. Il repository è pubblico e
+quelli sono dati di persone vere.
