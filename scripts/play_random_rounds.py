@@ -3,8 +3,10 @@ import sys
 
 from backend.app.db import SessionLocal, create_all
 from backend.app.models import Pairing, Round, Tournament, TournamentStatus
-from backend.app.routers.tournaments import create_round_for_tournament, ensure_latest_round_has_results
-
+from backend.app.routers.tournaments import (
+    create_round_for_tournament,
+    ensure_latest_round_has_results,
+)
 
 SCORES = [(2, 0), (2, 1), (1, 2), (0, 2), (1, 1), (1, 0), (0, 1), (0, 0)]
 

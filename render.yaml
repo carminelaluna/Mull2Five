@@ -118,22 +118,78 @@ services:
       - key: ANALYTICS_ENABLED
         value: "true"
 
-# ── Per aggiungere lo staging ───────────────────────────────────────────────
-#
-# Si copia il blocco qui sopra e si cambiano cinque cose. Non una di meno:
-#
-#   name:    mull2five-staging
-#   branch:  develop
-#   APP_ENV: staging          ← senza questo lo staging finisce su Google
-#   APP_URL / FRONTEND_URL / SITE_URL: https://mull2five-staging.onrender.com
-#   DATABASE_URL: un altro progetto Supabase. Mai quello di produzione:
-#                 uno staging puntato al database vero cancella dati veri.
-#
-# E vanno rimessi a mano, nel cruscotto dello staging:
-#
-#   STRIPE_*, PAYPAL_*  → chiavi di **test**. Con quelle vere, una prova
-#                          incassa soldi veri da un giocatore.
-#   SMTP_*              → vuote, o un server finto. Uno staging che manda
-#                          email scrive a indirizzi di persone vere.
-#   SECRET_KEY          → diversa, altrimenti un token dello staging apre la
-#                          produzione.
+  # ── Staging ───────────────────────────────────────────────────────────────
+  # Stessa immagine, ramo `develop`, database suo. Si lavora qui, si guarda, e
+  # solo dopo si fonde in `main`. Creato il 29/09/2026.
+  - type: web
+    name: mull2five-staging
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    region: frankfurt
+    plan: free
+    branch: develop
+    autoDeploy: true
+    healthCheckPath: /health
+
+    envVars:
+      # Senza `staging` qui, questo ambiente finisce nei motori di ricerca
+      # accanto a quello vero: gli stessi eventi su due domini, e un giocatore
+      # arrivato da Google si iscrive a un torneo che non esiste.
+      - key: APP_ENV
+        value: staging
+      - key: APP_NAME
+        value: Mull2Five
+      - key: APP_URL
+        value: https://mull2five-staging.onrender.com
+      - key: FRONTEND_URL
+        value: https://mull2five-staging.onrender.com
+      - key: SITE_URL
+        value: https://mull2five-staging.onrender.com
+
+      # Un altro progetto Supabase. Mai quello di produzione: uno staging
+      # puntato al database vero cancella dati veri.
+      - key: DATABASE_URL
+        sync: false
+      - key: DB_POOL_SIZE
+        value: "5"
+      - key: DB_MAX_OVERFLOW
+        value: "5"
+
+      # Diversa da quella di produzione, o un token emesso qui aprirebbe il
+      # sito vero.
+      - key: SECRET_KEY
+        sync: false
+
+      # I pagamenti restano simulati. Con le chiavi vere, una prova incasserebbe
+      # soldi veri da un giocatore.
+      - key: PAYMENT_SANDBOX_MOCK
+        value: "true"
+      - key: PAYPAL_ENV
+        value: sandbox
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+
+      # Vuote di proposito: una copia che manda email scrive a persone vere.
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_USERNAME
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_FROM_EMAIL
+        sync: false
+      - key: ALERT_EMAIL
+        sync: false
+
+      - key: ENABLED_GAMES
+        value: mtg
+      - key: WIZARDS_LOCATOR_ENABLED
+        value: "false"
+      - key: ANALYTICS_ENABLED
+        value: "true"

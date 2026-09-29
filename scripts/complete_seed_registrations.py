@@ -1,10 +1,17 @@
-from datetime import UTC, datetime
 import sys
+from datetime import UTC, datetime
 
 from backend.app.db import SessionLocal, create_all
-from backend.app.models import Decklist, DecklistStatus, Payment, PaymentStatus, Registration, Tournament, User
+from backend.app.models import (
+    Decklist,
+    DecklistStatus,
+    Payment,
+    PaymentStatus,
+    Registration,
+    Tournament,
+    User,
+)
 from backend.app.services.decklists import validate_decklist
-
 
 DECKLIST = """4 Lightning Bolt
 4 Counterspell

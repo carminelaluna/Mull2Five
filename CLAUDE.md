@@ -22,7 +22,7 @@ wsl bash -lc 'cd "/mnt/c/Users/Zero/Documents/Project/Tournament Organizer" && .
   altrimenti serve codice vecchio.
 - **Frontend**: `cd frontend && npx vite` (porta 5173, inoltra `/api` alla 8000).
 - **Prima di dire che è fatto**: `pytest` (SQLite e PostgreSQL), `ruff check
-  backend tests migrations`, e nel frontend `npm run lint`, `npm run test:run`,
+  backend tests migrations scripts`, e nel frontend `npm run lint`, `npm run test:run`,
   `npx vite build`.
 - **Mai modificare i file mentre pytest gira**, e sappi che fermare il task
   Windows non ferma il pytest dentro WSL.

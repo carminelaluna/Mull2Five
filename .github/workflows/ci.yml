@@ -45,7 +45,9 @@ jobs:
         run: pip install -e ".[dev]"
 
       - name: Lint (ruff)
-        run: ruff check backend tests
+        # Anche `migrations` e `scripts`: una revisione sbagliata rompe un
+        # deploy, e in `scripts/` c'e' chi tocca i dati di produzione.
+        run: ruff check backend tests migrations scripts
 
       - name: Migrations apply and match the models
         run: |

@@ -259,3 +259,11 @@ con lo staging come destinazione.
 Dopo il ripristino, `/health` dello staging dice se lo schema del backup è più
 vecchio del codice: `"indietro": true` significa che all'avvio è stata applicata
 una migrazione, ed è esattamente la prova che si voleva.
+
+**Va rifatto ogni tanto.** I dati dello staging sono una fotografia: invecchiano,
+e uno staging con dati vecchi intercetta meno di uno aggiornato. Dieci minuti,
+questa procedura. Conviene prima di una migrazione che tocchi tabelle grosse.
+
+**Il progetto Supabase gratuito si mette in pausa** dopo circa una settimana
+senza attività, e lo staging si addormenta con lui. Al primo uso dopo una pausa
+va riacceso dal cruscotto di Supabase: non è un guasto.
