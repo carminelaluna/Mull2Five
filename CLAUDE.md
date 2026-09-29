@@ -52,17 +52,23 @@ cambia cosa fa una schermata.
   ricostruisci il database com'è in produzione (`git diff <sha-live>..HEAD --
   backend/app/models.py` per il delta) e mettici **più righe**, o gli errori di
   unicità non si vedono.
-- **Una migrazione fallita sembra un deploy riuscito**: `sync_alembic` cattura
-  l'errore e il sito parte lo stesso, dando 500 sugli endpoint interessati. Si
-  vede solo nei log di Render.
+- **Una migrazione fallita sembrava un deploy riuscito** (23/09/2026):
+  `sync_alembic` catturava l'errore e il sito partiva lo stesso, dando 500 sugli
+  endpoint interessati. Adesso l'errore risale, e le migrazioni girano in un
+  passo a sé prima di uvicorn (`backend/app/prepara_database.py`, chiamato dal
+  `CMD` del Dockerfile): se falliscono il contenitore esce con un errore, il
+  deploy si ferma e resta su la versione di prima. In più `/health` dice se lo
+  schema è rimasto indietro, e in quel caso lo stato è `degraded`.
 - **Il deploy non aspetta la CI**: un push con la CI rossa va in produzione lo stesso.
-- **Un cambio di schema può bloccare il deploy per sempre.** Le migrazioni
-  girano dentro l'avvio dell'app e uvicorn apre la porta solo dopo: se un
-  `ALTER TABLE` aspetta un lock — l'istanza vecchia è ancora viva e serve
-  traffico — Render non vede nessuna porta e dice `Timed Out / no open ports`.
-  Il 29/09/2026 è successo con `0006_tag_author`; riprodotto in locale. Si sblocca
-  sospendendo il servizio (l'istanza vecchia molla le connessioni) e poi
-  rilanciando. La cura vera è togliere le migrazioni dall'avvio.
+- **Un `ALTER TABLE` che aspetta un lock bloccava il deploy per sempre**
+  (29/09/2026, con `0006_tag_author`): l'istanza vecchia è ancora viva e serve
+  traffico, la porta non si apriva mai e Render diceva `Timed Out / no open
+  ports`. Tre difese, tutte in piedi: le connessioni hanno
+  `idle_in_transaction_session_timeout` a un minuto, così una transazione
+  dimenticata smette di tenere i lock; `migrations/env.py` mette
+  `lock_timeout` a cinque secondi, così la DDL fallisce dicendo cosa aspetta; e
+  le migrazioni stanno fuori dall'avvio. Se ricapita: *Restart* del servizio e
+  subito *Manual Deploy* — l'istanza vecchia molla le connessioni.
 - SQLite su `/mnt/c` è inaffidabile: il database dei test sta in `/tmp`, uno per
   processo (`tests/conftest.py`).
 - **Un orologio che si corregge all'indietro buttava fuori chi era appena

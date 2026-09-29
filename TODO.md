@@ -256,13 +256,14 @@ decisioni tue.
 - [x] `.env` di sviluppo rimesso a posto: puntava a un PostgreSQL su `localhost:5432`
       che ora è di un altro progetto. Ora punta al file SQLite di sviluppo, quindi l'API
       parte senza dover ricordare una variabile d'ambiente.
-- [ ] **Togliere le migrazioni dall'avvio dell'app.** Oggi `sync_alembic` gira dentro
+- [x] **Migrazioni tolte dall'avvio dell'app.** Oggi `sync_alembic` gira dentro
       il lifespan, e uvicorn apre la porta solo quando ha finito: un `ALTER TABLE` che
       aspetta un lock blocca il deploy invece di fallire. Il 29/09/2026 il deploy di
       `0006_tag_author` è scaduto così, e da fuori sembrava un servizio che non parte.
-      Vanno spostate in un passo separato prima dell'avvio (release command), dove un
-      errore si vede ed è il deploy a fermarsi, non la porta a non aprirsi. Copre anche
-      il difetto gemello già annotato: una migrazione fallita che sembra un deploy riuscito.
+      Ora girano in `backend/app/prepara_database.py`, chiamato dal `CMD` prima di
+      uvicorn: un errore ferma il deploy e resta su la versione di prima. Con loro sono
+      arrivati `lock_timeout`, `idle_in_transaction_session_timeout` e un `/health` che
+      dice commit e revisione dello schema.
 - [x] Aggiunta suite `unittest` persistente invece degli smoke test inline.
 
 ## Idee per dopo

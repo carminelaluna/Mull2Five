@@ -36,5 +36,10 @@ COPY scripts ./scripts
 
 EXPOSE 8000
 
+# Il database si prepara prima, in un passo a sé: se le migrazioni falliscono o
+# restano ad aspettare un lock, il `&&` impedisce l'accensione e il contenitore
+# esce con un errore. Render allora dice "deploy fallito" e tiene su la versione
+# di prima — invece di scaricare a terra una porta che non si apre (29/09/2026)
+# o un sito acceso con lo schema sbagliato (23/09/2026).
 # Render assegna la porta in $PORT; con docker-compose resta la 8000.
-CMD ["sh", "-c", "exec uvicorn backend.app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+CMD ["sh", "-c", "python -m backend.app.prepara_database && exec uvicorn backend.app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

@@ -144,8 +144,15 @@ def sync_alembic(database_was_empty: bool = False) -> None:
             else:
                 command.stamp(config, "0001_baseline")
                 command.upgrade(config, "head")
-    except Exception as exc:   # noqa: BLE001 — il sito parte comunque, ma si sa
-        logging.getLogger(__name__).error("Migrazioni non applicate: %s", exc)
+    except Exception:
+        # Prima qui l'errore si fermava, e il sito partiva lo stesso: il 23/09/2026
+        # è andato in produzione con una colonna in meno e 500 su mezzo back-office,
+        # mentre il deploy risultava riuscito. Adesso risale, e chi chiama decide —
+        # in produzione è `prepara_database`, che ferma il deploy invece del sito.
+        logging.getLogger(__name__).exception(
+            "Migrazioni non applicate: lo schema non è quello che il codice si aspetta"
+        )
+        raise
 
 
 def create_all() -> None:
@@ -175,13 +182,24 @@ def create_all() -> None:
             seed_store_owners()
             return
         except OperationalError as exc:
+            # Due guasti diversi arrivano qui sotto lo stesso tipo: il database
+            # che non risponde ancora, e una tabella occupata da un'altra
+            # connessione. Ritentare va bene per entrambi — un lock si libera —
+            # ma chiamarli con lo stesso nome manda fuori strada chi legge il log.
             last_error = exc
+            occupato = "lock timeout" in str(exc).lower()
             wait = min(attempt * 0.5, 3.0)
             logging.getLogger(__name__).warning(
-                "DB non raggiungibile (tentativo %d/10), riprovo tra %.1fs...", attempt, wait
+                "%s (tentativo %d/10), riprovo tra %.1fs...",
+                "Una tabella è occupata da un'altra connessione" if occupato
+                else "DB non raggiungibile",
+                attempt, wait,
             )
             time.sleep(wait)
-    raise RuntimeError("Impossibile connettersi al database allo startup") from last_error
+    raise RuntimeError(
+        "una tabella è rimasta occupata da un'altra connessione"
+        if "lock timeout" in str(last_error).lower() else "il database non risponde"
+    ) from last_error
 
 
 
