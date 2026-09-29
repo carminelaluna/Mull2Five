@@ -206,6 +206,55 @@ curl -s https://mull2five-staging.onrender.com/health       # commit e revisione
 **Il database di staging va riempito.** Con tre righe dentro non intercetta
 niente: è la trappola del 23/09/2026, dove una migrazione sembrava buona e in
 produzione è morta su un errore di unicità che con poche righe non si vede.
-Serve un ripristino dal backup notturno, **anonimizzato prima di esistere** —
-email, nomi e liste sostituiti, pagamenti cancellati. Il repository è pubblico e
-quelli sono dati di persone vere.
+
+### Riempire lo staging da un backup
+
+Fa due cose in una: riempie lo staging **e** mette alla prova il ripristino, che
+è l'unico modo di sapere se i backup servono davvero a qualcosa.
+
+Da Git Bash, con Docker acceso. I passi 1-3 sono quelli del passo 6 qui sopra,
+con lo staging come destinazione.
+
+1. *Actions → Backup →* il run che interessa *→ Artifacts*: scarica ed estrai.
+2. Decifra (chiede la passphrase):
+   ```bash
+   gpg --output mull2five.dump --decrypt mull2five-AAAA-MM-GG_HHMM.dump.gpg
+   ```
+3. Carica **nel database di staging**:
+   ```bash
+   docker run --rm -v "$PWD:/backup" postgres:17 pg_restore --clean --if-exists \
+     --no-owner --dbname "<URL staging, con postgresql:// >" /backup/mull2five.dump
+   ```
+4. **Subito**, senza passare dal via:
+   ```bash
+   python scripts/anonimizza.py "<URL staging>" anonimizza-davvero
+   ```
+   Fino a qui quel database contiene dati di persone vere: trattalo come la
+   produzione. Lo script sostituisce email e nomi, cancella le password, i
+   riferimenti veri a Stripe e PayPal, le notifiche push e le chiavi API, e
+   svuota il testo libero — note dei judge, motivi delle sospensioni, messaggi
+   delle segnalazioni. Tornei, iscrizioni, turni e mazzi restano: sono quelli che
+   servono a provare una migrazione.
+
+   Se si ferma, quel database **non è utilizzabile**: buttalo e rifai.
+5. Cancella `mull2five.dump` dal disco: è il database in chiaro.
+6. Per entrare nello staging serve una password: le vecchie sono state
+   cancellate tutte. Se ne mette una a un utente:
+   ```bash
+   python - <<'PY'
+   from backend.app.db import SessionLocal
+   from backend.app.models import User
+   from backend.app.security import hash_password
+   import getpass
+   s = SessionLocal()
+   u = s.query(User).filter_by(email="utente1@esempio.test").one()
+   u.password_hash = hash_password(getpass.getpass("password per lo staging: "))
+   u.role = "admin"
+   s.commit()
+   PY
+   ```
+   con `DATABASE_URL` che punta allo staging.
+
+Dopo il ripristino, `/health` dello staging dice se lo schema del backup è più
+vecchio del codice: `"indietro": true` significa che all'avvio è stata applicata
+una migrazione, ed è esattamente la prova che si voleva.
