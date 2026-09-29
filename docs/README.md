@@ -10,6 +10,7 @@ Una guida per parte del sito. Non è la documentazione dell'API (quella è su
 | [La regia](regia.md) | La console in sala: turni, tavoli, risultati, timer |
 | [Il lato pubblico](pubblico.md) | Cosa vedono i giocatori: ricerca, iscrizione, liste, segnalazioni |
 | [I ruoli](ruoli.md) | Chi può fare cosa: giocatore, organizzatore, judge, capojudge, admin |
+| [La messa online](hosting.md) | Render, Supabase, variabili d'ambiente, backup e ripristino |
 
 ## Le tre parti in due righe
 

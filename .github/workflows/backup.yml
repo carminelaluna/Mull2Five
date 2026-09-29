@@ -8,7 +8,7 @@
 #   BACKUP_DATABASE_URL  session pooler di Supabase, con postgresql:// (senza +psycopg)
 #   BACKUP_PASSPHRASE    tenuta anche in un password manager
 #
-# Ripristino: vedi HOSTING.md, passo 6.
+# Ripristino: vedi docs/hosting.md, passo 6.
 name: Backup
 
 on:

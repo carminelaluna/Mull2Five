@@ -118,4 +118,4 @@ cd frontend && npm run test:cover
 
 ## Messa online
 
-Variabili d'ambiente, servizi e backup della versione online: vedi `HOSTING.md`.
+Variabili d'ambiente, servizi e backup della versione online: vedi `docs/hosting.md`.

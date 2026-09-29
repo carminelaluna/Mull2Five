@@ -159,10 +159,10 @@ make test
 │   └── *.html            # una pagina per sezione
 ├── tests/                # pytest; tests/load/ per i test di carico (Locust)
 ├── scripts/              # dev.sh, dati di prova
+├── docs/                 # cosa fa ogni schermata, e la messa online
 ├── .github/workflows/    # CI e backup notturno cifrato
 ├── Dockerfile            # immagine unica: build del frontend + backend
-├── docker-compose.yml    # PostgreSQL e Redis in locale
-└── HOSTING.md            # messa online (Render + Supabase)
+└── docker-compose.yml    # PostgreSQL e Redis in locale
 ```
 
 ---
@@ -251,7 +251,7 @@ Con `PAYMENT_SANDBOX_MOCK=true` il backend genera una pagina sandbox locale per 
 
 Versione di prova online: Render (un servizio Docker per API e pagine) e
 Supabase (PostgreSQL), con backup cifrati ogni notte. Passaggi, variabili
-d'ambiente e ripristino in [HOSTING.md](HOSTING.md).
+d'ambiente e ripristino in [docs/hosting.md](docs/hosting.md).
 
 ---
 

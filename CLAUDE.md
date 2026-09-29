@@ -30,7 +30,8 @@ wsl bash -lc 'cd "/mnt/c/Users/Zero/Documents/Project/Tournament Organizer" && .
 ## Come funziona il sito
 
 `docs/` spiega ogni parte: back-office (Community e tag compresi), regia, lato
-pubblico, ruoli. Da aggiornare quando si cambia cosa fa una schermata.
+pubblico, ruoli, e la messa online (`docs/hosting.md`). Da aggiornare quando si
+cambia cosa fa una schermata.
 
 ## Regole del progetto
 
