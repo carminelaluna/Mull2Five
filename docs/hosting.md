@@ -239,21 +239,22 @@ con lo staging come destinazione.
    Se si ferma, quel database **non è utilizzabile**: buttalo e rifai.
 5. Cancella `mull2five.dump` dal disco: è il database in chiaro.
 6. Per entrare nello staging serve una password: le vecchie sono state
-   cancellate tutte. Se ne mette una a un utente:
+   cancellate tutte. Se ne mette una a un utente — con `-c`, non con un
+   heredoc: quello occuperebbe lo stdin e la password non si potrebbe digitare.
    ```bash
-   python - <<'PY'
+   DATABASE_URL="<URL staging>" ./.venv/bin/python -c "
+   import getpass
    from backend.app.db import SessionLocal
    from backend.app.models import User
    from backend.app.security import hash_password
-   import getpass
    s = SessionLocal()
-   u = s.query(User).filter_by(email="utente1@esempio.test").one()
-   u.password_hash = hash_password(getpass.getpass("password per lo staging: "))
-   u.role = "admin"
+   u = s.query(User).filter_by(email='utente1@esempio.test').one()
+   u.password_hash = hash_password(getpass.getpass('password per lo staging: '))
+   u.role = 'admin'
    s.commit()
-   PY
+   print('fatto:', u.email)
+   "
    ```
-   con `DATABASE_URL` che punta allo staging.
 
 Dopo il ripristino, `/health` dello staging dice se lo schema del backup è più
 vecchio del codice: `"indietro": true` significa che all'avvio è stata applicata
