@@ -75,6 +75,45 @@ frontend/                → app online unica (tutto via backend, niente localSt
 4. Aggiungi funzione corrispondente in `frontend/js/api.js`
 5. Scrivi test in `tests/` (Python) o `frontend/tests/` (Vitest)
 
+## Cambiare lo schema
+
+Lo schema lo descrivono i modelli e lo applica Alembic: niente `ALTER TABLE` a
+mano. Una revisione nuova in `migrations/versions/`, e poi queste regole — che
+non sono di stile, sono costate deploy.
+
+**Durante un deploy le due versioni convivono.** Per qualche minuto il codice
+vecchio interroga lo schema nuovo. Quindi si procede in due tempi:
+
+1. **Si aggiunge** — colonne nullable, tabelle, indici. Il codice vecchio non se
+   ne accorge. Poi si rilascia il codice che le usa.
+2. **Si toglie** — in una revisione successiva, quando in giro non c'è più
+   niente che legga la colonna vecchia.
+
+Mai rinominare o eliminare una colonna nello stesso deploy del codice che smette
+di usarla: fra i due momenti il sito dà 500.
+
+**Le colonne con vincolo si aggiungono senza il vincolo.** SQLite non sa
+aggiungere un vincolo a una tabella che esiste già, e una migrazione che gira
+solo su PostgreSQL non è una migrazione. La chiave esterna resta dichiarata nel
+modello, così i database nuovi ce l'hanno. Vedi `0005_scorekeeper` e
+`0006_tag_author`.
+
+**Su tabelle grandi** (`registrations`, `payments`, `pairings`):
+
+- il riempimento dei dati non va nella stessa transazione della DDL — si fa
+  dopo, a lotti, altrimenti tiene i lock per tutta la sua durata;
+- gli indici si creano con `CREATE INDEX CONCURRENTLY`, che non blocca le
+  scritture; non potendo stare in una transazione, serve
+  `op.get_context().autocommit_block()`.
+
+**Il `lock_timeout` è già messo per te**: `migrations/env.py` lo imposta a cinque
+secondi su PostgreSQL prima di ogni revisione. Una DDL che non ottiene il lock
+fallisce dicendo cosa sta aspettando, invece di appendersi — il 29/09/2026 si è
+appesa, e ha bloccato il deploy due volte.
+
+**Dopo il deploy, guarda `/health`**: dice il commit che sta girando e se lo
+schema è rimasto indietro rispetto al codice.
+
 ## Aggiungere una feature frontend
 
 1. Logica pura → `utils.js` o modulo dedicato

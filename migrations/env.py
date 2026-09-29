@@ -22,6 +22,22 @@ config.set_main_option("sqlalchemy.url", get_settings().database_url.replace("%"
 target_metadata = Base.metadata
 
 
+def non_aspettare_i_lock(connection) -> None:
+    """Un `ALTER TABLE` che non ottiene il lock deve fallire, non appendersi.
+
+    Il 29/09/2026 una transazione lasciata aperta dall'istanza precedente ha
+    bloccato l'`ALTER TABLE` di una migrazione. Le migrazioni girano dentro
+    l'avvio e uvicorn apre la porta solo dopo: da fuori si vedeva un servizio
+    che non parte, e il deploy è scaduto due volte prima che si capisse.
+    Cinque secondi, poi la migrazione fallisce dicendo cosa sta aspettando.
+
+    `LOCAL`: vale per la transazione della migrazione e sparisce al commit, così
+    non resta appiccicato alla connessione che l'app rimette nel pool.
+    """
+    if connection.dialect.name == "postgresql":
+        connection.exec_driver_sql("SET LOCAL lock_timeout = '5s'")
+
+
 def run_migrations_offline() -> None:
     context.configure(
         url=config.get_main_option("sqlalchemy.url"),
@@ -41,6 +57,7 @@ def run_migrations_online() -> None:
         context.configure(connection=connection, target_metadata=target_metadata, compare_type=True,
                           render_as_batch=connection.dialect.name == "sqlite")
         with context.begin_transaction():
+            non_aspettare_i_lock(connection)
             context.run_migrations()
         return
 
@@ -54,6 +71,7 @@ def run_migrations_online() -> None:
         context.configure(connection=conn, target_metadata=target_metadata, compare_type=True,
                           render_as_batch=conn.dialect.name == "sqlite")
         with context.begin_transaction():
+            non_aspettare_i_lock(conn)
             context.run_migrations()
 
 

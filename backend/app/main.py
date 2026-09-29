@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -219,20 +220,66 @@ app.include_router(site.api_router, prefix="/api")
 app.include_router(site.router)   # robots.txt e sitemap.xml, alla radice
 
 
+_NON_ANCORA = object()
+_ATTESA: object | str | None = _NON_ANCORA
+
+
+def _revisione_attesa() -> str | None:
+    """L'ultima revisione che questo codice si porta dietro."""
+    global _ATTESA
+    if _ATTESA is _NON_ANCORA:
+        try:
+            from alembic.config import Config
+            from alembic.script import ScriptDirectory
+
+            root = Path(__file__).resolve().parents[2]
+            config = Config(str(root / "alembic.ini"))
+            config.set_main_option("script_location", str(root / "migrations"))
+            _ATTESA = ScriptDirectory.from_config(config).get_current_head()
+        except Exception:  # noqa: BLE001 — saperlo è un di più, non deve far cadere /health
+            _ATTESA = None
+    return _ATTESA
+
+
+def _revisione_applicata() -> str | None:
+    """La revisione che il database dice di avere. None se Alembic non l'ha mai toccato."""
+    try:
+        with engine.connect() as conn:
+            return conn.execute(text("SELECT version_num FROM alembic_version")).scalar()
+    except Exception:  # noqa: BLE001
+        return None
+
+
 @app.get("/health")
 def health() -> dict:
-    """Health check profondo: verifica DB e backend cache (Redis o memoria)."""
+    """Database, cache, e cosa sta girando davvero.
+
+    Le ultime due voci sono nate da una giornata persa: il 29/09/2026, per sapere
+    quale commit fosse in produzione, si è dovuto dedurlo dal nome di un file
+    JavaScript, e per sapere se una migrazione era passata bisognava entrare nel
+    back-office. Ora sono due domande a cui risponde una `curl`.
+
+    Lo schema rimasto indietro degrada lo stato: una migrazione che fallisce non
+    ferma l'avvio — `sync_alembic` la annota e basta — quindi senza questo il sito
+    sembrerebbe sano mentre certi endpoint danno 500. Un database che Alembic non
+    ha mai toccato (sviluppo, test) non è "indietro": è un altro caso.
+    """
     db_ok = True
     try:
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
     except Exception:  # noqa: BLE001
         db_ok = False
-    status = "ok" if db_ok else "degraded"
+
+    applicata = _revisione_applicata() if db_ok else None
+    attesa = _revisione_attesa()
+    schema_indietro = bool(applicata and attesa and applicata != attesa)
     return {
-        "status": status,
+        "status": "ok" if db_ok and not schema_indietro else "degraded",
         "database": "ok" if db_ok else "error",
         "cache": "redis" if redis_is_real() else "memory",
+        "commit": os.environ.get("RENDER_GIT_COMMIT", "")[:7] or "sconosciuto",
+        "schema": {"applicata": applicata, "attesa": attesa, "indietro": schema_indietro},
     }
 
 

@@ -9,6 +9,40 @@ def test_health_reports_cache_backend(client):
     assert body["cache"] in {"redis", "memory"}
 
 
+def test_health_names_the_running_commit(client, monkeypatch):
+    """Quale commit sta servendo il sito deve essere una domanda, non una deduzione."""
+    assert client.get("/health").json()["commit"] == "sconosciuto"
+    monkeypatch.setenv("RENDER_GIT_COMMIT", "b722a90d31d0fcc26415ce6a74f9892ca89961da")
+    assert client.get("/health").json()["commit"] == "b722a90"
+
+
+def test_health_degrades_when_the_schema_is_behind(client):
+    """Una migrazione fallita non ferma l'avvio: `sync_alembic` la annota e basta.
+
+    Senza questo il sito sembra sano mentre gli endpoint che toccano la colonna
+    mancante danno 500 — ed è successo davvero, il 23/09/2026.
+    """
+    from backend.app.db import engine
+
+    # `alembic_version` non è fra i modelli, quindi le fixture non la ripuliscono:
+    # se restasse, ogni test successivo vedrebbe uno schema indietro.
+    with engine.begin() as connection:
+        connection.exec_driver_sql(
+            "CREATE TABLE alembic_version (version_num VARCHAR(32) NOT NULL)")
+        connection.exec_driver_sql("INSERT INTO alembic_version VALUES ('0001_baseline')")
+    try:
+        body = client.get("/health").json()
+        assert body["status"] == "degraded"
+        assert body["schema"]["applicata"] == "0001_baseline"
+        assert body["schema"]["attesa"] != "0001_baseline"
+        assert body["schema"]["indietro"] is True
+    finally:
+        with engine.begin() as connection:
+            connection.exec_driver_sql("DROP TABLE alembic_version")
+
+    assert client.get("/health").json()["status"] == "ok"
+
+
 def test_metrics_endpoint(client):
     # genera un po' di traffico
     client.get("/health")

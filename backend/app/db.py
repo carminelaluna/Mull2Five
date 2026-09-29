@@ -46,7 +46,16 @@ settings = get_settings()
 
 _is_sqlite = settings.database_url.startswith("sqlite")
 
-connect_args = {"check_same_thread": False} if _is_sqlite else {}
+if _is_sqlite:
+    connect_args = {"check_same_thread": False}
+else:
+    # Una transazione lasciata aperta tiene i suoi lock finché la connessione
+    # vive, e il pool le connessioni le tiene vive apposta: il 29/09/2026 una di
+    # queste ha bloccato un `ALTER TABLE`, e con esso il deploy intero, perché le
+    # migrazioni girano dentro l'avvio e la porta si apre solo dopo. Dopo un
+    # minuto il database la chiude da sé. Nessuna richiesta sana resta in
+    # transazione tanto a lungo: se ci resta è già un guasto, e va interrotta.
+    connect_args = {"options": "-c idle_in_transaction_session_timeout=60000"}
 
 _WORKERS = int(os.environ.get("WEB_CONCURRENCY", 1))
 
