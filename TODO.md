@@ -210,7 +210,9 @@ decisioni tue.
 - [ ] **Il deploy non aspetta la CI.** Render pubblica al push comunque: il 23/09 la CI era rossa e il deploy è uscito. Attivare l'attesa dei check nel cruscotto Render.
 - [ ] **Un deploy rotto sembra riuscito.** `sync_alembic` cattura l'errore di migrazione e il sito parte lo stesso: due deploy hanno fallito la migrazione e Render ha scritto "Your service is live". Decidere se l'avvio deve fallire quando una migrazione non passa.
 - [ ] **Nessun avviso quando il sito si rompe.** `send_alert` copre i 500 ma dipende da `ALERT_EMAIL`, vuoto in `.env.example`. Impostarlo in Render e provarlo.
-- [ ] **Ripristino dal backup: la procedura c'è, va eseguita.** Il backup notturno cifrato gira. La procedura completa — decifra, ripristina nello staging, anonimizza — è in `docs/hosting.md`, con `scripts/anonimizza.py` provato. Resta da eseguirla una volta sul serio: riempie lo staging e mette alla prova i backup in un colpo solo.
+- [x] **Ripristino dal backup: provato il 29/09/2026, funziona.** Decifrato, ripristinato nello staging e anonimizzato con `scripts/anonimizza.py`: 7 tornei
+      e una classifica da 64 giocatori, con i nomi sostituiti fin dentro le risposte pubbliche.
+      Procedura in `docs/hosting.md`. Da ripetere quando lo staging va riallineato.
 - [ ] **Non c'è uno staging.** Ogni modifica va diritta sul sito vivo. Un secondo servizio Render con un database di prova.
 
 ## Segnalazioni dal campo (28 settembre 2026)
