@@ -44,7 +44,24 @@ settings = get_settings()
 # SQLite: non supporta write concorrenti → pool size 1 in sviluppo
 # PostgreSQL: pool configurabile per carichi elevati
 
-_is_sqlite = settings.database_url.startswith("sqlite")
+def _con_driver(url: str) -> str:
+    """L'indirizzo con il driver che questo progetto usa davvero.
+
+    `postgresql://` è la forma che danno Supabase, `pg_dump` e `pg_restore`, ed
+    è quella che si copia naturalmente da un comando all'altro. Ma SQLAlchemy,
+    con quel prefisso, cerca psycopg2 — e qui il driver è psycopg 3. Chi incolla
+    l'indirizzo si becca un `ModuleNotFoundError` che non dice niente di utile:
+    è successo tre volte in un pomeriggio, durante un ripristino.
+    """
+    for prefisso in ("postgresql://", "postgres://"):
+        if url.startswith(prefisso):
+            return "postgresql+psycopg://" + url[len(prefisso):]
+    return url
+
+
+DATABASE_URL = _con_driver(settings.database_url)
+
+_is_sqlite = DATABASE_URL.startswith("sqlite")
 
 if _is_sqlite:
     connect_args = {"check_same_thread": False}
@@ -76,7 +93,7 @@ else:
     _max_overflow = _per_worker - _pool_size  # burst temporaneo
 
 engine = create_engine(
-    settings.database_url,
+    DATABASE_URL,
     connect_args=connect_args,
     pool_pre_ping=True,
     pool_size=_pool_size,

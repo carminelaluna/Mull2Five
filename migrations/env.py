@@ -11,14 +11,16 @@ from alembic import context
 from sqlalchemy import engine_from_config, pool
 
 from backend.app import models  # noqa: F401 — registra le tabelle su Base
-from backend.app.core.config import get_settings
-from backend.app.db import Base
+from backend.app.db import DATABASE_URL, Base
 
 config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-config.set_main_option("sqlalchemy.url", get_settings().database_url.replace("%", "%%"))
+# `DATABASE_URL` e non `settings.database_url`: è lo stesso indirizzo, ma col
+# driver normalizzato — `postgresql://` da solo manderebbe Alembic a cercare
+# psycopg2, che questo progetto non installa.
+config.set_main_option("sqlalchemy.url", DATABASE_URL.replace("%", "%%"))
 target_metadata = Base.metadata
 
 
