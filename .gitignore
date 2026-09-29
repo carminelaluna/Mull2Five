@@ -45,6 +45,12 @@ Thumbs.db
 # degli utenti: il repository e pubblico, non devono finirci mai.
 *.db.*
 reports/
+# I dump di pg_dump, cifrati e in chiaro, e la cartella dove si scaricano. Il
+# 29/09/2026 un dump della produzione decifrato e' finito qui dentro: non
+# corrispondeva a nessuna regola, e un `git add -A` lo avrebbe pubblicato.
+*.dump
+*.dump.gpg
+dump/
 
 # Uscite dei test di carico (il seeder scrive i token, Locust i CSV) e screenshot di QA.
 tests/load/results/
