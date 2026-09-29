@@ -38,7 +38,14 @@ def _store_with_tournaments(client):
 
 
 def test_robots_hides_private_pages_and_points_to_the_sitemap(client):
-    robots = client.get("/robots.txt")
+    # Questo è il robots.txt del sito vero: una copia risponde "Disallow: /" e
+    # basta, ed è l'altro test, in test_security.py.
+    settings = get_settings()
+    partenza, settings.app_env = settings.app_env, "production"
+    try:
+        robots = client.get("/robots.txt")
+    finally:
+        settings.app_env = partenza
     assert robots.status_code == 200 and robots.headers["content-type"].startswith("text/plain")
     text = robots.text
     assert "Disallow: /organizer.html" in text and "Disallow: /my-registrations.html" in text

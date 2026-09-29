@@ -186,6 +186,11 @@ async def security_headers(request: Request, call_next):
     response.headers["X-Frame-Options"]         = "DENY"
     response.headers["Referrer-Policy"]          = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"]       = "geolocation=(self), camera=(), microphone=(), payment=()"
+    # `robots.txt` chiede di non visitare; questa dice di non indicizzare, ed è
+    # l'unica che tiene fuori una pagina raggiunta da un link esterno. Su una
+    # copia — staging, sviluppo — devono valere entrambe.
+    if settings.is_copy:
+        response.headers["X-Robots-Tag"] = "noindex, nofollow"
     if not request.url.path.startswith(NO_CSP):
         response.headers["Content-Security-Policy"] = CSP
     # HSTS solo su HTTPS (Render mette il protocollo vero in X-Forwarded-Proto).

@@ -80,6 +80,14 @@ def site_url(request: Request) -> str:
 
 @router.get("/robots.txt", include_in_schema=False)
 def robots(request: Request) -> Response:
+    # Un ambiente di prova non va indicizzato: gli stessi eventi su due domini
+    # si fanno concorrenza da soli, e un giocatore che ci arriva da Google si
+    # iscriverebbe a un torneo che non esiste. Vale per staging e per sviluppo.
+    # Un ambiente di prova non va indicizzato: gli stessi eventi su due domini
+    # si fanno concorrenza da soli, e un giocatore che ci arriva da Google si
+    # iscriverebbe a un torneo che non esiste. Vale per staging e per sviluppo.
+    if get_settings().is_copy:
+        return Response("User-agent: *\nDisallow: /\n", media_type="text/plain")
     # Le API restano aperte: le pagine pubbliche si riempiono da lì, e i motori
     # di ricerca che eseguono JavaScript devono poterle leggere.
     lines = ["User-agent: *", "Allow: /", "Disallow: /docs", "Disallow: /redoc"]

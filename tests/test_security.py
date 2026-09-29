@@ -116,3 +116,31 @@ def test_orologio_leggermente_avanti(client):
     payload["iat"] = datetime.now(UTC) + timedelta(hours=1)
     domani = jwt.encode(payload, chiave, algorithm="HS256")
     assert client.get("/api/auth/me", headers=_auth(domani)).status_code == 401
+
+
+def test_only_the_real_site_gets_indexed(client):
+    """Una copia non va nei motori di ricerca.
+
+    Gli stessi eventi su due domini si fanno concorrenza, e chi ci arriva da
+    Google si iscrive a un torneo che non esiste.
+    """
+    settings = get_settings()
+    partenza = settings.app_env
+    try:
+        settings.app_env = "staging"
+        risposta = client.get("/robots.txt")
+        assert risposta.text.strip() == "User-agent: *\nDisallow: /"
+        assert client.get("/health").headers["X-Robots-Tag"] == "noindex, nofollow"
+
+        settings.app_env = "production"
+        risposta = client.get("/robots.txt")
+        assert "Allow: /" in risposta.text and "Sitemap:" in risposta.text
+        assert "x-robots-tag" not in client.get("/health").headers
+
+        # Un valore scritto in un altro modo resta indicizzato: dedurne "è una
+        # copia" toglierebbe il sito vero da Google, che è il danno peggiore.
+        settings.app_env = "prod"
+        assert "Allow: /" in client.get("/robots.txt").text
+        assert "x-robots-tag" not in client.get("/health").headers
+    finally:
+        settings.app_env = partenza

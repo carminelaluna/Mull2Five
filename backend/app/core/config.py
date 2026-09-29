@@ -8,6 +8,9 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     app_name: str = "Mull2Five"
+    # "production" è il sito vero; qualunque altro valore — "development",
+    # "staging", "test" — è una copia, e una copia non va né indicizzata dai
+    # motori di ricerca né scambiata per l'originale da chi ci capita.
     app_env: str = "development"
     app_url: AnyHttpUrl = "http://127.0.0.1:8000"
     frontend_url: AnyHttpUrl = "http://127.0.0.1:8000"
@@ -92,6 +95,18 @@ class Settings(BaseSettings):
     # Sotto quest'età non si apre un account da soli: un genitore aggiunge il
     # ragazzo come profilo gestito dal suo (14 anni è il consenso digitale in Italia).
     min_account_age: int = 14
+
+    @property
+    def is_copy(self) -> bool:
+        """Una copia del sito: staging, sviluppo, test. Non va indicizzata.
+
+        Elencate per nome, invece di dedurle da `app_env != "production"`: se un
+        giorno la produzione dicesse "prod", dedurne "è una copia" toglierebbe
+        il sito vero dai motori di ricerca, e si recupera in settimane. Uno
+        staging indicizzato per sbaglio è un fastidio. Nel dubbio, si indicizza.
+        """
+        return self.app_env.strip().lower() in {"development", "dev", "staging", "stage",
+                                                "test", "preview", "local"}
 
 
 @lru_cache

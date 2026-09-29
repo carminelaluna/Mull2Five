@@ -1,0 +1,139 @@
+# Il servizio online, scritto invece che cliccato.
+#
+# Finora la configurazione stava solo nel cruscotto di Render: il 29/09/2026,
+# con un deploy fermo, non c'era modo di vedere da qui se il deploy automatico
+# fosse acceso, quale comando girasse o quali variabili esistessero. Con due
+# ambienti quel buio raddoppia, e le differenze fra prod e staging diventano
+# invisibili proprio quando servono.
+#
+# ATTENZIONE, prima di usarlo:
+#
+# 1. Questo file **non fa niente** finché non crei un Blueprint da questo
+#    repository. Averlo qui non tocca il servizio che sta girando.
+# 2. `name` deve coincidere **esattamente** con il nome del servizio che esiste,
+#    altrimenti Render ne crea un secondo invece di adottare quello.
+# 3. Le variabili con `sync: false` restano quelle del cruscotto: il Blueprint
+#    non le legge e non le scrive. Tutti i segreti stanno lì, perché questo
+#    repository è pubblico.
+# 4. Le variabili con un valore scritto qui **sovrascrivono** il cruscotto
+#    quando applichi il Blueprint. Controllale una per una prima di applicare.
+
+services:
+  - type: web
+    name: mull2five            # deve coincidere col servizio esistente
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    region: frankfurt          # lo stesso di Supabase: il database è lì accanto
+    plan: free                 # si addormenta dopo 15 minuti: voce 3 del TODO
+    branch: main
+    autoDeploy: true           # il push su main va in produzione da solo
+    healthCheckPath: /health
+
+    envVars:
+      # ── Identità dell'ambiente ────────────────────────────────────────────
+      # Decide chi finisce nei motori di ricerca: una copia risponde
+      # "Disallow: /" e manda X-Robots-Tag. Vedi core/config.py, `is_copy`.
+      - key: APP_ENV
+        value: production
+      - key: APP_NAME
+        value: Mull2Five
+      - key: APP_URL
+        value: https://mull2five.onrender.com
+      - key: FRONTEND_URL
+        value: https://mull2five.onrender.com
+      - key: SITE_URL
+        value: https://mull2five.onrender.com
+
+      # ── Database ──────────────────────────────────────────────────────────
+      # Supabase, session pooler. La stringa contiene la password: mai qui.
+      - key: DATABASE_URL
+        sync: false
+      # Un PostgreSQL gestito regge poche connessioni: senza questi il pool
+      # punta a 80 e le esaurisce.
+      - key: DB_POOL_SIZE
+        value: "5"
+      - key: DB_MAX_OVERFLOW
+        value: "5"
+
+      # ── Segreti: tutti dal cruscotto ──────────────────────────────────────
+      - key: SECRET_KEY
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+      - key: PAYPAL_ENV
+        sync: false
+      - key: PAYMENT_SANDBOX_MOCK
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_USERNAME
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_FROM_EMAIL
+        sync: false
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_SUBJECT
+        sync: false
+      - key: METRICS_TOKEN
+        sync: false
+      - key: REDIS_URL
+        sync: false
+
+      # ── Avvisi operativi ──────────────────────────────────────────────────
+      - key: ALERT_EMAIL
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false
+
+      # ── Dati legali, mostrati in privacy.html e termini.html ──────────────
+      - key: LEGAL_NAME
+        sync: false
+      - key: LEGAL_EMAIL
+        sync: false
+      - key: LEGAL_ADDRESS
+        sync: false
+      - key: LEGAL_VAT_ID
+        sync: false
+
+      # ── Interruttori ──────────────────────────────────────────────────────
+      # Spento: le condizioni d'uso di Wizards vietano la raccolta automatica.
+      - key: WIZARDS_LOCATOR_ENABLED
+        value: "false"
+      - key: ENABLED_GAMES
+        value: mtg
+      - key: ANALYTICS_ENABLED
+        value: "true"
+
+# ── Per aggiungere lo staging ───────────────────────────────────────────────
+#
+# Si copia il blocco qui sopra e si cambiano cinque cose. Non una di meno:
+#
+#   name:    mull2five-staging
+#   branch:  develop
+#   APP_ENV: staging          ← senza questo lo staging finisce su Google
+#   APP_URL / FRONTEND_URL / SITE_URL: https://mull2five-staging.onrender.com
+#   DATABASE_URL: un altro progetto Supabase. Mai quello di produzione:
+#                 uno staging puntato al database vero cancella dati veri.
+#
+# E vanno rimessi a mano, nel cruscotto dello staging:
+#
+#   STRIPE_*, PAYPAL_*  → chiavi di **test**. Con quelle vere, una prova
+#                          incassa soldi veri da un giocatore.
+#   SMTP_*              → vuote, o un server finto. Uno staging che manda
+#                          email scrive a indirizzi di persone vere.
+#   SECRET_KEY          → diversa, altrimenti un token dello staging apre la
+#                          produzione.
