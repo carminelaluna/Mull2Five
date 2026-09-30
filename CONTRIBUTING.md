@@ -1,4 +1,13 @@
-# Contribuire a Mull2Five
+# Lavorare su Mull2Five
+
+Questo è il manuale per chi lavora al progetto: com'è fatto, come si avvia, come
+si cambia qualcosa senza rompere il resto.
+
+**Non è un invito a contribuire da fuori.** Il codice è leggibile ma non è
+software libero: nessuna licenza d'uso è concessa, vedi [LICENSE](LICENSE). Se
+vuoi proporre qualcosa, apri una issue e ne parliamo; se hai trovato un problema
+di sicurezza il canale è in [SECURITY.md](SECURITY.md), e **non** è una issue
+pubblica.
 
 ## Setup sviluppo
 

@@ -1,8 +1,59 @@
+<div align="center">
+
 # Mull2Five
 
-Piattaforma full-stack per gestione tornei MTG: backend Python, database relazionale,
-login, dashboard utente, dashboard tornei, iscrizioni, decklist, round e pagamenti
-Stripe/PayPal.
+**Piattaforma per tornei di carte: ricerca eventi, iscrizioni, pagamenti, turni, abbinamenti e liste dei mazzi.**
+
+[![Sito](https://img.shields.io/badge/SITO-mull2five.onrender.com-c6ff3d?style=for-the-badge&labelColor=0d0d0f)](https://mull2five.onrender.com)
+[![Guide](https://img.shields.io/badge/GUIDE-come_funziona-c6ff3d?style=for-the-badge&labelColor=0d0d0f)](docs/README.md)
+
+[![Stato](https://img.shields.io/badge/STATO-in_prova-f0a02d?style=for-the-badge&labelColor=0d0d0f)](#stato)
+[![Sicurezza](https://img.shields.io/badge/SICUREZZA-segnala-c6ff3d?style=for-the-badge&labelColor=0d0d0f)](SECURITY.md)
+[![Licenza](https://img.shields.io/badge/LICENZA-tutti_i_diritti_riservati-999999?style=for-the-badge&labelColor=0d0d0f)](LICENSE)
+
+</div>
+
+> [!IMPORTANT]
+> **Il servizio è in prova, non ancora aperto ai negozi.** Su
+> `mull2five.onrender.com` gira una versione di collaudo: pagamenti simulati,
+> dati di prova, e chi si registra può scegliersi il ruolo. Il primo caricamento
+> è lento perché il piano gratuito addormenta il servizio.
+
+> [!NOTE]
+> Il codice è leggibile, ma **non è software libero**: nessuna licenza d'uso è
+> concessa, vedi [LICENSE](LICENSE). Mull2Five non è affiliato, approvato né
+> sponsorizzato da Wizards of the Coast LLC. Magic: The Gathering e i marchi
+> collegati appartengono a Wizards of the Coast LLC; questo progetto non
+> distribuisce immagini di carte.
+
+## Indice
+
+- [Stato](#stato)
+- [Funzionalità](#funzionalità)
+- [Architettura](#architettura)
+- [Avvio rapido](#avvio-rapido)
+- [Test](#test)
+- [Struttura del progetto](#struttura-progetto)
+- [Configurazione](#configurazione)
+- [Come funziona il sito](#come-funziona-il-sito)
+- [Convenzioni del codice](#convenzioni-del-codice)
+
+## Stato
+
+Due ambienti, stessa immagine, database separati:
+
+| | Ramo | A cosa serve |
+|---|---|---|
+| **Produzione** | `main` | il sito di collaudo, aperto a chi ha il link |
+| **Staging** | `develop` | le prove, con una copia anonimizzata dei dati |
+
+Si lavora su `develop`, si guarda lo staging, si fonde in `main`. `/health` dice
+quale commit sta girando e se lo schema è allineato al codice. Dettagli in
+[docs/hosting.md](docs/hosting.md).
+
+Cosa manca prima di aprire ai negozi: verifica legale di privacy e termini,
+Stripe Connect sull'account vero, un piano Render che non si addormenti, e la
+firma del webhook PayPal. Elenco completo in [TODO.md](TODO.md).
 
 ## Brand
 
