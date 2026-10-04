@@ -13,18 +13,24 @@
 
 <table>
   <tr>
-    <td width="33%"><img src="docs/img/home.png" alt="La home: eventi, negozi e circuiti vicino a te" /></td>
-    <td width="33%"><img src="docs/img/ricerca.png" alt="Ricerca eventi con filtri per tipo, formato, REL, periodo e distanza" /></td>
-    <td width="33%"><img src="docs/img/evento.png" alt="La pagina pubblica di un torneo: formato, REL, quota, posti" /></td>
+    <td width="50%"><img src="docs/img/home.png" alt="La home: eventi, negozi e circuiti vicino a te" /></td>
+    <td width="50%"><img src="docs/img/ricerca.png" alt="Ricerca eventi con filtri per tipo, formato, REL, periodo e distanza" /></td>
   </tr>
   <tr>
-    <td align="center"><sub>Scopri</sub></td>
-    <td align="center"><sub>Cerca eventi</sub></td>
-    <td align="center"><sub>Pagina del torneo</sub></td>
+    <td align="center"><sub><b>Scopri</b> — eventi, negozi e circuiti vicino a te</sub></td>
+    <td align="center"><sub><b>Cerca eventi</b> — tipo, formato, REL, periodo, distanza</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/img/evento.png" alt="La pagina pubblica di un torneo: formato, REL, quota, posti" /></td>
+    <td width="50%"><img src="docs/img/backoffice.png" alt="Il back-office: elenco eventi con avvia, regia, modifica, duplica, chiudi" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub><b>Pagina del torneo</b> — formato, REL, quota, posti</sub></td>
+    <td align="center"><sub><b>Back-office</b> — i tuoi eventi, e cosa farci</sub></td>
   </tr>
 </table>
 
-<sub>Schermate prese dallo staging, dove i dati sono anonimizzati: i nomi non sono di persone vere.</sub>
+<sub>Schermate prese da ambienti di prova: dati anonimizzati sullo staging, dati finti in locale. Nessun nome è di una persona vera.</sub>
 
 </div>
 
