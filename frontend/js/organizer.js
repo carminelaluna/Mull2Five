@@ -63,7 +63,7 @@ async function init() {
   $('#publicAuth').innerHTML =
     `<a class="secondary-link" href="player.html?p=${encodeURIComponent(session.pid || '')}">Profilo</a>
      <span style="color:var(--muted);font-size:.85rem">${esc(session.email)}</span>
-     <button class="secondary-link" id="logoutBtn" type="button">Esci</button>`;
+     <button class="secondary-link" id="logoutBtn" type="button">${esc(tr('Esci'))}</button>`;
   $('#logoutBtn').addEventListener('click', () => logout('index.html'));
 
   document.querySelectorAll('.bo-nav-item').forEach(b =>
@@ -155,7 +155,7 @@ function renderCrumb() {
   }
   crumb.style.display = '';
   crumb.innerHTML = `
-    <button class="bo-back" id="boBack" type="button">← Eventi</button>
+    <button class="bo-back" id="boBack" type="button">${esc(tr('← Eventi'))}</button>
     <div class="bo-crumb-title">
       <strong>${esc(t.name)}</strong>
       <span class="muted">${esc(t.format)} · ${fmtDate(t.starts_on)} · ${t.registered_players} iscritti
@@ -305,14 +305,14 @@ function eventCard(t) {
         <div class="tile-meta">
           <span>${fmtDate(t.starts_on)}${t.start_time ? ' · ' + esc(t.start_time) : ''}</span>
           <span>${esc(t.format)}</span>
-          <span>${t.registered_players}/${t.capacity} iscritti · ${posti} posti</span>
+          <span>${esc(tr('{n}/{tot} iscritti · {liberi} posti', { n: t.registered_players, tot: t.capacity, liberi: posti }))}</span>
         </div>
       </div>
       <div class="bo-event-actions row-actions">
         ${t.status === 'published' && !registrationOnly(t) ? `<button class="mini-button" data-act="start" data-id="${t.id}" type="button">▶ Avvia</button>` : ''}
         ${registrationOnly(t) ? '' : `<a class="mini-button" href="control.html?t=${t.id}" target="_blank" rel="noopener">🖥 Regia a parte</a>`}
         <button class="mini-button" data-act="edit" data-id="${t.id}" type="button">✏ ${esc(tr('Modifica'))}</button>
-        <button class="mini-button" data-act="dup" data-id="${t.id}" type="button">Duplica</button>
+        <button class="mini-button" data-act="dup" data-id="${t.id}" type="button">${esc(tr('Duplica'))}</button>
         <button class="mini-button" data-act="repeat" data-id="${t.id}" type="button">${esc(tr('Ripeti…'))}</button>
         ${isClosed(t) ? '' : `<button class="mini-button" data-act="close" data-id="${t.id}" type="button">Chiudi</button>`}
         ${isClosed(t) ? '' : `<button class="mini-button" data-act="del" data-id="${t.id}" type="button" style="color:var(--danger)">Elimina</button>`}
@@ -326,10 +326,10 @@ function renderEventList() {
 
   $('#panel').innerHTML = `
     <div class="bo-head">
-      <h2>I tuoi eventi</h2>
+      <h2>${esc(tr('I tuoi eventi'))}</h2>
       <div class="row-actions">
         <button class="secondary" id="boImport" type="button">${esc(tr('Importa calendario'))}</button>
-        <button class="primary" id="boNew" type="button">+ Nuovo evento</button>
+        <button class="primary" id="boNew" type="button">${esc(tr('+ Nuovo evento'))}</button>
       </div>
     </div>
 
@@ -363,7 +363,7 @@ function openNewEventDialog() {
   dlg.innerHTML = `
     <form method="dialog" class="modal">
       <header>
-        <div><span class="eyebrow">Evento</span><h2>Nuovo evento</h2></div>
+        <div><span class="eyebrow">Evento</span><h2>${esc(tr('Nuovo evento'))}</h2></div>
         <button class="icon-button" value="cancel" formnovalidate>&times;</button>
       </header>
       <div class="bo-grid">
@@ -392,7 +392,7 @@ function openNewEventDialog() {
         <label>Entry fee €<input id="nFee" type="number" min="0" step="0.01" value="25" /></label>
       </div>
       <details class="bo-more">
-        <summary>Opzioni avanzate</summary>
+        <summary>${esc(tr('Opzioni avanzate'))}</summary>
         <div class="bo-grid" style="margin-top:10px">
           <label class="bo-check"><input id="nDeck" type="checkbox" checked /> Lista obbligatoria</label>
           <label class="bo-check"><input id="nAtEvent" type="checkbox" checked /> Pagamento al banco</label>
@@ -411,8 +411,8 @@ function openNewEventDialog() {
         </div>
       </details>
       <menu>
-        <button class="secondary" value="cancel" formnovalidate>Annulla</button>
-        <button class="primary" id="nSubmit" type="button">Crea evento</button>
+        <button class="secondary" value="cancel" formnovalidate>${esc(tr('Annulla'))}</button>
+        <button class="primary" id="nSubmit" type="button">${esc(tr('Crea evento'))}</button>
       </menu>
     </form>`;
   dlg.showModal();
@@ -828,7 +828,7 @@ function drawGiocatori(t) {
           <button class="secondary" id="gImport" type="button">${esc(tr('Importa da file'))}</button>
           ${['draft', 'published'].includes(t.status) && t.entry_fee_cents > 0
             ? `<button class="secondary" id="gUnpaid" type="button">${esc(tr('Togli chi non ha pagato'))}</button>` : ''}
-          <button class="primary" id="gWalkIn" type="button">+ Iscrivi al banco</button>
+          <button class="primary" id="gWalkIn" type="button">${esc(tr('+ Iscrivi al banco'))}</button>
         </div>
       </div>
       <div class="profile-stats" style="margin-bottom:14px">
@@ -839,7 +839,7 @@ function drawGiocatori(t) {
       </div>
 
       <details class="bo-more" style="margin-bottom:12px">
-        <summary>Controlli liste — scadenza e visibilità</summary>
+        <summary>${esc(tr('Controlli liste — scadenza e visibilità'))}</summary>
         <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end;margin-top:10px">
           <label>Scadenza invio liste
             <input id="ctlDeadline" type="datetime-local" value="${t.decklist_deadline ? toLocalInput(t.decklist_deadline) : ''}" />
@@ -847,7 +847,7 @@ function drawGiocatori(t) {
           <label class="bo-check">
             <input id="ctlDeckPub" type="checkbox" ${t.decklists_public ? 'checked' : ''} /> Liste pubbliche nello Storico
           </label>
-          <button class="primary" id="ctlSaveControls" type="button">Salva</button>
+          <button class="primary" id="ctlSaveControls" type="button">${esc(tr('Salva'))}</button>
         </div>
         <p class="muted" style="margin:8px 0 0;font-size:.85rem">
           ${t.decklist_locks_at
@@ -866,7 +866,7 @@ function drawGiocatori(t) {
 <div class="table-scroll">      <table class="bo players">
         <thead><tr>
           <th class="pick-cell"><input type="checkbox" id="gPickAll" aria-label="${esc(tr('Seleziona tutti'))}" /></th>
-          <th>Giocatore</th><th>Pagamento</th><th>Check-in</th><th>Lista</th><th>Penalità</th><th></th>
+          <th>${esc(tr('Giocatore'))}</th><th>${esc(tr('Pagamento'))}</th><th>${esc(tr('Check-in'))}</th><th>${esc(tr('Lista'))}</th><th>${esc(tr('Penalità'))}</th><th></th>
         </tr></thead>
         <tbody id="gBody">${rows}</tbody>
       </table></div>
@@ -1297,7 +1297,7 @@ function openWalkInDialog(tid) {
   const dlg = $('#boDialog');
   dlg.innerHTML = `
     <form method="dialog" class="modal">
-      <header><div><span class="eyebrow">Iscrizione</span><h2>Iscrivi al banco</h2></div>
+      <header><div><span class="eyebrow">Iscrizione</span><h2>${esc(tr('Iscrivi al banco'))}</h2></div>
         <button class="icon-button" value="cancel" formnovalidate>&times;</button></header>
       <div class="bo-grid">
         <label>Email <small class="muted">${esc(tr('(vuota: ospite senza account)'))}</small><input id="wEmail" type="email" placeholder="player@email.com" /></label>
@@ -1306,8 +1306,8 @@ function openWalkInDialog(tid) {
         <label class="bo-check"><input id="wPaid" type="checkbox" checked /> Pagato (contanti)</label>
       </div>
       <menu>
-        <button class="secondary" value="cancel" formnovalidate>Annulla</button>
-        <button class="primary" id="wSubmit" type="button">Iscrivi</button>
+        <button class="secondary" value="cancel" formnovalidate>${esc(tr('Annulla'))}</button>
+        <button class="primary" id="wSubmit" type="button">${esc(tr('Iscrivi'))}</button>
       </menu>
     </form>`;
   dlg.showModal();
@@ -1356,7 +1356,7 @@ function openDeckDialog(tid, reg) {
       <p class="muted" style="font-size:.85rem;margin:6px 0 0">
         Caricata dallo staff: non è soggetta alla scadenza che vale per i giocatori.</p>
       <menu>
-        <button class="secondary" value="cancel" formnovalidate>Annulla</button>
+        <button class="secondary" value="cancel" formnovalidate>${esc(tr('Annulla'))}</button>
         <button class="primary" id="duSubmit" type="button">Salva list</button>
       </menu>
     </form>`;
@@ -1406,18 +1406,18 @@ function openPenaltyDialog(tid, reg) {
         </select></label>
         <label>Nota<input id="pNote" placeholder="Slow play, deck error…" /></label>
       </div>
-      <button class="primary" id="pSubmit" type="button" style="width:100%;margin-top:8px">Registra penalità</button>
+      <button class="primary" id="pSubmit" type="button" style="width:100%;margin-top:8px">${esc(tr('Registra penalità'))}</button>
       <h3 style="margin:18px 0 6px">${esc(tr('In questo torneo'))}</h3>
-      <table class="bo"><thead><tr><th>Tipo</th><th>Nota</th><th>Quando</th></tr></thead><tbody>${storico}</tbody></table>
+      <table class="bo"><thead><tr><th>${esc(tr('Tipo'))}</th><th>${esc(tr('Nota'))}</th><th>${esc(tr('Quando'))}</th></tr></thead><tbody>${storico}</tbody></table>
       <h3 style="margin:18px 0 6px">${esc(tr('Negli altri tornei'))}</h3>
       <div id="pHistory"><p class="muted">${esc(tr('Caricamento…'))}</p></div>
-      <menu><button class="secondary" value="cancel" formnovalidate>Chiudi</button></menu>
+      <menu><button class="secondary" value="cancel" formnovalidate>${esc(tr('Chiudi'))}</button></menu>
     </form>`;
   dlg.showModal();
   // Lo storico negli altri tornei: chi arbitra ora capisce se è recidivo.
   apiFetch(`/tournaments/${tid}/registrations/${reg.id}/penalty-history`).then((rows) => {
     $('#pHistory').innerHTML = rows.length
-      ? `<table class="bo"><thead><tr><th>${esc(tr('Torneo'))}</th><th>${esc(tr('Turno'))}</th><th>Tipo</th><th>Nota</th><th>Judge</th></tr></thead><tbody>
+      ? `<table class="bo"><thead><tr><th>${esc(tr('Torneo'))}</th><th>${esc(tr('Turno'))}</th><th>${esc(tr('Tipo'))}</th><th>${esc(tr('Nota'))}</th><th>Judge</th></tr></thead><tbody>
         ${rows.map((p) => `<tr>
           <td>${esc(p.tournament_name)}<br><small class="muted">${esc(fmtDate(p.starts_on))}${p.store_name ? ' · ' + esc(p.store_name) : ''}</small></td>
           <td>${p.round_number ?? '—'}</td>
@@ -1550,7 +1550,7 @@ async function renderAnnunci() {
 
   const picker = tags.length
     ? `<fieldset class="tag-picker" style="grid-column:1/-1">
-         <legend>Destinatari</legend>
+         <legend>${esc(tr('Destinatari'))}</legend>
          <label class="bo-check"><input type="checkbox" id="aAll" checked /> Tutti gli iscritti</label>
          <div id="aTags" class="tag-picker-list">
            ${tags.map(tag => `
@@ -1570,7 +1570,7 @@ async function renderAnnunci() {
 
   $('#panel').innerHTML = `
     <div class="panel" style="margin-bottom:16px">
-      <h3>Nuovo annuncio</h3>
+      <h3>${esc(tr('Nuovo annuncio'))}</h3>
       <form id="annForm" class="bo-grid">
         <label style="grid-column:1/-1">Titolo<input id="aTitle" required placeholder="Pausa 10 minuti" /></label>
         <label style="grid-column:1/-1">Messaggio<textarea id="aBody" required
@@ -1580,10 +1580,10 @@ async function renderAnnunci() {
           <label class="bo-check"><input id="aEmail" type="checkbox" /> Invia anche via email</label>
           <small id="aEmailNote" class="muted"></small>
         </div>
-        <button class="primary" type="submit" id="aSend">Invia annuncio</button>
+        <button class="primary" type="submit" id="aSend">${esc(tr('Invia annuncio'))}</button>
       </form>
     </div>
-    <div class="panel"><h3>Annunci inviati</h3>${inviati}</div>`;
+    <div class="panel"><h3>${esc(tr('Annunci inviati'))}</h3>${inviati}</div>`;
 
   const boxes = () => [...$('#panel').querySelectorAll('.a-tag')];
   const picked = () => boxes().filter(c => c.checked).map(c => Number(c.value));
@@ -1603,7 +1603,7 @@ async function renderAnnunci() {
       nota.textContent = 'Il server non ha un servizio email: l’annuncio arriva in pagina e come notifica, non per email.';
     } else if (stato === 'tournament_off') {
       nota.innerHTML = `Le email sono spente per questo torneo.
-        <button class="mini-button" id="aEmailOn" type="button">Accendi le email del torneo</button>`;
+        <button class="mini-button" id="aEmailOn" type="button">${esc(tr('Accendi le email del torneo'))}</button>`;
       $('#aEmailOn').addEventListener('click', async () => {
         try {
           await apiFetch(`/tournaments/${t.id}/controls`, {
@@ -1766,8 +1766,8 @@ async function renderClassifica({ prepend = false } = {}) {
       <tbody>${teamRows.map((r) => `<tr><td>${r.position}</td><td><strong>${esc(r.name)}</strong></td><td>${r.points}</td><td>${esc(r.record)}</td><td>${r.opponent_match_win_percentage}%</td><td>${r.seat_wins}</td></tr>`).join('')
         || `<tr><td colspan="6" class="muted">${esc(tr('Nessun incontro concluso.'))}</td></tr>`}</tbody></table></div>`;
   }
-  const html = `${teamHtml}<div class="panel" style="margin-bottom:16px"><h3>Classifica</h3>
-    <table class="bo"><thead><tr><th>#</th><th>Giocatore</th><th>Punti</th><th>V/S/P</th>
+  const html = `${teamHtml}<div class="panel" style="margin-bottom:16px"><h3>${esc(tr('Classifica'))}</h3>
+    <table class="bo"><thead><tr><th>#</th><th>${esc(tr('Giocatore'))}</th><th>${esc(tr('Punti'))}</th><th>V/S/P</th>
       ${columns.map((c) => `<th>${esc(c.label)}</th>`).join('')}${t.can_manage ? `<th>${esc(tr('Premio'))}</th>` : ''}</tr></thead><tbody>${rows}</tbody></table></div>`;
   if (prepend) $('#panel').insertAdjacentHTML('afterbegin', html);
   else $('#panel').innerHTML = html;
@@ -1823,8 +1823,8 @@ async function renderReport() {
       <div class="panel" style="text-align:center"><small class="muted">Tornei</small><div style="font-size:1.5rem;font-weight:bold">${reports.length}</div></div>
     </div>
     <div class="panel"><h3 style="display:flex;justify-content:space-between;align-items:center">Report incassi
-      <button class="secondary" id="repCsv" type="button">⬇ Scarica CSV</button></h3>
-      <table class="bo"><thead><tr><th>Torneo</th><th>Iscritti</th><th>Paganti</th><th>Incasso</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+      <button class="secondary" id="repCsv" type="button">${esc(tr('⬇ Scarica CSV'))}</button></h3>
+      <table class="bo"><thead><tr><th>${esc(tr('Torneo'))}</th><th>${esc(tr('Iscritti'))}</th><th>${esc(tr('Paganti'))}</th><th>${esc(tr('Incasso'))}</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
     <div id="metaBox"></div>`;
   $('#repCsv').addEventListener('click', () => downloadReportCsv(reports));
   $('#panel').querySelectorAll('[data-meta]').forEach(btn =>
@@ -1846,8 +1846,8 @@ async function loadMetaStats(tid) {
       <td>${s.wins}-${s.draws}-${s.losses}</td>
       <td>${s.win_rate.toFixed(1)}%</td>
     </tr>`).join('');
-  box.innerHTML = `<div class="panel"><h3>Statistiche meta</h3>
-    <table class="bo"><thead><tr><th>Archetipo</th><th>Giocatori</th><th>Record (W-D-L)</th><th>Win rate</th></tr></thead>
+  box.innerHTML = `<div class="panel"><h3>${esc(tr('Statistiche meta'))}</h3>
+    <table class="bo"><thead><tr><th>${esc(tr('Archetipo'))}</th><th>${esc(tr('Giocatori'))}</th><th>Record (W-D-L)</th><th>${esc(tr('Win rate'))}</th></tr></thead>
     <tbody>${rows}</tbody></table></div>`;
 }
 
@@ -1926,7 +1926,7 @@ async function renderTag() {
       <td class="muted">${esc(tag.description || '—')}</td>
       <td>${tag.player_count}</td>
       <td class="row-actions">
-        <button class="mini-button" data-drop-tag="${tag.id}" type="button" style="color:var(--danger,#ef6a5e)">Elimina</button>
+        <button class="mini-button" data-drop-tag="${tag.id}" type="button" style="color:var(--danger,#ef6a5e)">${esc(tr('Elimina'))}</button>
       </td>
     </tr>`).join('') || '<tr><td colspan="4" class="muted">Nessun tag: creane uno qui sotto.</td></tr>';
 
@@ -1940,19 +1940,19 @@ async function renderTag() {
 
   $('#panel').innerHTML = `
     <div class="panel" style="margin-bottom:16px">
-      <h3>Tag del negozio</h3>
-      <table class="bo"><thead><tr><th>Tag</th><th>Descrizione</th><th>Giocatori</th><th></th></tr></thead>
+      <h3>${esc(tr('Tag del negozio'))}</h3>
+      <table class="bo"><thead><tr><th>Tag</th><th>${esc(tr('Descrizione'))}</th><th>${esc(tr('Giocatori'))}</th><th></th></tr></thead>
         <tbody>${tagRows}</tbody></table>
       <form id="newTag" class="bo-grid" style="margin-top:12px">
         <label class="span-2">Nome<input id="tgName" required maxlength="60" placeholder="Habitué" /></label>
         <label>Colore<input id="tgColor" type="color" value="#c6ff3d" /></label>
         <label style="grid-column:1/-1">Descrizione<input id="tgDesc" maxlength="240" placeholder="A cosa serve questo tag" /></label>
-        <button class="primary" type="submit" style="grid-column:1/-1">Crea tag</button>
+        <button class="primary" type="submit" style="grid-column:1/-1">${esc(tr('Crea tag'))}</button>
       </form>
     </div>
 
     <div class="panel">
-      <h3>Assegna agli iscritti</h3>
+      <h3>${esc(tr('Assegna agli iscritti'))}</h3>
       <div class="toolbar" style="margin-bottom:10px">
         <label>Giocatori di
           <select id="tgEvent">${_tournaments.map(x =>
@@ -1961,7 +1961,7 @@ async function renderTag() {
         </label>
         <label>Tag <select id="tgPick" ${tags.length ? '' : 'disabled'}>${tags.map(x => `<option value="${x.id}">${esc(x.name)}</option>`).join('')
           || `<option value="">${esc(tr('— nessun tag —'))}</option>`}</select></label>
-        <button class="primary" id="tgAssign" type="button" ${tags.length ? '' : 'disabled'}>Assegna ai selezionati</button>
+        <button class="primary" id="tgAssign" type="button" ${tags.length ? '' : 'disabled'}>${esc(tr('Assegna ai selezionati'))}</button>
       </div>
       <table class="bo"><thead><tr>
         <th><label class="bo-check"><input type="checkbox" id="tgAll" title="Seleziona tutti" /> Giocatore</label></th><th>Tag</th>
@@ -2151,8 +2151,8 @@ async function renderManifestazioni() {
 
   $('#panel').innerHTML = `
     <div class="bo-head">
-      <h2>Manifestazioni</h2>
-      <button class="primary" id="evNew" type="button">+ Nuova manifestazione</button>
+      <h2>${esc(tr('Manifestazioni'))}</h2>
+      <button class="primary" id="evNew" type="button">${esc(tr('+ Nuova manifestazione'))}</button>
     </div>
     <p class="muted" style="margin:-8px 0 16px;max-width:64ch">
       Raggruppa piu tournaments che si svolgono insieme. Chi nomini capojudge qui lo e
@@ -2176,7 +2176,7 @@ function openManifestazioneDialog() {
   const oggi = new Date().toISOString().slice(0, 10);
   dlg.innerHTML = `
     <form method="dialog" class="modal">
-      <header><div><span class="eyebrow">Manifestazione</span><h2>Nuova manifestazione</h2></div>
+      <header><div><span class="eyebrow">Manifestazione</span><h2>${esc(tr('Nuova manifestazione'))}</h2></div>
         <button class="icon-button" value="cancel" formnovalidate>&times;</button></header>
       <div class="bo-grid">
         <label style="grid-column:1/-1">Nome<input id="evName" required placeholder="Weekend di primavera" /></label>
@@ -2188,8 +2188,8 @@ function openManifestazioneDialog() {
         <label class="bo-check"><input id="evPub" type="checkbox" checked /> Pagina pubblica</label>
       </div>
       <menu>
-        <button class="secondary" value="cancel" formnovalidate>Annulla</button>
-        <button class="primary" id="evSave" type="button">Crea</button>
+        <button class="secondary" value="cancel" formnovalidate>${esc(tr('Annulla'))}</button>
+        <button class="primary" id="evSave" type="button">${esc(tr('Crea'))}</button>
       </menu>
     </form>`;
   dlg.showModal();
@@ -2255,13 +2255,13 @@ async function renderManifestazione(eventId) {
       <td><strong>${esc(m.display_name)}</strong><br><small class="muted">${esc(m.email)}</small></td>
       <td><span class="pill ${m.role === 'head_judge' ? 'ok' : ''}">${esc(STAFF_LABEL[m.role] || m.role)}</span></td>
       <td class="row-actions">
-        <button class="mini-button" data-drop-staff="${m.id}" type="button" style="color:var(--danger)">Rimuovi</button>
+        <button class="mini-button" data-drop-staff="${m.id}" type="button" style="color:var(--danger)">${esc(tr('Rimuovi'))}</button>
       </td>
     </tr>`).join('') || '<tr><td colspan="3" class="muted">Nessuno: nomina qui il capojudge del weekend.</td></tr>';
 
   $('#panel').innerHTML = `
     <div class="bo-crumb">
-      <button class="bo-back" id="evBack" type="button">← Manifestazioni</button>
+      <button class="bo-back" id="evBack" type="button">${esc(tr('← Manifestazioni'))}</button>
       <div class="bo-crumb-title">
         <strong>${esc(ev.name)}</strong>
         <span class="muted">${fmtDate(ev.starts_on)}${ev.ends_on ? ' → ' + fmtDate(ev.ends_on) : ''}
@@ -2285,7 +2285,7 @@ async function renderManifestazione(eventId) {
 
     <div class="panel" style="margin-bottom:16px">
       <h3>Tappe (${dentro.length})</h3>
-      <table class="bo"><thead><tr><th>Torneo</th><th>Stato</th><th></th></tr></thead>
+      <table class="bo"><thead><tr><th>${esc(tr('Torneo'))}</th><th>${esc(tr('Stato'))}</th><th></th></tr></thead>
         <tbody>${dentro.map((t) => tappa(t, true)).join('')
           || '<tr><td colspan="3" class="muted">Nessuna tappa.</td></tr>'}</tbody></table>
       ${fuori.length ? `
@@ -2294,11 +2294,11 @@ async function renderManifestazione(eventId) {
     </div>
 
     <div class="panel" style="margin-bottom:16px">
-      <h3>Staff della manifestazione</h3>
+      <h3>${esc(tr('Staff della manifestazione'))}</h3>
       <p class="muted" style="margin-top:0;font-size:.85rem">
         Vale su tutte le tappe. Se qualcuno ha anche un incarico su un singolo
         torneo, conta il piu alto dei due.</p>
-      <table class="bo"><thead><tr><th>Persona</th><th>Ruolo</th><th></th></tr></thead>
+      <table class="bo"><thead><tr><th>${esc(tr('Persona'))}</th><th>${esc(tr('Ruolo'))}</th><th></th></tr></thead>
         <tbody>${staffRows}</tbody></table>
       <form id="evStaffForm" class="bo-grid" style="margin-top:12px">
         <label>Email<input id="evStaffEmail" type="email" required placeholder="judge@email.com" /></label>
@@ -2307,12 +2307,12 @@ async function renderManifestazione(eventId) {
           <option value="scorekeeper">${esc(tr('Scorekeeper'))}</option>
           <option value="head_judge">Capojudge</option>
         </select></label>
-        <button class="primary" type="submit">Nomina</button>
+        <button class="primary" type="submit">${esc(tr('Nomina'))}</button>
       </form>
     </div>
 
     <div class="panel">
-      <h3>Anagrafica</h3>
+      <h3>${esc(tr('Anagrafica'))}</h3>
       <form id="evEditForm" class="bo-grid">
         <label style="grid-column:1/-1">Nome<input id="evEName" value="${esc(ev.name)}" /></label>
         <label>Dal<input id="evEFrom" type="date" value="${esc(String(ev.starts_on).slice(0, 10))}" /></label>
@@ -2321,7 +2321,7 @@ async function renderManifestazione(eventId) {
         <label>${esc(tr('Città'))}<input id="evECity" maxlength="120" value="${esc(ev.city || '')}" /></label>
         <label style="grid-column:1/-1">Descrizione<textarea id="evEDesc" style="min-height:70px">${esc(ev.description)}</textarea></label>
         <label class="bo-check"><input id="evEPub" type="checkbox" ${ev.is_public ? 'checked' : ''} /> Pagina pubblica</label>
-        <button class="primary" type="submit" style="grid-column:1/-1">Salva</button>
+        <button class="primary" type="submit" style="grid-column:1/-1">${esc(tr('Salva'))}</button>
       </form>
     </div>`;
 
@@ -2698,12 +2698,12 @@ async function renderStaff() {
 
   $('#panel').innerHTML = `
     <div class="panel" style="margin-bottom:16px">
-      <h3>Staff della tappa</h3>
+      <h3>${esc(tr('Staff della tappa'))}</h3>
       <p class="muted" style="margin-top:0;font-size:.85rem">
         L'organizzatore nomina il capojudge, uno solo per torneo; il capojudge nomina
         i judge. Chi ha un incarico sulla manifestazione lo ha gia qui e non compare
         in questo elenco.</p>
-      <table class="bo"><thead><tr><th>Persona</th><th>Ruolo</th><th></th></tr></thead>
+      <table class="bo"><thead><tr><th>${esc(tr('Persona'))}</th><th>${esc(tr('Ruolo'))}</th><th></th></tr></thead>
         <tbody>${rows}</tbody></table>
 
       ${possoNominare ? `

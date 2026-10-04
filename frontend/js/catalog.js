@@ -96,7 +96,7 @@ export function updateAuthNav() {
        <a class="secondary-link" href="decks.html">Le mie liste</a>
        <a class="secondary-link" href="tickets.html">Segnalazioni</a>
        <span style="color:var(--muted);font-size:.85rem">${esc(s.email)}</span>
-       <button class="secondary-link" id="logoutBtn" type="button">Esci</button>`
+       <button class="secondary-link" id="logoutBtn" type="button">${esc(tr('Esci'))}</button>`
     : `<a class="secondary-link" href="login.html">Accedi</a>
        <a class="primary-btn" href="login.html">Registrati</a>`;
   el.querySelector('#logoutBtn')?.addEventListener('click', () => logout());

@@ -1105,5 +1105,6 @@
   "ritirato": "retiré",
   "Warning, game loss, deck check e stato del tavolo": "Warning, game loss, deck check et état de la table",
   "Stato: {stato}": "État : {stato}",
-  "in gioco": "en jeu"
+  "in gioco": "en jeu",
+  "{n}/{tot} iscritti · {liberi} posti": "{n}/{tot} inscrits · {liberi} places"
 }

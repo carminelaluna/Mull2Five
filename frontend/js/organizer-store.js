@@ -79,10 +79,10 @@ export async function renderNegozio() {
       <label>Latitudine<input id="sLat" type="number" step="0.0001" value="${org.latitude ?? ''}" /></label>
       <label>Longitudine<input id="sLng" type="number" step="0.0001" value="${org.longitude ?? ''}" /></label>
       <div style="grid-column:1/-1;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <button class="secondary" id="sGeocode" type="button">Trova coordinate dall'indirizzo</button>
+        <button class="secondary" id="sGeocode" type="button">${esc(tr('Trova coordinate dall\'indirizzo'))}</button>
         <span class="muted" style="font-size:.82rem">Senza coordinate il negozio non esce nella ricerca per distanza.</span>
       </div>
-      <button class="primary" type="submit" style="grid-column:1/-1">Salva profilo</button>
+      <button class="primary" type="submit" style="grid-column:1/-1">${esc(tr('Salva profilo'))}</button>
     </form>
   </div>
   ${locationsPanel(locations)}
@@ -584,7 +584,7 @@ function locationsPanel(locations) {
       <label class="span-2">${esc(tr('Longitudine'))}<input id="lLng" type="number" step="0.0001" /></label>
       <label style="grid-column:1/-1">${esc(tr('Note per chi arriva'))}<input id="lNotes" placeholder="${esc(tr('Piano, parcheggio, accessibilità'))}" /></label>
       <div style="grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap">
-        <button class="secondary" id="lGeocode" type="button">Trova coordinate dall'indirizzo</button>
+        <button class="secondary" id="lGeocode" type="button">${esc(tr('Trova coordinate dall\'indirizzo'))}</button>
         <button class="primary" id="lSave" type="submit">${esc(tr('Aggiungi sede'))}</button>
         <button class="secondary" id="lCancel" type="button" style="display:none">${esc(tr('Annulla'))}</button>
       </div>

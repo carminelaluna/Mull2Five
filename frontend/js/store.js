@@ -31,7 +31,7 @@ function locationsSection(locations) {
     </div>`;
   }).join('');
   return `<section class="rail">
-    <div class="rail-head"><h2>Dove giochiamo</h2></div>
+    <div class="rail-head"><h2>${esc(tr('Dove giochiamo'))}</h2></div>
     <div class="location-list">${cards}</div>
   </section>`;
 }

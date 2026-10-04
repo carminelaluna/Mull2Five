@@ -245,6 +245,7 @@
   "Finita": "Finished",
   "Fino al (compreso)": "Until (inclusive)",
   "Formato": "Format",
+  "Entry fee": "Entry fee",
   "formato": "format",
   "Formula": "Structure",
   "fuori periodo": "outside the period",
@@ -1098,5 +1099,6 @@
   "ritirato": "dropped",
   "Warning, game loss, deck check e stato del tavolo": "Warning, game loss, deck check and table status",
   "Stato: {stato}": "Status: {stato}",
-  "in gioco": "playing"
+  "in gioco": "playing",
+  "{n}/{tot} iscritti · {liberi} posti": "{n}/{tot} registered · {liberi} seats"
 }

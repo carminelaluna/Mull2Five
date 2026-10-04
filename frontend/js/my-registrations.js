@@ -29,7 +29,7 @@ function updateAuthNav() {
   el.innerHTML = `<a class="secondary-link" href="player.html?p=${encodeURIComponent(session.pid || '')}">Profilo</a>
     <a class="secondary-link" href="decks.html">${esc(tr('Le mie liste'))}</a>
     <span style="color:var(--muted);font-size:.85rem">${esc(session.email)}</span>
-    <button class="secondary-link" id="logoutBtn" type="button">Esci</button>`;
+    <button class="secondary-link" id="logoutBtn" type="button">${esc(tr('Esci'))}</button>`;
   el.querySelector('#logoutBtn').addEventListener('click', () => logout('index.html'));
 }
 
@@ -153,9 +153,9 @@ async function buildCard(t, reg) {
   if (!isPaid) {
     const buttons = [];
     if (t.pay_stripe) buttons.push(
-      `<button class="primary" data-action="pay" data-tournament-id="${t.id}" data-provider="stripe" type="button">Paga con Stripe</button>`);
+      `<button class="primary" data-action="pay" data-tournament-id="${t.id}" data-provider="stripe" type="button">${esc(tr('Paga con Stripe'))}</button>`);
     if (t.pay_paypal) buttons.push(
-      `<button class="primary" data-action="pay" data-tournament-id="${t.id}" data-provider="paypal" type="button">Paga con PayPal</button>`);
+      `<button class="primary" data-action="pay" data-tournament-id="${t.id}" data-provider="paypal" type="button">${esc(tr('Paga con PayPal'))}</button>`);
     if (t.pay_at_event) buttons.push(
       '<span class="badge">Puoi pagare anche all\'evento</span>');
     if (!t.pay_stripe && !t.pay_paypal && !t.pay_at_event) buttons.push(
@@ -183,7 +183,7 @@ async function buildCard(t, reg) {
     if (etichetta) parti.push(`<strong style="font-size:.82rem">${esc(etichetta)}</strong>`);
     if (ok) {
       parti.push('<span class="badge ok">Inviata ✓</span>');
-      parti.push(`<button class="mini-button" data-action="view-deck" data-tournament-id="${t.id}" data-name="${esc(t.name)}" data-format="${esc(fmt)}" type="button">Vedi</button>`);
+      parti.push(`<button class="mini-button" data-action="view-deck" data-tournament-id="${t.id}" data-name="${esc(t.name)}" data-format="${esc(fmt)}" type="button">${esc(tr('Vedi'))}</button>`);
     }
     if (deckOpen) {
       parti.push(`<button class="mini-button" data-action="upload-deck" data-tournament-id="${t.id}" data-reg-id="${reg.id}" data-format="${esc(fmt)}" data-tformat="${esc(t.format)}" data-tname="${esc(t.name)}" data-edit="${ok ? '1' : ''}" type="button">${ok ? 'Modifica' : 'Carica'}</button>`);
@@ -247,12 +247,12 @@ async function buildCard(t, reg) {
     ? '<span class="badge">Ritirato</span>' : '';
   const canDrop = !reg.dropped && (t.status === 'published' || t.status === 'running');
   const dropBtn = canDrop
-    ? `<button class="mini-button danger" data-action="self-drop" data-tournament-id="${t.id}" data-name="${esc(t.name)}" type="button">Ritirati</button>`
+    ? `<button class="mini-button danger" data-action="self-drop" data-tournament-id="${t.id}" data-name="${esc(t.name)}" type="button">${esc(tr('Ritirati'))}</button>`
     : '';
   // #43 Annulla iscrizione self-service: solo prima dell'inizio (torneo pubblicato).
   const canCancel = !reg.dropped && t.status === 'published';
   const cancelBtn = canCancel
-    ? `<button class="mini-button danger" data-action="self-cancel" data-tournament-id="${t.id}" data-name="${esc(t.name)}" type="button">Annulla iscrizione</button>`
+    ? `<button class="mini-button danger" data-action="self-cancel" data-tournament-id="${t.id}" data-name="${esc(t.name)}" type="button">${esc(tr('Annulla iscrizione'))}</button>`
     : '';
 
   return `<article class="panel reg-card">
@@ -373,8 +373,8 @@ function renderMyPairing(t, round, reg) {
     // L'avversario ha refertato per primo: devo confermare o contestare.
     resultCell = `<div class="result-confirm" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
         <span class="badge warn">L'avversario ha inserito: ${esc(myScore || score)}</span>
-        <button class="primary" data-action="confirm-result" data-tournament-id="${t.id}" data-pairing-id="${mine.id}" type="button">Conferma</button>
-        <button class="ghost" data-action="reject-result" data-tournament-id="${t.id}" data-pairing-id="${mine.id}" type="button" style="color:var(--danger,#ef6a5e)">Contesta / Chiama Judge</button>
+        <button class="primary" data-action="confirm-result" data-tournament-id="${t.id}" data-pairing-id="${mine.id}" type="button">${esc(tr('Conferma'))}</button>
+        <button class="ghost" data-action="reject-result" data-tournament-id="${t.id}" data-pairing-id="${mine.id}" type="button" style="color:var(--danger,#ef6a5e)">${esc(tr('Contesta / Chiama Judge'))}</button>
       </div>`;
   } else if (iReported && status === 'pending') {
     resultCell = `<span class="badge warn">Risultato inviato${myScore ? ': ' + esc(myScore) : ''} — in attesa di conferma dell'avversario</span>`;
@@ -387,7 +387,7 @@ function renderMyPairing(t, round, reg) {
            data-best-of="${t.best_of || 3}"
            data-playoff="${round.phase && round.phase !== 'swiss' ? '1' : ''}"
            data-ids="${t.allow_intentional_draws === false ? '' : '1'}"
-           type="button">Invia risultato</button>`;
+           type="button">${esc(tr('Invia risultato'))}</button>`;
   }
 
   return `<div class="my-pairing">
@@ -849,7 +849,7 @@ async function loadHistory() {
     _history = ((await apiFetch('/tournaments/me/history')) || []).filter((r) => r.status === 'completed');
     if (!_history.length) { box.innerHTML = '<p class="empty">Nessun torneo concluso ancora.</p>'; return; }
     box.innerHTML = `<table class="data-table history-table" style="width:100%">
-      <thead><tr><th>Torneo</th><th>Data</th><th>Formato</th><th>Piazzamento</th><th>Record</th><th>Punti</th></tr></thead>
+      <thead><tr><th>${esc(tr('Torneo'))}</th><th>${esc(tr('Data'))}</th><th>${esc(tr('Formato'))}</th><th>${esc(tr('Piazzamento'))}</th><th>${esc(tr('Record'))}</th><th>${esc(tr('Punti'))}</th></tr></thead>
       <tbody>${_history.map(r => `<tr data-tid="${r.tournament_id}" tabindex="0" role="button">
         <td><strong>${esc(r.tournament_name)}</strong></td>
         <td>${fmtDate(r.starts_on)}</td>
@@ -930,9 +930,9 @@ async function showTournamentDetail(tid) {
     .join('');
 
   body.innerHTML = stats + (rows
-    ? `<h3 style="margin:0 0 8px">I tuoi match</h3>
+    ? `<h3 style="margin:0 0 8px">${esc(tr('I tuoi match'))}</h3>
        <table class="data-table" style="width:100%">
-         <thead><tr><th>Round</th><th>Tavolo</th><th>Avversario</th><th>Esito</th></tr></thead>
+         <thead><tr><th>Round</th><th>${esc(tr('Tavolo'))}</th><th>${esc(tr('Avversario'))}</th><th>${esc(tr('Esito'))}</th></tr></thead>
          <tbody>${rows}</tbody>
        </table>`
     : '<p class="empty">Nessun match registrato per questo torneo.</p>');

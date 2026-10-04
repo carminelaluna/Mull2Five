@@ -111,15 +111,15 @@ function radios(title, key, options, current) {
 function renderFacets(state) {
   const geo = _position
     ? radios('Distanza', 'radius_km', DISTANCES, state.radius_km || '')
-    : `<div class="facet"><h3>Distanza</h3>
-         <button class="chip" id="askGeo" type="button">📍 Usa la mia posizione</button>
+    : `<div class="facet"><h3>${esc(tr('Distanza'))}</h3>
+         <button class="chip" id="askGeo" type="button">${esc(tr('📍 Usa la mia posizione'))}</button>
          <p style="color:var(--muted);font-size:.78rem;margin:8px 0 0">
            Serve la posizione per filtrare per distanza.</p>
        </div>`;
 
   $('#facets').innerHTML = `
     <div class="facet">
-      <h3>Nome</h3>
+      <h3>${esc(tr('Nome'))}</h3>
       <input id="facetName" placeholder="Cerca…" value="${esc(state.name)}" style="width:100%" />
     </div>
     ${radios('Stato', 'stato', STATI, state.stato)}
@@ -131,7 +131,7 @@ function renderFacets(state) {
     ${state.stato === 'conclusi' ? '' : radios('Periodo', 'days', DATE_RANGES, state.days)}
     ${geo}
     <div class="facet">
-      <button class="secondary" id="resetFilters" type="button" style="width:100%">Azzera filtri</button>
+      <button class="secondary" id="resetFilters" type="button" style="width:100%">${esc(tr('Azzera filtri'))}</button>
       <button class="primary" id="saveSearch" type="button" style="width:100%;margin-top:6px">
         ☆ Salva ricerca
       </button>
@@ -242,7 +242,7 @@ function renderRows(events) {
 
   const pages = Math.ceil(events.length / PER_PAGE);
   $('#resultsPagination').innerHTML = pages <= 1 ? '' : `
-    <button class="secondary" ${_page <= 1 ? 'disabled' : ''} id="prevPage">← Prec</button>
+    <button class="secondary" ${_page <= 1 ? 'disabled' : ''} id="prevPage">${esc(tr('← Prec'))}</button>
     <span class="page-info">${_page} / ${pages}</span>
     <button class="secondary" ${_page >= pages ? 'disabled' : ''} id="nextPage">Succ →</button>`;
   $('#prevPage')?.addEventListener('click', () => { _page--; run(); });

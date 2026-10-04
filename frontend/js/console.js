@@ -37,7 +37,7 @@ const SHELL = `
   <div class="ctl-timer">
     <span class="ctl-clock" data-el="clock">--:--</span>
     <label>min <input data-el="minutes" type="number" min="1" max="180" value="50" style="width:64px" /></label>
-    <button class="primary"   data-el="restart"  type="button">▶ Avvia / Reset</button>
+    <button class="primary"   data-el="restart"  type="button">${esc(tr('▶ Avvia / Reset'))}</button>
     <button class="secondary" data-el="stop"     type="button">⏹ Stop</button>
     <button class="secondary" data-el="extend5"  type="button">+5′ round</button>
     <button class="secondary" data-el="extend10" type="button">+10′ round</button>
@@ -52,7 +52,7 @@ const SHELL = `
   <div class="panel" data-el="tables"><p class="empty">Caricamento…</p></div>
 
   <details class="panel" data-el="standingsBox" style="margin-top:12px">
-    <summary>Classifica</summary>
+    <summary>${esc(tr('Classifica'))}</summary>
     <div data-el="standings"><p class="empty">Caricamento…</p></div>
   </details>
 
@@ -62,8 +62,8 @@ const SHELL = `
   </details>
 
   <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
-    <button class="secondary" data-el="genRound" type="button">Genera round successivo</button>
-    <button class="secondary" data-el="closeTournament" type="button" style="display:none">🏁 Chiudi torneo</button>
+    <button class="secondary" data-el="genRound" type="button">${esc(tr('Genera round successivo'))}</button>
+    <button class="secondary" data-el="closeTournament" type="button" style="display:none">${esc(tr('🏁 Chiudi torneo'))}</button>
   </div>`;
 
 /**
@@ -281,7 +281,7 @@ export function mountConsole(host, tournamentId, { screenLinks = true, onClosed 
           : `<span class="muted" style="font-size:.78rem">${esc(tr('in attesa del tabellone'))}</span>`}`;
     } else if (finalScore && !editing.has(String(p.id))) {
       control = `<span class="badge ok">${finalScore.replace('-', ' – ')} 🔒</span>
-        <button class="mini-button" data-action="edit" data-pid="${p.id}" type="button">Modifica</button>`;
+        <button class="mini-button" data-action="edit" data-pid="${p.id}" type="button">${esc(tr('Modifica'))}</button>`;
     } else {
       // Correggere un risultato già bloccato passa da /correct (audit log);
       // l'inserimento normale resta su /result.
@@ -560,8 +560,8 @@ export function mountConsole(host, tournamentId, { screenLinks = true, onClosed 
         ${storico ? `<h3 style="margin:16px 0 6px;font-size:.9rem">Controlli precedenti</h3>
           <ul style="margin:0;padding-left:18px;font-size:.85rem;line-height:1.7">${storico}</ul>` : ''}
         <menu>
-          <button class="secondary" value="cancel" formnovalidate>Annulla</button>
-          <button class="primary" data-el="dcSave" type="button">Registra</button>
+          <button class="secondary" value="cancel" formnovalidate>${esc(tr('Annulla'))}</button>
+          <button class="primary" data-el="dcSave" type="button">${esc(tr('Registra'))}</button>
         </menu>
       </form>`;
     dlg.showModal();

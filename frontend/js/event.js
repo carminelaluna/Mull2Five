@@ -77,11 +77,11 @@ async function loadEvent() {
 
       <div class="event-info-grid">
         <div class="panel">
-          <h3>Dettagli</h3>
+          <h3>${esc(tr('Dettagli'))}</h3>
           <dl class="info-dl">
-            <dt>Data</dt>       <dd>${fmtDate(t.starts_on)}${t.start_time ? ' · ' + esc(t.start_time) : ''}</dd>
+            <dt>${esc(tr('Data'))}</dt>       <dd>${fmtDate(t.starts_on)}${t.start_time ? ' · ' + esc(t.start_time) : ''}</dd>
             <dt class="game-detail">${esc(tr('Gioco'))}</dt> <dd class="game-detail">${esc(game?.name || gameLabel(t.game))}</dd>
-            <dt>Formato</dt>    <dd>${esc(t.format)}</dd>
+            <dt>${esc(tr('Formato'))}</dt>    <dd>${esc(t.format)}</dd>
             ${t.is_online ? `<dt>${esc(tr('Dove'))}</dt> <dd>${esc(tr('Online · {dove}', { dove: platform?.name || '' }))}</dd>` : ''}
             ${t.structure === 'registration_only'
               ? `<dt>${esc(tr('Formula'))}</dt> <dd>${esc(tr('Solo iscrizioni, senza turni'))}</dd>`
@@ -89,18 +89,18 @@ async function loadEvent() {
             ${(t.team_size || 1) > 1 ? `<dt>${esc(tr('Formula'))}</dt> <dd>${esc(tr('Squadre da {n}', { n: t.team_size }))}</dd>` : ''}
             ${organizer ? `<dt>${esc(tr('Organizzatore'))}</dt> <dd>${esc(organizer)}</dd>` : ''}
             <dt>REL</dt>        <dd>${esc(t.rules_enforcement_level || 'Regular')}</dd>
-            <dt>Entry fee</dt>  <dd>${fmtMoney(t.entry_fee_cents)}</dd>
+            <dt>${esc(tr('Entry fee'))}</dt>  <dd>${fmtMoney(t.entry_fee_cents)}</dd>
             ${imported
-              ? (t.capacity ? `<dt>Posti</dt> <dd>${t.capacity}</dd>` : '')
+              ? (t.capacity ? `<dt>${esc(tr('Posti'))}</dt> <dd>${t.capacity}</dd>` : '')
               // Gli iscritti, non i posti liberi: "Posti 0 / 64" su un torneo
               // pieno si legge come "nessuno si e' iscritto". Lo stesso conto
               // che fa il back-office ("0/48 iscritti"). `spots` resta ai suoi
               // due usi veri: il pulsante d'iscrizione e il distintivo "pieno".
-              : `<dt>Posti</dt> <dd>${t.registered_players || 0} / ${t.capacity}</dd>`}
+              : `<dt>${esc(tr('Posti'))}</dt> <dd>${t.registered_players || 0} / ${t.capacity}</dd>`}
           </dl>
         </div>
-        ${t.description ? `<div class="panel"><h3>Descrizione</h3><p>${esc(t.description)}</p></div>` : ''}
-        ${t.refund_policy ? `<div class="panel"><h3>Policy rimborsi</h3><p>${esc(t.refund_policy)}</p></div>` : ''}
+        ${t.description ? `<div class="panel"><h3>${esc(tr('Descrizione'))}</h3><p>${esc(t.description)}</p></div>` : ''}
+        ${t.refund_policy ? `<div class="panel"><h3>${esc(tr('Policy rimborsi'))}</h3><p>${esc(t.refund_policy)}</p></div>` : ''}
       </div>`;
 
     // Sul telefono la CTA resta a portata di pollice anche scorrendo la pagina.
