@@ -11,6 +11,21 @@
 [![Sicurezza](https://img.shields.io/badge/SICUREZZA-segnala-c6ff3d?style=for-the-badge&labelColor=0d0d0f)](SECURITY.md)
 [![Licenza](https://img.shields.io/badge/LICENZA-tutti_i_diritti_riservati-999999?style=for-the-badge&labelColor=0d0d0f)](LICENSE)
 
+<table>
+  <tr>
+    <td width="33%"><img src="docs/img/home.png" alt="La home: eventi, negozi e circuiti vicino a te" /></td>
+    <td width="33%"><img src="docs/img/ricerca.png" alt="Ricerca eventi con filtri per tipo, formato, REL, periodo e distanza" /></td>
+    <td width="33%"><img src="docs/img/evento.png" alt="La pagina pubblica di un torneo: formato, REL, quota, posti" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Scopri</sub></td>
+    <td align="center"><sub>Cerca eventi</sub></td>
+    <td align="center"><sub>Pagina del torneo</sub></td>
+  </tr>
+</table>
+
+<sub>Schermate prese dallo staging, dove i dati sono anonimizzati: i nomi non sono di persone vere.</sub>
+
 </div>
 
 > [!IMPORTANT]

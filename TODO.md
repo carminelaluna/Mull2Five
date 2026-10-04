@@ -76,6 +76,15 @@ Funzioni derivate dall'analisi di Melee.gg e adattate al progetto.
 - [x] Vista grafica delle liste con immagini Scryfall, ripresa dal tool rimosso in V2 (`js/deck-view.js`): giocatore, storico e back-office.
 - [x] Tornei conclusi di nuovo visibili al giocatore: il frontend filtrava su `closed`, lo stato reale e `completed`.
 - [x] Toggle "liste pubbliche" e scadenza liste esposti nel back-office (l'endpoint `/controls` non era mai chiamato).
+- [ ] **Da verificare: la ricerca eventi mostra date passate.** Il riepilogo dice "In programma,
+      nei prossimi **due settimane**" e fra i risultati compaiono eventi del 24/09 e dell'01/10
+      (visto il 04/10/2026 sullo staging). O il filtro sul periodo non viene applicato, o "in
+      programma" guarda lo stato e non la data e il riepilogo è scritto male. Di passaggio:
+      "nei prossimi due settimane" va comunque corretto in "nelle prossime due settimane".
+- [ ] **Da verificare: posti contati a zero su un torneo con 64 giocatori.** La pagina pubblica
+      del torneo 1 dice "Posti 0 / 64" mentre la sua classifica pubblica ne elenca 64. Forse il
+      conteggio guarda le iscrizioni aperte e non quelle storiche, ma a un visitatore sembra un
+      torneo vuoto.
 
 ## Scoperta eventi e community
 
