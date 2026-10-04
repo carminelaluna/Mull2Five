@@ -52,11 +52,15 @@ export function loginUrl() {
 /** Per le pagine riservate: la sessione, o il login se manca o è scaduta. */
 export function requireSession() {
   const session = getSession();
-  if (!session) {
-    clearToken();
-    location.replace(loginUrl());
-  }
-  return session;
+  if (session) return session;
+  clearToken();
+  location.replace(loginUrl());
+  // `location.replace` avvia la navigazione ma non ferma lo script: senza
+  // questo il modulo proseguiva con `session` a null, e la riga dopo esplodeva
+  // su `.role`, `.email` o `.pid` prima che il browser cambiasse pagina. Chi
+  // capitava su una pagina riservata senza essere entrato vedeva una pagina
+  // rotta invece dell'invito ad accedere.
+  throw new Error('Sessione assente: vado al login');
 }
 
 export function logout(to = null) {

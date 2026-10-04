@@ -6,7 +6,8 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  apiRequest, clearToken, decodeToken, errorText, getSession, getToken, refreshSession, setToken,
+  apiRequest, clearToken, decodeToken, errorText, getSession, getToken, refreshSession,
+  requireSession, setToken,
 } from '../js/session.js';
 
 /* Un token con le rivendicazioni date: intestazione finta, firma finta. */
@@ -123,5 +124,26 @@ describe('il rinnovo del token', () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(response(401));
     expect(await refreshSession()).toBe(false);
     expect(getToken()).toBe(null);
+  });
+});
+
+describe('le pagine riservate', () => {
+  it('senza sessione mandano al login e fermano lo script', () => {
+    const replace = vi.fn();
+    vi.spyOn(window, 'location', 'get').mockReturnValue({
+      replace, pathname: '/organizer.html', search: '',
+    });
+
+    // Deve interrompersi qui: `location.replace` avvia la navigazione ma non
+    // ferma il modulo, e chi chiama usa subito `session.role` o `session.email`.
+    expect(() => requireSession()).toThrow();
+    expect(replace).toHaveBeenCalledOnce();
+    expect(replace.mock.calls[0][0]).toContain('login.html');
+    expect(replace.mock.calls[0][0]).toContain('next=organizer.html');
+  });
+
+  it('con una sessione valida la restituiscono', () => {
+    setToken(fakeToken({ sub: '7', email: 'a@b.it', role: 'organizer', exp: now() + 3600 }));
+    expect(requireSession().email).toBe('a@b.it');
   });
 });
