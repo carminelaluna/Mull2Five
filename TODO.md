@@ -76,15 +76,18 @@ Funzioni derivate dall'analisi di Melee.gg e adattate al progetto.
 - [x] Vista grafica delle liste con immagini Scryfall, ripresa dal tool rimosso in V2 (`js/deck-view.js`): giocatore, storico e back-office.
 - [x] Tornei conclusi di nuovo visibili al giocatore: il frontend filtrava su `closed`, lo stato reale e `completed`.
 - [x] Toggle "liste pubbliche" e scadenza liste esposti nel back-office (l'endpoint `/controls` non era mai chiamato).
-- [ ] **Da verificare: la ricerca eventi mostra date passate.** Il riepilogo dice "In programma,
-      nei prossimi **due settimane**" e fra i risultati compaiono eventi del 24/09 e dell'01/10
-      (visto il 04/10/2026 sullo staging). O il filtro sul periodo non viene applicato, o "in
-      programma" guarda lo stato e non la data e il riepilogo è scritto male. Di passaggio:
-      "nei prossimi due settimane" va comunque corretto in "nelle prossime due settimane".
-- [ ] **Da verificare: posti contati a zero su un torneo con 64 giocatori.** La pagina pubblica
-      del torneo 1 dice "Posti 0 / 64" mentre la sua classifica pubblica ne elenca 64. Forse il
-      conteggio guarda le iscrizioni aperte e non quelle storiche, ma a un visitatore sembra un
-      torneo vuoto.
+- [x] **La ricerca eventi mostrava date passate.** `days` aveva un valore predefinito nello
+      stato (14) ma non nell'URL, e la richiesta si costruiva da `location.search`: aprendo
+      `/events.html` senza parametri la finestra non partiva. Misurato: senza `days` 21 risultati
+      di cui 11 passati, con `days=14` cinque e nessuno. Ora il parametro si prende dallo stato.
+      Corretta anche la frase, che diceva "nei prossimi **due settimane**": "nei prossimi" non
+      concordava con nessuna delle etichette (*oggi, una settimana, due settimane, un mese*), ora
+      è "entro".
+- [x] **"Posti 0 / 64" su un torneo pieno.** Non era un conteggio sbagliato, come avevo
+      supposto: `spots` sono i posti **liberi**, quindi "0 / 64" voleva dire "nessun posto libero
+      su 64". Giusto nel numero e rovesciato nella lettura — sembrava un torneo deserto. Ora mostra
+      gli iscritti, come fa il back-office ("10 / 24"); `spots` resta dov'è, al pulsante
+      d'iscrizione e al distintivo "Torneo pieno", dove "liberi" è il significato giusto.
 
 ## Scoperta eventi e community
 

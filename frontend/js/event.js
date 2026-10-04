@@ -92,7 +92,11 @@ async function loadEvent() {
             <dt>Entry fee</dt>  <dd>${fmtMoney(t.entry_fee_cents)}</dd>
             ${imported
               ? (t.capacity ? `<dt>Posti</dt> <dd>${t.capacity}</dd>` : '')
-              : `<dt>Posti</dt> <dd>${spots} / ${t.capacity}</dd>`}
+              // Gli iscritti, non i posti liberi: "Posti 0 / 64" su un torneo
+              // pieno si legge come "nessuno si e' iscritto". Lo stesso conto
+              // che fa il back-office ("0/48 iscritti"). `spots` resta ai suoi
+              // due usi veri: il pulsante d'iscrizione e il distintivo "pieno".
+              : `<dt>Posti</dt> <dd>${t.registered_players || 0} / ${t.capacity}</dd>`}
           </dl>
         </div>
         ${t.description ? `<div class="panel"><h3>Descrizione</h3><p>${esc(t.description)}</p></div>` : ''}

@@ -198,8 +198,10 @@ function summarize(state, total) {
     return;
   }
   const when = DATE_RANGES.find((d) => d.value === state.days)?.label.toLowerCase() || `${state.days} giorni`;
+  // "entro" e non "nei prossimi": le etichette sono "oggi", "una settimana",
+  // "due settimane", "un mese" — con nessuna di queste "nei prossimi" concorda.
   $('#filterSummary').innerHTML =
-    `<b>${esc(total)}</b> risultati: <b>${esc(kinds)}${esc(formats)}${esc(rel)}</b> ${where}, nei prossimi <b>${esc(when)}</b>.`;
+    `<b>${esc(total)}</b> risultati: <b>${esc(kinds)}${esc(formats)}${esc(rel)}</b> ${where}, entro <b>${esc(when)}</b>.`;
 }
 
 /* ── Risultati ─────────────────────────────────────────────── */
@@ -258,8 +260,14 @@ async function run({ keepFocus = false } = {}) {
   if (state.luogo) q.set('online', state.luogo === 'online' ? 'true' : 'false');
   const finished = state.stato === 'conclusi';
   q.set('status', finished ? 'completed' : 'published,running');
-  // Una finestra "nei prossimi N giorni" non ha senso guardando indietro.
+  // Una finestra "da qui a N giorni" non ha senso guardando indietro.
+  // `days` si prende dallo stato, non dall'URL: lo stato ha un valore
+  // predefinito (14) e l'URL no, quindi aprendo /events.html senza parametri il
+  // filtro non partiva, il backend restituiva anche il passato, e intanto il
+  // riepilogo prometteva una finestra. E' l'unico parametro con un default,
+  // quindi l'unico che poteva divergere.
   if (finished) q.delete('days');
+  else q.set('days', state.days);
   if (state.radius_km && _position) {
     q.set('near_lat', _position.lat);
     q.set('near_lng', _position.lng);
