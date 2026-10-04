@@ -133,7 +133,7 @@ function renderFacets(state) {
     <div class="facet">
       <button class="secondary" id="resetFilters" type="button" style="width:100%">${esc(tr('Azzera filtri'))}</button>
       <button class="primary" id="saveSearch" type="button" style="width:100%;margin-top:6px">
-        ☆ Salva ricerca
+        ${esc(tr('☆ Salva ricerca'))}
       </button>
     </div>`;
 

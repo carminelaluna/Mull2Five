@@ -1109,5 +1109,6 @@
   "Warning, game loss, deck check e stato del tavolo": "Warning, Game Loss, Deck Check und Tischstatus",
   "Stato: {stato}": "Status: {stato}",
   "in gioco": "läuft",
-  "{n}/{tot} iscritti · {liberi} posti": "{n}/{tot} angemeldet · {liberi} Plätze"
+  "{n}/{tot} iscritti · {liberi} posti": "{n}/{tot} angemeldet · {liberi} Plätze",
+  "Tabellone": "Turnierbaum"
 }

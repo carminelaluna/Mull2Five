@@ -1102,5 +1102,6 @@
   "Tipo": "Tipo",
   "Nota": "Nota",
   "Persona": "Persona",
-  "{n}/{tot} iscritti · {liberi} posti": "{n}/{tot} inscritos · {liberi} plazas"
+  "{n}/{tot} iscritti · {liberi} posti": "{n}/{tot} inscritos · {liberi} plazas",
+  "Tabellone": "Cuadro"
 }

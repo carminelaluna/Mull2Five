@@ -10,6 +10,7 @@ import { onReady } from './lang.js';   // prima di tutto: la lingua (vedi lang.j
 import { mountConsole } from './console.js';
 import { esc } from './escape.js';
 import { apiRequest, logout, requireSession } from './session.js';
+import { t as tr } from './i18n.js';
 
 const session = requireSession();
 
@@ -25,7 +26,7 @@ function open(tid) {
 async function init() {
   $('#publicAuth').innerHTML =
     `<span style="color:var(--muted);font-size:.85rem">${esc(session.email)}</span>
-     <button class="secondary-link" id="logoutBtn" type="button">Esci</button>`;
+     <button class="secondary-link" id="logoutBtn" type="button">${esc(tr('Esci'))}</button>`;
   $('#logoutBtn').addEventListener('click', () => logout('index.html'));
 
   let mine = [];

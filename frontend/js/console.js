@@ -57,7 +57,7 @@ const SHELL = `
   </details>
 
   <details class="panel" data-el="bracketBox" style="margin-top:12px;display:none" open>
-    <summary>Tabellone</summary>
+    <summary>${esc(tr('Tabellone'))}</summary>
     <div data-el="bracket"><p class="empty">Caricamento…</p></div>
   </details>
 
@@ -352,7 +352,7 @@ export function mountConsole(host, tournamentId, { screenLinks = true, onClosed 
       ${statoLabel ? `<span class="tbl-state">${esc(statoLabel)}</span>` : ''}
       ${p.assigned_judge_name
         ? `<button class="mini-button judge-chip${mine ? ' mine' : ''}" data-action="unassign" data-pid="${p.id}" type="button" title="Libera il tavolo">👤 ${esc(p.assigned_judge_name)}</button>`
-        : (finalScore ? '' : `<button class="mini-button" data-action="assign" data-pid="${p.id}" type="button">Prendo io</button>`)}
+        : (finalScore ? '' : `<button class="mini-button" data-action="assign" data-pid="${p.id}" type="button">${esc(tr('Prendo io'))}</button>`)}
       ${canJudge() && !isBye ? `<button class="mini-button${String(p.id) === String(penaltiesFor) ? ' active' : ''}"
         data-action="toggle-penalties" data-pid="${p.id}" type="button"
         title="${esc(tr('Warning, game loss, deck check e stato del tavolo'))}">⚑</button>` : ''}
@@ -557,7 +557,7 @@ export function mountConsole(host, tournamentId, { screenLinks = true, onClosed 
           ${DC_RESULTS.map((r) => `<option value="${r.value}">${esc(r.label)}</option>`).join('')}
         </select></label>
         <label>Nota<input data-el="dcNote" maxlength="500" placeholder="Carta mancante, lista illeggibile…" /></label>
-        ${storico ? `<h3 style="margin:16px 0 6px;font-size:.9rem">Controlli precedenti</h3>
+        ${storico ? `<h3 style="margin:16px 0 6px;font-size:.9rem">${esc(tr('Controlli precedenti'))}</h3>
           <ul style="margin:0;padding-left:18px;font-size:.85rem;line-height:1.7">${storico}</ul>` : ''}
         <menu>
           <button class="secondary" value="cancel" formnovalidate>${esc(tr('Annulla'))}</button>

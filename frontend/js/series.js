@@ -3,6 +3,7 @@
  */
 import { onReady } from './lang.js';   // prima di tutto: la lingua (vedi lang.js)
 import { apiGet, esc, eventTile, fmtDate, updateAuthNav } from './catalog.js';
+import { t as tr } from './i18n.js';
 
 const $ = (s) => document.querySelector(s);
 
@@ -20,7 +21,7 @@ function leaderboardTable(rows, threshold) {
     </tr>`;
   }).join('');
   return `<table class="results-table">
-    <thead><tr><th>#</th><th>Giocatore</th><th>Punti</th><th>V/P/S</th><th>Tappe</th></tr></thead>
+    <thead><tr><th>#</th><th>${esc(tr('Giocatore'))}</th><th>${esc(tr('Punti'))}</th><th>V/P/S</th><th>${esc(tr('Tappe'))}</th></tr></thead>
     <tbody>${body}</tbody>
   </table>`;
 }
@@ -64,14 +65,14 @@ async function load() {
     </div>
 
     <section class="rail">
-      <div class="rail-head"><h2>Classifica</h2></div>
+      <div class="rail-head"><h2>${esc(tr('Classifica'))}</h2></div>
       <div class="panel" style="padding:4px 8px">
         ${leaderboardTable(data.leaderboard, s.qualification_threshold)}
       </div>
     </section>
 
     <section class="rail">
-      <div class="rail-head"><h2>Tappe</h2></div>
+      <div class="rail-head"><h2>${esc(tr('Tappe'))}</h2></div>
       ${data.tournaments.length
         ? `<div class="public-events-grid">${data.tournaments.map(eventTile).join('')}</div>`
         : '<p class="empty">Nessuna tappa collegata.</p>'}

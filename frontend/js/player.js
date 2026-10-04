@@ -1,6 +1,7 @@
 import { onReady } from './lang.js';   // prima di tutto: la lingua (vedi lang.js)
 import { apiGet, fmtDate, updateAuthNav } from './catalog.js';
 import { esc } from './escape.js';
+import { t as tr } from './i18n.js';
 
 const params    = new URLSearchParams(location.search);
 const PUBLIC_ID = params.get('p');   // URL: /player.html?p=abc123 (mai l'email)
@@ -48,7 +49,7 @@ async function loadProfile() {
 
     /* Sezione "score" mostrata se ha giocato; sezione "tornei organizzati" se è organizzatore. */
     const scoreSection = (profile.rows || []).length ? `
-      <h2 style="margin:24px 0 8px">📊 Risultati da giocatore</h2>
+      <h2 style="margin:24px 0 8px">${esc(tr('📊 Risultati da giocatore'))}</h2>
       <div class="stats-grid" style="margin-bottom:16px">
         <article class="metric"><span>Punti totali</span><strong>${totalPts}</strong></article>
         <article class="metric"><span>Record totale</span><strong>${totalW}V ${totalD}P ${totalL}S</strong></article>
@@ -57,13 +58,13 @@ async function loadProfile() {
         ${invites ? `<article class="metric"><span>Inviti ottenuti</span><strong>${invites}</strong></article>` : ''}
       </div>
       <div class="table-wrap"><table>
-        <thead><tr><th>Torneo</th><th>Formato</th><th>Data</th><th>Piazzamento</th><th>Punti</th><th>Record</th></tr></thead>
+        <thead><tr><th>${esc(tr('Torneo'))}</th><th>${esc(tr('Formato'))}</th><th>${esc(tr('Data'))}</th><th>${esc(tr('Piazzamento'))}</th><th>${esc(tr('Punti'))}</th><th>${esc(tr('Record'))}</th></tr></thead>
         <tbody>${tableRows}</tbody></table></div>` : '';
 
     const orgSection = organized.length ? `
-      <h2 style="margin:24px 0 8px">🏟️ Tornei organizzati</h2>
+      <h2 style="margin:24px 0 8px">${esc(tr('🏟️ Tornei organizzati'))}</h2>
       <div class="table-wrap"><table>
-        <thead><tr><th>Torneo</th><th>Formato</th><th>Data</th><th>Stato</th><th>Iscritti</th></tr></thead>
+        <thead><tr><th>${esc(tr('Torneo'))}</th><th>${esc(tr('Formato'))}</th><th>${esc(tr('Data'))}</th><th>${esc(tr('Stato'))}</th><th>${esc(tr('Iscritti'))}</th></tr></thead>
         <tbody>${orgRows}</tbody></table></div>` : '';
 
     container.innerHTML = `

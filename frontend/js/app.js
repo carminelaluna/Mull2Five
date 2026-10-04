@@ -10,6 +10,7 @@ import {
   apiGet, askPosition, esc, eventTile, forgetPosition, loadingTiles, placeholder,
   savedPosition, seriesTile, storeTile, updateAuthNav,
 } from './catalog.js';
+import { t as tr } from './i18n.js';
 
 const $ = (s) => document.querySelector(s);
 
@@ -110,8 +111,8 @@ function renderGeo() {
   const el = $('#geoBar');
   el.innerHTML = _position
     ? `<span class="dist-badge">📍 Posizione attiva</span>
-       <button class="chip" id="geoForget" type="button">Dimentica</button>`
-    : `<button class="chip" id="geoAsk" type="button">📍 Usa la mia posizione</button>
+       <button class="chip" id="geoForget" type="button">${esc(tr('Dimentica'))}</button>`
+    : `<button class="chip" id="geoAsk" type="button">${esc(tr('📍 Usa la mia posizione'))}</button>
        <span style="color:var(--muted);font-size:.82rem">per ordinare eventi e negozi per distanza</span>`;
   $('#geoAsk')?.addEventListener('click', async () => {
     try {

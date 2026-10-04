@@ -7,6 +7,7 @@ import { onReady } from './lang.js';   // prima di tutto: la lingua (vedi lang.j
 import { apiGet, fmtDate, updateAuthNav } from './catalog.js';
 import { renderDeck } from './deck-view.js';
 import { esc } from './escape.js';
+import { t as tr } from './i18n.js';
 
 let _all = [];
 
@@ -63,7 +64,7 @@ async function showResults(tid) {
       <td>${esc(s.archetype || '—')}</td>
       <td><strong>${s.points}</strong></td>
       <td>${esc(s.record)}</td>
-      <td>${r.decklists_public && s.decklist ? `<button class="mini-button" data-deck="${s.registration_id}" type="button">Lista</button>` : '—'}</td>
+      <td>${r.decklists_public && s.decklist ? `<button class="mini-button" data-deck="${s.registration_id}" type="button">${tr('Lista')}</button>` : '—'}</td>
     </tr>`).join('') || '<tr><td colspan="6" class="muted">Nessun risultato.</td></tr>';
 
   box.innerHTML = `<div class="panel">
@@ -71,7 +72,7 @@ async function showResults(tid) {
     <p class="muted">${fmtDate(String(r.starts_on))}${r.start_time ? ' · ' + esc(r.start_time) : ''}</p>
     ${winner ? `<div class="my-standing" style="margin-bottom:12px">🏆 Vincitore: <strong>${esc(winner.name)}</strong>${winner.archetype ? ` — ${esc(winner.archetype)}` : ''}</div>` : ''}
     <table class="data-table" style="width:100%">
-      <thead><tr><th>#</th><th>Giocatore</th><th>Archetipo</th><th>Punti</th><th>Record</th><th>Lista</th></tr></thead>
+      <thead><tr><th>#</th><th>${esc(tr('Giocatore'))}</th><th>${esc(tr('Archetipo'))}</th><th>${esc(tr('Punti'))}</th><th>${esc(tr('Record'))}</th><th>${esc(tr('Lista'))}</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
     ${r.decklists_public ? '' : '<p class="muted" style="margin-top:8px;font-size:.85rem">Le decklist di questo torneo non sono pubbliche.</p>'}
@@ -106,9 +107,9 @@ async function loadMeta(tid, box) {
   const panel = document.createElement('div');
   panel.className = 'panel';
   panel.style.marginTop = '12px';
-  panel.innerHTML = `<h3 style="margin-top:0">Metagame</h3>
+  panel.innerHTML = `<h3 style="margin-top:0">${esc(tr('Metagame'))}</h3>
     <table class="data-table" style="width:100%">
-      <thead><tr><th>Archetipo</th><th>Giocatori</th><th>V/S/P</th><th>Win rate</th></tr></thead>
+      <thead><tr><th>${esc(tr('Archetipo'))}</th><th>${esc(tr('Giocatori'))}</th><th>V/S/P</th><th>${esc(tr('Win rate'))}</th></tr></thead>
       <tbody>${body}</tbody>
     </table>`;
   box.appendChild(panel);

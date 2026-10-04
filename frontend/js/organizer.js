@@ -309,13 +309,13 @@ function eventCard(t) {
         </div>
       </div>
       <div class="bo-event-actions row-actions">
-        ${t.status === 'published' && !registrationOnly(t) ? `<button class="mini-button" data-act="start" data-id="${t.id}" type="button">▶ Avvia</button>` : ''}
+        ${t.status === 'published' && !registrationOnly(t) ? `<button class="mini-button" data-act="start" data-id="${t.id}" type="button">${esc(tr('▶ Avvia'))}</button>` : ''}
         ${registrationOnly(t) ? '' : `<a class="mini-button" href="control.html?t=${t.id}" target="_blank" rel="noopener">🖥 Regia a parte</a>`}
         <button class="mini-button" data-act="edit" data-id="${t.id}" type="button">✏ ${esc(tr('Modifica'))}</button>
         <button class="mini-button" data-act="dup" data-id="${t.id}" type="button">${esc(tr('Duplica'))}</button>
         <button class="mini-button" data-act="repeat" data-id="${t.id}" type="button">${esc(tr('Ripeti…'))}</button>
-        ${isClosed(t) ? '' : `<button class="mini-button" data-act="close" data-id="${t.id}" type="button">Chiudi</button>`}
-        ${isClosed(t) ? '' : `<button class="mini-button" data-act="del" data-id="${t.id}" type="button" style="color:var(--danger)">Elimina</button>`}
+        ${isClosed(t) ? '' : `<button class="mini-button" data-act="close" data-id="${t.id}" type="button">${esc(tr('Chiudi'))}</button>`}
+        ${isClosed(t) ? '' : `<button class="mini-button" data-act="del" data-id="${t.id}" type="button" style="color:var(--danger)">${esc(tr('Elimina'))}</button>`}
       </div>
     </article>`;
 }
@@ -338,7 +338,7 @@ function renderEventList() {
       : `<p class="empty">Nessun evento in corso. Creane uno con "Nuovo evento".</p>`}
 
     ${finished.length ? `
-      <h2 class="rail-sub">Conclusi</h2>
+      <h2 class="rail-sub">${esc(tr('Conclusi'))}</h2>
       <p class="muted" style="margin:-6px 0 12px;font-size:.85rem">
         Restano consultabili e non si possono eliminare: sono lo storico del negozio.</p>
       <div class="bo-event-list">${finished.map(eventCard).join('')}</div>` : ''}`;
@@ -1357,7 +1357,7 @@ function openDeckDialog(tid, reg) {
         Caricata dallo staff: non è soggetta alla scadenza che vale per i giocatori.</p>
       <menu>
         <button class="secondary" value="cancel" formnovalidate>${esc(tr('Annulla'))}</button>
-        <button class="primary" id="duSubmit" type="button">Salva list</button>
+        <button class="primary" id="duSubmit" type="button">${esc(tr('Salva lista'))}</button>
       </menu>
     </form>`;
   dlg.showModal();
@@ -2687,7 +2687,7 @@ async function renderStaff() {
           data-to="${m.role === 'head_judge' ? 'judge' : 'head_judge'}" type="button">
           ${m.role === 'head_judge' ? 'Degrada a judge' : 'Promuovi a capojudge'}</button>` : ''}
         ${(isOrganizer || m.role !== 'head_judge')
-          ? `<button class="mini-button" data-drop="${m.id}" type="button" style="color:var(--danger)">Rimuovi</button>`
+          ? `<button class="mini-button" data-drop="${m.id}" type="button" style="color:var(--danger)">${esc(tr('Rimuovi'))}</button>`
           : ''}
       </td>
     </tr>`).join('') || '<tr><td colspan="3" class="muted">Nessuno nello staff di questa tappa.</td></tr>';
@@ -2714,7 +2714,7 @@ async function renderStaff() {
             <option value="scorekeeper">${esc(tr('Scorekeeper'))}</option>
             ${isOrganizer && !hasHeadJudge ? '<option value="head_judge">Capojudge</option>' : ''}
           </select></label>
-          <button class="primary" type="submit">Nomina</button>
+          <button class="primary" type="submit">${esc(tr('Nomina'))}</button>
         </form>${avviso}`
         : '<p class="muted" style="margin-top:12px;font-size:.85rem">Solo organizzatore e capojudge nominano staff.</p>'}
     </div>`;

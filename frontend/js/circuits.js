@@ -6,6 +6,7 @@
  */
 import { onReady } from './lang.js';   // prima di tutto: la lingua (vedi lang.js)
 import { apiGet, placeholder, seriesTile, updateAuthNav } from './catalog.js';
+import { t as tr } from './i18n.js';
 
 const $ = (s) => document.querySelector(s);
 
@@ -21,9 +22,9 @@ async function load() {
     const active = series.filter((s) => s.is_active);
     const closed = series.filter((s) => !s.is_active);
     grid.innerHTML = [
-      active.length ? `<h2 class="rail-sub">In corso</h2>
+      active.length ? `<h2 class="rail-sub">${tr('In corso')}</h2>
         <div class="public-events-grid">${active.map(seriesTile).join('')}</div>` : '',
-      closed.length ? `<h2 class="rail-sub">Conclusi</h2>
+      closed.length ? `<h2 class="rail-sub">${tr('Conclusi')}</h2>
         <div class="public-events-grid">${closed.map(seriesTile).join('')}</div>` : '',
     ].join('');
   } catch (err) {

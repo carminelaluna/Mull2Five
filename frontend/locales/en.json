@@ -1100,5 +1100,6 @@
   "Warning, game loss, deck check e stato del tavolo": "Warning, game loss, deck check and table status",
   "Stato: {stato}": "Status: {stato}",
   "in gioco": "playing",
-  "{n}/{tot} iscritti · {liberi} posti": "{n}/{tot} registered · {liberi} seats"
+  "{n}/{tot} iscritti · {liberi} posti": "{n}/{tot} registered · {liberi} seats",
+  "Tabellone": "Bracket"
 }
