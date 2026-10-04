@@ -109,3 +109,41 @@ test('pagine legali e avviso privacy', async ({ page }) => {
   await page.goto('/cookie.html');
   await expect(page.locator('.privacy-notice')).toHaveCount(0);
 });
+
+test('una pagina riservata porta al login, non a una pagina rotta', async ({ page }) => {
+  // `requireSession` chiamava `location.replace` e poi tornava null: la
+  // navigazione parte dopo, quindi il modulo proseguiva e la riga successiva
+  // esplodeva su `.role` o `.email`. Chi capitava qui senza essere entrato
+  // vedeva una pagina rotta invece dell'invito ad accedere.
+  const esplosioni = [];
+  page.on('pageerror', (e) => esplosioni.push(String(e)));
+
+  for (const pagina of ['organizer.html', 'my-registrations.html', 'decks.html', 'tickets.html']) {
+    await page.goto(`/${pagina}`);
+    await page.waitForURL(`**/login.html?next=${pagina}`, { timeout: 15_000 });
+    await expect(page.locator('#tabLogin')).toBeVisible();
+  }
+  expect(esplosioni.filter((e) => e.includes('TypeError'))).toEqual([]);
+});
+
+test('un organizzatore crea un evento e se lo ritrova nella lista', async ({ page }) => {
+  await register(page, { name: 'E2E Crea', email: uniqueEmail(), role: 'organizer' });
+  await page.waitForURL('**/organizer.html', { timeout: 15_000 });
+  await expect(page.locator('#panel')).toContainText('Nessun evento in corso');
+
+  const nome = `E2E Torneo ${Date.now()}`;
+  await page.click('#boNew');
+  await page.fill('#nName', nome);
+  // Domani: un evento nel passato non comparirebbe fra quelli in programma.
+  const domani = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+  await page.fill('#nDate', domani);
+  await page.click('#nSubmit');
+
+  // Creato, il back-office entra dentro l'evento: la scheda dei giocatori.
+  await expect(page.locator('#panel')).toContainText('Giocatori', { timeout: 15_000 });
+
+  // E tornando alla lista l'evento c'è, che è la cosa che conta davvero.
+  await page.click('button.bo-nav-item[data-section="eventi"]');
+  await expect(page.locator('#panel')).toContainText(nome, { timeout: 15_000 });
+  await expect(page.locator('#panel')).not.toContainText('Nessun evento in corso');
+});
