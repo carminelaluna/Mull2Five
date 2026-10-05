@@ -95,15 +95,19 @@ e se lo schema è allineato al codice.
 
 Dettaglio in `TODO.md`. Quelle che contano:
 
-**Bloccano l'apertura ai negozi**
+**Bloccano l'apertura ai negozi** — nessuna è codice: sono decisioni o cruscotti.
 1. Far verificare a un legale privacy, termini e cookie (sono bozze) e riempire i `LEGAL_*`.
 2. Attivare Stripe Connect sull'account vero e il webhook `account.updated`.
-3. Decidere il piano di Render: oggi è **gratuito**, quindi il servizio si
+3. Creare il webhook PayPal, iscriverlo a `CHECKOUT.ORDER.APPROVED` e
+   `PAYMENT.CAPTURE.COMPLETED`, e mettere il suo identificativo in
+   `PAYPAL_WEBHOOK_ID`. Il codice è pronto; senza quell'identificativo le
+   notifiche vengono rifiutate, ed è il comportamento voluto.
+4. Decidere il piano di Render: oggi è **gratuito**, quindi il servizio si
    addormenta e il primo visitatore aspetta fino a un minuto.
 
-**Infrastruttura, dal guasto del 23/09**
-5. Far aspettare la CI al deploy; avvisi su `ALERT_EMAIL`; provare un ripristino
-   dal backup; valutare uno staging.
+**Infrastruttura, quel che resta del guasto del 23/09**
+5. Far aspettare la CI al deploy (nel cruscotto Render) e impostare `ALERT_EMAIL`.
+   Il ripristino dal backup è stato provato il 29/09, e lo staging esiste.
 
 **Rimandabili**
 Locator (spento per le condizioni d'uso di Wizards), ri-podding, app mobile,

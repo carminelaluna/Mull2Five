@@ -222,44 +222,67 @@ decisioni tue.
 ## Infrastruttura (dal guasto in produzione del 23 settembre 2026)
 
 - [ ] **Il deploy non aspetta la CI.** Render pubblica al push comunque: il 23/09 la CI era rossa e il deploy è uscito. Attivare l'attesa dei check nel cruscotto Render.
-- [ ] **Un deploy rotto sembra riuscito.** `sync_alembic` cattura l'errore di migrazione e il sito parte lo stesso: due deploy hanno fallito la migrazione e Render ha scritto "Your service is live". Decidere se l'avvio deve fallire quando una migrazione non passa.
+- [x] **Un deploy rotto non sembra più riuscito** (29/09/2026). `sync_alembic` rilancia l'errore
+      invece di annotarlo, e le migrazioni girano prima di uvicorn in `backend/app/prepara_database.py`,
+      chiamato dal `CMD`: se falliscono il contenitore esce con un errore, il deploy si ferma e resta
+      su la versione di prima. In più `/health` dice se lo schema è rimasto indietro.
 - [ ] **Nessun avviso quando il sito si rompe.** `send_alert` copre i 500 ma dipende da `ALERT_EMAIL`, vuoto in `.env.example`. Impostarlo in Render e provarlo.
 - [x] **Ripristino dal backup: provato il 29/09/2026, funziona.** Decifrato, ripristinato nello staging e anonimizzato con `scripts/anonimizza.py`: 7 tornei
       e una classifica da 64 giocatori, con i nomi sostituiti fin dentro le risposte pubbliche.
       Procedura in `docs/hosting.md`. Da ripetere quando lo staging va riallineato.
-- [ ] **Non c'è uno staging.** Ogni modifica va diritta sul sito vivo. Un secondo servizio Render con un database di prova.
+- [x] **Lo staging c'è** (29/09/2026): ramo `develop` → `mull2five-staging.onrender.com`, con
+      un progetto Supabase suo e una copia anonimizzata dei dati. Vedi `docs/hosting.md`.
 
 ## Segnalazioni dal campo (28 settembre 2026)
 
+> Rilette una per una contro il codice il 05/10/2026: dieci erano già state
+> chiuse e nessuno le aveva spuntate. Qui sotto, accanto a ognuna, dove
+> guardare per vederlo.
+
 **Bug**
-- [ ] Report 1-1 rifiutato: `Errore: draws: Input should be less than or equal to 0`.
-- [ ] Iscrivendo a mano o da lista il contatore degli iscritti non sale.
+- [x] Report 1-1 rifiutato. Un 1-1 è un match pari con due partite giocate, non una patta
+      di gioco: `draws` resta a zero e il punteggio passa da `ALLOWED_SCORES`, che ammette
+      `(1,1)` al meglio di 2 e di 3. Vedi `js/console.js:20` e `games.py:128`.
+- [x] Il contatore degli iscritti. È una `COUNT` sulle iscrizioni a ogni lettura
+      (`routers/tournaments.py:399`), quindi non può restare indietro comunque si iscriva.
 - [ ] Import giocatori: si è costretti a premere "Anteprima" prima di poter importare.
-- [ ] Torneo concluso: con data futura ci si può ancora iscrivere. Va bloccato.
-- [ ] Game loss: la partita deve chiudersi 2-0 per l'avversario.
-- [ ] Cliccare sulla lingua cambia il tema dell'interfaccia.
-- [ ] "Almeno due giocatori idonei": dire *cosa* manca e *a chi*.
+      Il codice lo fa di proposito — «prima l'anteprima riga per riga, poi l'import: niente
+      sorprese» (`js/organizer.js:1076`). Da decidere: è una protezione o un intralcio?
+- [x] Torneo concluso: niente più iscrizioni, anche con data futura
+      (`routers/tournament_registrations.py:314`, `:503`, `:766`).
+- [x] Game loss: la partita si chiude 2-0 per l'avversario (`_close_match_against`).
+- [x] Cliccare sulla lingua non cambia più il tema: il menu era trasparente e Chrome gli
+      disegnava sotto il bianco di sistema. Ora ha un fondo suo (`app.css:1019`).
+- [x] "Almeno due giocatori idonei" dice cosa manca e a chi (`services/pairings.py:118`).
 
 **Permessi**
-- [ ] Un player non deve vedere la scheda Organizzazione.
-- [ ] Solo il capojudge può avviare il turno successivo.
+- [ ] Un player non deve vedere la scheda Organizzazione. Il link "Organizza" nel menu è
+      statico e lo vedono tutti (`index.html:39`) — ma lì è un invito ad aprire un negozio,
+      non un accesso. Da chiarire quale delle due cose va nascosta.
+- [x] Solo organizzatore o capojudge avviano il turno successivo
+      (`load_tournament_for_head_judge`, `routers/tournament_rounds.py:207`).
 
 **Interfaccia**
-- [ ] Città con completamento a tendina all'iscrizione del negozio (e dove si scrive una città).
-- [ ] "Luogo" va separato in **luogo** e **città**.
+- [x] Città con completamento a tendina (`js/city-input.js`).
+- [x] "Luogo" separato in **luogo** e **città** (migrazione `0003_tournament_city`).
 - [x] **Deciso** (29/09/2026): un ritirato **non** libera il posto e resta nella lista
       degli iscritti. Ha quasi sempre già giocato, quindi conta come presente per la
       capienza e va visto fra gli iscritti. Nessuna modifica: il comportamento era già
       questo. Dal turno dopo non viene più abbinato e in classifica resta, segnato
       "ritirato" (vedi `docs/regia.md`).
-- [ ] Togliere "mark absent game".
-- [ ] Aggiungere l'abbinamento manuale.
-- [ ] I giocatori devono vedere tutti gli abbinamenti e la classifica; la classifica anche all'organizzatore.
+- [x] Tolto "mark absent game": nel codice non compare più, né lato server né nelle pagine.
+- [x] Abbinamento manuale (`update_manual_pairing`, con il controllo dei conflitti).
+- [x] Abbinamenti e classifica visibili ai giocatori, con due interruttori per torneo
+      (`pairings_public`, `standings_public`) e gli endpoint pubblici `public-results` e
+      `public-bracket`.
 
 **Funzioni nuove**
-- [ ] Iscrizione al banco di chi non ha ancora un account: crearlo contestualmente.
-- [ ] Gestione dei ticket. Togliere "Family" dal profilo: al suo posto si apre un ticket.
-- [ ] Community: chiarire cosa succede dopo aver aggiunto i tag (richiesta incompleta).
+- [x] Iscrizione al banco di chi non ha un account: lo crea sul momento e gli manda l'invito a
+      scegliersi una password (`tournament_registrations.py:1169` e `_invite_to_set_a_password`).
+- [x] Segnalazioni: tabelle `tickets` e `ticket_messages` (migrazione `0004_tickets`), pagina
+      `tickets.html`, su due livelli — all'organizzatore o a chi tiene il sito.
+- [x] Community: cosa succede con i tag è scritto in `docs/back-office.md` — a cosa servono,
+      che richiedono un negozio, e che quelli creati prima seguono chi li ha fatti.
 
 ## Da monitorare
 
