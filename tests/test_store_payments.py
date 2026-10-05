@@ -160,3 +160,118 @@ def test_paypal_orders_pay_the_store_account(client, db_session):
     assert unit["payee"] == {"email_address": "cassa@negozio.it"}
     assert unit["amount"] == {"currency_code": "EUR", "value": "20.00"}
     assert "payee" not in paypal_order_body(registration, None)["purchase_units"][0]
+
+
+@pytest.fixture
+def paypal(monkeypatch):
+    """Un finto PayPal: dice se la firma è buona e registra gli incassi."""
+    from backend.app.routers import payments as router_pagamenti
+    from backend.app.routers import tournaments as router_tornei
+    from backend.app.services.payments import CheckoutSession
+
+    settings = get_settings()
+    monkeypatch.setattr(settings, "paypal_client_id", "id-di-prova")
+    monkeypatch.setattr(settings, "paypal_client_secret", "segreto-di-prova")
+    monkeypatch.setattr(settings, "paypal_webhook_id", "WH-PROVA")
+    stato = {"firma_valida": True, "incassi": [], "ricevute": 0}
+
+    async def checkout(registration, store=None):
+        return CheckoutSession(provider_checkout_id="ORDINE-1", checkout_url="https://paypal.test/approva")
+
+    async def verifica(headers, event):
+        return stato["firma_valida"]
+
+    async def incassa(order_id):
+        stato["incassi"].append(order_id)
+        return "INCASSO-1"
+
+    monkeypatch.setattr(router_tornei, "create_paypal_checkout", checkout)
+    monkeypatch.setattr(router_pagamenti, "paypal_webhook_is_authentic", verifica)
+    monkeypatch.setattr(router_pagamenti, "capture_paypal_order", incassa)
+    monkeypatch.setattr(router_pagamenti, "notify_payment_confirmed",
+                        lambda *a, **k: stato.__setitem__("ricevute", stato["ricevute"] + 1))
+    return stato
+
+
+def _iscritto_con_ordine_paypal(client, email="pp-player@example.com"):
+    """Un giocatore iscritto con un ordine PayPal in attesa."""
+    owner, _ = _store(client, f"owner-{email}", "Tana del Drago")
+    tid = _tournament(client, owner)
+    player = _register_user(client, email)
+    client.post(f"/api/tournaments/{tid}/registrations", headers=player, json={})
+    pagamento = client.post(f"/api/tournaments/{tid}/checkout", headers=player,
+                            json={"provider": "paypal"})
+    assert pagamento.status_code in (200, 201), pagamento.text
+    return owner, tid, pagamento.json()["id"]
+
+
+APPROVATO = {"event_type": "CHECKOUT.ORDER.APPROVED", "resource": {"id": "ORDINE-1"}}
+INCASSATO = {
+    "event_type": "PAYMENT.CAPTURE.COMPLETED",
+    "resource": {"id": "INCASSO-1",
+                 "supplementary_data": {"related_ids": {"order_id": "ORDINE-1"}}},
+}
+
+
+def _pagamento(db_session, pid):
+    """La riga vera, riletta dal database: è lo stato persistito che conta."""
+    from backend.app.models import Payment
+    db_session.expire_all()
+    return db_session.get(Payment, pid)
+
+
+def test_a_forged_paypal_notification_pays_for_nobody(client, paypal, db_session):
+    """L'endpoint è pubblico: senza verifica, chiunque dichiarava pagata
+    l'iscrizione di chiunque. È la voce 4 del TODO."""
+    owner, tid, pid = _iscritto_con_ordine_paypal(client, "pp-falso@example.com")
+    paypal["firma_valida"] = False
+
+    risposta = client.post("/api/payments/paypal/webhook", json=INCASSATO)
+
+    assert risposta.status_code == 400
+    assert _pagamento(db_session, pid).status != "paid"
+    assert paypal["ricevute"] == 0
+
+
+def test_without_a_webhook_id_paypal_notifications_are_refused(client, paypal, monkeypatch):
+    """Senza l'identificativo non c'è niente contro cui verificare la firma:
+    meglio rifiutare che fidarsi."""
+    monkeypatch.setattr(get_settings(), "paypal_webhook_id", None)
+    assert client.post("/api/payments/paypal/webhook", json=INCASSATO).status_code == 503
+
+
+def test_an_approved_order_is_captured_and_not_yet_paid(client, paypal, db_session):
+    """Approvato vuol dire che il compratore ha detto sì, non che i soldi sono
+    arrivati: l'ordine ha `intent: CAPTURE` e va incassato. Prima nessuno lo
+    faceva, e il negozio non vedeva un euro."""
+    owner, tid, pid = _iscritto_con_ordine_paypal(client, "pp-approva@example.com")
+
+    assert client.post("/api/payments/paypal/webhook", json=APPROVATO).status_code == 200
+
+    assert paypal["incassi"] == ["ORDINE-1"]
+    assert _pagamento(db_session, pid).status != "paid"
+    assert paypal["ricevute"] == 0
+
+
+def test_the_capture_is_what_marks_it_paid_and_can_be_refunded(client, paypal, db_session):
+    owner, tid, pid = _iscritto_con_ordine_paypal(client, "pp-incassa@example.com")
+
+    assert client.post("/api/payments/paypal/webhook", json=INCASSATO).status_code == 200
+
+    riga = _pagamento(db_session, pid)
+    assert riga.status == "paid"
+    assert paypal["ricevute"] == 1
+    # L'identificativo dell'incasso, non quello dell'ordine: l'ordine non si rimborsa.
+    assert riga.provider_payment_id == "INCASSO-1"
+
+
+def test_the_same_notification_twice_sends_one_receipt(client, paypal, db_session):
+    """PayPal può ripetere una notifica: due ricevute per un pagamento solo
+    sarebbero un errore visibile al giocatore."""
+    owner, tid, pid = _iscritto_con_ordine_paypal(client, "pp-doppio@example.com")
+
+    client.post("/api/payments/paypal/webhook", json=INCASSATO)
+    client.post("/api/payments/paypal/webhook", json=INCASSATO)
+
+    assert _pagamento(db_session, pid).status == "paid"
+    assert paypal["ricevute"] == 1

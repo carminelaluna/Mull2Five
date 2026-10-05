@@ -32,6 +32,11 @@ class Settings(BaseSettings):
     paypal_client_id: str | None = None
     paypal_client_secret: str | None = None
     paypal_env: str = "sandbox"
+    # L'identificativo del webhook, dal cruscotto PayPal. Senza non si può
+    # verificare che una notifica venga davvero da PayPal, e quell'endpoint è
+    # pubblico: chiunque potrebbe dichiarare pagata un'iscrizione. Se manca, le
+    # notifiche vengono rifiutate.
+    paypal_webhook_id: str | None = None
     payment_sandbox_mock: bool = True
     # Quota della piattaforma sui pagamenti con carta che vanno a un negozio con
     # Stripe collegato (0 = tutto al negozio, meno le commissioni di Stripe).

@@ -66,6 +66,8 @@ services:
         sync: false
       - key: PAYPAL_CLIENT_SECRET
         sync: false
+      - key: PAYPAL_WEBHOOK_ID
+        sync: false
       - key: PAYPAL_ENV
         sync: false
       - key: PAYMENT_SANDBOX_MOCK
@@ -173,6 +175,8 @@ services:
       - key: PAYPAL_CLIENT_ID
         sync: false
       - key: PAYPAL_CLIENT_SECRET
+        sync: false
+      - key: PAYPAL_WEBHOOK_ID
         sync: false
 
       # Vuote di proposito: una copia che manda email scrive a persone vere.

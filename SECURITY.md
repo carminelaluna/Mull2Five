@@ -53,11 +53,9 @@ Quindi contano soprattutto:
 
 ## Difetti già noti
 
-Stanno nel `TODO.md`, pubblico come il resto. Il principale:
+Stanno nel `TODO.md`, pubblico come il resto. Al momento non ce ne sono di
+sicurezza: quello che c'era — il webhook PayPal che non verificava la firma — è
+stato chiuso il 05/10/2026.
 
-- **Il webhook PayPal non verifica la firma** e tratta `CHECKOUT.ORDER.APPROVED`
-  come un incasso (`backend/app/routers/payments.py`). Oggi non è sfruttabile
-  perché PayPal è spento; va chiuso prima di accenderlo.
-
-Segnalarli di nuovo non serve. Segnalare un modo di sfruttarli che non era stato
-considerato, sì.
+Segnalare un modo di sfruttare qualcosa che non era stato considerato è sempre
+utile.

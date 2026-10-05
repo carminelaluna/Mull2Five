@@ -93,18 +93,13 @@ e se lo schema è allineato al codice.
 
 ## Cosa resta — in ordine
 
-Dettaglio in `TODO.md` (14 voci aperte). Quelle che contano:
+Dettaglio in `TODO.md`. Quelle che contano:
 
 **Bloccano l'apertura ai negozi**
 1. Far verificare a un legale privacy, termini e cookie (sono bozze) e riempire i `LEGAL_*`.
 2. Attivare Stripe Connect sull'account vero e il webhook `account.updated`.
 3. Decidere il piano di Render: oggi è **gratuito**, quindi il servizio si
    addormenta e il primo visitatore aspetta fino a un minuto.
-
-**Difetto vero, non ancora sfruttabile**
-4. Il webhook PayPal non verifica la firma e tratta `CHECKOUT.ORDER.APPROVED`
-   come incasso (`backend/app/routers/payments.py`). Da chiudere **prima** di
-   accendere PayPal.
 
 **Infrastruttura, dal guasto del 23/09**
 5. Far aspettare la CI al deploy; avvisi su `ALERT_EMAIL`; provare un ripristino

@@ -183,17 +183,19 @@ controllo in CI su SQLite e PostgreSQL, chiamate all'API in un posto solo
 frontend. Questi tre restano: il primo è lavoro da fare, gli altri due sono
 decisioni tue.
 
-- [ ] **1. Il webhook PayPal non verifica la firma, e segna pagato troppo presto.**
-  Quello di Stripe la verifica (`stripe.Webhook.construct_event`); quello di
-  PayPal accetta qualunque POST, quindi chi conosce l'URL può mandare un
-  `PAYMENT.CAPTURE.COMPLETED` con un order id vero e farsi risultare pagato
-  senza aver pagato. Serve la chiamata a
-  `POST /v1/notifications/verify-webhook-signature` con `PAYPAL_WEBHOOK_ID`,
-  e il rifiuto dell'evento se non torna `SUCCESS`. Nella stessa rotta,
-  `CHECKOUT.ORDER.APPROVED` viene trattato come incasso, ma l'approvazione non
-  è l'incasso: va catturato l'ordine
-  (`POST /v2/checkout/orders/{id}/capture`) e segnato pagato solo dopo.
-  File: `backend/app/routers/payments.py:90`.
+- [x] **Webhook PayPal: firma verificata e incasso vero** (05/10/2026). Erano tre difetti in uno.
+      La firma non si controllava e l'endpoint è pubblico: chiunque ne conoscesse l'indirizzo poteva
+      dichiarare pagata l'iscrizione di chiunque. `CHECKOUT.ORDER.APPROVED` veniva scambiato per un
+      incasso, ma dice solo che il compratore ha approvato: l'ordine nasce con `intent: CAPTURE` e
+      **nessuno catturava**, quindi il giocatore entrava e il negozio non incassava. E in
+      `provider_payment_id` finiva l'identificativo dell'ordine invece che quello dell'incasso, con
+      cui i rimborsi non sarebbero passati. Ora: `PAYPAL_WEBHOOK_ID` obbligatorio, firma verificata
+      presso PayPal, l'approvazione fa partire la cattura, e solo `PAYMENT.CAPTURE.COMPLETED` segna
+      pagato — una volta sola, anche se la notifica arriva due volte. Cinque test, tutti rossi contro
+      il codice di prima.
+      Resta da fare nel cruscotto PayPal: creare il webhook, iscriverlo a
+      `CHECKOUT.ORDER.APPROVED` e `PAYMENT.CAPTURE.COMPLETED`, e mettere il suo
+      identificativo in `PAYPAL_WEBHOOK_ID`. Senza, le notifiche sono rifiutate.
 
 - [ ] **15. Il piano di Render: quanto regge quello che c'è adesso.**
   Il container avvia un solo processo uvicorn, senza `--workers`

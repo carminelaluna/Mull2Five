@@ -10,6 +10,7 @@ from backend.app.db import get_db
 from backend.app.models import Organization, Payment, PaymentStatus, Registration
 from backend.app.schemas import SandboxPaymentOut
 from backend.app.services.notifications import notify_payment_confirmed
+from backend.app.services.payments import capture_paypal_order, paypal_webhook_is_authentic
 
 router = APIRouter(prefix="/payments", tags=["payments"])
 
@@ -84,20 +85,55 @@ async def stripe_webhook(
     return {"status": "ok"}
 
 
+def _paypal_payment(db: Session, order_id: str) -> Payment | None:
+    if not order_id:
+        return None
+    return db.scalar(
+        select(Payment).where(Payment.provider_checkout_id == order_id, Payment.provider == "paypal")
+    )
+
+
 @router.post("/paypal/webhook")
 async def paypal_webhook(request: Request, db: Session = Depends(get_db)) -> dict[str, str]:
-    payload = await request.json()
-    event_type = payload.get("event_type", "")
-    resource = payload.get("resource", {})
-    if event_type in {"CHECKOUT.ORDER.APPROVED", "PAYMENT.CAPTURE.COMPLETED"}:
-        order_id = resource.get("id") or resource.get("supplementary_data", {}).get("related_ids", {}).get("order_id")
-        payment = db.scalar(
-            select(Payment).where(Payment.provider_checkout_id == order_id, Payment.provider == "paypal")
-        )
-        if payment:
-            payment.status = PaymentStatus.PAID
-            payment.provider_payment_id = resource.get("id", "")
-            payment.paid_at = datetime.now(UTC)
+    """Le notifiche di PayPal, verificate prima di dar loro retta.
+
+    Due cose mancavano, e insieme facevano entrare i giocatori senza pagare. La
+    firma non si controllava, e l'endpoint è pubblico: bastava conoscerne
+    l'indirizzo per dichiarare pagata l'iscrizione di chiunque. E
+    `CHECKOUT.ORDER.APPROVED` veniva scambiato per un incasso, mentre dice solo
+    che il compratore ha dato l'ok: l'ordine nasce con `intent: CAPTURE`, i
+    soldi si muovono quando qualcuno li prende — e nessuno li prendeva.
+    """
+    settings = get_settings()
+    if not settings.paypal_webhook_id:
+        raise HTTPException(status_code=503, detail="La notifica PayPal non è configurata")
+    event = await request.json()
+    if not await paypal_webhook_is_authentic(request.headers, event):
+        raise HTTPException(status_code=400, detail="Notifica PayPal non valida")
+
+    tipo = event.get("event_type", "")
+    resource = event.get("resource", {})
+
+    if tipo == "CHECKOUT.ORDER.APPROVED":
+        # Approvato, non incassato: qui si prendono i soldi. Nessun "pagato"
+        # ancora — lo dirà la notifica dell'incasso.
+        ordine = resource.get("id", "")
+        pagamento = _paypal_payment(db, ordine)
+        if pagamento and pagamento.status != PaymentStatus.PAID:
+            await capture_paypal_order(ordine)
+        return {"status": "ok"}
+
+    if tipo == "PAYMENT.CAPTURE.COMPLETED":
+        ordine = resource.get("supplementary_data", {}).get("related_ids", {}).get("order_id", "")
+        pagamento = _paypal_payment(db, ordine)
+        # La stessa notifica può arrivare due volte: senza questo controllo il
+        # giocatore riceverebbe due ricevute.
+        if pagamento and pagamento.status != PaymentStatus.PAID:
+            pagamento.status = PaymentStatus.PAID
+            # L'identificativo dell'incasso, non quello dell'ordine: è questo
+            # che serve per rimborsare.
+            pagamento.provider_payment_id = resource.get("id", "")
+            pagamento.paid_at = datetime.now(UTC)
             db.commit()
-            _on_payment_paid(db, payment)
+            _on_payment_paid(db, pagamento)
     return {"status": "ok"}
