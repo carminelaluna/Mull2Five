@@ -3,7 +3,11 @@
 Piattaforma per tornei di carte: ricerca eventi, iscrizioni, pagamenti, turni,
 abbinamenti, liste dei mazzi. Live su https://mull2five.onrender.com
 (Render, Docker, regione Frankfurt) con PostgreSQL su Supabase Frankfurt.
-Repository **pubblico**, un solo branch (`main`), deploy automatico al push.
+Repository **pubblico**, deploy automatico al push. Due rami, due ambienti:
+`develop` → staging (`mull2five-staging.onrender.com`, con un progetto Supabase
+suo), `main` → produzione. Si lavora su `develop`, si guarda lo staging, si fonde
+in `main`: **il push su `main` è l'unico gesto che tocca il sito vivo.** I servizi
+stanno in `render.yaml`, la procedura in `docs/hosting.md`.
 
 Solo **Magic** è acceso: gli altri giochi esistono nel codice e si accendono
 con `ENABLED_GAMES`.
@@ -83,7 +87,9 @@ Parità con Melee completata (26 passi), checklist di lancio fatta, revisione
 critica chiusa tranne tre punti. Il backend è diviso in `tournaments.py`,
 `tournament_registrations.py`, `tournament_rounds.py` più i servizi; il
 back-office in `organizer.js`, `organizer-store.js`, `organizer-common.js`.
-ESLint sul frontend, Alembic sullo schema, 343 test.
+ESLint sul frontend, Alembic sullo schema. Test: 346 backend (SQLite e
+PostgreSQL), 49 frontend, 9 end-to-end. `/health` dice quale commit sta girando
+e se lo schema è allineato al codice.
 
 ## Cosa resta — in ordine
 

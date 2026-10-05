@@ -25,10 +25,20 @@ function scoreToBody(score) {
   return { match_wins_a: a, match_wins_b: b, draws: 0 };
 }
 
-function fmt(sec) {
-  const over = sec < 0;
+/** Il tempo di un round, come lo si legge a colpo d'occhio in sala.
+
+    Minuti e secondi, col segno meno quando si è sforato: di quanto si è oltre il
+    tempo a un judge serve saperlo. Passata l'ora si mostrano le ore, altrimenti
+    un round lasciato aperto per la notte diventa un numero illeggibile — visto
+    in Regia il 04/10/2026: `-18008:27`, cioè dodici giorni e mezzo. */
+export function fmt(sec) {
+  const oltre = sec < 0;
   const s = Math.abs(Math.floor(sec));
-  return `${over ? '-' : ''}${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+  const ore = Math.floor(s / 3600);
+  const minuti = ore ? String(Math.floor(s / 60) % 60).padStart(2, '0')
+                     : String(Math.floor(s / 60)).padStart(2, '0');
+  const secondi = String(s % 60).padStart(2, '0');
+  return `${oltre ? '-' : ''}${ore ? `${ore}:` : ''}${minuti}:${secondi}`;
 }
 
 const SHELL = `
