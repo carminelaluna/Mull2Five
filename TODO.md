@@ -305,15 +305,30 @@ decisioni tue.
       dice commit e revisione dello schema.
 - [x] Aggiunta suite `unittest` persistente invece degli smoke test inline.
 
-## Idee per dopo
+## Idee per dopo — fatte (5 ottobre 2026)
 
-Dalle vecchie note di sviluppo (`suggestions.md`, tolto: il resto era già fatto).
+Erano le vecchie note di sviluppo (`suggestions.md`). Tutte in piedi, con i test.
 
-- Email: promemoria il giorno prima del torneo; link di pagamento diretto quando si viene promossi dalla lista d'attesa.
-- Calendario mensile nella parte pubblica ("cosa c'è giovedì?"): i dati ci sono già, manca la griglia.
-- Modelli di torneo salvati (oggi c'è "Duplica", con la data spostata di 7 giorni).
-- Early bird e codici sconto sulla quota d'iscrizione.
-- Profilo giocatore: win rate per formato e per archetipo (record e piazzamenti ci sono già).
+- [x] Email: promemoria il giorno prima del torneo (`services/reminders.py`, un compito
+      ogni ora; una volta sola per torneo, `tournaments.reminder_sent_at`, e solo se
+      l'organizzatore tiene accese le email del torneo) e, a chi viene promosso dalla
+      lista d'attesa, il link alla pagina del torneo con l'ora entro cui pagare
+      (`WAITLIST_PAY_HOURS`, sei ore: prima l'email diceva "paga" e basta).
+- [x] Calendario mensile nella parte pubblica: in "Cerca eventi" il selettore
+      Elenco/Mese (`js/month-grid.js`), stessi filtri, lunedì a sinistra, oggi
+      evidenziato. Sul telefono diventa l'elenco dei giorni in cui si gioca.
+- [x] Modelli di torneo salvati: "★ Modello" sulla riga dell'evento mette da parte le
+      impostazioni col loro nome, "Parti da un modello" riempie "Nuovo evento".
+      La data no: è l'unica cosa che un modello non può sapere.
+- [x] Early bird: quota ridotta fino a una data (compresa). Il prezzo lo decide un
+      posto solo, `entry_fee_now()`, e la pagina mostra la stessa cifra che incassa
+      il banco.
+- [x] Codici sconto: per torneo, percentuale o importo, con scadenza e numero di usi.
+      Si scrivono all'iscrizione e restano attaccati all'iscritto, quindi ritirare un
+      codice non cambia il prezzo a chi l'ha già usato (si chiude, non si cancella).
+- [x] Profilo giocatore: win rate per formato e per archetipo. Mentre si faceva è
+      saltato fuori che il profilo leggeva il record nell'ordine sbagliato
+      (`calculate_standings` scrive V/S/P): mostrava le sconfitte come patte.
 
 ## Parità con Melee — piano (settembre 2026)
 

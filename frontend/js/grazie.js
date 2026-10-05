@@ -5,7 +5,7 @@
  * Stripe o PayPal, quando la conferma del pagamento può essere ancora in viaggio.
  */
 import { onReady } from './lang.js';
-import { esc, fmtDate, fmtMoney, getSession, updateAuthNav } from './catalog.js';
+import { esc, feeNow, fmtDate, fmtMoney, getSession, updateAuthNav } from './catalog.js';
 import { apiRequest } from './session.js';
 import { t as tr } from './i18n.js';
 
@@ -38,7 +38,9 @@ function icsFile(t) {
 
 function steps(t, reg) {
   const out = [];
-  const fee = fmtMoney(t.entry_fee_cents);
+  // Quella che deve lui: l'early bird e il suo codice sconto sono già contati
+  // nell'iscrizione. La quota del torneo direbbe un'altra cifra.
+  const fee = fmtMoney(reg.amount_due_cents ?? feeNow(t));
   if (reg.waitlisted) {
     out.push(['⏳', tr("Sei in lista d'attesa: se si libera un posto passi tra gli iscritti e te lo diciamo.")]);
   } else if (reg.payment_status === 'paid') {

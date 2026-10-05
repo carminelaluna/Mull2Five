@@ -5,12 +5,13 @@ Le domande di un torneo, quante penalita ha gia preso un giocatore e la
 promozione dalla lista d'attesa: li usano sia il router del torneo sia quello
 degli iscritti, quindi non possono stare ne in uno ne nell'altro.
 """
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
 from backend.app.core.cache import cache_invalidate
+from backend.app.core.config import get_settings
 from backend.app.models import (
     Penalty,
     Registration,
@@ -35,6 +36,9 @@ def prior_penalties(player_ids: list[int], tournament_id: int):
         .join(Registration, Registration.id == Penalty.registration_id)
         .where(Registration.player_id.in_(player_ids), Penalty.tournament_id != tournament_id, Penalty.kind != "note")
     )
+
+
+WAITLIST_PAY_HOURS = 6   # ore per pagare dopo la promozione dalla waitlist (#32)
 
 
 def promote_from_waitlist(tournament: Tournament, db: Session) -> None:
@@ -64,13 +68,22 @@ def promote_from_waitlist(tournament: Tournament, db: Session) -> None:
     db.commit()
     cache_invalidate(f"registrations:{tournament.id}")
     cache_invalidate(f"my-reg:{tournament.id}:{next_in_line.player_id}")
+    # Il posto scade, e questa email è l'unico posto in cui il giocatore può
+    # scoprirlo: senza il link e l'ora torna in coda senza aver mai saputo di
+    # avere un orologio addosso.
+    pagina = f"{str(get_settings().frontend_url).rstrip('/')}/event.html?id={tournament.id}"
+    scadenza = next_in_line.promoted_at + timedelta(hours=WAITLIST_PAY_HOURS)
     try:
         send_email(
             next_in_line.player.email,
             f"{tournament.name} — Sei dentro!",
             f"Ciao {next_in_line.player.display_name},\n\n"
             f"si è liberato un posto per \"{tournament.name}\" e sei stato promosso "
-            "dalla lista d'attesa. Completa il pagamento per confermare l'iscrizione.",
+            "dalla lista d'attesa.\n\n"
+            f"Il posto resta tuo per {WAITLIST_PAY_HOURS} ore: completa il pagamento "
+            f"entro il {scadenza.strftime('%d/%m alle %H:%M')} UTC, altrimenti torni in "
+            "coda e il posto passa al prossimo.\n\n"
+            f"Paga qui: {pagina}",
         )
     except Exception:
         pass

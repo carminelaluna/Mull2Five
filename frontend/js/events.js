@@ -10,7 +10,9 @@ import { gameLabel, loadGames } from './games.js';
 import { t as tr } from './i18n.js';
 import {
   DATE_RANGES, DISTANCES, EVENT_TYPES, FORMATS, RELS,
-  apiGet, askPosition, esc, fmtDate, fmtMoney, savedPosition, typeLabel, updateAuthNav, placeLabel } from './catalog.js';
+  apiGet, askPosition, earlyBirdOn, esc, feeNow, fmtDate, fmtMoney, savedPosition, typeLabel,
+  updateAuthNav, placeLabel } from './catalog.js';
+import { monthKey, monthRange, renderMonth } from './month-grid.js';
 
 const $ = (s) => document.querySelector(s);
 const SAVED_KEY = 'mull2five-saved-searches-v1';
@@ -35,6 +37,9 @@ function readState() {
     // "Storico" non e una pagina a parte: e questa ricerca sui tornei conclusi.
     stato: q.get('stato') === 'conclusi' ? 'conclusi' : 'programma',
     luogo: ['online', 'negozio'].includes(q.get('luogo')) ? q.get('luogo') : '',
+    // Gli stessi filtri, due modi di guardarli: l'elenco e la griglia del mese.
+    vista: q.get('vista') === 'mese' ? 'mese' : 'elenco',
+    mese: /^\d{4}-\d{2}$/.test(q.get('mese') || '') ? q.get('mese') : monthKey(),
   };
 }
 
@@ -59,6 +64,10 @@ function writeState(state, { replace = false } = {}) {
   if (state.name) q.set('name', state.name);
   if (state.stato === 'conclusi') q.set('stato', 'conclusi');
   if (state.luogo) q.set('luogo', state.luogo);
+  if (state.vista === 'mese') {
+    q.set('vista', 'mese');
+    q.set('mese', state.mese);
+  }
   const url = `${location.pathname}?${q}`;
   if (replace) history.replaceState(null, '', url);
   else history.pushState(null, '', url);
@@ -128,7 +137,7 @@ function renderFacets(state) {
     ${checkboxes('Tipo di evento', 'event_types', EVENT_TYPES, state)}
     ${checkboxes('Formato', 'formats', formatChoices(state).map((f) => ({ value: f, label: f })), state)}
     ${checkboxes('Livello (REL)', 'rel', RELS.map((r) => ({ value: r, label: r })), state, { limit: 3 })}
-    ${state.stato === 'conclusi' ? '' : radios('Periodo', 'days', DATE_RANGES, state.days)}
+    ${state.stato === 'conclusi' || state.vista === 'mese' ? '' : radios('Periodo', 'days', DATE_RANGES, state.days)}
     ${geo}
     <div class="facet">
       <button class="secondary" id="resetFilters" type="button" style="width:100%">${esc(tr('Azzera filtri'))}</button>
@@ -229,7 +238,7 @@ function renderRows(events) {
       <td>${esc(t.format)}</td>
       <td>${t.is_online ? '<span class="online-badge">Online</span>' : esc(placeLabel(t) || t.organization_name || '—')}
         ${t.distance_km != null ? `<span class="col-sub dist-badge">${t.distance_km} km</span>` : ''}</td>
-      <td>${t.entry_fee_cents ? fmtMoney(t.entry_fee_cents) : 'Gratis'}
+      <td>${feeNow(t) ? fmtMoney(feeNow(t)) : 'Gratis'}${earlyBirdOn(t) ? ` <s>${fmtMoney(t.entry_fee_cents)}</s>` : ''}
         <span class="col-sub">${t.source === 'wizards' ? esc(tr('Iscrizione in negozio'))
           : `${Math.max((t.capacity || 0) - (t.registered_players || 0), 0)} posti`}</span></td>
     </tr>`).join('');
@@ -257,6 +266,9 @@ async function run({ keepFocus = false } = {}) {
   const q = new URLSearchParams(location.search);
   q.delete('stato');
   q.delete('luogo');
+  // Vista e mese sono roba nostra: il backend conosce date_from e date_to.
+  q.delete('vista');
+  q.delete('mese');
   if (state.luogo) q.set('online', state.luogo === 'online' ? 'true' : 'false');
   const finished = state.stato === 'conclusi';
   q.set('status', finished ? 'completed' : 'published,running');
@@ -268,6 +280,14 @@ async function run({ keepFocus = false } = {}) {
   // quindi l'unico che poteva divergere.
   if (finished) q.delete('days');
   else q.set('days', state.days);
+  // La griglia guarda un mese preciso, non una finestra da oggi: qui le due
+  // cose si escludono, o il mese scorso tornerebbe vuoto anche quando era pieno.
+  if (state.vista === 'mese') {
+    const { from, to } = monthRange(state.mese);
+    q.delete('days');
+    q.set('date_from', from);
+    q.set('date_to', to);
+  }
   if (state.radius_km && _position) {
     q.set('near_lat', _position.lat);
     q.set('near_lng', _position.lng);
@@ -275,17 +295,42 @@ async function run({ keepFocus = false } = {}) {
     q.delete('radius_km');
   }
 
+  const mese = state.vista === 'mese';
   const body = $('#resultsBody');
-  // Righe finte finché arrivano i risultati: la tabella non cambia altezza di colpo.
-  body.innerHTML = Array.from({ length: 4 }, () => `<tr class="skeleton" aria-hidden="true"><td colspan="5">
-    <span class="skeleton-line wide"></span><span class="skeleton-line short"></span></td></tr>`).join('');
+  showView(state);
+  if (!mese) {
+    // Righe finte finché arrivano i risultati: la tabella non cambia altezza di colpo.
+    body.innerHTML = Array.from({ length: 4 }, () => `<tr class="skeleton" aria-hidden="true"><td colspan="5">
+      <span class="skeleton-line wide"></span><span class="skeleton-line short"></span></td></tr>`).join('');
+  }
   try {
     const events = await apiGet('/tournaments?' + q.toString());
-    summarize(state, events.length);
-    renderRows(events);
+    if (mese) {
+      renderMonth($('#calendarPanel'), {
+        month: state.mese,
+        events,
+        onMonth: (key) => { writeState({ ...state, mese: key }); run(); },
+      });
+    } else {
+      summarize(state, events.length);
+      renderRows(events);
+    }
   } catch (err) {
-    body.innerHTML = `<tr><td colspan="5" class="muted">Errore: ${esc(err.message)}</td></tr>`;
+    if (mese) $('#calendarPanel').innerHTML = `<p class="muted">Errore: ${esc(err.message)}</p>`;
+    else body.innerHTML = `<tr><td colspan="5" class="muted">Errore: ${esc(err.message)}</td></tr>`;
   }
+}
+
+/** Mostra l'elenco o la griglia, e segna quale dei due pulsanti è premuto. */
+function showView(state) {
+  const mese = state.vista === 'mese';
+  $('#listPanel').hidden = mese;
+  $('#resultsPagination').hidden = mese;
+  $('#calendarPanel').hidden = !mese;
+  // Il riassunto parla di finestre temporali: nella griglia il mese è già scritto.
+  $('#filterSummary').hidden = mese;
+  $('#viewList').setAttribute('aria-pressed', String(!mese));
+  $('#viewCalendar').setAttribute('aria-pressed', String(mese));
 }
 
 /* ── Ricerche salvate ──────────────────────────────────────── */
@@ -338,6 +383,17 @@ window.addEventListener('popstate', () => { _page = 1; run(); });
 
 onReady(async () => {
   updateAuthNav();
+  // I due pulsanti della vista non vengono ridisegnati: si ascoltano una volta.
+  $('#viewList').addEventListener('click', () => switchView('elenco'));
+  $('#viewCalendar').addEventListener('click', () => switchView('mese'));
   _games = await loadGames();
   run();
 });
+
+function switchView(vista) {
+  const state = readState();
+  if (state.vista === vista) return;
+  _page = 1;
+  writeState({ ...state, vista });
+  run();
+}

@@ -35,6 +35,36 @@ async function loadProfile() {
         <td>${esc(r.record || '—')}</td>
       </tr>`).join('');
 
+    /* Dove vince davvero: la percentuale complessiva nasconde il formato in cui
+       è forte e quello in cui non lo è. L'archetipo c'è solo se l'ha scritto. */
+    const breakdown = (titolo, colonna, righe) => !righe.length ? '' : `
+      <div>
+        <h3 style="margin:0 0 6px">${esc(titolo)}</h3>
+        <div class="table-wrap"><table class="split-table">
+          <thead><tr>
+            <th>${esc(colonna)}</th><th>${esc(tr('% vittorie'))}</th>
+            <th>${esc(tr('Record'))}</th><th>${esc(tr('Tornei'))}</th>
+          </tr></thead>
+          <tbody>${righe.map((r) => `
+            <tr>
+              <td><strong>${esc(r.label)}</strong></td>
+              <td><strong>${r.win_rate}%</strong></td>
+              <td>${r.wins}V ${r.draws}P ${r.losses}S</td>
+              <td>${r.tournaments}</td>
+            </tr>`).join('')}</tbody>
+        </table></div>
+      </div>`;
+
+    const splits = [
+      breakdown(tr('Per formato'), tr('Formato'), profile.by_format || []),
+      breakdown(tr('Per archetipo'), tr('Archetipo'), profile.by_archetype || []),
+    ].join('');
+    const splitSection = splits
+      ? `<div style="display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));margin-top:16px">
+           ${splits}
+         </div>`
+      : '';
+
     const statusLabel = { published: 'Aperto', running: 'In corso', completed: 'Concluso' };
     const orgRows = organized.map(o => {
       const href = o.status === 'completed' ? `history.html` : `event.html?id=${o.tournament_id}`;
@@ -59,7 +89,8 @@ async function loadProfile() {
       </div>
       <div class="table-wrap"><table>
         <thead><tr><th>${esc(tr('Torneo'))}</th><th>${esc(tr('Formato'))}</th><th>${esc(tr('Data'))}</th><th>${esc(tr('Piazzamento'))}</th><th>${esc(tr('Punti'))}</th><th>${esc(tr('Record'))}</th></tr></thead>
-        <tbody>${tableRows}</tbody></table></div>` : '';
+        <tbody>${tableRows}</tbody></table></div>
+      ${splitSection}` : '';
 
     const orgSection = organized.length ? `
       <h2 style="margin:24px 0 8px">${esc(tr('🏟️ Tornei organizzati'))}</h2>

@@ -10,11 +10,12 @@ import math
 import re
 from datetime import UTC, datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from backend.app.core.cache import cache_get, cache_invalidate, cache_set
+from backend.app.core.clock import local_today
 from backend.app.core.config import get_settings
 from backend.app.db import get_db
 from backend.app.games import online_platform
@@ -22,6 +23,7 @@ from backend.app.models import (
     Decklist,
     DecklistRevision,
     DecklistStatus,
+    DiscountCode,
     InviteCode,
     Organization,
     Pairing,
@@ -45,6 +47,8 @@ from backend.app.schemas import (
     ByesIn,
     DecklistCreate,
     DecklistOut,
+    DiscountCodeIn,
+    DiscountCodeOut,
     DropUnpaidOut,
     FixedTableIn,
     GameHandleIn,
@@ -87,6 +91,7 @@ from backend.app.services.pairings import (
     eligible_registrations,
     team_matches,
 )
+from backend.app.services.payments import amount_due
 from backend.app.services.player_import import parse_players_csv
 from backend.app.services.registrations import (
     fields_of,
@@ -320,6 +325,107 @@ def update_my_handle(
     return registration_out(registration)
 
 
+# ── Codici sconto ─────────────────────────────────────────────
+
+
+def usable_discount_code(tournament: Tournament, codice: str, db: Session) -> DiscountCode | None:
+    """Il codice scritto all'iscrizione, se è di questo torneo ed è ancora buono.
+
+    Vuoto: nessuno sconto, e va bene così. Sbagliato: 422 e l'iscrizione non si
+    fa — meglio dirlo subito che lasciar credere a uno sconto che non c'è.
+    """
+    codice = (codice or "").strip().upper()
+    if not codice:
+        return None
+    code = db.scalar(
+        select(DiscountCode).where(
+            DiscountCode.tournament_id == tournament.id, DiscountCode.code == codice
+        )
+    )
+    if not code:
+        raise HTTPException(status_code=422, detail="Codice sconto non valido per questo torneo")
+    if code.valid_until and code.valid_until < local_today():
+        raise HTTPException(status_code=422, detail="Codice sconto scaduto")
+    if code.max_uses and code.uses >= code.max_uses:
+        raise HTTPException(status_code=422, detail="Codice sconto esaurito")
+    return code
+
+
+@router.get("/{tournament_id}/discount-codes", response_model=list[DiscountCodeOut])
+def list_discount_codes(
+    tournament_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[DiscountCode]:
+    """I codici del torneo, con quante volte sono stati usati. Solo staff: un
+    elenco pubblico di codici sconto è uno sconto per tutti."""
+    tournament = load_tournament_for_staff(tournament_id, user, db)
+    return list(db.scalars(
+        select(DiscountCode)
+        .where(DiscountCode.tournament_id == tournament.id)
+        .order_by(DiscountCode.code)
+    ).all())
+
+
+@router.post("/{tournament_id}/discount-codes", response_model=DiscountCodeOut, status_code=201)
+def create_discount_code(
+    tournament_id: int,
+    payload: DiscountCodeIn,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> DiscountCode:
+    tournament = load_tournament_for_staff(tournament_id, user, db)
+    gia = db.scalar(
+        select(DiscountCode).where(
+            DiscountCode.tournament_id == tournament.id, DiscountCode.code == payload.code
+        )
+    )
+    if gia:
+        raise HTTPException(status_code=409, detail="Questo codice esiste già per il torneo")
+    code = DiscountCode(
+        tournament_id=tournament.id, code=payload.code, percent_off=payload.percent_off,
+        cents_off=payload.cents_off, max_uses=payload.max_uses, valid_until=payload.valid_until,
+    )
+    db.add(code)
+    db.commit()
+    db.refresh(code)
+    write_audit(db, tournament.id, user.id, "discount_code_created", payload.code)
+    db.commit()
+    return code
+
+
+@router.delete("/{tournament_id}/discount-codes/{code_id}", status_code=204)
+def delete_discount_code(
+    tournament_id: int,
+    code_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Response:
+    """Toglie un codice dalla circolazione.
+
+    Se non l'ha usato nessuno sparisce. Se qualcuno l'ha usato **resta**, chiuso:
+    cancellarlo cambierebbe il conto di chi si è già iscritto con quello sconto,
+    e quel conto è stato promesso. Chiuso vuol dire che non ne entrano altri.
+    """
+    tournament = load_tournament_for_staff(tournament_id, user, db)
+    code = db.scalar(
+        select(DiscountCode).where(
+            DiscountCode.id == code_id, DiscountCode.tournament_id == tournament.id
+        )
+    )
+    if not code:
+        raise HTTPException(status_code=404, detail="Codice non trovato")
+    if code.uses:
+        code.max_uses = code.uses
+        db.add(code)
+        write_audit(db, tournament.id, user.id, "discount_code_closed", code.code)
+    else:
+        db.delete(code)
+        write_audit(db, tournament.id, user.id, "discount_code_deleted", code.code)
+    db.commit()
+    return Response(status_code=204)
+
+
 @router.post("/{tournament_id}/registrations", response_model=RegistrationOut, status_code=201)
 def register_for_tournament(
     tournament_id: int,
@@ -355,6 +461,9 @@ def register_for_tournament(
     check_not_suspended(user, tournament, db)
     answers = validate_answers(tournament.id, payload.answers, db)
     handle = check_game_handle(tournament, payload.game_handle) if tournament.is_online else ""
+    # Il codice si controlla adesso: scaduto o esaurito deve far fallire
+    # l'iscrizione, non comparire come sorpresa al momento di pagare.
+    code = usable_discount_code(tournament, payload.discount_code, db)
     # Torneo pieno → lista d'attesa invece di rifiuto
     registration = Registration(
         tournament_id=tournament_id,
@@ -362,9 +471,13 @@ def register_for_tournament(
         wizards_account=payload.wizards_account,
         game_handle=handle,
         waitlisted=is_full,
+        discount_code_id=code.id if code else None,
     )
     db.add(registration)
     db.flush()
+    if code:
+        code.uses += 1
+        db.add(code)
     save_answers(registration.id, answers, db)
     db.commit()
     db.refresh(registration)
@@ -1125,7 +1238,7 @@ def mark_registration_paid(
     payment = registration.payment or Payment(
         registration_id=registration.id,
         provider="cash",
-        amount_cents=tournament.entry_fee_cents,
+        amount_cents=amount_due(registration, tournament),
         currency=tournament.currency,
     )
     payment.provider = payment.provider or "cash"
@@ -1221,7 +1334,7 @@ def add_walk_in(
             registration_id=registration.id,
             provider="cash",
             status=PaymentStatus.PAID,
-            amount_cents=tournament.entry_fee_cents,
+            amount_cents=amount_due(registration, tournament),
             currency=tournament.currency,
             paid_at=datetime.now(UTC),
         ))
@@ -1304,7 +1417,7 @@ def import_registrations(
         db.flush()
         if (payload.mark_paid or item.paid) and not waitlisted:
             db.add(Payment(registration_id=registration.id, provider="cash", status=PaymentStatus.PAID,
-                           amount_cents=tournament.entry_fee_cents, currency=tournament.currency,
+                           amount_cents=amount_due(registration, tournament), currency=tournament.currency,
                            paid_at=datetime.now(UTC)))
 
     added = sum(r.outcome == "added" for r in rows)

@@ -44,6 +44,10 @@
     <main class="public-main">
       <div class="section-heading" style="margin-bottom:16px">
         <div><span class="eyebrow">Calendario</span><h1>Cerca eventi</h1></div>
+        <div class="chips" style="margin:0" role="group" aria-label="Vista">
+          <button class="chip" type="button" id="viewList" aria-pressed="true">Elenco</button>
+          <button class="chip" type="button" id="viewCalendar" aria-pressed="false">Mese</button>
+        </div>
       </div>
 
       <div class="saved-filters" id="savedFilters"></div>
@@ -53,7 +57,7 @@
 
         <div>
           <p class="filter-summary" id="filterSummary"></p>
-          <div class="panel" style="padding:4px 8px">
+          <div class="panel" id="listPanel" style="padding:4px 8px">
             <table class="results-table">
               <thead>
                 <tr><th>Evento</th><th>Data</th><th>Formato</th><th>Dove</th><th>Entry</th></tr>
@@ -62,6 +66,8 @@
             </table>
           </div>
           <div id="resultsPagination" class="pagination"></div>
+          <!-- La griglia del mese: la disegna month-grid.js quando la vista è "Mese". -->
+          <div class="panel" id="calendarPanel" hidden></div>
         </div>
       </div>
     </main>

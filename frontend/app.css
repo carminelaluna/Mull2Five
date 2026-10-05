@@ -1228,3 +1228,54 @@ input[type="checkbox"][aria-invalid="true"] { outline: 2px solid var(--danger); 
 
 /* La bandierina del tavolo, quando il pannello del judge è aperto. */
 .mini-button.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+
+/* Le due tabelline "dove vince" sul profilo stanno in mezza colonna: senza
+   questo si portano dietro il min-width delle tabelle larghe, e la colonna che
+   conta — la percentuale — finisce fuori, dietro una barra di scorrimento. */
+.split-table { min-width: 0; }
+.split-table th, .split-table td { padding: 9px 10px; }
+
+/* ── Il mese a griglia (events.html, vista "Mese") ─────────────
+   Sette colonne da lunedì a domenica: la domanda vera è "cosa c'è giovedì?", e
+   un elenco ordinato per data costringe a contare le righe per rispondere. */
+.cal-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 2px 2px 12px; }
+.cal-bar button { min-width: 44px; }
+.cal-title { font-family: var(--font-display); font-size: 1.05rem; }
+.cal-count { color: var(--muted); font-size: .82rem; margin-left: auto; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.cal-head {
+  color: var(--muted); font-size: .72rem; text-transform: uppercase;
+  letter-spacing: .06em; text-align: center; padding-bottom: 2px;
+}
+.cal-day {
+  min-height: 94px; padding: 6px; display: flex; flex-direction: column; gap: 4px;
+  border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2);
+}
+/* I giorni dell'altro mese e quelli vuoti restano, ma non attirano l'occhio. */
+.cal-day.out { border-color: transparent; background: none; }
+.cal-day.empty { background: none; }
+.cal-num { color: var(--muted); font-size: .76rem; font-variant-numeric: tabular-nums; }
+.cal-day.today { border-color: var(--accent); }
+.cal-day.today .cal-num { color: var(--accent); font-weight: 700; }
+.cal-event {
+  display: block; padding: 3px 5px; border-radius: 6px; font-size: .76rem; line-height: 1.25;
+  background: var(--accent-dim); color: var(--ink); text-decoration: none; overflow: hidden;
+}
+.cal-event:hover { background: var(--accent); color: var(--accent-ink); }
+.cal-event b { font-variant-numeric: tabular-nums; }
+.cal-event.done { background: var(--panel); color: var(--muted); }
+
+/* Sul telefono sette colonne sono illeggibili: il mese diventa l'elenco dei
+   giorni in cui si gioca, ognuno col suo nome ("gio 8"), scritto dal CSS perché
+   nella griglia larga il numero basta. */
+@media (max-width: 720px) {
+  .cal-grid { grid-template-columns: 1fr; gap: 4px; }
+  .cal-head, .cal-day.out, .cal-day.empty { display: none; }
+  .cal-day { min-height: 0; flex-direction: row; flex-wrap: wrap; align-items: baseline; }
+  .cal-num { display: none; }
+  .cal-day::before {
+    content: attr(data-label); min-width: 6.5ch;
+    color: var(--muted); font-size: .76rem; font-weight: 700;
+  }
+  .cal-event { flex: 1 1 100%; }
+}

@@ -3,7 +3,7 @@ import { esc } from './escape.js';
 import { bestOfLabel, gameInfo, gameLabel } from './games.js';
 import { t as tr } from './i18n.js';
 import { actingAs, actingBanner, bindActingBanner, setActing } from './acting.js';
-import { fmtDate, fmtMoney, updateAuthNav, placeLabel } from './catalog.js';
+import { earlyBirdOn, feeNow, fmtDate, fmtMoney, updateAuthNav, placeLabel } from './catalog.js';
 import { busy } from './form-state.js';
 import { apiRequest, getSession } from './session.js';
 import { stickyCta } from './site.js';
@@ -68,7 +68,7 @@ async function loadEvent() {
             : isReg
             ? '<span class="badge ok" style="font-size:1rem">✓ Iscritto</span>'
             : canReg
-              ? `<button class="primary" id="registerBtn" type="button">Iscriviti — ${fmtMoney(t.entry_fee_cents)}</button>`
+              ? `<button class="primary" id="registerBtn" type="button">Iscriviti — ${fmtMoney(feeNow(t))}</button>`
               : !session
                 ? `<a class="primary" id="eventCta" href="login.html?next=${encodeURIComponent(location.pathname + location.search)}" style="text-align:center;text-decoration:none;padding:10px 18px;border-radius:8px">Accedi per iscriverti</a>`
                 : `<span class="badge warn">${spots === 0 ? 'Torneo pieno' : 'Iscrizioni chiuse'}</span>`}
@@ -89,7 +89,14 @@ async function loadEvent() {
             ${(t.team_size || 1) > 1 ? `<dt>${esc(tr('Formula'))}</dt> <dd>${esc(tr('Squadre da {n}', { n: t.team_size }))}</dd>` : ''}
             ${organizer ? `<dt>${esc(tr('Organizzatore'))}</dt> <dd>${esc(organizer)}</dd>` : ''}
             <dt>REL</dt>        <dd>${esc(t.rules_enforcement_level || 'Regular')}</dd>
-            <dt>${esc(tr('Entry fee'))}</dt>  <dd>${fmtMoney(t.entry_fee_cents)}</dd>
+            <dt>${esc(tr('Entry fee'))}</dt>
+            <dd>${fmtMoney(feeNow(t))}
+              ${earlyBirdOn(t)
+                // Senza la data lo sconto sembra il prezzo di sempre, e chi
+                // rimanda scopre la differenza al banco.
+                ? `<span class="badge ok">${esc(tr('Early bird fino al {data}', { data: fmtDate(t.early_bird_until) }))}</span>
+                   <span class="col-sub">${esc(tr('poi'))} ${fmtMoney(t.entry_fee_cents)}</span>`
+                : ''}</dd>
             ${imported
               ? (t.capacity ? `<dt>${esc(tr('Posti'))}</dt> <dd>${t.capacity}</dd>` : '')
               // Gli iscritti, non i posti liberi: "Posti 0 / 64" su un torneo
@@ -135,6 +142,8 @@ async function loadEvent() {
       // Le domande in più che l'organizzatore ha messo al torneo.
       const fields = await apiFetch(`/tournaments/${t.id}/fields`).catch(() => []);
       document.querySelector('#regFields').innerHTML = fields.map(fieldInput).join('');
+      // Su un torneo gratuito un campo "codice sconto" è solo una domanda in più.
+      document.querySelector('#regDiscountWrap').style.display = feeNow(t) ? '' : 'none';
       document.querySelector('#registerDialog').showModal();
     });
     document.querySelector('#confirmRegister')?.addEventListener('click', () => doRegister(t));
@@ -177,6 +186,7 @@ async function doRegister(t) {
         player_display_name: getSession()?.email || '',
         wizards_account:     document.querySelector('#regWizards').value.trim(),
         game_handle:         document.querySelector('#regHandle').value.trim(),
+        discount_code:       document.querySelector('#regDiscount').value.trim(),
         payment_provider:    document.querySelector('#regPayment').value,
         answers:             collectAnswers(),
       }),

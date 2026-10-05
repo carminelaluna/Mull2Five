@@ -87,9 +87,17 @@ Parità con Melee completata (26 passi), checklist di lancio fatta, revisione
 critica chiusa tranne tre punti. Il backend è diviso in `tournaments.py`,
 `tournament_registrations.py`, `tournament_rounds.py` più i servizi; il
 back-office in `organizer.js`, `organizer-store.js`, `organizer-common.js`.
-ESLint sul frontend, Alembic sullo schema. Test: 346 backend (SQLite e
-PostgreSQL), 49 frontend, 9 end-to-end. `/health` dice quale commit sta girando
+ESLint sul frontend, Alembic sullo schema. Test: 369 backend (SQLite e
+PostgreSQL), 60 frontend, 9 end-to-end. `/health` dice quale commit sta girando
 e se lo schema è allineato al codice.
+
+Il 5 ottobre 2026 sono state chiuse le ultime idee in coda al TODO: promemoria
+del giorno prima e link di pagamento nell'email della lista d'attesa, calendario
+mensile nella ricerca, modelli di torneo, early bird, codici sconto, win rate per
+formato e archetipo sul profilo. **Il prezzo lo decide un posto solo**:
+`entry_fee_now()` per la vetrina e `amount_due()` per chi è già iscritto, in
+`backend/app/services/payments.py` — se una pagina mostra una cifra e il banco
+ne incassa un'altra, è perché qualcuno ha ricalcolato il prezzo altrove.
 
 ## Cosa resta — in ordine
 

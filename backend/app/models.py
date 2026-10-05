@@ -288,6 +288,60 @@ class TournamentSeries(Base):
     created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
 
 
+class DiscountCode(Base):
+    """Uno sconto sulla quota, legato a un torneo.
+
+    Serve al negozio per riempire un evento: il gruppo che porta quattro amici,
+    il buono dato a chi è arrivato primo il mese scorso. Il codice si scrive
+    all'iscrizione e resta attaccato a quell'iscritto, perché il conto va rifatto
+    uguale al pagamento — anche settimane dopo, anche se intanto il codice è
+    stato esaurito o tolto.
+
+    O una percentuale o un importo, mai tutt'e due: "20% e anche 5 euro" non
+    vuol dire niente, e chi lo scrive non sa cosa sta scontando.
+    """
+    __tablename__ = "discount_codes"
+    __table_args__ = (UniqueConstraint("tournament_id", "code"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tournament_id: Mapped[int] = mapped_column(
+        ForeignKey("tournaments.id", ondelete="CASCADE"), index=True
+    )
+    code: Mapped[str] = mapped_column(String(32))
+    percent_off: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    cents_off: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    # 0 = senza limite. `uses` cresce a ogni iscrizione che lo usa.
+    max_uses: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    uses: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    valid_until: Mapped[date | None] = mapped_column(Date, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
+
+
+class TournamentTemplate(Base):
+    """Le impostazioni di un torneo, messe da parte col loro nome.
+
+    "Duplica" serve il venerdì dopo; un modello serve a settembre, quando il
+    torneo di giugno da copiare non si trova più. Dentro c'è la stessa roba che
+    manda il modulo "Nuovo evento" — formato, posti, quota, pagamenti, sede —
+    tranne la data, che un modello non può avere.
+    """
+    __tablename__ = "tournament_templates"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(120))
+    # I campi di TournamentCreate in JSON: il modulo li rilegge così com'erano.
+    # Una tabella con una colonna per impostazione andrebbe cambiata a ogni
+    # impostazione nuova, e nessuno se ne ricorderebbe.
+    payload: Mapped[str] = mapped_column(Text, default="{}")
+    organization_id: Mapped[int | None] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    created_by_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
+
+
 class RegistrationField(Base):
     """Una domanda in più all'iscrizione, decisa dall'organizzatore: la taglia
     della maglietta, l'archetipo del mazzo, "accetto il regolamento"."""
@@ -450,6 +504,12 @@ class Tournament(Base):
     start_time: Mapped[str | None] = mapped_column(String(5), nullable=True)  # "HH:MM"
     capacity: Mapped[int] = mapped_column(Integer)
     entry_fee_cents: Mapped[int] = mapped_column(Integer, default=0)
+    # Early bird: quota ridotta per chi si iscrive entro una certa data (quel
+    # giorno compreso). Nulle tutt'e due = nessuno sconto. Quanto si paga adesso
+    # lo dice entry_fee_now() in services/payments.py: è l'unico posto, perché un
+    # importo calcolato in due modi finisce per divergere proprio sul pagamento.
+    early_bird_cents: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    early_bird_until: Mapped[date | None] = mapped_column(Date, nullable=True)
     currency: Mapped[str] = mapped_column(String(3), default="EUR")
     status: Mapped[str] = mapped_column(String(32), default=TournamentStatus.DRAFT)
     structure: Mapped[str] = mapped_column(String(32), default=TournamentStructure.SWISS)
@@ -504,6 +564,10 @@ class Tournament(Base):
     source: Mapped[str] = mapped_column(String(20), default="", server_default="")
     external_id: Mapped[str] = mapped_column(String(40), default="", server_default="", index=True)
     external_url: Mapped[str] = mapped_column(String(400), default="", server_default="")
+    # Quando è partito il promemoria del giorno prima. Serve scritto, non dedotto:
+    # il compito che lo manda gira ogni ora, e senza questa data ogni passaggio
+    # rimanderebbe la stessa email a tutti gli iscritti.
+    reminder_sent_at: Mapped[datetime | None] = mapped_column(UtcDateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
 
     location: Mapped["Location | None"] = relationship()
@@ -594,11 +658,17 @@ class Registration(Base):
     dropped: Mapped[bool] = mapped_column(Boolean, default=False)
     waitlisted: Mapped[bool] = mapped_column(Boolean, default=False)
     promoted_at: Mapped[datetime | None] = mapped_column(UtcDateTime(timezone=True), nullable=True)
+    # Il codice sconto usato all'iscrizione: resta qui, così il conto al
+    # pagamento è lo stesso che il giocatore ha visto iscrivendosi.
+    discount_code_id: Mapped[int | None] = mapped_column(
+        ForeignKey("discount_codes.id", ondelete="SET NULL"), nullable=True
+    )
     day2: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
     created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
 
     tournament: Mapped[Tournament] = relationship(back_populates="registrations")
     team: Mapped["Team | None"] = relationship()
+    discount_code: Mapped["DiscountCode | None"] = relationship()
     # player_id, non prize_given_by_id: anche chi consegna il premio è un utente.
     player: Mapped[User] = relationship(back_populates="registrations", foreign_keys=[player_id])
     decklists: Mapped[list["Decklist"]] = relationship(

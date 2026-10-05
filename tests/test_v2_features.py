@@ -8,6 +8,7 @@ test_v2_features.py — Test delle funzionalità/fix introdotti nella V2:
 - profilo pubblico giocatore per email
 - duplica torneo, organizzazioni, classifica visibile a torneo chiuso
 """
+from backend.app.models import Registration
 
 
 def _register(client, email, role="player", name=None):
@@ -186,6 +187,36 @@ def test_public_player_history(client):
 
     # identificativo inesistente → 404
     assert client.get("/api/tournaments/players/nessuno/public-history").status_code == 404
+
+
+def test_the_public_profile_says_where_a_player_wins(client, db_session):
+    """Un 50% complessivo può essere 100% in Modern e 0% in Legacy: il profilo
+    deve dirlo, o non dice niente a chi lo guarda per scegliere un formato."""
+    org = _register(client, "v2-split-org@example.com", role="organizer")
+    tid, round1, players = _seed_started(client, org, standings_public=True, format="Modern")
+    pairing = next(p for p in round1["pairings"] if p["player_b"])
+    client.patch(f"/api/tournaments/{tid}/pairings/{pairing['id']}/result",
+                 json={"match_wins_a": 2, "match_wins_b": 0, "draws": 0}, headers=org)
+    # L'archetipo lo scrive chi carica la lista: qui basta averlo addosso.
+    reg = db_session.get(Registration, pairing["player_a_registration_id"])
+    reg.archetype = "Izzet Murktide"
+    db_session.commit()
+
+    def profilo(giocatore):
+        public_id = client.get("/api/auth/me", headers=giocatore["headers"]).json()["public_id"]
+        return client.get(f"/api/tournaments/players/{public_id}/public-history").json()
+
+    vincitore = next(p for p in players if p["registration_id"] == pairing["player_a_registration_id"])
+    body = profilo(vincitore)
+    assert [(r["label"], r["wins"], r["win_rate"]) for r in body["by_format"]] == [("Modern", 1, 100.0)]
+    assert [(r["label"], r["tournaments"]) for r in body["by_archetype"]] == [("Izzet Murktide", 1)]
+
+    # Chi ha perso: stesso formato, altra percentuale. E senza archetipo scritto
+    # non compare una riga vuota.
+    perdente = next(p for p in players if p["registration_id"] == pairing["player_b_registration_id"])
+    sconfitto = profilo(perdente)
+    assert [(r["label"], r["losses"], r["win_rate"]) for r in sconfitto["by_format"]] == [("Modern", 1, 0.0)]
+    assert sconfitto["by_archetype"] == []
 
 
 # ── Duplica torneo ────────────────────────────────────────────

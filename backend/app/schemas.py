@@ -76,6 +76,11 @@ class TournamentCreate(BaseModel):
     start_time: str | None = Field(default=None, pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
     capacity: int = Field(gt=1)
     entry_fee_cents: int = Field(ge=0)
+    # Early bird: la quota di chi si iscrive presto e l'ultimo giorno in cui vale
+    # (quel giorno compreso). Servono tutt'e due: da solo, nessuno dei due dice
+    # quanto costa iscriversi oggi.
+    early_bird_cents: int | None = Field(default=None, ge=0)
+    early_bird_until: date | None = None
     currency: str = "EUR"
     status: str = "published"
     structure: str = Field(default="swiss", pattern="^(swiss|single_elimination|swiss_topcut|registration_only)$")
@@ -139,6 +144,20 @@ class TournamentCreate(BaseModel):
         return self
 
     @model_validator(mode="after")
+    def _early_bird(self):
+        """Uno sconto che non sconta, o che scade dopo il torneo, è un errore di
+        battitura che il giocatore scoprirebbe pagando."""
+        if self.early_bird_cents is None and self.early_bird_until is None:
+            return self
+        if self.early_bird_cents is None or self.early_bird_until is None:
+            raise ValueError("L'early bird vuole la quota ridotta e il giorno in cui scade")
+        if self.early_bird_cents >= self.entry_fee_cents:
+            raise ValueError("La quota early bird dev'essere più bassa di quella piena")
+        if self.early_bird_until > self.starts_on:
+            raise ValueError("L'early bird non può scadere dopo il torneo")
+        return self
+
+    @model_validator(mode="after")
     def _require_payment_method(self):
         # Almeno un metodo di pagamento deve essere abilitato alla creazione
         if not (self.pay_at_event or self.pay_stripe or self.pay_paypal):
@@ -185,6 +204,9 @@ class TournamentUpdate(BaseModel):
     start_time: str | None = Field(default=None, pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
     capacity: int | None = Field(default=None, gt=1)
     entry_fee_cents: int | None = Field(default=None, ge=0)
+    # Early bird: si tolgono mettendoli a zero e a nulla (vedi _apply_settings).
+    early_bird_cents: int | None = Field(default=None, ge=0)
+    early_bird_until: date | None = None
     pay_at_event: bool | None = None
     pay_stripe: bool | None = None
     pay_paypal: bool | None = None
@@ -240,6 +262,11 @@ class TournamentOut(BaseModel):
     start_time: str | None = None
     capacity: int
     entry_fee_cents: int
+    early_bird_cents: int | None = None
+    early_bird_until: date | None = None
+    # Quanto costa iscriversi oggi: la ridotta finché l'early bird è aperto, poi
+    # la piena. Il giocatore guarda questo, non le due quote.
+    entry_fee_now_cents: int = 0
     currency: str
     status: str
     structure: str
@@ -282,8 +309,37 @@ class TournamentOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class DiscountCodeIn(BaseModel):
+    code: str = Field(min_length=3, max_length=32)
+    percent_off: int = Field(default=0, ge=0, le=100)
+    cents_off: int = Field(default=0, ge=0)
+    max_uses: int = Field(default=0, ge=0)   # 0 = senza limite
+    valid_until: date | None = None
+
+    @model_validator(mode="after")
+    def _uno_sconto_solo(self):
+        self.code = self.code.strip().upper()
+        if not self.code:
+            raise ValueError("Il codice non può essere vuoto")
+        if bool(self.percent_off) == bool(self.cents_off):
+            raise ValueError("Scegli uno sconto solo: la percentuale o l'importo")
+        return self
+
+
+class DiscountCodeOut(BaseModel):
+    id: int
+    code: str
+    percent_off: int = 0
+    cents_off: int = 0
+    max_uses: int = 0
+    uses: int = 0
+    valid_until: date | None = None
+
+
 class RegistrationCreate(BaseModel):
     wizards_account: str = ""
+    # Il codice sconto, se chi si iscrive ne ha uno. Vuoto: quota piena.
+    discount_code: str = Field(default="", max_length=32)
     # Nei tornei online: il nome in gioco (l'Arena ID su MTG Arena).
     game_handle: str = Field(default="", max_length=80)
     # Le risposte alle domande del torneo, per id della domanda.
@@ -829,6 +885,35 @@ class OrganizedTournamentRow(BaseModel):
     registered_players: int = 0
 
 
+class TournamentTemplateIn(BaseModel):
+    """Un modello si salva da un torneo che esiste: le impostazioni sono già lì,
+    e riscriverle in un secondo modulo sarebbe un secondo posto dove sbagliarle."""
+    name: str = Field(min_length=2, max_length=120)
+    from_tournament_id: int
+
+
+class TournamentTemplateOut(BaseModel):
+    id: int
+    name: str
+    created_at: datetime
+    # I campi di TournamentCreate: li rilegge il modulo "Nuovo evento".
+    payload: dict = {}
+
+
+class PlayerBreakdownRow(BaseModel):
+    """Il record di un giocatore in un formato o con un archetipo.
+
+    Il totale non dice niente a chi vuole sapere dove è forte: un 60% complessivo
+    può essere 75% in Modern e 40% in Legacy."""
+    label: str
+    tournaments: int = 0
+    wins: int = 0
+    draws: int = 0
+    losses: int = 0
+    # Percentuale sui match giocati, patte comprese al denominatore.
+    win_rate: float = 0.0
+
+
 class PlayerPublicProfileOut(BaseModel):
     display_name: str
     # Identificativo casuale, non l'email: il profilo è pubblico.
@@ -841,6 +926,8 @@ class PlayerPublicProfileOut(BaseModel):
     losses: int = 0
     rows: list[PlayerHistoryRowOut] = []
     organized: list[OrganizedTournamentRow] = []
+    by_format: list[PlayerBreakdownRow] = []
+    by_archetype: list[PlayerBreakdownRow] = []
 
 
 class AuditLogOut(BaseModel):
@@ -907,6 +994,12 @@ class RegistrationOut(BaseModel):
     # Segmenti gia consegnati: "" e la lista principale.
     decklist_formats: list[str] = []
     payment_status: str = "pending"
+    # Quanto deve questo iscritto: la quota di adesso meno il suo codice sconto.
+    # La quota del torneo non basta a dirlo, e una pagina che promette una cifra
+    # diversa da quella che il banco incassa è una pagina che mente.
+    amount_due_cents: int = 0
+    # Il codice usato, da mostrare a chi l'ha usato ("hai usato AMICI20").
+    discount_code: str = ""
     # Pod di draft, posto al tavolo del draft e tavolo fisso, se ci sono.
     pod: int | None = None
     pod_seat: int | None = None

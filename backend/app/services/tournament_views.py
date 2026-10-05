@@ -24,6 +24,7 @@ from backend.app.schemas import (
     RegistrationOut,
     TournamentOut,
 )
+from backend.app.services.payments import amount_due, entry_fee_now
 
 
 def haversine_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
@@ -103,6 +104,9 @@ def tournament_out(tournament: Tournament, registered: int, db: Session) -> Tour
     ).all()
     return TournamentOut.model_validate(tournament).model_copy(update={
         "registered_players": registered,
+        # Quanto si paga adesso: lo stesso conto che fa il checkout, o la pagina
+        # mostrerebbe una cifra e l'incasso ne userebbe un'altra.
+        "entry_fee_now_cents": entry_fee_now(tournament),
         "online_link": "",      # lo vedono solo iscritti e staff: vedi my_tournaments
         "organizer_name": organizer.display_name if organizer else None,
         **inherited,
@@ -157,6 +161,8 @@ def registration_out(registration: Registration) -> RegistrationOut:
         decklist_status=registration.decklist.status if registration.decklist else "missing",
         decklist_formats=sorted(d.format for d in registration.decklists),
         payment_status=registration.payment.status if registration.payment else "pending",
+        amount_due_cents=amount_due(registration),
+        discount_code=registration.discount_code.code if registration.discount_code else "",
     )
 
 

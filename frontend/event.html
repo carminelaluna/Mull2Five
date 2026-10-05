@@ -73,6 +73,11 @@
           <input id="regWizards" placeholder="##########" />
         </label>
         <div id="regFields" class="reg-fields"></div>
+        <!-- Nascosto se il torneo è gratuito: lo mostra event.js. -->
+        <label id="regDiscountWrap" style="display:none">
+          <span>Codice sconto <span class="muted-text">(opzionale)</span></span>
+          <input id="regDiscount" maxlength="32" autocomplete="off" placeholder="AMICI20" />
+        </label>
         <label>Metodo di pagamento
           <select id="regPayment">
             <option value="stripe">Carta (Stripe)</option>

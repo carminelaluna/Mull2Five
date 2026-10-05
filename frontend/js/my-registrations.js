@@ -5,7 +5,7 @@ import { esc } from './escape.js';
 import { gameInfo, gameLabel, scoresFor } from './games.js';
 import { t as tr } from './i18n.js';
 import { actingAs, actingBanner, bindActingBanner, setActing } from './acting.js';
-import { fmtDate, fmtMoney, toast } from './catalog.js';
+import { feeNow, fmtDate, fmtMoney, toast } from './catalog.js';
 import { apiRequest, clearToken, logout, requireSession } from './session.js';
 
 
@@ -274,7 +274,8 @@ async function buildCard(t, reg) {
     <div class="reg-card-rows">
       <div class="reg-row"><span class="reg-label">${esc(tr('Quando'))}</span>
         <span class="reg-row-body">${fmtDate(t.starts_on)}${t.start_time ? ' · ' + esc(t.start_time) : ''}
-          · ${esc(tr('Quota'))} ${fmtMoney(t.entry_fee_cents)}</span></div>
+          · ${esc(tr('Quota'))} ${fmtMoney(reg.amount_due_cents ?? feeNow(t))}
+          ${reg.discount_code ? `<span class="badge ok">${esc(reg.discount_code)}</span>` : ''}</span></div>
       <div class="reg-row"><span class="reg-label">${esc(tr('Pagamento'))}</span>
         <span class="reg-row-body">${payBadge}${payActions}</span></div>
       <div class="reg-row"><span class="reg-label">${esc(tr('Lista'))}</span>

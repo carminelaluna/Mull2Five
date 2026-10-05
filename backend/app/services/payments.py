@@ -1,11 +1,13 @@
 import base64
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import date
 
 import httpx
 import stripe
 from fastapi import HTTPException
 
+from backend.app.core.clock import local_today
 from backend.app.core.config import get_settings
 from backend.app.models import Organization, Registration
 
@@ -15,6 +17,35 @@ class CheckoutSession:
     provider_checkout_id: str
     checkout_url: str
     payee: str = ""      # "stripe:acct_…" / "paypal:email" se l'incasso va al negozio
+
+
+def entry_fee_now(tournament, today: date | None = None) -> int:
+    """Quanto costa iscriversi adesso: la quota early bird finché è aperta, poi
+    quella piena.
+
+    Un solo posto dove si decide il prezzo. Il giorno di scadenza è compreso, e
+    il giorno è quello del negozio (core/clock), non UTC: alle 00:30 in Italia
+    l'early bird di ieri è finito, e per UTC sarebbe ancora aperto.
+    """
+    if tournament.early_bird_cents is None or tournament.early_bird_until is None:
+        return tournament.entry_fee_cents
+    oggi = today or local_today()
+    return tournament.early_bird_cents if oggi <= tournament.early_bird_until else tournament.entry_fee_cents
+
+
+def amount_due(registration, tournament=None) -> int:
+    """Quanto deve pagare questo iscritto: la quota di adesso, meno il suo codice.
+
+    Il codice resta attaccato all'iscrizione (`discount_code_id`), quindi il
+    conto torna uguale anche settimane dopo, anche se intanto quel codice è
+    stato esaurito o cancellato: chi si è iscritto con lo sconto lo tiene.
+    """
+    base = entry_fee_now(tournament or registration.tournament)
+    code = getattr(registration, "discount_code", None)
+    if code is None:
+        return base
+    sconto = round(base * code.percent_off / 100) if code.percent_off else code.cents_off
+    return max(0, base - sconto)
 
 
 def platform_fee(amount_cents: int) -> int:
@@ -40,7 +71,7 @@ async def create_stripe_checkout(registration: Registration, store: Organization
     if account:
         # Destination charge: l'incasso va al negozio; la piattaforma tiene la sua quota, se c'è.
         intent: dict = {"transfer_data": {"destination": account}}
-        fee = platform_fee(tournament.entry_fee_cents)
+        fee = platform_fee(amount_due(registration, tournament))
         if fee:
             intent["application_fee_amount"] = fee
         extra["payment_intent_data"] = intent
@@ -54,7 +85,7 @@ async def create_stripe_checkout(registration: Registration, store: Organization
                 "price_data": {
                     "currency": tournament.currency.lower(),
                     "product_data": {"name": tournament.name},
-                    "unit_amount": tournament.entry_fee_cents,
+                    "unit_amount": amount_due(registration, tournament),
                 },
                 "quantity": 1,
             }
@@ -72,7 +103,7 @@ def paypal_order_body(registration: Registration, store: Organization | None) ->
     frontend_url = str(settings.frontend_url).rstrip("/")
     unit: dict = {
         "reference_id": str(registration.id),
-        "amount": {"currency_code": tournament.currency, "value": f"{tournament.entry_fee_cents / 100:.2f}"},
+        "amount": {"currency_code": tournament.currency, "value": f"{amount_due(registration, tournament) / 100:.2f}"},
         "description": tournament.name,
     }
     if store and store.paypal_email:

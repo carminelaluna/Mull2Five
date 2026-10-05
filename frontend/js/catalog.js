@@ -105,6 +105,18 @@ export function updateAuthNav() {
 /* ── Schede ────────────────────────────────────────────────── */
 
 /** Dove si gioca, in una riga: il luogo e la città, separati da una virgola. */
+/** Quanto costa iscriversi adesso: con l'early bird aperto è meno della quota
+    piena. Lo conta il backend (entry_fee_now), qui si legge e basta — due conti
+    dello stesso prezzo finiscono per divergere, e a divergere sarebbero i soldi. */
+export function feeNow(t) {
+  return t.entry_fee_now_cents ?? t.entry_fee_cents ?? 0;
+}
+
+/** L'early bird è aperto? Allora la quota piena va detta, o sembra il prezzo di sempre. */
+export function earlyBirdOn(t) {
+  return !!t.early_bird_until && feeNow(t) < (t.entry_fee_cents || 0);
+}
+
 export function placeLabel(t) {
   return [t.venue, t.city].filter(Boolean).join(', ');
 }
@@ -125,7 +137,7 @@ export function eventTile(t) {
     </div>
     <div class="tile-meta">${t.is_online ? '<span class="online-badge">Online</span>' : esc(placeLabel(t) || t.organization_name || '')}</div>
     <div class="tile-foot">
-      <span>${t.entry_fee_cents ? fmtMoney(t.entry_fee_cents) : esc(tr('Gratis'))}</span>
+      <span>${feeNow(t) ? fmtMoney(feeNow(t)) : esc(tr('Gratis'))}${earlyBirdOn(t) ? ` <s>${fmtMoney(t.entry_fee_cents)}</s>` : ''}</span>
       <span style="color:var(--muted)">${esc(t.source === 'wizards' ? tr('Iscrizione in negozio') : tr('{n} posti', { n: seats }))}</span>
     </div>
   </a>`;

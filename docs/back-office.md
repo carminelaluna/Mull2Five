@@ -12,11 +12,21 @@ L'elenco dei tuoi tornei, i prossimi sopra e i conclusi in fondo. I conclusi
 restano consultabili e non si eliminano: sono lo storico del negozio.
 
 Su ogni scheda: un contatore di avvisi (solo quelli veri, non le note) e le
-azioni rapide — Avvia, Regia a parte, Modifica, Duplica, Ripeti, Chiudi.
+azioni rapide — Avvia, Regia a parte, Modifica, Duplica, Ripeti, ★ Modello,
+Chiudi.
 
 **Nuovo evento** chiede il minimo: nome, gioco, formato (da una tendina, con
 "Altro" per i formati di casa), data e ora, luogo e città, posti, quota. Se il
-negozio ha delle sedi, ne scegli una e luogo e città li eredita da lì.
+negozio ha delle sedi, ne scegli una e luogo e città li eredita da lì. Fra le
+opzioni avanzate c'è anche l'**early bird**: una quota ridotta valida fino a una
+data compresa, dopo la quale si torna a quella piena. La pagina pubblica mostra
+sempre quella che si paga adesso, ed è la stessa che incassa il banco.
+
+**★ Modello** mette da parte le impostazioni di un torneo col nome che gli dai;
+poi "Parti da un modello", in cima a "Nuovo evento", le rimette nel modulo.
+Serve dove "Duplica" non arriva: a settembre, quando il torneo di giugno da
+copiare non si trova più nell'elenco. La data non la porta: è l'unica cosa che
+un modello non può sapere. I modelli sono del negozio, non del singolo.
 
 **Ripeti** crea una serie: ogni settimana, ogni due o ogni mese. Le modifiche
 fatte dopo possono andare a tutta la serie o solo alla tappa aperta.
@@ -38,8 +48,20 @@ Risultati, perché non ha turni.
   accese. Si può restringere ai portatori di certi tag: vedi sotto.
 - **Staff** — chi ti aiuta su *questo* torneo: capojudge (uno solo) e judge.
 - **Impostazioni** — tutto il resto: struttura, turni previsti, timer, scadenza
-  liste, visibilità di abbinamenti e classifica, domande all'iscrizione.
+  liste, visibilità di abbinamenti e classifica, domande all'iscrizione, quota
+  ed early bird, e i **codici sconto**.
 - **Risultati** — classifica, premi consegnati, report ufficiale ed esportazioni.
+
+**I codici sconto** stanno in fondo a Impostazioni, sotto le domande
+all'iscrizione. Un codice è di quel torneo: una percentuale *oppure* un importo
+(mai tutt'e due), con una scadenza e un numero di usi facoltativi. Chi si
+iscrive lo scrive nel modulo, e da lì in poi il codice resta attaccato alla sua
+iscrizione: quello che vede scritto è quello che paga, al banco o online.
+
+«Ritira» toglie il codice dalla circolazione. Se non l'aveva ancora usato
+nessuno sparisce; se qualcuno l'ha usato **resta, chiuso**, perché cancellarlo
+cambierebbe il prezzo a chi si era già iscritto con quello sconto. Chiuso vuol
+dire che non ne entrano altri.
 
 ## Manifestazioni
 

@@ -12,6 +12,7 @@ sotto backend/app/services/.
 """
 import csv
 import io
+import json
 from datetime import UTC, date, datetime, timedelta
 from typing import Annotated
 
@@ -50,6 +51,7 @@ from backend.app.models import (
     TournamentStaff,
     TournamentStatus,
     TournamentStructure,
+    TournamentTemplate,
     User,
 )
 from backend.app.schemas import (
@@ -62,6 +64,7 @@ from backend.app.schemas import (
     OfficialReportRowOut,
     OrganizedTournamentRow,
     PaymentOut,
+    PlayerBreakdownRow,
     PlayerHistoryRowOut,
     PlayerPublicProfileOut,
     RefundDecisionIn,
@@ -80,6 +83,8 @@ from backend.app.schemas import (
     TournamentOut,
     TournamentReportOut,
     TournamentRoleOut,
+    TournamentTemplateIn,
+    TournamentTemplateOut,
     TournamentUpdate,
     WarningOut,
 )
@@ -95,15 +100,17 @@ from backend.app.services.pairings import (
     why_not_eligible,
 )
 from backend.app.services.payments import (
+    amount_due,
     create_paypal_checkout,
     create_stripe_checkout,
     refund_paypal_capture,
 )
 from backend.app.services.registrations import (
+    WAITLIST_PAY_HOURS,
     promote_from_waitlist,
 )
 from backend.app.services.schedule_import import parse_schedule_csv
-from backend.app.services.stores import managed_tournaments
+from backend.app.services.stores import managed_tournaments, store_ids
 from backend.app.services.tournament_access import (
     ensure_head_judge_seat_free,
     is_tournament_staff,
@@ -356,6 +363,9 @@ def player_public_history(
     ).all()
     rows: list[PlayerHistoryRowOut] = []
     tot_pts = wins = draws = losses = 0
+    # Record per formato e per archetipo: {etichetta: [tornei, V, P, S]}.
+    per_format: dict[str, list[int]] = {}
+    per_archetype: dict[str, list[int]] = {}
     for reg in regs:
         t = reg.tournament
         if not t or not t.standings_public:
@@ -366,15 +376,25 @@ def player_public_history(
         mine = next((s for s in standings if s.registration_id == reg.id), None)
         if not mine:
             continue
-        # record è "V/P/S" (vittorie/pareggi/sconfitte)
+        # calculate_standings scrive il record come "vittorie/sconfitte/pareggi"
+        # (services/standings.py), non V/P/S: letto nell'ordine sbagliato, il
+        # profilo mostrava le sconfitte come patte.
         try:
-            w, d, ls = (int(x) for x in str(mine.record).split("/"))
+            w, ls, d = (int(x) for x in str(mine.record).split("/"))
         except (ValueError, AttributeError):
             w = d = ls = 0
         wins += w
         draws += d
         losses += ls
         tot_pts += mine.points
+        for conto, etichetta in ((per_format, t.format), (per_archetype, reg.archetype.strip())):
+            if not etichetta:
+                continue   # l'archetipo spesso non c'è: non si inventa una riga "senza nome"
+            riga = conto.setdefault(etichetta, [0, 0, 0, 0])
+            riga[0] += 1
+            riga[1] += w
+            riga[2] += d
+            riga[3] += ls
         rows.append(PlayerHistoryRowOut(
             tournament_id=t.id, tournament_name=t.name, starts_on=t.starts_on,
             format=t.format, status=t.status, placement=mine.position,
@@ -408,7 +428,24 @@ def player_public_history(
         display_name=player.display_name, public_id=player.public_id, role=player.role,
         tournaments_played=len(rows), total_points=tot_pts,
         wins=wins, draws=draws, losses=losses, rows=rows, organized=organized,
+        by_format=_breakdown(per_format), by_archetype=_breakdown(per_archetype),
     )
+
+
+def _breakdown(conti: dict[str, list[int]]) -> list[PlayerBreakdownRow]:
+    """Da {etichetta: [tornei, V, P, S]} alle righe ordinate per win rate.
+
+    In cima chi vince di più, ma a parità di percentuale prima chi ha giocato di
+    più: un 100% su un match solo non deve scavalcare un 100% su dieci."""
+    righe = [
+        PlayerBreakdownRow(
+            label=etichetta, tournaments=tornei, wins=w, draws=d, losses=ls,
+            win_rate=round(w / (w + d + ls) * 100, 1) if (w + d + ls) else 0.0,
+        )
+        for etichetta, (tornei, w, d, ls) in conti.items()
+    ]
+    righe.sort(key=lambda r: (-r.win_rate, -r.tournaments, r.label))
+    return righe
 
 
 def _copy_tournament(src: Tournament, organizer: User, starts_on: date, series_id: int | None = None) -> Tournament:
@@ -565,6 +602,90 @@ def duplicate_tournament(
     return tournament_out(copy, 0, db)
 
 
+# ── Modelli di torneo ─────────────────────────────────────────
+#
+# "Duplica" copia il torneo della settimana scorsa; un modello serve a settembre,
+# quando quello di giugno non si trova più e l'organizzatore ricompila a memoria
+# venti campi. Dentro ci sono le impostazioni del modulo "Nuovo evento" meno la
+# data — un modello non ne ha una — e meno tutto ciò che è di un torneo solo:
+# iscritti, serie, identificativi esterni.
+TEMPLATE_FIELDS = (
+    "name", "format", "game", "event_type", "rules_enforcement_level", "best_of",
+    "allow_intentional_draws", "team_size", "pod_size", "structure", "swiss_rounds",
+    "top_cut_size", "start_time", "capacity", "entry_fee_cents", "currency",
+    "location_id", "venue", "city", "is_online", "online_platform", "online_link",
+    "decklist_required", "check_in_required", "self_check_in_enabled",
+    "late_registration_enabled", "registration_mode", "invite_code_required",
+    "pairings_public", "standings_public", "decklists_public", "round_timer_minutes",
+    "pay_at_event", "pay_stripe", "pay_paypal", "email_notifications_enabled",
+    "legal_validation_enabled", "sanction_id", "invites", "refund_policy", "description",
+)
+
+
+def _visible_templates(user: User, db: Session):
+    """I modelli che un organizzatore può vedere: quelli dei negozi di cui fa
+    parte, più i suoi — chi un negozio non ce l'ha ancora ha comunque i propri."""
+    negozi = store_ids(user, db)
+    condizione = TournamentTemplate.created_by_id == user.id
+    if negozi:
+        condizione = or_(condizione, TournamentTemplate.organization_id.in_(negozi))
+    return select(TournamentTemplate).where(condizione).order_by(TournamentTemplate.name)
+
+
+def _template_out(modello: TournamentTemplate) -> TournamentTemplateOut:
+    try:
+        impostazioni = json.loads(modello.payload or "{}")
+    except ValueError:
+        impostazioni = {}   # un modello illeggibile vale un modello vuoto, non un 500
+    return TournamentTemplateOut(
+        id=modello.id, name=modello.name, created_at=modello.created_at, payload=impostazioni
+    )
+
+
+@router.get("/templates", response_model=list[TournamentTemplateOut])
+def list_tournament_templates(
+    organizer: User = Depends(require_organizer),
+    db: Session = Depends(get_db),
+) -> list[TournamentTemplateOut]:
+    """I modelli salvati, per riempire il modulo "Nuovo evento"."""
+    return [_template_out(m) for m in db.scalars(_visible_templates(organizer, db)).all()]
+
+
+@router.post("/templates", response_model=TournamentTemplateOut, status_code=201)
+def save_tournament_template(
+    payload: TournamentTemplateIn,
+    organizer: User = Depends(require_organizer),
+    db: Session = Depends(get_db),
+) -> TournamentTemplateOut:
+    """Mette da parte le impostazioni di un torneo che esiste, col nome scelto."""
+    src = load_owned_tournament(payload.from_tournament_id, organizer, db)
+    impostazioni = {campo: getattr(src, campo) for campo in TEMPLATE_FIELDS}
+    modello = TournamentTemplate(
+        name=payload.name.strip(),
+        payload=json.dumps(impostazioni, default=str),
+        organization_id=src.organization_id,
+        created_by_id=organizer.id,
+    )
+    db.add(modello)
+    db.commit()
+    db.refresh(modello)
+    return _template_out(modello)
+
+
+@router.delete("/templates/{template_id}", status_code=204)
+def delete_tournament_template(
+    template_id: int,
+    organizer: User = Depends(require_organizer),
+    db: Session = Depends(get_db),
+) -> Response:
+    modello = db.scalar(_visible_templates(organizer, db).where(TournamentTemplate.id == template_id))
+    if not modello:
+        raise HTTPException(status_code=404, detail="Modello non trovato")
+    db.delete(modello)
+    db.commit()
+    return Response(status_code=204)
+
+
 SCHEDULE_LIMIT = 200
 # Il campo di TournamentCreate che non va, detto come nel file.
 SCHEDULE_FIELDS = {"name": "il nome (almeno 3 lettere)", "format": "il formato", "capacity": "i posti (almeno 2)",
@@ -718,6 +839,7 @@ def close_tournament(
 # spareggi o pagamenti già fatti. Nome, descrizione, luogo e timer restano liberi.
 LOCKED_AFTER_START = frozenset({
     "game", "format", "best_of", "starts_on", "start_time", "capacity", "entry_fee_cents",
+    "early_bird_cents", "early_bird_until",
     "pay_at_event", "pay_stripe", "pay_paypal", "structure", "swiss_rounds", "top_cut_size",
     "decklist_required", "check_in_required", "team_size", "is_online",
 })
@@ -785,6 +907,23 @@ def _apply_settings(tournament: Tournament, requested: dict, organizer: User, db
         ) or 0
         if changes["capacity"] < active:
             raise HTTPException(status_code=409, detail=f"Ci sono già {active} iscritti: la capienza non può scendere sotto")
+
+    if {"early_bird_cents", "early_bird_until"} & set(changes):
+        # Zero vuol dire "togli lo sconto", come lo zero della sede: vanno via
+        # tutt'e due insieme, o entry_fee_now resterebbe senza una delle due.
+        if changes.get("early_bird_cents") == 0:
+            changes["early_bird_cents"] = None
+            changes["early_bird_until"] = None
+        else:
+            quota = changes.get("entry_fee_cents", tournament.entry_fee_cents)
+            ridotta = changes.get("early_bird_cents", tournament.early_bird_cents)
+            scadenza = changes.get("early_bird_until", tournament.early_bird_until)
+            if ridotta is None or scadenza is None:
+                raise HTTPException(status_code=422, detail="L'early bird vuole la quota ridotta e il giorno in cui scade")
+            if ridotta >= quota:
+                raise HTTPException(status_code=422, detail="La quota early bird dev'essere più bassa di quella piena")
+            if scadenza > changes.get("starts_on", tournament.starts_on):
+                raise HTTPException(status_code=422, detail="L'early bird non può scadere dopo il torneo")
 
     if "entry_fee_cents" in changes:
         already_paid = db.scalar(
@@ -897,9 +1036,6 @@ def delete_tournament(
     db.execute(delete(Round).where(Round.tournament_id == tournament.id))
     db.delete(tournament)
     db.commit()
-
-
-WAITLIST_PAY_HOURS = 6   # ore per pagare dopo la promozione dalla waitlist (#32)
 
 
 def sweep_waitlist_deadlines(db: Session) -> int:
@@ -1125,11 +1261,11 @@ async def checkout(
     payment = registration.payment or Payment(
         registration_id=registration.id,
         provider=payload.provider,
-        amount_cents=tournament.entry_fee_cents,
+        amount_cents=amount_due(registration, tournament),
         currency=tournament.currency,
     )
     payment.provider = payload.provider
-    payment.amount_cents = tournament.entry_fee_cents
+    payment.amount_cents = amount_due(registration, tournament)
     payment.currency = tournament.currency
     db.add(payment)
     db.flush()

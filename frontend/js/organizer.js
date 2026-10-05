@@ -11,7 +11,7 @@ import { mountConsole } from './console.js';
 import { renderDeck } from './deck-view.js';
 import { cityInput } from './city-input.js';
 import { esc } from './escape.js';
-import { bindFormatPicker, formatOptions, formatPicker, formatValue } from './formats.js';
+import { bindFormatPicker, formatOptions, formatPicker, formatValue, setFormatValue } from './formats.js';
 import { bestOfLabel, gameInfo, gameLabel, loadGames, tiebreakerColumns } from './games.js';
 import { t as tr } from './i18n.js';
 import { $, apiFetch, fmtDate, money, session } from './organizer-common.js';
@@ -314,6 +314,7 @@ function eventCard(t) {
         <button class="mini-button" data-act="edit" data-id="${t.id}" type="button">✏ ${esc(tr('Modifica'))}</button>
         <button class="mini-button" data-act="dup" data-id="${t.id}" type="button">${esc(tr('Duplica'))}</button>
         <button class="mini-button" data-act="repeat" data-id="${t.id}" type="button">${esc(tr('Ripeti…'))}</button>
+        <button class="mini-button" data-act="tpl" data-id="${t.id}" type="button">${esc(tr('★ Modello'))}</button>
         ${isClosed(t) ? '' : `<button class="mini-button" data-act="close" data-id="${t.id}" type="button">${esc(tr('Chiudi'))}</button>`}
         ${isClosed(t) ? '' : `<button class="mini-button" data-act="del" data-id="${t.id}" type="button" style="color:var(--danger)">${esc(tr('Elimina'))}</button>`}
       </div>
@@ -367,6 +368,13 @@ function openNewEventDialog() {
         <button class="icon-button" value="cancel" formnovalidate>&times;</button>
       </header>
       <div class="bo-grid">
+        <label style="grid-column:1/-1" id="nTemplateWrap" hidden>${esc(tr('Parti da un modello'))}
+          <span style="display:flex;gap:8px;align-items:center">
+            <select id="nTemplate" style="flex:1"></select>
+            <button class="mini-button" id="nTemplateDel" type="button"
+                    style="color:var(--danger)">${esc(tr('Elimina modello'))}</button>
+          </span>
+        </label>
         <label>Nome<input id="nName" required placeholder="RCQ Modern" /></label>
         <label id="nGameWrap">${esc(tr('Gioco'))}<select id="nGame"></select></label>
         <label>Formato${formatPicker('nFormat', ['Modern'], 'Modern')}</label>
@@ -394,6 +402,9 @@ function openNewEventDialog() {
       <details class="bo-more">
         <summary>${esc(tr('Opzioni avanzate'))}</summary>
         <div class="bo-grid" style="margin-top:10px">
+          <label>${esc(tr('Early bird €'))}<input id="nEarlyFee" type="number" min="0" step="0.01"
+                 placeholder="${esc(tr('vuoto: nessuno sconto'))}" /></label>
+          <label>${esc(tr('Early bird fino al'))}<input id="nEarlyUntil" type="date" /></label>
           <label class="bo-check"><input id="nDeck" type="checkbox" checked /> Lista obbligatoria</label>
           <label class="bo-check"><input id="nAtEvent" type="checkbox" checked /> Pagamento al banco</label>
           <label class="bo-check"><input id="nStripe" type="checkbox" /> Online Stripe</label>
@@ -422,6 +433,91 @@ function openNewEventDialog() {
   bindFormatPicker('nFormat');
   cityInput($('#nCity'));
   bindOnline('n', $('#nGame').value || 'mtg', '');
+  // I modelli si legano qui una volta sola: la tendina si ricarica, gli ascolti no.
+  $('#nTemplate').addEventListener('change', () => {
+    const scelto = _templates.find((m) => String(m.id) === $('#nTemplate').value);
+    if (scelto) applyTemplate(scelto.payload || {});
+  });
+  $('#nTemplateDel').addEventListener('click', deleteTemplate);
+  fillTemplateChoices();
+}
+
+/* ── Modelli di torneo ───────────────────────────────────────
+   "Duplica" copia il venerdì scorso; un modello serve a settembre, quando il
+   torneo di giugno non si trova più nell'elenco. */
+
+let _templates = [];
+
+async function fillTemplateChoices() {
+  try {
+    _templates = await apiFetch('/tournaments/templates');
+  } catch { _templates = []; }
+  const wrap = $('#nTemplateWrap');
+  if (!wrap) return;
+  wrap.hidden = !_templates.length;   // senza modelli, una tendina vuota è solo rumore
+  $('#nTemplate').innerHTML = `<option value="">${esc(tr('— nessuno —'))}</option>`
+    + _templates.map((m) => `<option value="${m.id}">${esc(m.name)}</option>`).join('');
+}
+
+/** Riempie il modulo con le impostazioni del modello. La data resta vuota: è
+    l'unica cosa che un modello non può sapere. */
+async function applyTemplate(p) {
+  const testo = (sel, val) => { if (val != null && val !== '') $(sel).value = val; };
+  const segno = (sel, val) => { if (val != null) $(sel).checked = !!val; };
+  testo('#nName', p.name);
+  if (p.game) {
+    $('#nGame').value = p.game;
+    $('#nGame').dispatchEvent(new Event('change'));   // il gioco rifà i formati
+  }
+  setFormatValue('nFormat', p.format);
+  testo('#nType', p.event_type);
+  testo('#nRel', p.rules_enforcement_level);
+  testo('#nTime', p.start_time);
+  testo('#nCap', p.capacity);
+  $('#nFee').value = ((p.entry_fee_cents || 0) / 100).toFixed(2);
+  testo('#nLocation', p.location_id);
+  testo('#nVenue', p.venue);
+  testo('#nCity', p.city);
+  segno('#nOnline', p.is_online);
+  // bindOnline riempie le piattaforme del gioco e sceglie quella del modello,
+  // poi mostra o nasconde la sede: va dopo la casella, non prima.
+  await bindOnline('n', p.game || $('#nGame').value || 'mtg', p.online_platform || '');
+  testo('#nLink', p.online_link);
+  segno('#nDeck', p.decklist_required);
+  segno('#nAtEvent', p.pay_at_event);
+  segno('#nStripe', p.pay_stripe);
+  segno('#nPaypal', p.pay_paypal);
+  segno('#nPairPub', p.pairings_public);
+  segno('#nStandPub', p.standings_public);
+  segno('#nDeckPub', p.decklists_public);
+  testo('#nSanction', p.sanction_id);
+  testo('#nBestOf', p.best_of);
+  segno('#nIds', p.allow_intentional_draws);
+  testo('#nTeam', p.team_size);
+  segno('#nRegOnly', p.structure === 'registration_only');
+}
+
+async function saveAsTemplate(id) {
+  const nome = window.prompt(tr('Nome del modello (per ritrovarlo fra mesi)'));
+  if (!nome || nome.trim().length < 2) return;
+  try {
+    await apiFetch('/tournaments/templates', {
+      method: 'POST',
+      body: JSON.stringify({ name: nome.trim(), from_tournament_id: +id }),
+    });
+    toast('Modello salvato.');
+  } catch (err) { toast('Errore: ' + err.message); }
+}
+
+async function deleteTemplate() {
+  const id = $('#nTemplate').value;
+  if (!id) { toast('Scegli prima un modello.'); return; }
+  if (!window.confirm(tr('Eliminare il modello?'))) return;
+  try {
+    await apiFetch(`/tournaments/templates/${id}`, { method: 'DELETE' });
+    toast('Modello eliminato.');
+    await fillTemplateChoices();
+  } catch (err) { toast('Errore: ' + err.message); }
 }
 
 /* Torneo online: al posto della sede la piattaforma (dal catalogo dei giochi)
@@ -493,6 +589,10 @@ async function createTournament(e) {
     start_time: $('#nTime').value || null,
     capacity: +$('#nCap').value || 8,
     entry_fee_cents: Math.round((+$('#nFee').value || 0) * 100),
+    // Early bird: o tutt'e due o niente, e il backend rifiuta uno sconto che non sconta.
+    ...($('#nEarlyFee').value !== '' && $('#nEarlyUntil').value
+      ? { early_bird_cents: Math.round(+$('#nEarlyFee').value * 100), early_bird_until: $('#nEarlyUntil').value }
+      : {}),
     currency: 'EUR',
     status: 'published',
     event_type: $('#nType').value,
@@ -528,6 +628,7 @@ async function createTournament(e) {
 
 async function tournamentAction(act, id) {
   if (act === 'repeat') return openRepeatDialog(id);
+  if (act === 'tpl') return saveAsTemplate(id);
   if (act === 'edit') return openEvent(id, 'impostazioni');
   const confirmMsg = act === 'del' ? 'Eliminare definitivamente il torneo e tutti i dati?' : null;
   if (confirmMsg && !window.confirm(confirmMsg)) return;
@@ -2464,6 +2565,11 @@ async function renderImpostazioni() {
         <div class="bo-grid">
           <label>Capienza<input id="sCap" type="number" min="2" value="${t.capacity}" ${lock('capacity')} /></label>
           <label>Entry fee €<input id="sFee" type="number" min="0" step="0.01" value="${((t.entry_fee_cents || 0) / 100).toFixed(2)}" ${lock('entry_fee')} /></label>
+          <label>${esc(tr('Early bird €'))}<input id="sEarlyFee" type="number" min="0" step="0.01"
+                 placeholder="${esc(tr('vuoto: nessuno sconto'))}" ${lock('entry_fee')}
+                 value="${t.early_bird_cents == null ? '' : (t.early_bird_cents / 100).toFixed(2)}" /></label>
+          <label>${esc(tr('Early bird fino al'))}<input id="sEarlyUntil" type="date" ${lock('entry_fee')}
+                 value="${esc(t.early_bird_until || '')}" /></label>
           <label class="bo-check"><input id="sAtEvent" type="checkbox" ${checked(t.pay_at_event)} ${lock('pay_at_event')} /> Pagamento al banco</label>
           <label class="bo-check"><input id="sStripe" type="checkbox" ${checked(t.pay_stripe)} ${lock('pay_stripe')} /> Online Stripe</label>
           <label class="bo-check"><input id="sPaypal" type="checkbox" ${checked(t.pay_paypal)} ${lock('pay_paypal')} /> Online PayPal</label>
@@ -2499,8 +2605,10 @@ async function renderImpostazioni() {
         <button class="primary" type="submit" id="sSave">${esc(tr('Salva le modifiche'))}</button>
       </div>
     </form>
-    <div id="fieldsBox" style="margin-top:16px"></div>`;
+    <div id="fieldsBox" style="margin-top:16px"></div>
+    <div id="codesBox" style="margin-top:16px"></div>`;
   renderFieldsEditor(t);
+  renderDiscountCodes(t);
 
   // Cambiando gioco cambiano i formati proposti e, a torneo non avviato, il formato dei match.
   const syncFormats = (fromUser) => {
@@ -2539,6 +2647,9 @@ async function renderImpostazioni() {
       ...onlineBody('s'),
       capacity: +$('#sCap').value,
       entry_fee_cents: Math.round((+$('#sFee').value || 0) * 100),
+      // Campo vuoto = 0 = "togli l'early bird" (il backend azzera anche la data).
+      early_bird_cents: $('#sEarlyFee').value === '' ? 0 : Math.round(+$('#sEarlyFee').value * 100),
+      early_bird_until: $('#sEarlyUntil').value || null,
       pay_at_event: $('#sAtEvent').checked,
       pay_stripe: $('#sStripe').checked,
       pay_paypal: $('#sPaypal').checked,
@@ -2582,6 +2693,73 @@ const FIELD_KINDS = [
   { value: 'choice', label: 'Scelta tra opzioni' },
   { value: 'checkbox', label: 'Casella da spuntare' },
 ];
+
+/* ── Codici sconto ───────────────────────────────────────────
+   Un codice per torneo, o una percentuale o un importo. Ritirarne uno già usato
+   non lo cancella: resta chiuso, perché chi si è iscritto con quello sconto
+   paga quello che gli era stato detto. */
+
+async function renderDiscountCodes(t) {
+  const box = $('#codesBox');
+  if (!box) return;
+  if (!t.entry_fee_cents) { box.innerHTML = ''; return; }   // gratis: niente da scontare
+
+  const draw = async () => {
+    const codes = await apiFetch(`/tournaments/${t.id}/discount-codes`).catch(() => []);
+    const chiuso = (c) => c.max_uses && c.uses >= c.max_uses;
+    box.innerHTML = `<div class="panel">
+      <h3>${esc(tr('Codici sconto'))}</h3>
+      <p class="muted" style="margin-top:0;font-size:.85rem">${esc(tr('Chi si iscrive lo scrive nel modulo. Un codice già usato non si cancella: si chiude, e chi l\'ha usato tiene il suo prezzo.'))}</p>
+      ${codes.length ? `<div class="table-wrap"><table class="split-table">
+        <thead><tr><th>${esc(tr('Codice'))}</th><th>${esc(tr('Sconto'))}</th><th>${esc(tr('Usi'))}</th><th></th></tr></thead>
+        <tbody>${codes.map((c) => `<tr>
+          <td><strong>${esc(c.code)}</strong>${chiuso(c) ? ` <span class="badge">${esc(tr('chiuso'))}</span>` : ''}
+            ${c.valid_until ? `<span class="col-sub">${esc(tr('fino al'))} ${fmtDate(c.valid_until)}</span>` : ''}</td>
+          <td>${c.percent_off ? `${c.percent_off}%` : money(c.cents_off)}</td>
+          <td>${c.uses}${c.max_uses ? ` / ${c.max_uses}` : ''}</td>
+          <td><button class="mini-button" data-drop="${c.id}" type="button" style="color:var(--danger)">${esc(tr('Ritira'))}</button></td>
+        </tr>`).join('')}</tbody></table></div>`
+        : `<p class="muted">${esc(tr('Nessun codice: la quota è quella per tutti.'))}</p>`}
+      <div class="bo-grid" style="margin-top:10px">
+        <label>${esc(tr('Codice'))}<input id="cCode" maxlength="32" placeholder="AMICI20" /></label>
+        <label>${esc(tr('Sconto %'))}<input id="cPercent" type="number" min="0" max="100" placeholder="20" /></label>
+        <label>${esc(tr('oppure €'))}<input id="cCents" type="number" min="0" step="0.01" placeholder="5,00" /></label>
+        <label>${esc(tr('Quante volte'))}<input id="cMax" type="number" min="0" placeholder="${esc(tr('0 = sempre'))}" /></label>
+        <label>${esc(tr('Valido fino al'))}<input id="cUntil" type="date" /></label>
+      </div>
+      <div class="row-actions" style="margin-top:8px">
+        <button class="secondary" id="cAdd" type="button">${esc(tr('+ Aggiungi codice'))}</button>
+      </div>`;
+
+    box.querySelectorAll('[data-drop]').forEach((b) => b.addEventListener('click', async () => {
+      if (!window.confirm(tr('Ritirare il codice?'))) return;
+      try {
+        await apiFetch(`/tournaments/${t.id}/discount-codes/${b.dataset.drop}`, { method: 'DELETE' });
+        await draw();
+      } catch (err) { toast('Errore: ' + err.message); }
+    }));
+
+    $('#cAdd').addEventListener('click', async () => {
+      const code = $('#cCode').value.trim();
+      const percento = +$('#cPercent').value || 0;
+      const euro = Math.round((+$('#cCents').value || 0) * 100);
+      if (code.length < 3) { toast('Il codice vuole almeno tre caratteri.'); return; }
+      if (!!percento === !!euro) { toast('Scegli uno sconto solo: la percentuale o l\'importo.'); return; }
+      try {
+        await apiFetch(`/tournaments/${t.id}/discount-codes`, {
+          method: 'POST',
+          body: JSON.stringify({
+            code, percent_off: percento, cents_off: euro,
+            max_uses: +$('#cMax').value || 0, valid_until: $('#cUntil').value || null,
+          }),
+        });
+        await draw();
+      } catch (err) { toast('Errore: ' + err.message); }
+    });
+  };
+  await draw();
+}
+
 
 async function renderFieldsEditor(t) {
   const box = $('#fieldsBox');

@@ -32,6 +32,18 @@ export function bindFormatPicker(id) {
   });
 }
 
+/** Sceglie un formato dall'esterno (un modello di torneo che riempie il modulo):
+    dalla tendina se quel formato c'è, altrimenti "Altro…" scritto a mano. */
+export function setFormatValue(id, value) {
+  const select = document.querySelector(`#${id}`);
+  const altro = document.querySelector(`#${id}Altro`);
+  if (!select || !altro || !value) return;
+  const noto = [...select.options].some((o) => o.value === value);
+  select.value = noto ? value : ALTRO;
+  altro.value = noto ? '' : value;
+  altro.style.display = noto ? 'none' : '';
+}
+
 /** Il formato scelto: quello della tendina, o quello scritto a mano. */
 export function formatValue(id) {
   const select = document.querySelector(`#${id}`);
