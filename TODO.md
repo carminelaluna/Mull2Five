@@ -232,6 +232,15 @@ decisioni tue.
       Procedura in `docs/hosting.md`. Da ripetere quando lo staging va riallineato.
 - [x] **Lo staging c'è** (29/09/2026): ramo `develop` → `mull2five-staging.onrender.com`, con
       un progetto Supabase suo e una copia anonimizzata dei dati. Vedi `docs/hosting.md`.
+- [ ] **Il database dello staging va in pausa da solo** (23/11/2026). Il progetto Supabase
+      "Mull2Five Dev" è gratuito, e Supabase mette in pausa i progetti gratuiti dopo circa una
+      settimana senza attività. Allora `prepara_database.py` non trova il database, esce con
+      un errore, e Render mostra "Failed service" oppure una pagina di risveglio che non finisce
+      mai. Non è un difetto del codice: il 23/11 lo staging era fermo da due mesi e aveva
+      saltato le migrazioni `0007`–`0010`. Se ricapita: su Supabase "Resume project" (circa sei
+      minuti prima di "Healthy"), poi su Render *Manual Deploy* → *Deploy latest commit*.
+      Da decidere: tenerlo sveglio (una richiesta a settimana, per esempio da una GitHub Action)
+      o accettare la pausa e riattivarlo prima di ogni prova.
 
 ## Segnalazioni dal campo (28 settembre 2026)
 
