@@ -94,7 +94,7 @@ from backend.app.services.pairings import (
 from backend.app.services.payments import (
     PAYMENT_HOLD_MINUTES,
     amount_due,
-    expire_stripe_checkout,
+    close_stripe_checkout,
     payment_methods,
     start_checkout,
 )
@@ -717,8 +717,10 @@ def cancel_registration(
     tournament = registration.tournament
     if tournament.status != TournamentStatus.PUBLISHED:
         raise HTTPException(status_code=409, detail="Annullabile solo prima dell'inizio del torneo")
-    # Non ancora pagato online: non era iscritto, e così può riprovare.
-    if _release_my_hold(registration, db):
+    # Niente pagato (al banco, o online non completato): l'iscrizione sparisce
+    # e può iscriversi di nuovo. Prima restava "ritirata": la vedeva ancora tra
+    # i suoi tornei, e riprovando gli si diceva "Sei già iscritto" (23/11/2026).
+    if _delete_unpaid(registration, db):
         return {"status": "cancelled", "refunded": False}
 
     refunded = False
@@ -766,31 +768,34 @@ def abandon_payment(
         .where(Registration.tournament_id == tournament_id, Registration.player_id == user.id)
         .options(joinedload(Registration.payment), joinedload(Registration.tournament))
     )
-    return {"released": bool(registration) and _release_my_hold(registration, db)}
+    if not registration or registration.payment_due_by is None:
+        return {"released": False}   # paga al banco: il ritorno da un pagamento non lo tocca
+    return {"released": _delete_unpaid(registration, db)}
 
 
-def _release_my_hold(registration: Registration, db: Session) -> bool:
-    """Toglie subito l'iscrizione tenuta per un pagamento online non fatto.
+def _delete_unpaid(registration: Registration, db: Session) -> bool:
+    """Toglie del tutto un'iscrizione su cui non è passato denaro.
 
-    Falso se non c'è niente da togliere: paga al banco, ha già pagato, oppure
-    Stripe non chiude la pagina di pagamento (già pagata, per esempio) e allora
-    decide la notifica del pagamento.
+    Sparisce dalle sue iscrizioni e dalla pagina del torneo, e può iscriversi
+    di nuovo. Falso se resta: ha pagato (o è in rimborso), e quella riga serve
+    ai conti; oppure Stripe non chiude la pagina di pagamento ancora aperta
+    (già pagata, per esempio), e allora decide la notifica del pagamento.
     """
     payment = registration.payment
-    if registration.payment_due_by is None or (payment and payment.status == PaymentStatus.PAID):
+    if payment and payment.status not in (PaymentStatus.PENDING, PaymentStatus.FAILED):
         return False
     if payment and payment.provider == "stripe" and payment.provider_checkout_id.startswith("cs_"):
-        try:
-            expire_stripe_checkout(payment.provider_checkout_id)
-        except Exception:
+        if not close_stripe_checkout(payment.provider_checkout_id):
             return False
+    was_active = not registration.waitlisted and not registration.dropped
     tournament, player_id = registration.tournament, registration.player_id
     release_hold(registration, db)
     db.commit()
     cache_invalidate("tournaments:")
     cache_invalidate(f"registrations:{tournament.id}")
     cache_invalidate(f"my-reg:{tournament.id}:{player_id}")
-    promote_from_waitlist(tournament, db)
+    if was_active:
+        promote_from_waitlist(tournament, db)
     return True
 
 

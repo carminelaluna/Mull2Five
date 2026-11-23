@@ -1149,5 +1149,6 @@
   "Reindirizzamento al pagamento…": "Redirecting to payment…",
   "Non sei ancora iscritto: paga entro le {ora}": "You are not registered yet: pay by {ora}",
   "Sei iscritto quando il pagamento è completato ({quota}).": "You are registered once the payment is complete ({quota}).",
-  "Non sei ancora iscritto": "You are not registered yet"
+  "Non sei ancora iscritto": "You are not registered yet",
+  "Iscrizione annullata": "Registration cancelled"
 }

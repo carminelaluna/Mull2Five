@@ -1158,5 +1158,6 @@
   "Reindirizzamento al pagamento…": "Weiterleitung zur Zahlung…",
   "Non sei ancora iscritto: paga entro le {ora}": "Du bist noch nicht angemeldet: Zahle bis {ora} Uhr",
   "Sei iscritto quando il pagamento è completato ({quota}).": "Du bist angemeldet, sobald die Zahlung abgeschlossen ist ({quota}).",
-  "Non sei ancora iscritto": "Du bist noch nicht angemeldet"
+  "Non sei ancora iscritto": "Du bist noch nicht angemeldet",
+  "Iscrizione annullata": "Anmeldung storniert"
 }

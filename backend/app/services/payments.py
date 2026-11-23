@@ -154,14 +154,20 @@ async def start_checkout(registration: Registration, provider: str, db: Session)
     return payment
 
 
-def expire_stripe_checkout(session_id: str) -> None:
-    """Chiude una pagina di pagamento Stripe: dopo, non incassa più.
-
-    Solleva se Stripe non la chiude, per esempio perché è già stata pagata:
-    allora l'iscrizione non va tolta.
+def close_stripe_checkout(session_id: str) -> bool:
+    """Vero se la pagina di pagamento Stripe non può più incassare: chiusa
+    adesso, o già scaduta da sola. Falso se è stata pagata o se Stripe non
+    risponde: allora l'iscrizione non va tolta.
     """
     stripe.api_key = get_settings().stripe_secret_key
-    stripe.checkout.Session.expire(session_id)
+    try:
+        stripe.checkout.Session.expire(session_id)
+        return True
+    except stripe.StripeError:
+        try:
+            return stripe.checkout.Session.retrieve(session_id).status == "expired"
+        except stripe.StripeError:
+            return False
 
 
 async def create_stripe_checkout(registration: Registration, store: Organization | None = None) -> CheckoutSession:

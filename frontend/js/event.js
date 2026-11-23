@@ -102,6 +102,10 @@ async function loadEvent() {
         <div style="display:grid;gap:8px;text-align:right">
           ${imported
             ? `<a class="primary" id="eventCta" href="${esc(t.external_url)}" target="_blank" rel="noopener" style="text-align:center;text-decoration:none;padding:10px 18px;border-radius:8px">${esc(tr('Iscriviti presso il negozio ↗'))}</a>`
+            : isReg && myReg.dropped
+            // Annullata dopo aver pagato (la riga resta per il rimborso), o
+            // ritirato a torneo in corso: in tutti e due i casi non gioca.
+            ? `<span class="badge">${esc(t.status === 'published' ? tr('Iscrizione annullata') : tr('Ritirato'))}</span>`
             : isReg && myReg.payment_due_by && myReg.payment_status !== 'paid'
             // Ha scelto di pagare online e il pagamento non è ancora arrivato:
             // non è iscritto, ha solo il posto tenuto.

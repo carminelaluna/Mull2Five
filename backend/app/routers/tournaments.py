@@ -302,11 +302,19 @@ def my_registrations_list(
     tournaments = {t.id: t for t in tournament_with_counts(select(Tournament).where(Tournament.id.in_(ids)), db)}
     rows = [
         MyRegistrationOut(tournament=tournaments[reg.tournament_id], registration=registration_out(reg))
-        for reg in registrations if reg.tournament_id in tournaments
+        for reg in registrations
+        if reg.tournament_id in tournaments and not _cancelled_before_start(reg, reg.tournament)
     ]
     # I tornei più vicini per primi, come li legge la pagina.
     rows.sort(key=lambda row: (row.tournament.starts_on, row.tournament.start_time or ""), reverse=True)
     return rows
+
+
+def _cancelled_before_start(registration: Registration, tournament: Tournament) -> bool:
+    """Annullata (o ritirata dal negozio) prima che il torneo cominci: non è più
+    tra i suoi tornei. Resta una riga solo se c'era un pagamento, per i conti.
+    Chi si ritira a torneo in corso invece lo vede ancora, con "Ritirato"."""
+    return registration.dropped and tournament.status == TournamentStatus.PUBLISHED
 
 
 @router.get("/me/history", response_model=list[PlayerHistoryRowOut])

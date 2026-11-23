@@ -243,12 +243,14 @@ def stripe_vero(monkeypatch):
         return SimpleNamespace(id="cs_test_1", url="https://checkout.stripe.test/cs_test_1")
 
     def scade(session_id):
-        if chiamate.get("gia_pagata"):
-            raise stripe.InvalidRequestError("Session already completed", None)
+        if chiamate.get("stato"):
+            raise stripe.InvalidRequestError("Session is not open", None)
         chiamate["scadute"].append(session_id)
 
     monkeypatch.setattr(stripe.checkout.Session, "create", crea)
     monkeypatch.setattr(stripe.checkout.Session, "expire", scade)
+    monkeypatch.setattr(stripe.checkout.Session, "retrieve",
+                        lambda session_id: SimpleNamespace(id=session_id, status=chiamate["stato"]))
     return chiamate
 
 
@@ -277,9 +279,54 @@ def test_a_stripe_page_already_paid_keeps_the_registration(client, stripe_vero):
     tid = _torneo(client, org)
     player = _utente(client, "cs2-a@example.com")
     _iscrivi(client, tid, player, payment_method="stripe")
-    stripe_vero["gia_pagata"] = True
+    stripe_vero["stato"] = "complete"
 
     tolto = client.post(f"/api/tournaments/{tid}/my-registration/abandon-payment", headers=player)
 
     assert tolto.json() == {"released": False}
     assert _mia(client, tid, player).status_code == 200
+
+
+def test_a_stripe_page_that_expired_by_itself_does_not_block_cancelling(client, stripe_vero):
+    org = _utente(client, "cs3-org@example.com", role="organizer")
+    tid = _torneo(client, org)
+    player = _utente(client, "cs3-a@example.com")
+    _iscrivi(client, tid, player, payment_method="stripe")
+    stripe_vero["stato"] = "expired"
+
+    assert client.post(f"/api/tournaments/{tid}/my-registration/cancel", headers=player).status_code == 200
+    assert _mia(client, tid, player).status_code == 404
+
+
+def test_cancelling_a_desk_registration_removes_it(client):
+    """Annullata da Chrome, il 23/11/2026, restava tra i suoi tornei come
+    "ritirata", e riprovando il sito diceva "Sei già iscritto"."""
+    org = _utente(client, "via-org@example.com", role="organizer")
+    tid = _torneo(client, org)
+    player = _utente(client, "via-a@example.com")
+    _iscrivi(client, tid, player, payment_method="at_event")
+
+    annullata = client.post(f"/api/tournaments/{tid}/my-registration/cancel", headers=player)
+
+    assert annullata.json() == {"status": "cancelled", "refunded": False}
+    assert _mia(client, tid, player).status_code == 404
+    assert client.get("/api/tournaments/me/registrations", headers=player).json() == []
+    assert client.get(f"/api/tournaments/{tid}").json()["registered_players"] == 0
+    assert _iscrivi(client, tid, player, payment_method="at_event").status_code == 201
+
+
+def test_a_paid_cancelled_registration_stays_for_the_books_but_leaves_the_list(client, db_session):
+    org = _utente(client, "conti-org@example.com", role="organizer")
+    tid = _torneo(client, org)
+    player = _utente(client, "conti-a@example.com")
+    url = _iscrivi(client, tid, player, payment_method="paypal").json()["checkout_url"]
+    client.post(f"/api/payments/sandbox/{parse_qs(urlparse(url).query)['payment_id'][0]}/complete")
+
+    annullata = client.post(f"/api/tournaments/{tid}/my-registration/cancel", headers=player)
+
+    assert annullata.json()["refunded"] is True
+    # La riga resta, con il rimborso: serve al negozio per restituire i soldi.
+    mia = _mia(client, tid, player).json()
+    assert (mia["dropped"], mia["payment_status"]) == (True, "refunded")
+    # Ma tra i suoi tornei non c'è più.
+    assert client.get("/api/tournaments/me/registrations", headers=player).json() == []

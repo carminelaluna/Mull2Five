@@ -1151,5 +1151,6 @@
   "Reindirizzamento al pagamento…": "Redirigiendo al pago…",
   "Non sei ancora iscritto: paga entro le {ora}": "Aún no estás inscrito: paga antes de las {ora}",
   "Sei iscritto quando il pagamento è completato ({quota}).": "Quedas inscrito cuando se completa el pago ({quota}).",
-  "Non sei ancora iscritto": "Aún no estás inscrito"
+  "Non sei ancora iscritto": "Aún no estás inscrito",
+  "Iscrizione annullata": "Inscripción cancelada"
 }

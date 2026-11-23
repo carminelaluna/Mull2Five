@@ -1155,5 +1155,6 @@
   "Reindirizzamento al pagamento…": "Redirection vers le paiement…",
   "Non sei ancora iscritto: paga entro le {ora}": "Vous n'êtes pas encore inscrit : payez avant {ora}",
   "Sei iscritto quando il pagamento è completato ({quota}).": "Vous êtes inscrit une fois le paiement effectué ({quota}).",
-  "Non sei ancora iscritto": "Vous n'êtes pas encore inscrit"
+  "Non sei ancora iscritto": "Vous n'êtes pas encore inscrit",
+  "Iscrizione annullata": "Inscription annulée"
 }
