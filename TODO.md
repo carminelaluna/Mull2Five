@@ -208,6 +208,10 @@ decisioni tue.
   ai negozi: che piano pagare, quanti worker, se mettere Redis, e che la
   regione di Render sia la stessa di Supabase (Francoforte) — altrimenti ogni
   query paga il viaggio.
+  *Deciso il 23/11/2026*: Render Starter, Supabase gratuito, dominio proprio,
+  Brevo per le email. I passi sono in `docs/hosting.md`, "Passo 8"; il codice
+  (redirect da onrender.com, `SITE_URL` nella build) è pronto. Restano worker e
+  Redis, da rivedere quando il traffico lo chiede.
 
 - [ ] **17. L'import dal Locator è fragile per costruzione.**
   Legge `search.data`, il formato turbo-stream interno di Remix che nessuno ha

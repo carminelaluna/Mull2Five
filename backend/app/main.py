@@ -3,11 +3,12 @@ import logging
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -251,6 +252,37 @@ async def static_cache_headers(request: Request, call_next):
     else:
         response.headers["Cache-Control"] = "no-cache"
     return response
+
+
+# Le richieste che non si spostano: API e webhook (Stripe e PayPal mandano POST
+# all'indirizzo che conoscono, e un 301 su un POST non lo seguono), e i controlli
+# di Render, che interrogano il servizio col suo nome interno.
+_STAYS_ON_ANY_HOST = ("/api/", "/health", "/metrics")
+
+
+@app.middleware("http")
+async def redirect_to_site_domain(request: Request, call_next):
+    """Chi arriva da `*.onrender.com` passa al dominio del sito (SITE_URL).
+
+    Con un dominio vero l'indirizzo di Render resta raggiungibile, e i link
+    vecchi — QR stampati, messaggi nei gruppi — continuano a portare lì: così
+    arrivano alla pagina giusta sul dominio nuovo, e i motori di ricerca
+    tengono un indirizzo solo. Sullo staging SITE_URL è l'indirizzo di Render
+    stesso, quindi non si sposta niente.
+    """
+    target = urlsplit(settings.site_url)
+    host = request.headers.get("host", "").split(":")[0].lower()
+    if (
+        target.hostname
+        and host.endswith(".onrender.com")
+        and host != target.hostname
+        and request.method in ("GET", "HEAD")
+        and not request.url.path.startswith(_STAYS_ON_ANY_HOST)
+    ):
+        query = f"?{request.url.query}" if request.url.query else ""
+        return RedirectResponse(
+            f"{target.scheme}://{target.netloc}{request.url.path}{query}", status_code=301)
+    return await call_next(request)
 
 
 app.include_router(auth.router, prefix="/api")

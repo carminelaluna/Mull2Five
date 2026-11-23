@@ -160,6 +160,48 @@ gratuito ne concede due), prima di averne bisogno davvero.
 3. Aprire il sito, registrare un account organizzatore, creare un torneo di prova.
 4. *Actions → Backup → Run workflow*, scaricare l'artifact e verificare che si decifri.
 
+## Passo 8 — Dominio vero e server sempre acceso
+
+Scelto il 23/11/2026, come la soluzione più economica che regge l'apertura ai negozi:
+Render Starter (circa 7 $/mese) per il server, Supabase gratuito per il database
+come adesso, un dominio (.it, circa 9–12 €/anno di rinnovo), Brevo gratuito per le
+email (300 al giorno). Niente migrazione dei dati. Quando il database si avvicina ai
+500 MB, o serve il ripristino al minuto, si passa a Supabase Pro (25 $/mese).
+
+Il codice è già pronto: `SITE_URL` decide il redirect da `*.onrender.com` al
+dominio (`redirect_to_site_domain` in `backend/app/main.py`, solo pagine in GET;
+API e webhook restano raggiungibili anche dal vecchio indirizzo) e gli indirizzi
+scritti nelle pagine al momento della build (`ARG SITE_URL` nel `Dockerfile`).
+
+1. **Dominio.** Comprarlo guardando il prezzo del *rinnovo*, non del primo anno.
+   Il DNS conviene gestirlo su Cloudflare (gratuito) anche se il dominio è altrove.
+2. **Render → Mull2Five → Settings → Instance Type**: Starter.
+3. **Render → Mull2Five → Settings → Custom Domains**: aggiungere `<dominio>` e
+   `www.<dominio>`. Render mostra i record DNS da creare (per il dominio nudo un
+   record A, per `www` un CNAME verso `mull2five.onrender.com`): copiarli così come
+   sono. Su Cloudflare, con la nuvola **grigia** (solo DNS), altrimenti Render non
+   riesce a emettere il certificato. Aspettare che Render dica *Verified* e
+   *Certificate issued*.
+4. **Render → Mull2Five → Environment**: `APP_URL`, `FRONTEND_URL` e `SITE_URL`
+   diventano `https://<dominio>`. Salvare fa partire un deploy, che serve: le
+   pagine si ricostruiscono con l'indirizzo nuovo.
+5. **Brevo.** Creare l'account, *Senders, Domains → Domains*: aggiungere il dominio
+   e creare nel DNS i record che chiede (DKIM, DMARC, il codice di verifica). Poi
+   *SMTP & API → SMTP*: generare una chiave SMTP. Su Render: `SMTP_HOST`
+   `smtp-relay.brevo.com`, `SMTP_PORT` `587`, `SMTP_USERNAME` e `SMTP_PASSWORD`
+   quelli che mostra Brevo, `SMTP_FROM_EMAIL` `noreply@<dominio>`, `VAPID_SUBJECT`
+   `mailto:noreply@<dominio>`.
+6. **Webhook.** Nel cruscotto Stripe e in quello PayPal l'indirizzo diventa
+   `https://<dominio>/api/payments/stripe/webhook` e `.../paypal/webhook`. Il
+   vecchio continua a funzionare finché non lo si cambia, quindi l'ordine non conta.
+7. **Prove.**
+   - `curl https://<dominio>/health`: `"status":"ok"` e il commit giusto.
+   - `curl -I https://mull2five.onrender.com/events.html`: `301` verso il dominio.
+   - Il sorgente della home: `og:image` e `canonical` col dominio.
+   - "Password dimenticata" con un proprio indirizzo: l'email arriva, non nello spam,
+     e il link porta al dominio.
+   - Google Search Console: aggiungere il dominio e inviare `/sitemap.xml`.
+
 ## Da sapere prima di mandare il link
 
 - **Chiunque può registrarsi come organizzatore**: la registrazione accetta il ruolo

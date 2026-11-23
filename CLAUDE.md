@@ -95,7 +95,7 @@ Parità con Melee completata (26 passi), checklist di lancio fatta, revisione
 critica chiusa tranne tre punti. Il backend è diviso in `tournaments.py`,
 `tournament_registrations.py`, `tournament_rounds.py` più i servizi; il
 back-office in `organizer.js`, `organizer-store.js`, `organizer-common.js`.
-ESLint sul frontend, Alembic sullo schema. Test: 372 backend (SQLite e
+ESLint sul frontend, Alembic sullo schema. Test: 380 backend (SQLite e
 PostgreSQL), 60 frontend, 9 end-to-end. `/health` dice quale commit sta girando
 e se lo schema è allineato al codice.
 
@@ -128,8 +128,9 @@ Dettaglio in `TODO.md`. Quelle che contano:
    `PAYMENT.CAPTURE.COMPLETED`, e mettere il suo identificativo in
    `PAYPAL_WEBHOOK_ID`. Il codice è pronto; senza quell'identificativo le
    notifiche vengono rifiutate, ed è il comportamento voluto.
-4. Decidere il piano di Render: oggi è **gratuito**, quindi il servizio si
-   addormenta e il primo visitatore aspetta fino a un minuto.
+4. Passare a Render Starter con un dominio proprio e Brevo per le email: deciso il
+   23/11/2026, il codice è pronto, i passi da cruscotto sono in `docs/hosting.md`
+   ("Passo 8"). Finché non si fa, il servizio è **gratuito** e si addormenta.
 
 **Infrastruttura, quel che resta del guasto del 23/09**
 5. Far aspettare la CI al deploy (nel cruscotto Render) e impostare `ALERT_EMAIL`.

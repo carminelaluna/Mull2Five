@@ -24,7 +24,7 @@ services:
     runtime: docker
     dockerfilePath: ./Dockerfile
     region: frankfurt          # lo stesso di Supabase: il database è lì accanto
-    plan: free                 # si addormenta dopo 15 minuti: voce 3 del TODO
+    plan: starter              # sempre acceso; il gratuito si addormentava dopo 15 minuti
     branch: main
     autoDeploy: true           # il push su main va in produzione da solo
     healthCheckPath: /health
@@ -37,6 +37,10 @@ services:
         value: production
       - key: APP_NAME
         value: Mull2Five
+      # Con il dominio vero diventano tutte e tre https://<dominio>: vedi
+      # docs/hosting.md, "Passo 8". SITE_URL decide anche il redirect da
+      # onrender.com al dominio (main.py) e gli indirizzi scritti nelle pagine
+      # alla build (Dockerfile).
       - key: APP_URL
         value: https://mull2five.onrender.com
       - key: FRONTEND_URL

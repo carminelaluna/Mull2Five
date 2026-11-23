@@ -6,6 +6,11 @@ WORKDIR /frontend
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
 COPY frontend/ ./
+# L'indirizzo pubblico finisce nelle pagine (og:image, canonical) al momento
+# della build, non dopo: Render passa le variabili d'ambiente del servizio come
+# argomenti di build, quindi qui arriva la SITE_URL di prod o dello staging.
+# Vuota, vite.config.js usa l'indirizzo di Render.
+ARG SITE_URL
 RUN npm run build
 
 # ── Fase 2: backend, che serve anche le pagine ─────────────
