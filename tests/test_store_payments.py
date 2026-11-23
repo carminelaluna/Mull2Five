@@ -380,3 +380,57 @@ def test_capture_rereads_an_order_already_captured(monkeypatch):
                         lambda **kw: vero(transport=httpx.MockTransport(paypal_finto), **kw))
 
     assert asyncio.run(servizio.capture_paypal_order("ORDINE-9")) == "INCASSO-9"
+
+
+def test_a_refused_paypal_order_says_why(client, monkeypatch):
+    """Sullo staging il checkout PayPal dava un 500 muto. Ora dice il motivo di PayPal."""
+    import httpx
+
+    from backend.app.services import payments as servizio
+
+    settings = get_settings()
+    monkeypatch.setattr(settings, "paypal_client_id", "id-di-prova")
+    monkeypatch.setattr(settings, "paypal_client_secret", "segreto-di-prova")
+    monkeypatch.setattr(settings, "payment_sandbox_mock", False)
+
+    def paypal_finto(request):
+        if request.url.path == "/v1/oauth2/token":
+            return httpx.Response(200, json={"access_token": "t"})
+        return httpx.Response(422, json={"name": "UNPROCESSABLE_ENTITY",
+                                         "details": [{"issue": "PAYEE_ACCOUNT_INVALID"}]})
+
+    vero = httpx.AsyncClient
+    monkeypatch.setattr(servizio.httpx, "AsyncClient",
+                        lambda **kw: vero(transport=httpx.MockTransport(paypal_finto), **kw))
+    owner, _ = _store(client, "owner-pp-rifiuto@example.com", "Tana del Drago")
+    tid = _tournament(client, owner)
+    player = _register_user(client, "pp-rifiuto@example.com")
+    client.post(f"/api/tournaments/{tid}/registrations", headers=player, json={})
+
+    risposta = client.post(f"/api/tournaments/{tid}/checkout", headers=player, json={"provider": "paypal"})
+
+    assert risposta.status_code == 502
+    assert "PAYEE_ACCOUNT_INVALID" in risposta.json()["detail"]
+
+
+def test_paypal_credentials_refused_say_so(monkeypatch):
+    """Credenziali sbagliate: lo dice, invece di un 500."""
+    import asyncio
+
+    import httpx
+    from fastapi import HTTPException
+
+    from backend.app.services import payments as servizio
+
+    settings = get_settings()
+    monkeypatch.setattr(settings, "paypal_client_id", "id-di-prova")
+    monkeypatch.setattr(settings, "paypal_client_secret", "segreto-di-prova")
+
+    async def prova():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(
+                lambda r: httpx.Response(401, json={"error": "invalid_client"}))) as client:
+            return await servizio.paypal_access_token(client)
+
+    with pytest.raises(HTTPException) as errore:
+        asyncio.run(prova())
+    assert errore.value.status_code == 502 and "invalid_client" in errore.value.detail

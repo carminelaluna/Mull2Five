@@ -44,6 +44,10 @@ from backend.app.routers import (
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
+# Uvicorn configura solo i suoi logger: senza questo i nostri `logger.exception`
+# non arrivavano nei log di Render, e un 500 non lasciava traccia (23/11/2026).
+if not logging.getLogger().handlers:
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 
 
 async def _db_watchdog(interval: int) -> None:

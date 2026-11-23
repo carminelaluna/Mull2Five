@@ -1,4 +1,5 @@
 import base64
+import logging
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date
@@ -10,6 +11,8 @@ from fastapi import HTTPException
 from backend.app.core.clock import local_today
 from backend.app.core.config import get_settings
 from backend.app.models import Organization, Registration
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -147,6 +150,22 @@ def paypal_order_body(registration: Registration, store: Organization | None) ->
     }
 
 
+def _paypal_refusal(risposta: httpx.Response, cosa: str) -> HTTPException:
+    """PayPal ha detto no: il suo motivo nei log e a chi ha premuto il pulsante.
+
+    Prima diventava un 500 muto, e sullo staging (23/11/2026) "PayPal non va"
+    non diceva se erano le credenziali, il beneficiario o altro.
+    """
+    try:
+        corpo = risposta.json()
+    except ValueError:
+        corpo = {}
+    dettagli = corpo.get("details") or [{}]
+    motivo = dettagli[0].get("issue") or corpo.get("name") or corpo.get("error") or str(risposta.status_code)
+    logger.error("PayPal ha rifiutato %s: HTTP %s %s", cosa, risposta.status_code, risposta.text[:500])
+    return HTTPException(status_code=502, detail=f"PayPal ha rifiutato {cosa}: {motivo}")
+
+
 def paypal_base_url() -> str:
     """Sandbox o produzione, secondo `PAYPAL_ENV`."""
     return ("https://api-m.sandbox.paypal.com"
@@ -165,7 +184,8 @@ async def paypal_access_token(client: httpx.AsyncClient) -> str:
         headers={"Authorization": f"Basic {base64.b64encode(credenziali).decode()}"},
         data={"grant_type": "client_credentials"},
     )
-    risposta.raise_for_status()
+    if risposta.is_error:
+        raise _paypal_refusal(risposta, "le credenziali")
     return risposta.json()["access_token"]
 
 
@@ -236,7 +256,8 @@ async def create_paypal_checkout(registration: Registration, store: Organization
             headers={"Authorization": f"Bearer {access_token}"},
             json=paypal_order_body(registration, store),
         )
-        order_response.raise_for_status()
+        if order_response.is_error:
+            raise _paypal_refusal(order_response, "l'ordine")
         order = order_response.json()
 
     approve_url = next(
