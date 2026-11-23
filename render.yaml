@@ -85,6 +85,19 @@ services:
         sync: false
       - key: SMTP_FROM_EMAIL
         sync: false
+      # Caselle a parte per l'accesso e i pagamenti (docs/hosting.md, punto 5).
+      - key: SMTP_ACCOUNT_FROM_EMAIL
+        sync: false
+      - key: SMTP_ACCOUNT_USERNAME
+        sync: false
+      - key: SMTP_ACCOUNT_PASSWORD
+        sync: false
+      - key: SMTP_PAYMENTS_FROM_EMAIL
+        sync: false
+      - key: SMTP_PAYMENTS_USERNAME
+        sync: false
+      - key: SMTP_PAYMENTS_PASSWORD
+        sync: false
       - key: VAPID_PUBLIC_KEY
         sync: false
       - key: VAPID_PRIVATE_KEY

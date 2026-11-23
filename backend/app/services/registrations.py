@@ -18,7 +18,7 @@ from backend.app.models import (
     RegistrationField,
     Tournament,
 )
-from backend.app.services.email import send_email
+from backend.app.services.email import Sender, send_email
 
 
 def fields_of(tournament_id: int, db: Session) -> list[RegistrationField]:
@@ -84,6 +84,7 @@ def promote_from_waitlist(tournament: Tournament, db: Session) -> None:
             f"entro il {scadenza.strftime('%d/%m alle %H:%M')} UTC, altrimenti torni in "
             "coda e il posto passa al prossimo.\n\n"
             f"Paga qui: {pagina}",
+            sender=Sender.PAYMENTS,
         )
     except Exception:
         pass

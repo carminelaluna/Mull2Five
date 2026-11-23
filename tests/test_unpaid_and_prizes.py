@@ -68,9 +68,11 @@ def test_the_promotion_email_says_where_to_pay_and_by_when(client, monkeypatch):
     cui può venirlo a sapere: senza il link e la scadenza il posto torna in coda
     e il giocatore non capisce perché."""
     inviate: list[tuple[str, str, str]] = []
+    mittenti: list = []
     monkeypatch.setattr(
         registrations, "send_email",
-        lambda to, subject, body, html_body=None: bool(inviate.append((to, subject, body))) or True,
+        lambda to, subject, body, html_body=None, sender=None:
+            bool(inviate.append((to, subject, body)) or mittenti.append(sender)) or True,
     )
     org = _register_user(client, "promo-org@example.com", role="organizer")
     tid = _tournament(client, org, capacity=2)
@@ -86,6 +88,8 @@ def test_the_promotion_email_says_where_to_pay_and_by_when(client, monkeypatch):
     corpo = promozioni[-1][2]
     assert f"event.html?id={tid}" in corpo
     assert f"{WAITLIST_PAY_HOURS} ore" in corpo
+    # Chiede di pagare: parte dalla casella dei pagamenti, e lì arriva chi risponde.
+    assert mittenti[inviate.index(promozioni[-1])] == "payments"
 
 
 def test_nothing_to_drop_when_free_or_started(client):

@@ -8,7 +8,9 @@ subito, così quello che si verifica è successo davvero.
 import logging
 import smtplib
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
 from email.message import EmailMessage
+from enum import StrEnum
 from html import escape
 
 from backend.app.core.config import get_settings
@@ -18,20 +20,54 @@ logger = logging.getLogger(__name__)
 _sender = ThreadPoolExecutor(max_workers=2, thread_name_prefix="email")
 
 
-def _deliver(message: EmailMessage) -> None:
+class Sender(StrEnum):
+    """Da quale casella parte un'email: chi risponde scrive a quella."""
+    ACCOUNT = "account"      # accesso: reset password, invito a sceglierla
+    PAYMENTS = "payments"    # pagamenti: ricevuta, posto da pagare dalla lista d'attesa
+    GENERAL = "general"      # tutto il resto: iscrizioni, turni, annunci, promemoria
+
+
+@dataclass(frozen=True)
+class _Mailbox:
+    from_email: str
+    username: str | None
+    password: str | None
+
+
+def _mailbox(sender: Sender) -> _Mailbox:
+    settings = get_settings()
+    general = _Mailbox(settings.smtp_from_email, settings.smtp_username, settings.smtp_password)
+    own = {
+        Sender.ACCOUNT: (settings.smtp_account_from_email, settings.smtp_account_username,
+                         settings.smtp_account_password),
+        Sender.PAYMENTS: (settings.smtp_payments_from_email, settings.smtp_payments_username,
+                          settings.smtp_payments_password),
+    }.get(sender)
+    if not own or not own[0]:
+        return general
+    from_email, username, password = own
+    if username:
+        return _Mailbox(from_email, username, password)
+    return _Mailbox(from_email, general.username, general.password)
+
+
+def _deliver(message: EmailMessage, mailbox: _Mailbox) -> None:
     settings = get_settings()
     try:
         with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=10) as smtp:
             if settings.smtp_use_tls:
                 smtp.starttls()
-            if settings.smtp_username and settings.smtp_password:
-                smtp.login(settings.smtp_username, settings.smtp_password)
+            if mailbox.username and mailbox.password:
+                smtp.login(mailbox.username, mailbox.password)
             smtp.send_message(message)
     except OSError as exc:      # server giù, timeout, credenziali rifiutate
         logger.warning("Email non inviata a %s: %s", message["To"], exc)
 
 
-def send_email(to_email: str, subject: str, body: str, html_body: str | None = None) -> bool:
+def send_email(
+    to_email: str, subject: str, body: str, html_body: str | None = None,
+    sender: Sender = Sender.GENERAL,
+) -> bool:
     """Mette l'email in coda (o la manda subito nei test). Vero se c'è qualcosa da mandare."""
     settings = get_settings()
     if not settings.smtp_host:
@@ -41,8 +77,9 @@ def send_email(to_email: str, subject: str, body: str, html_body: str | None = N
     if to_email.lower().endswith(".invalid"):
         return False
 
+    mailbox = _mailbox(sender)
     message = EmailMessage()
-    message["From"] = settings.smtp_from_email
+    message["From"] = mailbox.from_email
     message["To"] = to_email
     message["Subject"] = subject
     message.set_content(body)
@@ -50,9 +87,9 @@ def send_email(to_email: str, subject: str, body: str, html_body: str | None = N
         message.add_alternative(html_body, subtype="html")
 
     if settings.email_async:
-        _sender.submit(_deliver, message)
+        _sender.submit(_deliver, message, mailbox)
     else:
-        _deliver(message)
+        _deliver(message, mailbox)
     return True
 
 

@@ -28,7 +28,7 @@ from backend.app.security import (
     verify_password,
     verify_reset_token,
 )
-from backend.app.services.email import send_email
+from backend.app.services.email import Sender, send_email
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -129,6 +129,7 @@ def forgot_password(
             f"Ciao {user.display_name},\n\n"
             f"per reimpostare la password apri questo link (valido 30 minuti):\n{reset_url}\n\n"
             "Se non hai richiesto tu il reset, ignora questa email.",
+            sender=Sender.ACCOUNT,
         )
     return {"detail": "Se l'email è registrata riceverai le istruzioni per il reset."}
 

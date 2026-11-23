@@ -164,15 +164,15 @@ gratuito ne concede due), prima di averne bisogno davvero.
 
 Scelto il 23/11/2026, come la soluzione più economica che regge l'apertura ai negozi:
 Render Starter (circa 7 $/mese) per il server, Supabase gratuito per il database
-come adesso, un dominio (.it, circa 9–12 €/anno di rinnovo), Brevo gratuito per le
-email (300 al giorno). Niente migrazione dei dati. Quando il database si avvicina ai
+come adesso, un dominio (.it, circa 9–12 €/anno di rinnovo), le caselle email di
+register.it per spedire (500 email al giorno ciascuna; Brevo gratuito come riserva). Niente migrazione dei dati. Quando il database si avvicina ai
 500 MB, o serve il ripristino al minuto, si passa a Supabase Pro (25 $/mese).
 
 **Stato al 23/11/2026:** fatti i punti 1–4 e le prove del punto 7 tranne l'email.
 Dominio `mull2five.it` su register.it (zona DNS: record A `@` → `216.24.57.1`,
 CNAME `www` → `mull2five.onrender.com.`; posta, PEC e DKIM di register.it lasciati
-com'erano), servizio sul piano 0.5c-512mb (il vecchio "Starter"). Restano Brevo
-(punto 5) e i webhook (punto 6). Due cose viste lungo la strada: register.it chiede
+com'erano), servizio sul piano 0.5c-512mb (il vecchio "Starter"). Restano le
+variabili dell'email su Render (punto 5) e i webhook (punto 6). Due cose viste lungo la strada: register.it chiede
 un codice di verifica per ogni area protetta del pannello (DNS compresi), e il
 primo certificato del dominio nudo può fallire se Let's Encrypt vede ancora il
 vecchio IP in cache — Render ritenta da solo entro qualche minuto.
@@ -194,12 +194,38 @@ scritti nelle pagine al momento della build (`ARG SITE_URL` nel `Dockerfile`).
 4. **Render → Mull2Five → Environment**: `APP_URL`, `FRONTEND_URL` e `SITE_URL`
    diventano `https://<dominio>`. Salvare fa partire un deploy, che serve: le
    pagine si ricostruiscono con l'indirizzo nuovo.
-5. **Brevo.** Creare l'account, *Senders, Domains → Domains*: aggiungere il dominio
-   e creare nel DNS i record che chiede (DKIM, DMARC, il codice di verifica). Poi
-   *SMTP & API → SMTP*: generare una chiave SMTP. Su Render: `SMTP_HOST`
-   `smtp-relay.brevo.com`, `SMTP_PORT` `587`, `SMTP_USERNAME` e `SMTP_PASSWORD`
-   quelli che mostra Brevo, `SMTP_FROM_EMAIL` `noreply@<dominio>`, `VAPID_SUBJECT`
-   `mailto:noreply@<dominio>`.
+5. **Email.** Scelte il 23/11/2026 le caselle di register.it, una per tipo di
+   email (`Sender` in `backend/app/services/email.py`):
+
+   | Email | Casella | Variabili su Render |
+   |---|---|---|
+   | reset password, invito a scegliere la password | `info@` | `SMTP_ACCOUNT_FROM_EMAIL`, `SMTP_ACCOUNT_USERNAME`, `SMTP_ACCOUNT_PASSWORD` |
+   | ricevuta di pagamento, posto da pagare dalla lista d'attesa | `commercial@` | `SMTP_PAYMENTS_FROM_EMAIL`, `SMTP_PAYMENTS_USERNAME`, `SMTP_PAYMENTS_PASSWORD` |
+   | tutto il resto (iscrizioni, turni, annunci, promemoria, allarmi) | la casella admin | `SMTP_FROM_EMAIL`, `SMTP_USERNAME`, `SMTP_PASSWORD` |
+
+   Server comune: `SMTP_HOST` `authsmtp.securemail.pro`; la porta 587 con
+   STARTTLS è già il default (`core/config.py`, provata il 23/11: risponde anche
+   la 465 in SSL, che il codice non usa). Utente = indirizzo completo della
+   casella, password = quella della casella. Il mittente deve essere la casella
+   con cui si entra, quindi `Mull2Five <info@mull2five.it>` con utente
+   `info@mull2five.it`. Ogni casella manda fino a 500 email al giorno; SPF
+   (`include:spf.webapps.net`) e DKIM del dominio sono già di register.it.
+
+   Una casella senza variabili sue usa quella generale; un mittente senza
+   credenziali sue entra con quelle generali (il caso di Brevo: una chiave, più
+   mittenti). Ordine che evita email perse: prima tutte le altre variabili con
+   *Save only*, `SMTP_HOST` per ultimo, insieme al deploy. Senza `SMTP_HOST` il
+   sito non prova a spedire; con l'host e senza password ogni invio fallisce, e il
+   reset password direbbe "email mandata" senza mandarla.
+
+   **Brevo resta pronto come alternativa**: il sottodominio `avvisi.mull2five.it`
+   è autenticato (TXT `avvisi` con il `brevo-code`, CNAME
+   `brevo1._domainkey.avvisi` e `brevo2._domainkey.avvisi`, TXT `_dmarc.avvisi`
+   con `p=none`; su register.it i nomi sono relativi alla zona e i TXT fra
+   virgolette doppie). Per passarci: `SMTP_HOST` `smtp-relay.brevo.com`, utente e
+   chiave di Brevo nelle tre variabili generali, i mittenti `...@avvisi.mull2five.it`
+   e le `SMTP_ACCOUNT_USERNAME`/`SMTP_PAYMENTS_USERNAME` vuote. L'account Brevo è
+   condiviso con un altro progetto, e con lui il limite di 300 email al giorno.
 6. **Webhook.** Nel cruscotto Stripe e in quello PayPal l'indirizzo diventa
    `https://<dominio>/api/payments/stripe/webhook` e `.../paypal/webhook`. Il
    vecchio continua a funzionare finché non lo si cambia, quindi l'ordine non conta.

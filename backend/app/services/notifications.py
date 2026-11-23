@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from backend.app.models import Registration, Tournament
 
-from backend.app.services.email import event_announcement_html, send_email
+from backend.app.services.email import Sender, event_announcement_html, send_email
 
 logger = logging.getLogger(__name__)
 
@@ -167,4 +167,4 @@ def notify_payment_confirmed(registration: "Registration", amount: float) -> Non
     subject, body, html = _payment_confirmed(
         registration.player.display_name, tournament, amount
     )
-    send_email(registration.player.email, subject, body, html)
+    send_email(registration.player.email, subject, body, html, sender=Sender.PAYMENTS)

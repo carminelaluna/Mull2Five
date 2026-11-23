@@ -60,6 +60,16 @@ class Settings(BaseSettings):
     smtp_username: str | None = None
     smtp_password: str | None = None
     smtp_from_email: str = "noreply@mull2five.local"
+    # Caselle a parte per l'accesso (reset password, invito a sceglierla) e per i
+    # pagamenti (services/email.py, `Sender`). Vuote, si usa quella generale; un
+    # indirizzo senza credenziali sue usa quelle generali (Brevo: una chiave, più
+    # mittenti), con credenziali sue entra come sé stesso (una casella register.it).
+    smtp_account_from_email: str | None = None
+    smtp_account_username: str | None = None
+    smtp_account_password: str | None = None
+    smtp_payments_from_email: str | None = None
+    smtp_payments_username: str | None = None
+    smtp_payments_password: str | None = None
     # L'invio parte su un thread a parte: la richiesta non aspetta il server SMTP.
     email_async: bool = True
     smtp_use_tls: bool = True

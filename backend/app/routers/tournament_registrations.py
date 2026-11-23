@@ -83,7 +83,7 @@ from backend.app.schemas import (
 from backend.app.security import create_reset_token, get_current_user, require_organizer
 from backend.app.services.audit import write_audit
 from backend.app.services.decklists import validate_card_legality, validate_decklist
-from backend.app.services.email import send_email
+from backend.app.services.email import Sender, send_email
 from backend.app.services.notifications import notify_registration_confirmed
 from backend.app.services.pairings import (
     decklists_locked,
@@ -1269,6 +1269,7 @@ def _invite_to_set_a_password(player: User, tournament: Tournament) -> None:
         f'ti abbiamo iscritto a "{tournament.name}" e ti abbiamo aperto un account.\n'
         f"Scegli la tua password da qui (il link vale 30 minuti):\n{link}\n\n"
         'Se il link è scaduto, usa "Password dimenticata" dalla pagina di accesso.',
+        sender=Sender.ACCOUNT,
     )
 
 
