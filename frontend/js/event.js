@@ -63,7 +63,8 @@ async function loadEvent() {
       ? await apiFetch(`/tournaments/${TOURNAMENT_ID}/my-registration`).catch(() => null)
       : null;
     const spots  = Math.max(t.capacity - (t.registered_players || 0), 0);
-    const isReg  = !!myReg;
+    // Chi ha annullato prima dell'inizio può iscriversi di nuovo.
+    const isReg  = !!myReg && !(myReg.dropped && t.status === 'published');
     // Solo i tornei ancora aperti: uno concluso o annullato non accetta
     // iscrizioni nemmeno se la data è più avanti (il server risponde 404).
     const aperto = ['published', 'running'].includes(t.status)
@@ -103,9 +104,8 @@ async function loadEvent() {
           ${imported
             ? `<a class="primary" id="eventCta" href="${esc(t.external_url)}" target="_blank" rel="noopener" style="text-align:center;text-decoration:none;padding:10px 18px;border-radius:8px">${esc(tr('Iscriviti presso il negozio ↗'))}</a>`
             : isReg && myReg.dropped
-            // Annullata dopo aver pagato (la riga resta per il rimborso), o
-            // ritirato a torneo in corso: in tutti e due i casi non gioca.
-            ? `<span class="badge">${esc(t.status === 'published' ? tr('Iscrizione annullata') : tr('Ritirato'))}</span>`
+            // Ritirato a torneo in corso: non gioca più i prossimi turni.
+            ? `<span class="badge">${esc(tr('Ritirato'))}</span>`
             : isReg && myReg.payment_due_by && myReg.payment_status !== 'paid'
             // Ha scelto di pagare online e il pagamento non è ancora arrivato:
             // non è iscritto, ha solo il posto tenuto.

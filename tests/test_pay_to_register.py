@@ -330,3 +330,61 @@ def test_a_paid_cancelled_registration_stays_for_the_books_but_leaves_the_list(c
     assert (mia["dropped"], mia["payment_status"]) == (True, "refunded")
     # Ma tra i suoi tornei non c'è più.
     assert client.get("/api/tournaments/me/registrations", headers=player).json() == []
+    # Rientrare da solo no: quella riga è l'unica traccia del rimborso.
+    di_nuovo = _iscrivi(client, tid, player, payment_method="at_event")
+    assert di_nuovo.status_code == 409 and "organizzatore" in di_nuovo.json()["detail"]
+
+
+def _ritirata(db_session, tid, player_email):
+    """Un'iscrizione annullata prima di oggi: restava, segnata come ritirata."""
+    db_session.expire_all()
+    reg = next(r for r in db_session.query(Registration).filter_by(tournament_id=tid) if r.player.email == player_email)
+    reg.dropped = True
+    db_session.commit()
+    return reg
+
+
+def test_who_cancelled_before_can_register_again(client, db_session):
+    """Annullata col vecchio "Annulla iscrizione", la riga restava ritirata e
+    il sito rispondeva "Sei già iscritto" a chi ci ripensava (23/11/2026)."""
+    org = _utente(client, "ripensa-org@example.com", role="organizer")
+    tid = _torneo(client, org)
+    player = _utente(client, "ripensa-a@example.com")
+    _iscrivi(client, tid, player, payment_method="at_event")
+    _ritirata(db_session, tid, "ripensa-a@example.com")
+
+    di_nuovo = _iscrivi(client, tid, player, payment_method="at_event")
+
+    assert di_nuovo.status_code == 201, di_nuovo.text
+    assert di_nuovo.json()["dropped"] is False
+    assert [r["tournament"]["id"] for r in client.get("/api/tournaments/me/registrations", headers=player).json()] == [tid]
+
+
+def test_a_paid_player_who_cancelled_without_refund_comes_back_paid(client, db_session):
+    from backend.app.models import Payment
+
+    org = _utente(client, "torna-org@example.com", role="organizer")
+    tid = _torneo(client, org)
+    player = _utente(client, "torna-a@example.com")
+    reg_id = _iscrivi(client, tid, player, payment_method="at_event").json()["id"]
+    assert client.post(f"/api/tournaments/{tid}/registrations/{reg_id}/mark-paid", headers=org).status_code == 200
+    _ritirata(db_session, tid, "torna-a@example.com")   # annullata a meno di 24 ore: niente rimborso
+
+    di_nuovo = _iscrivi(client, tid, player, payment_method="at_event")
+
+    assert di_nuovo.status_code == 201, di_nuovo.text
+    assert (di_nuovo.json()["dropped"], di_nuovo.json()["payment_status"]) == (False, "paid")
+    db_session.expire_all()
+    assert db_session.query(Payment).filter_by(registration_id=reg_id).one().status == "paid"
+
+
+def test_who_cancelled_does_not_take_a_seat(client, db_session):
+    org = _utente(client, "sedia-org@example.com", role="organizer")
+    tid = _torneo(client, org, capacity=2)
+    _iscrivi(client, tid, _utente(client, "sedia-a@example.com"), payment_method="at_event")
+    _iscrivi(client, tid, _utente(client, "sedia-b@example.com"), payment_method="at_event")
+    _ritirata(db_session, tid, "sedia-a@example.com")
+
+    terzo = _iscrivi(client, tid, _utente(client, "sedia-c@example.com"), payment_method="at_event")
+
+    assert terzo.json()["waitlisted"] is False

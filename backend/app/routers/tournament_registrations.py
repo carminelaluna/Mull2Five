@@ -460,10 +460,13 @@ async def register_for_tournament(
         raise HTTPException(status_code=409, detail="Le iscrizioni a torneo iniziato sono chiuse")
     # I posti tenuti a chi non ha pagato in tempo tornano liberi prima di contarli.
     release_unpaid_holds(db, tournament_id)
+    # Chi ha annullato o si è ritirato non occupa un posto: è lo stesso conto
+    # che fa la promozione dalla lista d'attesa.
     registered = db.scalar(
         select(func.count(Registration.id)).where(
             Registration.tournament_id == tournament_id,
             Registration.waitlisted == False,  # noqa: E712
+            Registration.dropped == False,     # noqa: E712
         )
     )
     is_full = bool(registered and registered >= tournament.capacity)
@@ -473,6 +476,12 @@ async def register_for_tournament(
             Registration.player_id == user.id,
         )
     )
+    if existing and existing.dropped and tournament.status == TournamentStatus.PUBLISHED:
+        # Aveva annullato prima dell'inizio e ci ripensa: si può.
+        reopened = _reopen_cancelled(existing, is_full, db)
+        if reopened:
+            return reopened
+        existing = None
     if existing:
         raise HTTPException(status_code=409, detail="Sei già iscritto")
     check_not_suspended(user, tournament, db)
@@ -517,6 +526,35 @@ async def register_for_tournament(
     out = registration_out(registration)
     out.checkout_url = checkout_url
     return out
+
+
+def _reopen_cancelled(registration: Registration, is_full: bool, db: Session) -> RegistrationOut | None:
+    """Chi aveva annullato prima dell'inizio si iscrive di nuovo.
+
+    Niente pagato: la vecchia riga si toglie e l'iscrizione riparte da capo,
+    con il modulo di adesso (None). Pagato e non rimborsato: torna iscritto
+    così com'era, la quota l'ha già data. Rimborsato o in rimborso: quella riga
+    è l'unica traccia dei soldi, e la decide l'organizzatore.
+    """
+    payment = registration.payment
+    if not payment or payment.status in (PaymentStatus.PENDING, PaymentStatus.FAILED):
+        release_hold(registration, db)
+        db.flush()
+        return None
+    if payment.status != PaymentStatus.PAID:
+        raise HTTPException(
+            status_code=409,
+            detail="Hai annullato un'iscrizione pagata e il rimborso è registrato: "
+                   "per iscriverti di nuovo chiedi all'organizzatore",
+        )
+    registration.dropped = False
+    registration.waitlisted = is_full
+    db.commit()
+    db.refresh(registration)
+    cache_invalidate("tournaments:")
+    cache_invalidate(f"registrations:{registration.tournament_id}")
+    cache_invalidate(f"my-reg:{registration.tournament_id}:{registration.player_id}")
+    return registration_out(registration)
 
 
 def _chooses_online(tournament: Tournament, registration: Registration, method: str | None, waitlisted: bool) -> str:
