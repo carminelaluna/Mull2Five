@@ -265,5 +265,9 @@ e uno staging con dati vecchi intercetta meno di uno aggiornato. Dieci minuti,
 questa procedura. Conviene prima di una migrazione che tocchi tabelle grosse.
 
 **Il progetto Supabase gratuito si mette in pausa** dopo circa una settimana
-senza attività, e lo staging si addormenta con lui. Al primo uso dopo una pausa
-va riacceso dal cruscotto di Supabase: non è un guasto.
+senza attività, e lo staging si addormenta con lui. Per evitarlo,
+`.github/workflows/staging-keepalive.yml` chiama `/health` dello staging ogni tre
+giorni: quella chiamata interroga il database e Supabase la conta come attività.
+Se il workflow fallisce, GitHub manda un'email: il database è già in pausa. Si
+riaccende dal cruscotto di Supabase ("Resume project", circa sei minuti), poi su
+Render *Manual Deploy* → *Deploy latest commit*. Non è un guasto del codice.

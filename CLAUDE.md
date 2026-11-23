@@ -73,6 +73,14 @@ cambia cosa fa una schermata.
   `lock_timeout` a cinque secondi, così la DDL fallisce dicendo cosa aspetta; e
   le migrazioni stanno fuori dall'avvio. Se ricapita: *Restart* del servizio e
   subito *Manual Deploy* — l'istanza vecchia molla le connessioni.
+- **Lo staging che non parte di solito ha solo il database in pausa** (23/11/2026):
+  il progetto Supabase gratuito si ferma dopo una settimana senza richieste,
+  `prepara_database.py` non lo trova e Render dice *Failed service*. Supabase →
+  *Resume project*, poi *Manual Deploy*. Ora lo tiene sveglio
+  `.github/workflows/staging-keepalive.yml`, che se fallisce manda un'email.
+- **`/assets/` è in cache per un anno, immutabile** (`main.py`): lì ci vanno solo i
+  file con l'hash che crea Vite. Un file messo a mano in `frontend/public/assets/`
+  resterebbe vecchio nei browser anche dopo averlo cambiato.
 - SQLite su `/mnt/c` è inaffidabile: il database dei test sta in `/tmp`, uno per
   processo (`tests/conftest.py`).
 - **Un orologio che si corregge all'indietro buttava fuori chi era appena
@@ -98,6 +106,16 @@ formato e archetipo sul profilo. **Il prezzo lo decide un posto solo**:
 `entry_fee_now()` per la vetrina e `amount_due()` per chi è già iscritto, in
 `backend/app/services/payments.py` — se una pagina mostra una cifra e il banco
 ne incassa un'altra, è perché qualcuno ha ricalcolato il prezzo altrove.
+
+Il 23 novembre 2026 è stata fatta una passata sulle prestazioni, in produzione
+con lo schema `0011`. Le pagine arrivano compresse (Gzip). Gli elenchi pubblici,
+admin e dell'API v1 si paginano con `limit`/`offset`, 500 righe di default. La
+ricerca pubblica carica in blocco i dati collegati, invece di una query per
+torneo. Le chiavi esterne su cui le pagine cercano hanno un indice. Infine
+`tests/test_query_counts.py` fallisce se le query tornano a crescere con il
+numero di righe: un elenco nuovo va scritto allo stesso modo, con
+`tournament_with_counts` o una query raggruppata, mai `len(relazione)` in un
+ciclo.
 
 ## Cosa resta — in ordine
 
