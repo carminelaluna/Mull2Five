@@ -34,10 +34,24 @@
 .public-nav a { color: var(--muted); text-decoration: none; font-weight: 700; }
 .public-nav a:hover { color: var(--ink); }
 
-.public-auth { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
-.public-auth .secondary-link { white-space: nowrap; }
-/* Sul telefono l'email non ci sta accanto ai link del profilo: resta nel profilo. */
-@media (max-width: 1100px) { .public-auth > span { display: none; } }
+.public-auth { display: flex; gap: 10px; align-items: center; justify-content: flex-end; }
+.public-auth > span { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Le quattro disposizioni dell'header le sceglie fitHeader (site.js) misurando lo spazio.
+   Di base tutto in una riga: niente va a capo, così si vede se non ci sta. */
+.public-header > * { flex-shrink: 0; }
+.public-nav a, .public-auth { white-space: nowrap; }
+/* Seconda: sparisce l'email, che resta nel profilo. Terza: il menu scende su una riga sua. */
+.public-header.is-tight .public-auth > span { display: none; }
+.public-header.is-stacked { flex-wrap: wrap; row-gap: 10px; }
+.public-header.is-stacked .public-nav { order: 3; flex-basis: 100%; margin: 0; }
+.public-header.is-stacked .public-auth { margin-left: auto; }
+/* Quarta, sul telefono: logo e lingua in alto, i link del profilo in fondo, a sinistra. */
+.public-header.is-compact .lang-select { margin-left: auto; }
+.public-header.is-compact .public-auth { order: 4; flex-basis: 100%; flex-wrap: wrap; justify-content: flex-start;
+  gap: 6px 16px; margin-left: 0; font-size: .92rem; }
+/* Il margine sotto il logo serve alla barra laterale del back-office: qui lo alzava
+   sopra i link. */
+.public-header .brand { margin-bottom: 0; }
 .secondary-link { color: var(--muted); text-decoration: none; font-weight: 700; background: none; border: 0; cursor: pointer; font: inherit; }
 .secondary-link:hover { color: var(--ink); }
 .primary-btn {

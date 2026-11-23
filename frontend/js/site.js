@@ -32,6 +32,34 @@ function testingBanner() {
   addEventListener('resize', measure);
 }
 
+/* L'header prova quattro disposizioni, dalla più larga: tutto in una riga; in una
+   riga ma senza l'email; il menu su una riga sua; anche i link del profilo su una
+   riga loro. Se ne sceglie una
+   misurando, non con una larghezza fissa, perché lingue e link cambiano lo spazio
+   che serve: in tedesco e da collegati ne serve molto di più. */
+function fitHeader() {
+  const header = document.querySelector('.public-header');
+  if (!header) return;
+  const overflows = () => {
+    if (header.scrollWidth > header.clientWidth + 1) return true;
+    // Nella seconda disposizione la prima riga non deve andare a capo.
+    const row = [...header.children].filter((el) => !el.matches('.public-nav') && el.offsetParent);
+    const top = Math.min(...row.map((el) => el.getBoundingClientRect().bottom));
+    return row.some((el) => el.getBoundingClientRect().top >= top);
+  };
+  const fit = () => {
+    header.classList.remove('is-tight', 'is-stacked', 'is-compact');
+    if (overflows()) header.classList.add('is-tight');
+    if (overflows()) header.classList.add('is-stacked');
+    if (overflows()) header.classList.add('is-compact');
+  };
+  fit();
+  addEventListener('resize', fit);
+  // I link del profilo arrivano dopo, e cambiano con la lingua.
+  new MutationObserver(fit).observe(header, { childList: true, subtree: true, characterData: true });
+  document.fonts?.ready.then(fit);
+}
+
 /* Il back-office non è per chi gioca: a un giocatore la voce "Organizza" non
    compare nemmeno. A chi non è collegato resta, perché lì è un invito. */
 function hideOrganizerNav() {
@@ -110,6 +138,7 @@ export function stickyCta(source) {
 onReady(() => {
   testingBanner();
   hideOrganizerNav();
+  fitHeader();
   countVisit();
   privacyNotice();
   refreshSession();   // il token si rinnova da solo finché si usa il sito
