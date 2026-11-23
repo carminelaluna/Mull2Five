@@ -24,7 +24,8 @@ tutti i giorni.
 
 Dalla pagina del torneo. Serve un account; se il torneo lo chiede, si risponde
 anche alle domande dell'organizzatore. Il pagamento è online (Stripe o PayPal)
-o al banco, secondo com'è configurato il torneo.
+o al banco, secondo com'è configurato il torneo; dove i pagamenti online sono
+spenti (oggi la produzione) si paga solo al banco.
 
 La quota scritta sul pulsante è quella di adesso: se il negozio ha messo una
 quota **early bird**, fino a quella data si paga meno, e la pagina lo dice con

@@ -119,7 +119,9 @@ Il profilo pubblico che i giocatori vedono, e tutto quello che sta intorno:
   pulsante "Trova coordinate dall'indirizzo" le cerca per te.
 - **Sedi** — i posti dove si gioca. Un torneo sceglie una sede ed eredita
   indirizzo, città e coordinate.
-- **Incassi online** — Stripe e PayPal, con la quota della piattaforma.
+- **Incassi online** — Stripe e PayPal, con la quota della piattaforma. Sui siti
+  dove si paga solo al banco (`ONLINE_PAYMENTS_ENABLED=false`, oggi la
+  produzione) le caselle "Online Stripe" e "Online PayPal" del torneo non ci sono.
 - **Staff del negozio** — titolare e organizzatori: gestiscono *tutti* i tornei
   del negozio, non solo i propri.
 - **Chiavi API** — sola lettura, per chi vuole costruirci sopra qualcosa. La

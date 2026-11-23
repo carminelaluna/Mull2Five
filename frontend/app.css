@@ -306,6 +306,8 @@ dialog.deck-view-dialog { max-width: min(1100px, 94vw); width: 100%; }
    quando games.js trova più giochi nel catalogo. */
 html:not([data-games="many"]) .game-badge,
 html:not([data-games="many"]) .game-detail { display: none; }
+/* Pagamenti online spenti sul sito (payment-options.js): si paga solo al banco. */
+html[data-online-payments="off"] .pay-online { display: none; }
 .game-mtg      { --game-color: #e8a13c; }
 .game-lorcana  { --game-color: #b89cf0; }
 .game-swu      { --game-color: #6fb3ff; }

@@ -102,13 +102,17 @@ pannello) e **non fa backup**: per quello c'è il passo 6.
    FRONTEND_URL=https://mull2five.onrender.com
    DB_POOL_SIZE=5
    DB_MAX_OVERFLOW=5
-   PAYMENT_SANDBOX_MOCK=true
+   PAYMENT_SANDBOX_MOCK=false
+   ONLINE_PAYMENTS_ENABLED=false
    ```
    Per generare `SECRET_KEY`:
    ```bash
    python -c "import secrets; print(secrets.token_urlsafe(48))"
    ```
-   `PAYMENT_SANDBOX_MOCK=true`: in prova nessun pagamento è reale.
+   In produzione `PAYMENT_SANDBOX_MOCK` va **spento**: acceso, il checkout finto
+   segna pagata un'iscrizione con un clic, senza incassare. Qui c'era scritto
+   `true`, ed è rimasto acceso sul sito vero fino al 23/11/2026. Si paga al banco
+   (`ONLINE_PAYMENTS_ENABLED=false`, vedi "Pagamenti" più sotto).
    Facoltative: `SMTP_*` (senza, il reset password non manda l'email) e `VAPID_*`
    (senza, niente notifiche push).
 3. *Health check path*: `/health`. *Auto-Deploy*: a ogni push su `main`.
@@ -243,7 +247,8 @@ scritti nelle pagine al momento della build (`ARG SITE_URL` nel `Dockerfile`).
 - **Chiunque può registrarsi come organizzatore**: la registrazione accetta il ruolo
   scelto da chi si iscrive (`backend/app/routers/auth.py`). Per una prova va bene,
   anzi serve; per l'apertura vera no.
-- I pagamenti sono simulati, le email partono solo con un SMTP configurato.
+- In produzione si paga solo al banco (vedi "Pagamenti"); le email partono solo con
+  un SMTP configurato.
 - Primo accesso lento (Render che si sveglia); database in pausa dopo una settimana
   senza visite.
 
@@ -273,6 +278,31 @@ anche cosa lo staging deve cambiare. Tre variabili, se sbagliate, fanno danni:
 E `APP_ENV=staging`, che tiene lo staging fuori dai motori di ricerca: una copia
 risponde `Disallow: /` e manda `X-Robots-Tag: noindex` (`core/config.py`,
 `is_copy`).
+
+### Pagamenti: al banco in produzione, online sullo staging
+
+Deciso il 23/11/2026: la produzione si prova in una fumetteria prima che il legale
+guardi termini e privacy, e il legale viene per ultimo. Quindi:
+
+| | `ONLINE_PAYMENTS_ENABLED` | `PAYMENT_SANDBOX_MOCK` | Chiavi |
+|---|---|---|---|
+| Produzione | `false`: solo al banco | `false` | nessuna |
+| Staging | `true` | `false` con le chiavi di test, `true` senza | Stripe `sk_test_…`, PayPal sandbox |
+
+Con `ONLINE_PAYMENTS_ENABLED=false` (`in_person_only` in
+`backend/app/services/payments.py`) Stripe e PayPal non si salvano su nessun
+torneo (modulo, modello, duplica, ripeti, import), le pagine li mostrano spenti
+anche sui tornei salvati prima, il checkout risponde 409 e il back-office
+nasconde le due caselle (`GET /api/payments/options`). Chi aveva scelto solo
+l'online paga al banco.
+
+Gli account Stripe e PayPal stanno su `commercial@mull2five.it`. Per lo staging
+bastano le modalità di prova, che non chiedono dati dell'azienda: Stripe in
+*Test mode* (chiave `sk_test_…`), PayPal su developer.paypal.com → *Apps &
+Credentials* → **Sandbox**. Le chiavi le inserisce chi ha l'account, solo nel
+servizio di staging. Per accendere l'online in produzione, dopo il legale:
+chiavi vere, webhook su `mull2five.it` (punto 6 del Passo 8) e
+`ONLINE_PAYMENTS_ENABLED=true`.
 
 **Verifica, appena è su:**
 

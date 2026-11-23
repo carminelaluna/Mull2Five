@@ -38,6 +38,11 @@ class Settings(BaseSettings):
     # notifiche vengono rifiutate.
     paypal_webhook_id: str | None = None
     payment_sandbox_mock: bool = True
+    # Spento, si paga solo al banco: Stripe e PayPal non si scelgono, non si
+    # mostrano e il checkout li rifiuta (services/payments.py, `in_person_only`).
+    # Spento in produzione finché i pagamenti online non sono passati dal legale;
+    # lo staging li tiene accesi per provarli.
+    online_payments_enabled: bool = True
     # Quota della piattaforma sui pagamenti con carta che vanno a un negozio con
     # Stripe collegato (0 = tutto al negozio, meno le commissioni di Stripe).
     platform_fee_percent: float = 0.0

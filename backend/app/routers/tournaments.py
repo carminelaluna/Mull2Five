@@ -100,9 +100,12 @@ from backend.app.services.pairings import (
     why_not_eligible,
 )
 from backend.app.services.payments import (
+    ONLINE_METHODS,
     amount_due,
     create_paypal_checkout,
     create_stripe_checkout,
+    in_person_only,
+    online_payments_enabled,
     refund_paypal_capture,
 )
 from backend.app.services.registrations import (
@@ -493,9 +496,9 @@ def _copy_tournament(src: Tournament, organizer: User, starts_on: date, series_i
         is_online=src.is_online,
         online_platform=src.online_platform,
         online_link=src.online_link,
-        pay_at_event=src.pay_at_event,
-        pay_stripe=src.pay_stripe,
-        pay_paypal=src.pay_paypal,
+        **in_person_only({
+            "pay_at_event": src.pay_at_event, "pay_stripe": src.pay_stripe, "pay_paypal": src.pay_paypal,
+        }),
     )
 
 
@@ -758,7 +761,7 @@ def import_schedule(
         existing.add(key)   # la stessa riga due volte nel file conta una
 
     if not payload.dry_run and planned:
-        db.add_all([Tournament(**data.model_dump(), organizer_id=organizer.id,
+        db.add_all([Tournament(**in_person_only(data.model_dump()), organizer_id=organizer.id,
                                organization_id=organizer.organization_id) for data in planned])
         db.commit()
         cache_invalidate("tournaments:")
@@ -773,7 +776,7 @@ def create_tournament(
 ) -> TournamentOut:
     check_location(payload.location_id, organizer, db)
     tournament = Tournament(
-        **payload.model_dump(),
+        **in_person_only(payload.model_dump()),
         organizer_id=organizer.id,
         organization_id=organizer.organization_id,
     )
@@ -971,7 +974,13 @@ def update_tournament(
     (capienza sotto gli iscritti, quota già pagata) resta com'era e viene elencato."""
 
     tournament = load_owned_tournament(tournament_id, organizer, db)
-    changes = _apply_settings(tournament, payload.model_dump(exclude_unset=True), organizer, db)
+    requested = in_person_only(payload.model_dump(exclude_unset=True))
+    if not online_payments_enabled():
+        # Spenti, non si toccano: il modulo li manda falsi perché le pagine li
+        # mostrano falsi, e a torneo avviato sembrerebbe un cambio vietato.
+        for key in ONLINE_METHODS:
+            requested.pop(key, None)
+    changes = _apply_settings(tournament, requested, organizer, db)
     touched = [tournament] if changes else []
     updated: int | None = None
     skipped: list[str] = []
@@ -1253,6 +1262,8 @@ async def checkout(
     if not registration:
         raise HTTPException(status_code=404, detail="Iscrizione non trovata")
     tournament = registration.tournament
+    if not online_payments_enabled():
+        raise HTTPException(status_code=409, detail="Su questo sito si paga al banco, il giorno del torneo")
     # Il provider richiesto deve essere abilitato dall'organizzatore per questo torneo
     if payload.provider == "stripe" and not tournament.pay_stripe:
         raise HTTPException(status_code=409, detail="Pagamento con Stripe non disponibile per questo torneo")

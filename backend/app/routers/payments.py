@@ -31,6 +31,13 @@ def _on_payment_paid(db: Session, payment: Payment) -> None:
     notify_payment_confirmed(reg, payment.amount_cents / 100)
 
 
+@router.get("/options")
+def payment_options() -> dict[str, bool]:
+    """Se su questo sito si paga anche online o solo al banco: il back-office
+    nasconde Stripe e PayPal quando sono spenti (ONLINE_PAYMENTS_ENABLED)."""
+    return {"online": get_settings().online_payments_enabled}
+
+
 @router.post("/sandbox/{payment_id}/complete", response_model=SandboxPaymentOut)
 def complete_sandbox_payment(payment_id: int, db: Session = Depends(get_db)) -> SandboxPaymentOut:
     settings = get_settings()

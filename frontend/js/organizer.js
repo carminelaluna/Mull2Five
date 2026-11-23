@@ -13,6 +13,7 @@ import { cityInput } from './city-input.js';
 import { esc } from './escape.js';
 import { bindFormatPicker, formatOptions, formatPicker, formatValue, setFormatValue } from './formats.js';
 import { bestOfLabel, gameInfo, gameLabel, loadGames, tiebreakerColumns } from './games.js';
+import './payment-options.js';   // nasconde Stripe e PayPal se sul sito sono spenti
 import { t as tr } from './i18n.js';
 import { $, apiFetch, fmtDate, money, session } from './organizer-common.js';
 import { myLocations, myStore, renderNegozio, setStoreReload } from './organizer-store.js';
@@ -407,8 +408,8 @@ function openNewEventDialog() {
           <label>${esc(tr('Early bird fino al'))}<input id="nEarlyUntil" type="date" /></label>
           <label class="bo-check"><input id="nDeck" type="checkbox" checked /> Lista obbligatoria</label>
           <label class="bo-check"><input id="nAtEvent" type="checkbox" checked /> Pagamento al banco</label>
-          <label class="bo-check"><input id="nStripe" type="checkbox" /> Online Stripe</label>
-          <label class="bo-check"><input id="nPaypal" type="checkbox" /> Online PayPal</label>
+          <label class="bo-check pay-online"><input id="nStripe" type="checkbox" /> Online Stripe</label>
+          <label class="bo-check pay-online"><input id="nPaypal" type="checkbox" /> Online PayPal</label>
           <label class="bo-check"><input id="nPairPub" type="checkbox" checked /> Abbinamenti pubblici</label>
           <label class="bo-check"><input id="nStandPub" type="checkbox" checked /> Classifica pubblica</label>
           <label class="bo-check"><input id="nDeckPub" type="checkbox" /> Liste pubbliche a fine torneo</label>
@@ -2571,8 +2572,8 @@ async function renderImpostazioni() {
           <label>${esc(tr('Early bird fino al'))}<input id="sEarlyUntil" type="date" ${lock('entry_fee')}
                  value="${esc(t.early_bird_until || '')}" /></label>
           <label class="bo-check"><input id="sAtEvent" type="checkbox" ${checked(t.pay_at_event)} ${lock('pay_at_event')} /> Pagamento al banco</label>
-          <label class="bo-check"><input id="sStripe" type="checkbox" ${checked(t.pay_stripe)} ${lock('pay_stripe')} /> Online Stripe</label>
-          <label class="bo-check"><input id="sPaypal" type="checkbox" ${checked(t.pay_paypal)} ${lock('pay_paypal')} /> Online PayPal</label>
+          <label class="bo-check pay-online"><input id="sStripe" type="checkbox" ${checked(t.pay_stripe)} ${lock('pay_stripe')} /> Online Stripe</label>
+          <label class="bo-check pay-online"><input id="sPaypal" type="checkbox" ${checked(t.pay_paypal)} ${lock('pay_paypal')} /> Online PayPal</label>
           <label class="bo-check"><input id="sEmail" type="checkbox" ${checked(t.email_notifications_enabled)} /> ${esc(tr('Notifiche email ai giocatori'))}</label>
           <label style="grid-column:1/-1">${esc(tr('Policy rimborsi'))}<textarea id="sRefund" style="min-height:60px">${esc(t.refund_policy || '')}</textarea></label>
         </div>

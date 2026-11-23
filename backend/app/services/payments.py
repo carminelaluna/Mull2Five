@@ -19,6 +19,32 @@ class CheckoutSession:
     payee: str = ""      # "stripe:acct_…" / "paypal:email" se l'incasso va al negozio
 
 
+ONLINE_METHODS = ("pay_stripe", "pay_paypal")
+
+
+def online_payments_enabled() -> bool:
+    return get_settings().online_payments_enabled
+
+
+def in_person_only(values: dict) -> dict:
+    """I metodi di pagamento di un torneo come li vuole il sito.
+
+    Con ONLINE_PAYMENTS_ENABLED spento Stripe e PayPal non si accendono, e chi
+    aveva scelto solo quelli paga al banco, l'unico modo che resta. Lo usano
+    tutte le strade che salvano un torneo: modulo e modelli, duplica e ripeti,
+    import del calendario.
+    """
+    if online_payments_enabled():
+        return values
+    removed = [key for key in ONLINE_METHODS if values.get(key)]
+    if not removed:
+        return values
+    cleaned = {**values, **dict.fromkeys(removed, False)}
+    if not cleaned.get("pay_at_event"):
+        cleaned["pay_at_event"] = True
+    return cleaned
+
+
 def entry_fee_now(tournament, today: date | None = None) -> int:
     """Quanto costa iscriversi adesso: la quota early bird finché è aperta, poi
     quella piena.

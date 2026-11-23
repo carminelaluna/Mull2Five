@@ -27,7 +27,12 @@ from backend.app.schemas import (
     RegistrationOut,
     TournamentOut,
 )
-from backend.app.services.payments import amount_due, entry_fee_now
+from backend.app.services.payments import (
+    ONLINE_METHODS,
+    amount_due,
+    entry_fee_now,
+    online_payments_enabled,
+)
 
 
 def haversine_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
@@ -154,6 +159,9 @@ def tournament_out(
         "event_slug": event.slug if event else None,
         "event_name": event.name if event else None,
         "decklist_formats": [""] + sorted(f for f in segments if f),
+        # Pagamenti online spenti: nessuna pagina offre un bottone che il
+        # checkout rifiuterebbe, anche per un torneo salvato quando c'erano.
+        **({} if online_payments_enabled() else dict.fromkeys(ONLINE_METHODS, False)),
     })
 
 

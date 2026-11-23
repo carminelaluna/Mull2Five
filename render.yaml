@@ -73,8 +73,14 @@ services:
         sync: false
       - key: PAYPAL_ENV
         sync: false
+      # Mai acceso qui: il checkout finto segnerebbe pagata un'iscrizione senza
+      # incassare. Fino al 23/11/2026 era rimasto al default, cioè acceso.
       - key: PAYMENT_SANDBOX_MOCK
-        sync: false
+        value: "false"
+      # Solo pagamento al banco finché i pagamenti online non passano dal legale
+      # (docs/hosting.md, "Pagamenti"). Si provano sullo staging.
+      - key: ONLINE_PAYMENTS_ENABLED
+        value: "false"
       - key: SMTP_HOST
         sync: false
       - key: SMTP_PORT
@@ -184,6 +190,9 @@ services:
         value: "true"
       - key: PAYPAL_ENV
         value: sandbox
+      # Qui i pagamenti online si provano: Stripe in modalità test, PayPal sandbox.
+      - key: ONLINE_PAYMENTS_ENABLED
+        value: "true"
       - key: STRIPE_SECRET_KEY
         sync: false
       - key: STRIPE_WEBHOOK_SECRET
