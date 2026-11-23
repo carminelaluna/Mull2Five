@@ -37,16 +37,15 @@ services:
         value: production
       - key: APP_NAME
         value: Mull2Five
-      # Con il dominio vero diventano tutte e tre https://<dominio>: vedi
-      # docs/hosting.md, "Passo 8". SITE_URL decide anche il redirect da
-      # onrender.com al dominio (main.py) e gli indirizzi scritti nelle pagine
-      # alla build (Dockerfile).
+      # Il dominio vero dal 23/11/2026 (docs/hosting.md, "Passo 8"). SITE_URL
+      # decide anche il redirect da onrender.com al dominio (main.py) e gli
+      # indirizzi scritti nelle pagine alla build (Dockerfile).
       - key: APP_URL
-        value: https://mull2five.onrender.com
+        value: https://mull2five.it
       - key: FRONTEND_URL
-        value: https://mull2five.onrender.com
+        value: https://mull2five.it
       - key: SITE_URL
-        value: https://mull2five.onrender.com
+        value: https://mull2five.it
 
       # ── Database ──────────────────────────────────────────────────────────
       # Supabase, session pooler. La stringa contiene la password: mai qui.

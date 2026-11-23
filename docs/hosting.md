@@ -168,6 +168,15 @@ come adesso, un dominio (.it, circa 9–12 €/anno di rinnovo), Brevo gratuito 
 email (300 al giorno). Niente migrazione dei dati. Quando il database si avvicina ai
 500 MB, o serve il ripristino al minuto, si passa a Supabase Pro (25 $/mese).
 
+**Stato al 23/11/2026:** fatti i punti 1–4 e le prove del punto 7 tranne l'email.
+Dominio `mull2five.it` su register.it (zona DNS: record A `@` → `216.24.57.1`,
+CNAME `www` → `mull2five.onrender.com.`; posta, PEC e DKIM di register.it lasciati
+com'erano), servizio sul piano 0.5c-512mb (il vecchio "Starter"). Restano Brevo
+(punto 5) e i webhook (punto 6). Due cose viste lungo la strada: register.it chiede
+un codice di verifica per ogni area protetta del pannello (DNS compresi), e il
+primo certificato del dominio nudo può fallire se Let's Encrypt vede ancora il
+vecchio IP in cache — Render ritenta da solo entro qualche minuto.
+
 Il codice è già pronto: `SITE_URL` decide il redirect da `*.onrender.com` al
 dominio (`redirect_to_site_domain` in `backend/app/main.py`, solo pagine in GET;
 API e webhook restano raggiungibili anche dal vecchio indirizzo) e gli indirizzi

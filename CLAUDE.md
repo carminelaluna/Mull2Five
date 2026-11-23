@@ -1,8 +1,10 @@
 # Mull2Five — istruzioni per chi lavora qui
 
 Piattaforma per tornei di carte: ricerca eventi, iscrizioni, pagamenti, turni,
-abbinamenti, liste dei mazzi. Live su https://mull2five.onrender.com
-(Render, Docker, regione Frankfurt) con PostgreSQL su Supabase Frankfurt.
+abbinamenti, liste dei mazzi. Live su **https://mull2five.it** (dal 23/11/2026;
+`mull2five.onrender.com` rimanda lì, tranne API e webhook) su Render, Docker,
+piano 0.5c-512mb, regione Frankfurt, con PostgreSQL su Supabase Frankfurt.
+Dominio e DNS su register.it.
 Repository **pubblico**, deploy automatico al push. Due rami, due ambienti:
 `develop` → staging (`mull2five-staging.onrender.com`, con un progetto Supabase
 suo), `main` → produzione. Si lavora su `develop`, si guarda lo staging, si fonde
@@ -128,9 +130,9 @@ Dettaglio in `TODO.md`. Quelle che contano:
    `PAYMENT.CAPTURE.COMPLETED`, e mettere il suo identificativo in
    `PAYPAL_WEBHOOK_ID`. Il codice è pronto; senza quell'identificativo le
    notifiche vengono rifiutate, ed è il comportamento voluto.
-4. Passare a Render Starter con un dominio proprio e Brevo per le email: deciso il
-   23/11/2026, il codice è pronto, i passi da cruscotto sono in `docs/hosting.md`
-   ("Passo 8"). Finché non si fa, il servizio è **gratuito** e si addormenta.
+4. Email con Brevo sul dominio e webhook Stripe/PayPal spostati su `mull2five.it`:
+   gli ultimi due punti del "Passo 8" in `docs/hosting.md`. Piano a pagamento e
+   dominio sono fatti (23/11/2026).
 
 **Infrastruttura, quel che resta del guasto del 23/09**
 5. Far aspettare la CI al deploy (nel cruscotto Render) e impostare `ALERT_EMAIL`.
