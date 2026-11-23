@@ -130,9 +130,11 @@ Dettaglio in `TODO.md`. Quelle che contano:
    `PAYMENT.CAPTURE.COMPLETED`, e mettere il suo identificativo in
    `PAYPAL_WEBHOOK_ID`. Il codice è pronto; senza quell'identificativo le
    notifiche vengono rifiutate, ed è il comportamento voluto.
-4. Email con Brevo sul dominio e webhook Stripe/PayPal spostati su `mull2five.it`:
-   gli ultimi due punti del "Passo 8" in `docs/hosting.md`. Piano a pagamento e
-   dominio sono fatti (23/11/2026).
+4. Webhook Stripe/PayPal spostati su `mull2five.it`: l'ultimo punto del "Passo 8"
+   in `docs/hosting.md`. Piano a pagamento, dominio ed email sono fatti
+   (23/11/2026): le email partono dalle caselle register.it del dominio, una per
+   tipo — `info@` l'accesso, `commercial@` i pagamenti, la casella admin il resto
+   (`Sender` in `services/email.py`). Il reset password è stato provato e arriva.
 
 **Infrastruttura, quel che resta del guasto del 23/09**
 5. Far aspettare la CI al deploy (nel cruscotto Render) e impostare `ALERT_EMAIL`.

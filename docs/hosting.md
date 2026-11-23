@@ -168,11 +168,12 @@ come adesso, un dominio (.it, circa 9–12 €/anno di rinnovo), le caselle emai
 register.it per spedire (500 email al giorno ciascuna; Brevo gratuito come riserva). Niente migrazione dei dati. Quando il database si avvicina ai
 500 MB, o serve il ripristino al minuto, si passa a Supabase Pro (25 $/mese).
 
-**Stato al 23/11/2026:** fatti i punti 1–4 e le prove del punto 7 tranne l'email.
+**Stato al 23/11/2026:** fatti i punti 1–5 e le prove del punto 7 (il reset
+password arriva da `info@mull2five.it`).
 Dominio `mull2five.it` su register.it (zona DNS: record A `@` → `216.24.57.1`,
 CNAME `www` → `mull2five.onrender.com.`; posta, PEC e DKIM di register.it lasciati
-com'erano), servizio sul piano 0.5c-512mb (il vecchio "Starter"). Restano le
-variabili dell'email su Render (punto 5) e i webhook (punto 6). Due cose viste lungo la strada: register.it chiede
+com'erano), servizio sul piano 0.5c-512mb (il vecchio "Starter"). Restano i
+webhook (punto 6). Due cose viste lungo la strada: register.it chiede
 un codice di verifica per ogni area protetta del pannello (DNS compresi), e il
 primo certificato del dominio nudo può fallire se Let's Encrypt vede ancora il
 vecchio IP in cache — Render ritenta da solo entro qualche minuto.
