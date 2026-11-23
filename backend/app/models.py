@@ -139,7 +139,7 @@ class Event(Base):
     organization_id: Mapped[int | None] = mapped_column(
         ForeignKey("organizations.id", ondelete="SET NULL"), nullable=True, index=True
     )
-    organizer_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    organizer_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     slug: Mapped[str] = mapped_column(String(120), unique=True, index=True)
     name: Mapped[str] = mapped_column(String(180))
     description: Mapped[str] = mapped_column(Text, default="", server_default="")
@@ -425,7 +425,7 @@ class User(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     organization_id: Mapped[int | None] = mapped_column(
-        ForeignKey("organizations.id", ondelete="SET NULL"), nullable=True
+        ForeignKey("organizations.id", ondelete="SET NULL"), nullable=True, index=True
     )
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     # L'indirizzo del profilo pubblico: casuale, così un link condiviso non
@@ -481,7 +481,7 @@ class Tournament(Base):
     __table_args__ = (Index("idx_tournaments_event_type", "event_type"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    organizer_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    organizer_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     organization_id: Mapped[int | None] = mapped_column(
         ForeignKey("organizations.id", ondelete="SET NULL"), nullable=True, index=True
     )
@@ -535,7 +535,7 @@ class Tournament(Base):
     pay_stripe: Mapped[bool] = mapped_column(Boolean, default=False)    # online via Stripe
     pay_paypal: Mapped[bool] = mapped_column(Boolean, default=False)    # online via PayPal
     season_id: Mapped[int | None] = mapped_column(
-        ForeignKey("seasons.id", ondelete="SET NULL"), nullable=True
+        ForeignKey("seasons.id", ondelete="SET NULL"), nullable=True, index=True
     )
     event_id: Mapped[int | None] = mapped_column(
         ForeignKey("events.id", ondelete="SET NULL"), nullable=True, index=True
@@ -661,7 +661,7 @@ class Registration(Base):
     # Il codice sconto usato all'iscrizione: resta qui, così il conto al
     # pagamento è lo stesso che il giocatore ha visto iscrivendosi.
     discount_code_id: Mapped[int | None] = mapped_column(
-        ForeignKey("discount_codes.id", ondelete="SET NULL"), nullable=True
+        ForeignKey("discount_codes.id", ondelete="SET NULL"), nullable=True, index=True
     )
     day2: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
     created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
@@ -720,7 +720,7 @@ class DecklistRevision(Base):
     __tablename__ = "decklist_revisions"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    registration_id: Mapped[int] = mapped_column(ForeignKey("registrations.id", ondelete="CASCADE"))
+    registration_id: Mapped[int] = mapped_column(ForeignKey("registrations.id", ondelete="CASCADE"), index=True)
     edited_by_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     raw_text: Mapped[str] = mapped_column(Text)
     main_count: Mapped[int] = mapped_column(Integer, default=0)
@@ -788,8 +788,10 @@ class Pairing(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     round_id: Mapped[int] = mapped_column(ForeignKey("rounds.id", ondelete="CASCADE"))
     table_number: Mapped[int] = mapped_column(Integer)
-    player_a_registration_id: Mapped[int] = mapped_column(ForeignKey("registrations.id"))
-    player_b_registration_id: Mapped[int | None] = mapped_column(ForeignKey("registrations.id"), nullable=True)
+    player_a_registration_id: Mapped[int] = mapped_column(ForeignKey("registrations.id"), index=True)
+    player_b_registration_id: Mapped[int | None] = mapped_column(
+        ForeignKey("registrations.id"), nullable=True, index=True
+    )
     result: Mapped[str] = mapped_column(String(20), default="")
     match_wins_a: Mapped[int] = mapped_column(Integer, default=0)
     match_wins_b: Mapped[int] = mapped_column(Integer, default=0)
@@ -816,7 +818,7 @@ class PairingResultReport(Base):
     __tablename__ = "pairing_result_reports"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    pairing_id: Mapped[int] = mapped_column(ForeignKey("pairings.id", ondelete="CASCADE"))
+    pairing_id: Mapped[int] = mapped_column(ForeignKey("pairings.id", ondelete="CASCADE"), index=True)
     # Chi propone il risultato: un giocatore (la sua iscrizione) oppure un
     # judge (il suo utente). Uno dei due, mai tutti e due.
     reporter_registration_id: Mapped[int | None] = mapped_column(
@@ -842,7 +844,7 @@ class Announcement(Base):
     __tablename__ = "announcements"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    tournament_id: Mapped[int] = mapped_column(ForeignKey("tournaments.id", ondelete="CASCADE"))
+    tournament_id: Mapped[int] = mapped_column(ForeignKey("tournaments.id", ondelete="CASCADE"), index=True)
     author_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     title: Mapped[str] = mapped_column(String(180))
     body: Mapped[str] = mapped_column(Text)
@@ -892,8 +894,8 @@ class Penalty(Base):
     __tablename__ = "penalties"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    tournament_id: Mapped[int] = mapped_column(ForeignKey("tournaments.id", ondelete="CASCADE"))
-    registration_id: Mapped[int] = mapped_column(ForeignKey("registrations.id", ondelete="CASCADE"))
+    tournament_id: Mapped[int] = mapped_column(ForeignKey("tournaments.id", ondelete="CASCADE"), index=True)
+    registration_id: Mapped[int] = mapped_column(ForeignKey("registrations.id", ondelete="CASCADE"), index=True)
     judge_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     round_id: Mapped[int | None] = mapped_column(ForeignKey("rounds.id", ondelete="SET NULL"), nullable=True)
     kind: Mapped[str] = mapped_column(String(40), default="warning")

@@ -64,10 +64,24 @@ def _store_tournament(tournament_id: int, store: Organization, db: Session) -> T
     return tournament
 
 
-def _tournament_out(tournament: Tournament, db: Session) -> ApiTournamentOut:
-    registered = db.scalar(select(func.count(Registration.id)).where(
-        Registration.tournament_id == tournament.id, Registration.waitlisted.is_(False))) or 0
-    current_round = db.scalar(select(func.max(Round.number)).where(Round.tournament_id == tournament.id))
+def _counts(ids: list[int], db: Session) -> tuple[dict[int, int], dict[int, int]]:
+    """Iscritti (fuori dalla lista d'attesa) e turno corrente, per tutti i tornei in due query."""
+    if not ids:
+        return {}, {}
+    registered = dict(db.execute(
+        select(Registration.tournament_id, func.count(Registration.id))
+        .where(Registration.tournament_id.in_(ids), Registration.waitlisted.is_(False))
+        .group_by(Registration.tournament_id)
+    ).all())
+    rounds = dict(db.execute(
+        select(Round.tournament_id, func.max(Round.number))
+        .where(Round.tournament_id.in_(ids))
+        .group_by(Round.tournament_id)
+    ).all())
+    return registered, rounds
+
+
+def _tournament_out(tournament: Tournament, registered: int, current_round: int | None) -> ApiTournamentOut:
     return ApiTournamentOut(
         id=tournament.id, name=tournament.name, game=tournament.game, format=tournament.format,
         event_type=tournament.event_type, status=tournament.status, starts_on=tournament.starts_on,
@@ -86,6 +100,8 @@ def api_tournaments(
     status: str | None = Query(default=None, description="Uno o più stati separati da virgola"),
     date_from: date | None = None,
     date_to: date | None = None,
+    limit: int = Query(default=500, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0),
     store: Organization = Depends(store_for_key),
     db: Session = Depends(get_db),
 ) -> list[ApiTournamentOut]:
@@ -98,7 +114,11 @@ def api_tournaments(
         stmt = stmt.where(Tournament.starts_on >= date_from)
     if date_to:
         stmt = stmt.where(Tournament.starts_on <= date_to)
-    return [_tournament_out(t, db) for t in db.scalars(stmt.order_by(Tournament.starts_on, Tournament.id))]
+    tournaments = db.scalars(
+        stmt.order_by(Tournament.starts_on, Tournament.id).limit(limit).offset(offset)
+    ).all()
+    registered, rounds = _counts([t.id for t in tournaments], db)
+    return [_tournament_out(t, registered.get(t.id, 0), rounds.get(t.id)) for t in tournaments]
 
 
 @router.get("/tournaments/{tournament_id}", response_model=ApiTournamentOut)
@@ -107,7 +127,9 @@ def api_tournament(
     request: Request, tournament_id: int,
     store: Organization = Depends(store_for_key), db: Session = Depends(get_db),
 ) -> ApiTournamentOut:
-    return _tournament_out(_store_tournament(tournament_id, store, db), db)
+    tournament = _store_tournament(tournament_id, store, db)
+    registered, rounds = _counts([tournament.id], db)
+    return _tournament_out(tournament, registered.get(tournament.id, 0), rounds.get(tournament.id))
 
 
 @router.get("/tournaments/{tournament_id}/players", response_model=list[ApiPlayerOut])

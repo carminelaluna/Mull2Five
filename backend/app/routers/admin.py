@@ -2,13 +2,13 @@ from datetime import datetime
 from uuid import uuid4
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from backend.app.core.config import get_settings
 from backend.app.db import get_db
-from backend.app.models import Organization, Payment, Tournament, User, UserRole
+from backend.app.models import Organization, Payment, Registration, Tournament, User, UserRole
 from backend.app.schemas import (
     AdminProfileIn,
     LocatorImportIn,
@@ -53,27 +53,46 @@ def locator_import(payload: LocatorImportIn, admin: User = Depends(require_admin
 
 
 @router.get("/users", response_model=list[UserOut])
-def list_users(admin: User = Depends(require_admin), db: Session = Depends(get_db)) -> list[User]:
-    return db.scalars(select(User).order_by(User.created_at.desc())).all()
+def list_users(
+    limit: int = Query(default=500, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0),
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> list[User]:
+    return db.scalars(select(User).order_by(User.created_at.desc()).limit(limit).offset(offset)).all()
 
 
 @router.get("/tournaments", response_model=list[TournamentOut])
 def list_all_tournaments(
+    limit: int = Query(default=500, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0),
     admin: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> list[TournamentOut]:
-    tournaments = db.scalars(select(Tournament).order_by(Tournament.created_at.desc())).all()
+    tournaments = db.scalars(
+        select(Tournament).order_by(Tournament.created_at.desc()).limit(limit).offset(offset)
+    ).all()
+    counts = dict(db.execute(
+        select(Registration.tournament_id, func.count(Registration.id))
+        .where(Registration.tournament_id.in_([t.id for t in tournaments]))
+        .group_by(Registration.tournament_id)
+    ).all()) if tournaments else {}
     return [
         TournamentOut.model_validate(tournament).model_copy(
-            update={"registered_players": len(tournament.registrations)}
+            update={"registered_players": counts.get(tournament.id, 0)}
         )
         for tournament in tournaments
     ]
 
 
 @router.get("/payments", response_model=list[PaymentOut])
-def list_payments(admin: User = Depends(require_admin), db: Session = Depends(get_db)) -> list[Payment]:
-    return db.scalars(select(Payment).order_by(Payment.created_at.desc())).all()
+def list_payments(
+    limit: int = Query(default=500, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0),
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> list[Payment]:
+    return db.scalars(select(Payment).order_by(Payment.created_at.desc()).limit(limit).offset(offset)).all()
 
 
 

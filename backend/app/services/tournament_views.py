@@ -6,6 +6,8 @@ Stanno qui e non nel router perché li usano in tanti: la ricerca, la pagina di
 un torneo, la regia, l'API pubblica.
 """
 import math
+from collections import defaultdict
+from dataclasses import dataclass
 from math import asin, cos, radians, sin, sqrt
 
 from sqlalchemy import Select, func, select
@@ -13,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from backend.app.models import (
     Event,
+    Location,
     Organization,
     Registration,
     Round,
@@ -77,16 +80,56 @@ def filter_by_distance(
     return located
 
 
-def tournament_out(tournament: Tournament, registered: int, db: Session) -> TournamentOut:
+@dataclass
+class _Related:
+    """Quello che serve per raccontare dei tornei, letto in una query per tipo.
+
+    Tenerli qui serve anche a tenerli vivi: la sessione ricorda gli oggetti solo
+    finché qualcuno li usa, e senza questi dizionari negozio e organizzatore
+    venivano riletti a ogni torneo della lista."""
+    organizations: dict[int, Organization]
+    events: dict[int, Event]
+    organizers: dict[int, User]
+    locations: dict[int, Location]
+    segments: dict[int, list[str]]
+
+
+def _related(tournaments: list[Tournament], db: Session) -> _Related:
+    def by_id(model, ids):
+        ids = {i for i in ids if i}
+        return {row.id: row for row in db.scalars(select(model).where(model.id.in_(ids)))} if ids else {}
+
+    segments: dict[int, list[str]] = defaultdict(list)
+    ids = [t.id for t in tournaments]
+    if ids:
+        for tournament_id, fmt in db.execute(
+            select(Round.tournament_id, Round.format)
+            .where(Round.tournament_id.in_(ids), Round.format.is_not(None))
+            .distinct()
+        ):
+            segments[tournament_id].append(fmt)
+    return _Related(
+        organizations=by_id(Organization, (t.organization_id for t in tournaments)),
+        events=by_id(Event, (t.event_id for t in tournaments)),
+        organizers=by_id(User, (t.organizer_id for t in tournaments)),
+        locations=by_id(Location, (t.location_id for t in tournaments)),
+        segments=segments,
+    )
+
+
+def tournament_out(
+    tournament: Tournament, registered: int, db: Session, related: _Related | None = None
+) -> TournamentOut:
     """Serializza un torneo con negozio ed evento di appartenenza.
 
     Unico punto: prima l'arricchimento stava solo nell'helper della lista e il
     GET del singolo torneo rispondeva con event_slug nullo.
     """
-    org = db.get(Organization, tournament.organization_id) if tournament.organization_id else None
-    event = db.get(Event, tournament.event_id) if tournament.event_id else None
-    organizer = db.get(User, tournament.organizer_id)
-    location = tournament.location
+    related = related or _related([tournament], db)
+    org = related.organizations.get(tournament.organization_id)
+    event = related.events.get(tournament.event_id)
+    organizer = related.organizers.get(tournament.organizer_id)
+    location = related.locations.get(tournament.location_id)
     # La sede presta al torneo quello che non ha di suo: il luogo scritto e le
     # coordinate, così compare anche nella ricerca per distanza.
     inherited = {"venue": tournament.place, "city": tournament.place_city}
@@ -97,11 +140,7 @@ def tournament_out(tournament: Tournament, registered: int, db: Session) -> Tour
             inherited["longitude"] = location.longitude
     # I segmenti nascono dai round: dichiarare un formato su un turno significa
     # che per quella porzione serve una lista a parte.
-    segments = db.scalars(
-        select(Round.format)
-        .where(Round.tournament_id == tournament.id, Round.format.is_not(None))
-        .distinct()
-    ).all()
+    segments = related.segments.get(tournament.id, [])
     return TournamentOut.model_validate(tournament).model_copy(update={
         "registered_players": registered,
         # Quanto si paga adesso: lo stesso conto che fa il checkout, o la pagina
@@ -138,8 +177,9 @@ def tournament_with_counts(stmt: Select[tuple[Tournament]], db: Session) -> list
     )
 
     rows = db.execute(combined).all()
+    related = _related([tournament for tournament, _ in rows], db)
     return [
-        tournament_out(tournament, int(reg_count), db)
+        tournament_out(tournament, int(reg_count), db, related)
         for tournament, reg_count in rows
     ]
 
