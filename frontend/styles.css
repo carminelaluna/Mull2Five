@@ -227,14 +227,6 @@ main {
   line-height: 1.6;
 }
 
-.hero-image {
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(90deg, rgba(17, 17, 15, 0.98) 0%, rgba(17, 17, 15, 0.78) 42%, rgba(17, 17, 15, 0.18) 100%),
-    url("/assets/tournament-hall.png") center right / cover;
-}
-
 .eyebrow {
   display: inline-block;
   font-size: 0.76rem;
@@ -1082,12 +1074,6 @@ dialog::backdrop {
 
   .hero {
     min-height: 520px;
-  }
-
-  .hero-image {
-    background:
-      linear-gradient(180deg, rgba(17, 17, 15, 0.96) 0%, rgba(17, 17, 15, 0.78) 56%, rgba(17, 17, 15, 0.2) 100%),
-      url("/assets/tournament-hall.png") center bottom / cover;
   }
 
   .hero-copy {

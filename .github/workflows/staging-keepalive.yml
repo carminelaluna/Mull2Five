@@ -1,0 +1,45 @@
+# Tiene sveglio il database dello staging.
+#
+# Il progetto Supabase gratuito dello staging va in pausa dopo una settimana
+# senza richieste, e allora lo staging non parte più (23/11/2026, vedi TODO.md).
+# /health fa una query vera al database: chiamarlo ogni tre giorni basta perché
+# Supabase lo conti come attività. Il primo colpo sveglia anche Render, che sul
+# piano gratuito impiega fino a un minuto: per questo l'attesa è lunga.
+#
+# Se fallisce, GitHub manda un'email: vuol dire che lo staging è già giù o che
+# il database è in pausa (Supabase → Resume project, poi Manual Deploy su Render).
+#
+# Gli eventi pianificati GitHub li fa girare solo dal ramo principale: questo
+# file comincia a lavorare quando arriva su main.
+name: Staging sveglio
+
+on:
+  schedule:
+    - cron: "17 6 */3 * *"    # ogni tre giorni, 06:17 UTC
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Chiama /health dello staging
+        run: |
+          set -euo pipefail
+          url="https://mull2five-staging.onrender.com/health"
+          for tentativo in 1 2 3 4 5; do
+            if risposta="$(curl -fsS --max-time 90 "$url")"; then
+              echo "$risposta"
+              if echo "$risposta" | grep -q '"database":"ok"'; then
+                exit 0
+              fi
+              echo "::error::Lo staging risponde ma il database no: forse è in pausa su Supabase"
+              exit 1
+            fi
+            echo "Tentativo $tentativo andato a vuoto, riprovo tra 30 secondi"
+            sleep 30
+          done
+          echo "::error::Lo staging non risponde"
+          exit 1

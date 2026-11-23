@@ -239,8 +239,10 @@ decisioni tue.
       mai. Non è un difetto del codice: il 23/11 lo staging era fermo da due mesi e aveva
       saltato le migrazioni `0007`–`0010`. Se ricapita: su Supabase "Resume project" (circa sei
       minuti prima di "Healthy"), poi su Render *Manual Deploy* → *Deploy latest commit*.
-      Da decidere: tenerlo sveglio (una richiesta a settimana, per esempio da una GitHub Action)
-      o accettare la pausa e riattivarlo prima di ogni prova.
+      Ora c'è `.github/workflows/staging-keepalive.yml`: ogni tre giorni chiama `/health` dello
+      staging, che interroga il database, e se il database non risponde fallisce e GitHub manda
+      un'email. Resta aperta finché il file non arriva su `main`, perché GitHub fa girare i
+      workflow pianificati solo dal ramo principale. Poi va spuntata.
 
 ## Segnalazioni dal campo (28 settembre 2026)
 
