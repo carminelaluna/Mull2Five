@@ -232,7 +232,7 @@ decisioni tue.
       Procedura in `docs/hosting.md`. Da ripetere quando lo staging va riallineato.
 - [x] **Lo staging c'è** (29/09/2026): ramo `develop` → `mull2five-staging.onrender.com`, con
       un progetto Supabase suo e una copia anonimizzata dei dati. Vedi `docs/hosting.md`.
-- [ ] **Il database dello staging va in pausa da solo** (23/11/2026). Il progetto Supabase
+- [x] **Il database dello staging va in pausa da solo** (23/11/2026). Il progetto Supabase
       "Mull2Five Dev" è gratuito, e Supabase mette in pausa i progetti gratuiti dopo circa una
       settimana senza attività. Allora `prepara_database.py` non trova il database, esce con
       un errore, e Render mostra "Failed service" oppure una pagina di risveglio che non finisce
@@ -241,8 +241,8 @@ decisioni tue.
       minuti prima di "Healthy"), poi su Render *Manual Deploy* → *Deploy latest commit*.
       Ora c'è `.github/workflows/staging-keepalive.yml`: ogni tre giorni chiama `/health` dello
       staging, che interroga il database, e se il database non risponde fallisce e GitHub manda
-      un'email. Resta aperta finché il file non arriva su `main`, perché GitHub fa girare i
-      workflow pianificati solo dal ramo principale. Poi va spuntata.
+      un'email. È su `main` dal 23/11/2026: GitHub fa girare i workflow pianificati solo dal
+      ramo principale. Si lancia anche a mano da Actions → Staging sveglio → Run workflow.
 
 ## Segnalazioni dal campo (28 settembre 2026)
 
