@@ -3,22 +3,59 @@ import { esc } from './escape.js';
 import { bestOfLabel, gameInfo, gameLabel } from './games.js';
 import { t as tr } from './i18n.js';
 import { actingAs, actingBanner, bindActingBanner, setActing } from './acting.js';
-import { earlyBirdOn, feeNow, fmtDate, fmtMoney, updateAuthNav, placeLabel } from './catalog.js';
+import { earlyBirdOn, feeNow, fmtDate, fmtMoney, toast, updateAuthNav, placeLabel } from './catalog.js';
 import { busy } from './form-state.js';
 import { apiRequest, getSession } from './session.js';
 import { stickyCta } from './site.js';
 
 const params = new URLSearchParams(location.search);
 const TOURNAMENT_ID = params.get('id');
+// Di ritorno da Stripe o PayPal senza aver pagato: non è iscritto.
+const PAYMENT_CANCELLED = params.get('pagamento') === 'annullato';
 
 /* Chi gestisce il profilo di un figlio lo iscrive per lui (X-Act-As). */
 const apiFetch = (path, opts = {}) => apiRequest(path, { acting: true, ...opts });
+
+/* I modi di pagare che il torneo accetta su questo sito: Stripe e PayPal solo
+   se i pagamenti online sono accesi (in produzione si paga al banco). */
+const methodLabel = (method) => ({
+  at_event: tr('Al banco, il giorno del torneo'),
+  stripe: tr('Carta di credito (Stripe)'),
+  paypal: 'PayPal',
+}[method]);
+function paymentMethods(t, online) {
+  return [
+    t.pay_at_event && 'at_event',
+    online && t.pay_stripe && 'stripe',
+    online && t.pay_paypal && 'paypal',
+  ].filter(Boolean);
+}
+
+/* Il modo scelto, o "" se non c'era niente da scegliere (torneo gratuito). */
+const chosenMethod = () => (document.querySelector('#regPaymentWrap').style.display === 'none'
+  ? '' : document.querySelector('#regPayment').value);
+
+/* Il pulsante dice cosa succede: iscritto subito, o prima si paga. */
+function syncPaymentChoice() {
+  const method = chosenMethod();
+  const online = method === 'stripe' || method === 'paypal';
+  document.querySelector('#confirmRegister').textContent = online ? tr('Iscriviti e paga') : tr('Iscriviti');
+  document.querySelector('#regPaymentNote').textContent = online
+    ? tr('Sei iscritto quando il pagamento è completato. Il posto resta tuo per 30 minuti.')
+    : method === 'at_event' ? tr('Sei iscritto subito: la quota la paghi al banco il giorno del torneo.') : '';
+}
 
 
 async function loadEvent() {
   if (!TOURNAMENT_ID) { document.querySelector('#eventDetail').innerHTML = '<p class="empty">ID torneo mancante.</p>'; return; }
   try {
     const session = getSession();
+    if (PAYMENT_CANCELLED && session) {
+      // Prima di leggere l'iscrizione: il posto tenuto per lui si libera subito.
+      await apiFetch(`/tournaments/${TOURNAMENT_ID}/my-registration/abandon-payment`, { method: 'POST' }).catch(() => null);
+      history.replaceState(null, '', `event.html?id=${TOURNAMENT_ID}`);
+      toast(tr('Pagamento annullato: non sei iscritto. Puoi riprovare quando vuoi.'), 6000);
+    }
     const t = await apiFetch(`/tournaments/${TOURNAMENT_ID}`);
     // La lista completa iscritti è riservata all'organizzatore: per il giocatore
     // usiamo il conteggio pubblico (registered_players) e la sua iscrizione.
@@ -65,6 +102,11 @@ async function loadEvent() {
         <div style="display:grid;gap:8px;text-align:right">
           ${imported
             ? `<a class="primary" id="eventCta" href="${esc(t.external_url)}" target="_blank" rel="noopener" style="text-align:center;text-decoration:none;padding:10px 18px;border-radius:8px">${esc(tr('Iscriviti presso il negozio ↗'))}</a>`
+            : isReg && myReg.payment_due_by && myReg.payment_status !== 'paid'
+            // Ha scelto di pagare online e il pagamento non è ancora arrivato:
+            // non è iscritto, ha solo il posto tenuto.
+            ? `<span class="badge warn">${esc(tr('Pagamento in corso'))}</span>
+               <a class="secondary-link" href="my-registrations.html">${esc(tr('Completa il pagamento'))}</a>`
             : isReg
             ? '<span class="badge ok" style="font-size:1rem">✓ Iscritto</span>'
             : canReg
@@ -144,8 +186,20 @@ async function loadEvent() {
       document.querySelector('#regFields').innerHTML = fields.map(fieldInput).join('');
       // Su un torneo gratuito un campo "codice sconto" è solo una domanda in più.
       document.querySelector('#regDiscountWrap').style.display = feeNow(t) ? '' : 'none';
+      // Come si paga: solo i modi che il torneo accetta. Gratis, niente da scegliere.
+      const { online } = await apiFetch('/payments/options').catch(() => ({ online: false }));
+      const methods = feeNow(t) ? paymentMethods(t, online) : [];
+      document.querySelector('#regPaymentWrap').style.display = methods.length ? '' : 'none';
+      document.querySelector('#regPayment').innerHTML = methods
+        .map((m) => `<option value="${m}">${esc(methodLabel(m))}</option>`).join('');
+      const noWay = feeNow(t) > 0 && !methods.length;
+      document.querySelector('#regError').textContent = noWay
+        ? tr('Questo torneo non ha un modo per pagare la quota: contatta l\'organizzatore') : '';
+      document.querySelector('#confirmRegister').disabled = noWay;
+      syncPaymentChoice();
       document.querySelector('#registerDialog').showModal();
     });
+    document.querySelector('#regPayment')?.addEventListener('change', syncPaymentChoice);
     document.querySelector('#confirmRegister')?.addEventListener('click', () => doRegister(t));
     bindActingBanner(document.querySelector('#eventDetail'));
 
@@ -176,10 +230,11 @@ function collectAnswers() {
 
 async function doRegister(t) {
   const btn = document.querySelector('#confirmRegister');
-  busy(btn, true, tr('Iscrizione in corso…'));
+  const method = chosenMethod();
+  busy(btn, true, method === 'stripe' || method === 'paypal' ? tr('Reindirizzamento al pagamento…') : tr('Iscrizione in corso…'));
   try {
     const who = document.querySelector('#regWho')?.value || '';
-    await apiFetch(`/tournaments/${t.id}/registrations`, {
+    const reg = await apiFetch(`/tournaments/${t.id}/registrations`, {
       method: 'POST',
       headers: { 'X-Act-As': who },
       body: JSON.stringify({
@@ -187,15 +242,20 @@ async function doRegister(t) {
         wizards_account:     document.querySelector('#regWizards').value.trim(),
         game_handle:         document.querySelector('#regHandle').value.trim(),
         discount_code:       document.querySelector('#regDiscount').value.trim(),
-        payment_provider:    document.querySelector('#regPayment').value,
+        payment_method:      chosenMethod() || null,
         answers:             collectAnswers(),
       }),
     });
-    document.querySelector('#registerDialog').close();
-    // Si prosegue come chi è stato iscritto: il pagamento è dalle sue iscrizioni.
+    // Si prosegue come chi è stato iscritto: il ritorno dal pagamento è suo.
     setActing(who ? { id: who, name: document.querySelector('#regWho').selectedOptions[0].textContent } : null);
-    // La pagina di ringraziamento dice cosa resta da fare: pagare online dalle
-    // iscrizioni, pagare al banco, caricare la lista.
+    // Ha scelto di pagare online: si paga adesso, e l'iscrizione vale solo dopo.
+    if (reg?.checkout_url) {
+      location.href = reg.checkout_url;
+      return;
+    }
+    document.querySelector('#registerDialog').close();
+    // La pagina di ringraziamento dice cosa resta da fare: pagare al banco,
+    // caricare la lista.
     location.href = `grazie.html?t=${t.id}`;
   } catch (err) {
     document.querySelector('#regError').textContent = err.message;

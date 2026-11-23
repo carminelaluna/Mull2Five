@@ -7,18 +7,22 @@ degli iscritti, quindi non possono stare ne in uno ne nell'altro.
 """
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session, joinedload
 
 from backend.app.core.cache import cache_invalidate
 from backend.app.core.config import get_settings
 from backend.app.models import (
+    DiscountCode,
+    Pairing,
+    PaymentStatus,
     Penalty,
     Registration,
     RegistrationField,
     Tournament,
 )
 from backend.app.services.email import Sender, send_email
+from backend.app.services.payments import HOLD_GRACE_MINUTES
 
 
 def fields_of(tournament_id: int, db: Session) -> list[RegistrationField]:
@@ -88,3 +92,69 @@ def promote_from_waitlist(tournament: Tournament, db: Session) -> None:
         )
     except Exception:
         pass
+
+
+def release_hold(registration: Registration, db: Session) -> None:
+    """Toglie l'iscrizione di chi aveva scelto di pagare online e non ha pagato.
+
+    Non era iscritto, quindi la riga sparisce — e con lei, per le chiavi
+    esterne, il pagamento aperto, le risposte e la lista — così può riprovare:
+    un'iscrizione solo ritirata gli direbbe "Sei già iscritto". Il codice sconto
+    torna disponibile. Il commit lo fa chi chiama.
+    """
+    if registration.discount_code_id:
+        code = db.get(DiscountCode, registration.discount_code_id)
+        if code and code.uses > 0:
+            code.uses -= 1
+    paired = db.scalar(
+        select(Pairing.id).where(or_(
+            Pairing.player_a_registration_id == registration.id,
+            Pairing.player_b_registration_id == registration.id,
+        )).limit(1)
+    )
+    if paired:
+        # Iscritto tardi a un torneo in corso e già abbinato: la riga serve agli
+        # abbinamenti, quindi si ritira invece di sparire.
+        registration.dropped = True
+        registration.payment_due_by = None
+        return
+    db.execute(delete(Registration).where(Registration.id == registration.id))
+
+
+def release_unpaid_holds(db: Session, tournament_id: int | None = None) -> int:
+    """Toglie le iscrizioni con pagamento online non arrivato in tempo, e
+    promuove chi aspetta in lista. Ritorna quante ne ha tolte.
+
+    Gira in background ogni due minuti e prima di ogni iscrizione al torneo,
+    così un posto tenuto e non pagato non fa dire "pieno" a chi arriva dopo.
+    """
+    limite = datetime.now(UTC) - timedelta(minutes=HOLD_GRACE_MINUTES)
+    query = (
+        select(Registration)
+        .where(Registration.payment_due_by.is_not(None))
+        .options(joinedload(Registration.payment), joinedload(Registration.tournament))
+    )
+    if tournament_id is not None:
+        query = query.where(Registration.tournament_id == tournament_id)
+    released = 0
+    touched: dict[int, Tournament] = {}
+    for reg in db.scalars(query).unique().all():
+        if reg.payment and reg.payment.status == PaymentStatus.PAID:
+            reg.payment_due_by = None   # ha pagato: l'orologio si ferma
+            continue
+        due = reg.payment_due_by
+        if due.tzinfo is None:
+            due = due.replace(tzinfo=UTC)
+        if due > limite:
+            continue
+        touched[reg.tournament_id] = reg.tournament
+        cache_invalidate(f"my-reg:{reg.tournament_id}:{reg.player_id}")
+        release_hold(reg, db)
+        released += 1
+    db.commit()
+    for tournament in touched.values():
+        cache_invalidate(f"registrations:{tournament.id}")
+        promote_from_waitlist(tournament, db)
+    if released:
+        cache_invalidate("tournaments:")
+    return released

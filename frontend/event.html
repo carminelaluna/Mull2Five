@@ -78,13 +78,11 @@
           <span>Codice sconto <span class="muted-text">(opzionale)</span></span>
           <input id="regDiscount" maxlength="32" autocomplete="off" placeholder="AMICI20" />
         </label>
-        <label>Metodo di pagamento
-          <select id="regPayment">
-            <option value="stripe">Carta (Stripe)</option>
-            <option value="paypal">PayPal</option>
-            <option value="sandbox">Sandbox (test)</option>
-          </select>
+        <!-- Le voci le mette event.js: solo i modi che il torneo accetta davvero. -->
+        <label id="regPaymentWrap">Metodo di pagamento
+          <select id="regPayment"></select>
         </label>
+        <p id="regPaymentNote" class="muted-text" style="margin:0"></p>
         <p id="regError" class="field-error"></p>
         <menu>
           <button class="secondary" value="cancel" formnovalidate>Annulla</button>

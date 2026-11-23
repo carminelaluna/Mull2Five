@@ -150,13 +150,19 @@ async function buildCard(t, reg) {
   /* Pulsanti di pagamento: mostrati solo se non ha ancora pagato.
      Online (Stripe/PayPal) solo se l'organizzatore li ha abilitati per il torneo. */
   let payActions = '';
+  // Ha scelto di pagare online all'iscrizione e il pagamento non è arrivato:
+  // non è iscritto, ha il posto tenuto fino a quest'ora.
+  const heldUntil = !isPaid && reg.payment_due_by ? new Date(reg.payment_due_by) : null;
   if (!isPaid) {
     const buttons = [];
+    if (heldUntil) buttons.push(`<span class="badge warn">${esc(tr('Non sei ancora iscritto: paga entro le {ora}', {
+      ora: heldUntil.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    }))}</span>`);
     if (t.pay_stripe) buttons.push(
       `<button class="primary" data-action="pay" data-tournament-id="${t.id}" data-provider="stripe" type="button">${esc(tr('Paga con Stripe'))}</button>`);
     if (t.pay_paypal) buttons.push(
       `<button class="primary" data-action="pay" data-tournament-id="${t.id}" data-provider="paypal" type="button">${esc(tr('Paga con PayPal'))}</button>`);
-    if (t.pay_at_event) buttons.push(
+    if (t.pay_at_event && !heldUntil) buttons.push(
       '<span class="badge">Puoi pagare anche all\'evento</span>');
     if (!t.pay_stripe && !t.pay_paypal && !t.pay_at_event) buttons.push(
       '<span class="badge warn">Nessun metodo di pagamento configurato — contatta l\'organizzatore</span>');

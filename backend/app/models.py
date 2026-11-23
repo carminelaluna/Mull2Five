@@ -658,6 +658,10 @@ class Registration(Base):
     dropped: Mapped[bool] = mapped_column(Boolean, default=False)
     waitlisted: Mapped[bool] = mapped_column(Boolean, default=False)
     promoted_at: Mapped[datetime | None] = mapped_column(UtcDateTime(timezone=True), nullable=True)
+    # Chi ha scelto di pagare online non è iscritto finché non paga: il posto è
+    # suo fino a quest'ora, poi l'iscrizione sparisce (release_unpaid_holds).
+    # Nulla per chi paga al banco, per i tornei gratuiti e dopo il pagamento.
+    payment_due_by: Mapped[datetime | None] = mapped_column(UtcDateTime(timezone=True), nullable=True)
     # Il codice sconto usato all'iscrizione: resta qui, così il conto al
     # pagamento è lo stesso che il giocatore ha visto iscrivendosi.
     discount_code_id: Mapped[int | None] = mapped_column(

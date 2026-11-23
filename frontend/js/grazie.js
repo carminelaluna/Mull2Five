@@ -53,8 +53,9 @@ function steps(t, reg) {
     out.push(['!', paymentError, 'my-registrations.html', tr('Riprova')]);
   } else if (PAID_ONLINE) {
     out.push(['✓', tr('Pagamento ricevuto: la conferma arriva tra pochi secondi.')]);
-  } else if (t.entry_fee_cents > 0 && (t.pay_stripe || t.pay_paypal)) {
-    out.push(['€', tr('Resta da pagare la quota ({quota}): puoi farlo online dalle tue iscrizioni.', { quota: fee }),
+  } else if (reg.payment_due_by) {
+    // Ha scelto di pagare online e il pagamento non c'è: non è ancora iscritto.
+    out.push(['€', tr('Sei iscritto quando il pagamento è completato ({quota}).', { quota: fee }),
       'my-registrations.html', tr('Paga ora')]);
   } else if (t.entry_fee_cents > 0) {
     out.push(['€', tr('La quota ({quota}) si paga al banco il giorno del torneo.', { quota: fee })]);
@@ -70,7 +71,9 @@ function render(t, reg) {
   const box = $('#thanks');
   box.removeAttribute('aria-busy');
   const heading = reg.waitlisted ? tr("Sei in lista d'attesa")
-    : PAID_ONLINE && !paymentError ? tr('Pagamento ricevuto!') : tr('Sei iscritto!');
+    : PAID_ONLINE && !paymentError ? tr('Pagamento ricevuto!')
+    : reg.payment_due_by && reg.payment_status !== 'paid' ? tr('Non sei ancora iscritto')
+    : tr('Sei iscritto!');
   const when = [fmtDate(t.starts_on), t.start_time, t.is_online ? tr('Online') : t.venue].filter(Boolean).join(' · ');
   const list = steps(t, reg).map(([mark, text, href, label]) => `<li>
       <span class="step-mark" aria-hidden="true">${esc(mark)}</span>

@@ -344,6 +344,9 @@ class RegistrationCreate(BaseModel):
     game_handle: str = Field(default="", max_length=80)
     # Le risposte alle domande del torneo, per id della domanda.
     answers: dict[int, str | bool] = {}
+    # Come paga: al banco è iscritto subito, online solo quando ha pagato.
+    # Vuoto vale "al banco" dove il torneo lo accetta; altrimenti va scelto.
+    payment_method: Literal["at_event", "stripe", "paypal"] | None = None
 
 
 class TeamIn(BaseModel):
@@ -1010,6 +1013,10 @@ class RegistrationOut(BaseModel):
     game_handle: str = ""
     # Il link della stanza del torneo online: l'iscritto lo trova qui.
     online_link: str = ""
+    # Ha scelto di pagare online e non ha ancora pagato: il posto è suo fino a qui.
+    payment_due_by: datetime | None = None
+    # Solo nella risposta all'iscrizione con pagamento online: dove andare a pagare.
+    checkout_url: str = ""
 
     model_config = {"from_attributes": True}
 

@@ -92,6 +92,25 @@ async def _waitlist_sweeper(interval: int) -> None:
             logger.exception("Errore nel waitlist sweeper")
 
 
+async def _hold_sweeper(interval: int) -> None:
+    """Toglie le iscrizioni con pagamento online non arrivato in tempo."""
+    from backend.app.db import SessionLocal
+    from backend.app.services.registrations import release_unpaid_holds
+
+    while True:
+        await asyncio.sleep(interval)
+        try:
+            db = SessionLocal()
+            try:
+                n = await asyncio.to_thread(release_unpaid_holds, db)
+                if n:
+                    logger.info("Pagamenti online non arrivati: tolte %d iscrizioni", n)
+            finally:
+                db.close()
+        except Exception:  # noqa: BLE001
+            logger.exception("Errore nel togliere le iscrizioni non pagate")
+
+
 async def _reminder_sweeper(interval: int) -> None:
     """Manda il promemoria del giorno prima ai tornei che non l'hanno ancora avuto."""
     from backend.app.db import SessionLocal
@@ -120,6 +139,8 @@ async def lifespan(app: FastAPI):
         tasks.append(asyncio.create_task(_db_watchdog(settings.watchdog_interval_secs)))
     # Sweeper waitlist ogni 10 minuti (riaccoda i promossi non paganti scaduti).
     tasks.append(asyncio.create_task(_waitlist_sweeper(600)))
+    # Ogni due minuti: chi ha scelto di pagare online e non ha pagato non è iscritto.
+    tasks.append(asyncio.create_task(_hold_sweeper(120)))
     # Promemoria ogni ora: cerca i tornei di domani che non l'hanno ancora avuto.
     tasks.append(asyncio.create_task(_reminder_sweeper(3600)))
     try:

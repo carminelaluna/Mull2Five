@@ -27,6 +27,22 @@ anche alle domande dell'organizzatore. Il pagamento è online (Stripe o PayPal)
 o al banco, secondo com'è configurato il torneo; dove i pagamenti online sono
 spenti (oggi la produzione) si paga solo al banco.
 
+**Non si è iscritti senza pagare o senza scegliere il banco.** Il modulo mostra
+solo i modi che il torneo accetta su questo sito:
+
+- **al banco**: iscritto subito, la quota si paga il giorno del torneo;
+- **Stripe o PayPal**: "Iscriviti e paga" porta dritto al pagamento. Il posto è
+  tenuto per **30 minuti**; l'iscrizione vale quando il pagamento arriva, e solo
+  allora parte l'email di conferma. Chi annulla su Stripe o PayPal torna alla
+  pagina del torneo, non è iscritto e il posto si libera subito; chi chiude e
+  basta lo perde allo scadere (un controllo ogni due minuti), e può iscriversi
+  di nuovo. Il posto tenuto conta per la capienza: chi arriva dopo, a torneo
+  pieno, va in lista d'attesa e viene promosso se il posto si libera.
+
+Un torneo gratuito non chiede niente; uno solo online, con una quota, rifiuta
+l'iscrizione senza un pagamento online. Se Stripe o PayPal rifiutano il
+pagamento, l'iscrizione non nasce.
+
 La quota scritta sul pulsante è quella di adesso: se il negozio ha messo una
 quota **early bird**, fino a quella data si paga meno, e la pagina lo dice con
 la data e il prezzo pieno accanto. Chi ha un **codice sconto** lo scrive nel

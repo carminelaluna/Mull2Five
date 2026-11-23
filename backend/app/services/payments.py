@@ -1,5 +1,6 @@
 import base64
 import logging
+import time
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date
@@ -7,12 +8,23 @@ from datetime import date
 import httpx
 import stripe
 from fastapi import HTTPException
+from sqlalchemy.orm import Session
 
 from backend.app.core.clock import local_today
 from backend.app.core.config import get_settings
-from backend.app.models import Organization, Registration
+from backend.app.models import Organization, Payment, Registration
 
 logger = logging.getLogger(__name__)
+
+# Chi sceglie di pagare online ha il posto per questi minuti; se non paga,
+# l'iscrizione sparisce. Trenta è il minimo che Stripe accetta per far scadere
+# una sessione di pagamento.
+PAYMENT_HOLD_MINUTES = 30
+# La sessione Stripe scade un minuto dopo (Stripe vuole almeno trenta minuti da
+# adesso), e l'iscrizione si toglie solo dopo altri cinque: così nessuno paga
+# un posto che nel frattempo è stato tolto.
+STRIPE_SESSION_MINUTES = PAYMENT_HOLD_MINUTES + 1
+HOLD_GRACE_MINUTES = 5
 
 
 @dataclass(frozen=True)
@@ -46,6 +58,18 @@ def in_person_only(values: dict) -> dict:
     if not cleaned.get("pay_at_event"):
         cleaned["pay_at_event"] = True
     return cleaned
+
+
+def payment_methods(tournament) -> list[str]:
+    """Come si può pagare questo torneo adesso, su questo sito.
+
+    Un torneo salvato prima che i pagamenti online si spegnessero può avere
+    ancora Stripe o PayPal segnati: con ONLINE_PAYMENTS_ENABLED spento non contano.
+    """
+    methods = ["at_event"] if tournament.pay_at_event else []
+    if online_payments_enabled():
+        methods += [name for name, on in (("stripe", tournament.pay_stripe), ("paypal", tournament.pay_paypal)) if on]
+    return methods
 
 
 def entry_fee_now(tournament, today: date | None = None) -> int:
@@ -86,6 +110,60 @@ def store_stripe_account(store: Organization | None) -> str:
     return store.stripe_account_id if store and store.stripe_account_id and store.stripe_charges_enabled else ""
 
 
+def cancel_url(tournament_id: int) -> str:
+    """Dove torna chi annulla il pagamento: la pagina del torneo, che toglie
+    l'iscrizione tenuta per lui e gli dice che non è iscritto."""
+    frontend_url = str(get_settings().frontend_url).rstrip("/")
+    return f"{frontend_url}/event.html?id={tournament_id}&pagamento=annullato"
+
+
+async def start_checkout(registration: Registration, provider: str, db: Session) -> Payment:
+    """Apre il pagamento online di un'iscrizione e lo salva, senza committare.
+
+    Lo usano l'iscrizione con pagamento online e il pulsante "Paga" delle
+    iscrizioni. Se il fornitore rifiuta, chi chiama annulla tutto (rollback).
+    """
+    tournament = registration.tournament
+    payment = registration.payment or Payment(registration_id=registration.id, provider=provider)
+    payment.provider = provider
+    payment.amount_cents = amount_due(registration, tournament)
+    payment.currency = tournament.currency
+    db.add(payment)
+    db.flush()
+
+    settings = get_settings()
+    keys_missing = (not settings.stripe_secret_key) if provider == "stripe" else (
+        not settings.paypal_client_id or not settings.paypal_client_secret)
+    if settings.payment_sandbox_mock and keys_missing:
+        # Il checkout finto dello sviluppo: niente chiavi, niente soldi.
+        frontend_url = str(settings.frontend_url).rstrip("/")
+        payment.provider_checkout_id = f"sandbox-{provider}-{payment.id}"
+        payment.checkout_url = f"{frontend_url}/sandbox-checkout.html?payment_id={payment.id}&provider={provider}"
+        return payment
+
+    # L'incasso va al negozio del torneo, se ha collegato i suoi conti.
+    store = db.get(Organization, tournament.organization_id) if tournament.organization_id else None
+    session = (
+        await create_stripe_checkout(registration, store)
+        if provider == "stripe"
+        else await create_paypal_checkout(registration, store)
+    )
+    payment.provider_checkout_id = session.provider_checkout_id
+    payment.checkout_url = session.checkout_url
+    payment.payee = session.payee
+    return payment
+
+
+def expire_stripe_checkout(session_id: str) -> None:
+    """Chiude una pagina di pagamento Stripe: dopo, non incassa più.
+
+    Solleva se Stripe non la chiude, per esempio perché è già stata pagata:
+    allora l'iscrizione non va tolta.
+    """
+    stripe.api_key = get_settings().stripe_secret_key
+    stripe.checkout.Session.expire(session_id)
+
+
 async def create_stripe_checkout(registration: Registration, store: Organization | None = None) -> CheckoutSession:
     settings = get_settings()
     if not settings.stripe_secret_key:
@@ -108,7 +186,9 @@ async def create_stripe_checkout(registration: Registration, store: Organization
     session = stripe.checkout.Session.create(
         mode="payment",
         success_url=f"{frontend_url}/grazie.html?t={tournament.id}&pagamento=ok",
-        cancel_url=f"{frontend_url}/my-registrations.html?pagamento=annullato",
+        cancel_url=cancel_url(tournament.id),
+        # Scade poco dopo il posto tenuto: dopo, questa pagina non incassa più.
+        expires_at=int(time.time()) + STRIPE_SESSION_MINUTES * 60,
         line_items=[
             {
                 "price_data": {
@@ -145,7 +225,7 @@ def paypal_order_body(registration: Registration, store: Organization | None) ->
             # al ritorno l'ordine si incassa e basta.
             "user_action": "PAY_NOW",
             "return_url": f"{frontend_url}/grazie.html?t={tournament.id}&pagamento=ok",
-            "cancel_url": f"{frontend_url}/my-registrations.html?pagamento=annullato",
+            "cancel_url": cancel_url(tournament.id),
         },
     }
 

@@ -1137,5 +1137,17 @@
   "+ Aggiungi codice": "+ Add code",
   "Ritirare il codice?": "Withdraw the code?",
   "Riprova": "Try again",
-  "PayPal non ha confermato il pagamento": "PayPal did not confirm the payment"
+  "PayPal non ha confermato il pagamento": "PayPal did not confirm the payment",
+  "Al banco, il giorno del torneo": "At the counter, on the day of the tournament",
+  "Carta di credito (Stripe)": "Credit card (Stripe)",
+  "Sei iscritto quando il pagamento è completato. Il posto resta tuo per 30 minuti.": "You are registered once the payment is complete. Your spot is held for 30 minutes.",
+  "Sei iscritto subito: la quota la paghi al banco il giorno del torneo.": "You are registered right away: pay the fee at the counter on the day of the tournament.",
+  "Pagamento annullato: non sei iscritto. Puoi riprovare quando vuoi.": "Payment cancelled: you are not registered. You can try again whenever you like.",
+  "Pagamento in corso": "Payment in progress",
+  "Completa il pagamento": "Complete the payment",
+  "Questo torneo non ha un modo per pagare la quota: contatta l'organizzatore": "This tournament has no way to pay the fee: contact the organizer",
+  "Reindirizzamento al pagamento…": "Redirecting to payment…",
+  "Non sei ancora iscritto: paga entro le {ora}": "You are not registered yet: pay by {ora}",
+  "Sei iscritto quando il pagamento è completato ({quota}).": "You are registered once the payment is complete ({quota}).",
+  "Non sei ancora iscritto": "You are not registered yet"
 }

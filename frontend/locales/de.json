@@ -1146,5 +1146,17 @@
   "+ Aggiungi codice": "+ Code hinzufügen",
   "Ritirare il codice?": "Code zurückziehen?",
   "Riprova": "Erneut versuchen",
-  "PayPal non ha confermato il pagamento": "PayPal hat die Zahlung nicht bestätigt"
+  "PayPal non ha confermato il pagamento": "PayPal hat die Zahlung nicht bestätigt",
+  "Al banco, il giorno del torneo": "An der Theke, am Turniertag",
+  "Carta di credito (Stripe)": "Kreditkarte (Stripe)",
+  "Sei iscritto quando il pagamento è completato. Il posto resta tuo per 30 minuti.": "Du bist angemeldet, sobald die Zahlung abgeschlossen ist. Dein Platz wird 30 Minuten lang reserviert.",
+  "Sei iscritto subito: la quota la paghi al banco il giorno del torneo.": "Du bist sofort angemeldet: Die Gebühr zahlst du am Turniertag an der Theke.",
+  "Pagamento annullato: non sei iscritto. Puoi riprovare quando vuoi.": "Zahlung abgebrochen: Du bist nicht angemeldet. Du kannst es jederzeit erneut versuchen.",
+  "Pagamento in corso": "Zahlung läuft",
+  "Completa il pagamento": "Zahlung abschließen",
+  "Questo torneo non ha un modo per pagare la quota: contatta l'organizzatore": "Für dieses Turnier gibt es keine Zahlungsmöglichkeit: Wende dich an den Veranstalter",
+  "Reindirizzamento al pagamento…": "Weiterleitung zur Zahlung…",
+  "Non sei ancora iscritto: paga entro le {ora}": "Du bist noch nicht angemeldet: Zahle bis {ora} Uhr",
+  "Sei iscritto quando il pagamento è completato ({quota}).": "Du bist angemeldet, sobald die Zahlung abgeschlossen ist ({quota}).",
+  "Non sei ancora iscritto": "Du bist noch nicht angemeldet"
 }

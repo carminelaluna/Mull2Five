@@ -211,6 +211,7 @@ def registration_out(registration: Registration) -> RegistrationOut:
         payment_status=registration.payment.status if registration.payment else "pending",
         amount_due_cents=amount_due(registration),
         discount_code=registration.discount_code.code if registration.discount_code else "",
+        payment_due_by=registration.payment_due_by,
     )
 
 

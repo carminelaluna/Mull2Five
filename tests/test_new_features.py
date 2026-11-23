@@ -195,9 +195,13 @@ def test_checkout_respects_enabled_providers(client):
     )
 
     player = _register_user(client, "pay-player@example.com")
+    # Solo online: senza un pagamento online non ci si iscrive.
+    assert client.post(
+        f"/api/tournaments/{tid}/registrations", json={"wizards_account": "12340000"}, headers=player,
+    ).status_code == 422
     reg = client.post(
         f"/api/tournaments/{tid}/registrations",
-        json={"wizards_account": "12340000"},
+        json={"wizards_account": "12340000", "payment_method": "stripe"},
         headers=player,
     )
     assert reg.status_code == 201

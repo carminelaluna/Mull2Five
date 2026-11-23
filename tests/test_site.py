@@ -134,7 +134,8 @@ def test_paying_online_comes_back_to_the_thank_you_page(client, db_session):
     registration = db_session.query(Registration).filter_by(tournament_id=ids["published"]).one()
     context = paypal_order_body(registration, None)["application_context"]
     assert context["return_url"].endswith(f"/grazie.html?t={ids['published']}&pagamento=ok")
-    assert context["cancel_url"].endswith("/my-registrations.html?pagamento=annullato")
+    # Chi annulla torna al torneo, che gli libera il posto e gli dice che non è iscritto.
+    assert context["cancel_url"].endswith(f"/event.html?id={ids['published']}&pagamento=annullato")
 
 
 def test_internal_navigation_behind_a_proxy_is_not_a_new_visit(client, db_session):

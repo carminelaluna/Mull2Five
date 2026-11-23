@@ -6,20 +6,24 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
+from backend.app.core.cache import cache_invalidate
 from backend.app.core.config import get_settings
 from backend.app.db import get_db
 from backend.app.models import Organization, Payment, PaymentStatus, Registration, User
 from backend.app.schemas import PaypalCaptureIn, SandboxPaymentOut
 from backend.app.security import get_current_user
-from backend.app.services.notifications import notify_payment_confirmed
+from backend.app.services.notifications import (
+    notify_payment_confirmed,
+    notify_registration_confirmed,
+)
 from backend.app.services.payments import capture_paypal_order, paypal_webhook_is_authentic
 
 router = APIRouter(prefix="/payments", tags=["payments"])
 
 
 def _on_payment_paid(db: Session, payment: Payment) -> None:
-    """Un pagamento è appena diventato PAID: la ricevuta al giocatore e via il
-    timer che lo rimetterebbe in lista d'attesa."""
+    """Un pagamento è appena diventato PAID: la ricevuta al giocatore e via i
+    timer che lo rimetterebbero in lista d'attesa o gli toglierebbero il posto."""
     reg = db.scalar(
         select(Registration)
         .where(Registration.id == payment.registration_id)
@@ -27,9 +31,16 @@ def _on_payment_paid(db: Session, payment: Payment) -> None:
     )
     if not reg:
         return
+    # Aveva scelto di pagare online all'iscrizione: è iscritto adesso.
+    just_registered = reg.payment_due_by is not None
     reg.promoted_at = None
+    reg.payment_due_by = None
     db.add(reg)
     db.commit()
+    cache_invalidate(f"my-reg:{reg.tournament_id}:{reg.player_id}")
+    cache_invalidate(f"registrations:{reg.tournament_id}")
+    if just_registered:
+        notify_registration_confirmed(reg)
     notify_payment_confirmed(reg, payment.amount_cents / 100)
 
 

@@ -101,12 +101,10 @@ from backend.app.services.pairings import (
 )
 from backend.app.services.payments import (
     ONLINE_METHODS,
-    amount_due,
-    create_paypal_checkout,
-    create_stripe_checkout,
     in_person_only,
     online_payments_enabled,
     refund_paypal_capture,
+    start_checkout,
 )
 from backend.app.services.registrations import (
     WAITLIST_PAY_HOURS,
@@ -1269,46 +1267,11 @@ async def checkout(
         raise HTTPException(status_code=409, detail="Pagamento con Stripe non disponibile per questo torneo")
     if payload.provider == "paypal" and not tournament.pay_paypal:
         raise HTTPException(status_code=409, detail="Pagamento con PayPal non disponibile per questo torneo")
-    payment = registration.payment or Payment(
-        registration_id=registration.id,
-        provider=payload.provider,
-        amount_cents=amount_due(registration, tournament),
-        currency=tournament.currency,
-    )
-    payment.provider = payload.provider
-    payment.amount_cents = amount_due(registration, tournament)
-    payment.currency = tournament.currency
-    db.add(payment)
-    db.flush()
-
-    settings = get_settings()
-    if settings.payment_sandbox_mock and (
-        (payload.provider == "stripe" and not settings.stripe_secret_key)
-        or (
-            payload.provider == "paypal"
-            and (not settings.paypal_client_id or not settings.paypal_client_secret)
-        )
-    ):
-        frontend_url = str(settings.frontend_url).rstrip("/")
-        payment.provider_checkout_id = f"sandbox-{payload.provider}-{payment.id}"
-        payment.checkout_url = (
-            f"{frontend_url}/sandbox-checkout.html"
-            f"?payment_id={payment.id}&provider={payload.provider}"
-        )
-        db.commit()
-        db.refresh(payment)
-        return payment
-
-    # L'incasso va al negozio del torneo, se ha collegato i suoi conti.
-    store = db.get(Organization, tournament.organization_id) if tournament.organization_id else None
-    session = (
-        await create_stripe_checkout(registration, store)
-        if payload.provider == "stripe"
-        else await create_paypal_checkout(registration, store)
-    )
-    payment.provider_checkout_id = session.provider_checkout_id
-    payment.checkout_url = session.checkout_url
-    payment.payee = session.payee
+    try:
+        payment = await start_checkout(registration, payload.provider, db)
+    except Exception:
+        db.rollback()
+        raise
     db.commit()
     db.refresh(payment)
     return payment

@@ -166,7 +166,7 @@ def test_paypal_orders_pay_the_store_account(client, db_session):
 def paypal(monkeypatch):
     """Un finto PayPal: dice se la firma è buona e registra gli incassi."""
     from backend.app.routers import payments as router_pagamenti
-    from backend.app.routers import tournaments as router_tornei
+    from backend.app.services import payments as servizio
     from backend.app.services.payments import CheckoutSession
 
     settings = get_settings()
@@ -187,7 +187,7 @@ def paypal(monkeypatch):
             raise stato["errore"]
         return stato.get("incasso", "INCASSO-1")
 
-    monkeypatch.setattr(router_tornei, "create_paypal_checkout", checkout)
+    monkeypatch.setattr(servizio, "create_paypal_checkout", checkout)
     monkeypatch.setattr(router_pagamenti, "paypal_webhook_is_authentic", verifica)
     monkeypatch.setattr(router_pagamenti, "capture_paypal_order", incassa)
     monkeypatch.setattr(router_pagamenti, "notify_payment_confirmed",

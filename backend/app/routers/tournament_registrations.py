@@ -91,12 +91,20 @@ from backend.app.services.pairings import (
     eligible_registrations,
     team_matches,
 )
-from backend.app.services.payments import amount_due
+from backend.app.services.payments import (
+    PAYMENT_HOLD_MINUTES,
+    amount_due,
+    expire_stripe_checkout,
+    payment_methods,
+    start_checkout,
+)
 from backend.app.services.player_import import parse_players_csv
 from backend.app.services.registrations import (
     fields_of,
     prior_penalties,
     promote_from_waitlist,
+    release_hold,
+    release_unpaid_holds,
 )
 from backend.app.services.standings import compute_team_standings
 from backend.app.services.stores import active_suspension
@@ -427,12 +435,19 @@ def delete_discount_code(
 
 
 @router.post("/{tournament_id}/registrations", response_model=RegistrationOut, status_code=201)
-def register_for_tournament(
+async def register_for_tournament(
     tournament_id: int,
     payload: RegistrationCreate,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> RegistrationOut:
+    """Iscrive, se chi si iscrive paga o sceglie di pagare al banco.
+
+    Al banco (o torneo gratuito, o lista d'attesa): iscritto subito. Online: il
+    posto è tenuto per PAYMENT_HOLD_MINUTES e la risposta porta `checkout_url`;
+    l'iscrizione vale quando il pagamento arriva, altrimenti sparisce. Prima,
+    23/11/2026, si era iscritti comunque e il pagamento restava da fare altrove.
+    """
     tournament = db.get(Tournament, tournament_id)
     if not tournament or tournament.status not in {
         TournamentStatus.PUBLISHED,
@@ -443,6 +458,8 @@ def register_for_tournament(
         raise HTTPException(status_code=409, detail="Le iscrizioni sono chiuse")
     if tournament.status == TournamentStatus.RUNNING and not tournament.late_registration_enabled:
         raise HTTPException(status_code=409, detail="Le iscrizioni a torneo iniziato sono chiuse")
+    # I posti tenuti a chi non ha pagato in tempo tornano liberi prima di contarli.
+    release_unpaid_holds(db, tournament_id)
     registered = db.scalar(
         select(func.count(Registration.id)).where(
             Registration.tournament_id == tournament_id,
@@ -471,20 +488,56 @@ def register_for_tournament(
         wizards_account=payload.wizards_account,
         game_handle=handle,
         waitlisted=is_full,
-        discount_code_id=code.id if code else None,
+        discount_code=code,
     )
+    online = _chooses_online(tournament, registration, payload.payment_method, is_full)
+    if online:
+        registration.payment_due_by = datetime.now(UTC) + timedelta(minutes=PAYMENT_HOLD_MINUTES)
     db.add(registration)
     db.flush()
     if code:
         code.uses += 1
         db.add(code)
     save_answers(registration.id, answers, db)
+    checkout_url = ""
+    if online:
+        # Niente commit prima: se Stripe o PayPal rifiutano, l'iscrizione non nasce.
+        try:
+            checkout_url = (await start_checkout(registration, online, db)).checkout_url
+        except Exception:
+            db.rollback()
+            raise
     db.commit()
     db.refresh(registration)
     cache_invalidate("tournaments:")               # il count cambia
     cache_invalidate(f"registrations:{tournament_id}")  # lista iscritti cambia
-    notify_registration_confirmed(registration)
-    return registration_out(registration)
+    if not online:
+        # Chi paga online riceve la conferma quando il pagamento arriva.
+        notify_registration_confirmed(registration)
+    out = registration_out(registration)
+    out.checkout_url = checkout_url
+    return out
+
+
+def _chooses_online(tournament: Tournament, registration: Registration, method: str | None, waitlisted: bool) -> str:
+    """Il fornitore online scelto ("stripe"/"paypal"), o "" se è iscritto subito.
+
+    Si paga solo una quota vera e solo da iscritti: gratis, tutto scontato o in
+    lista d'attesa non c'è niente da scegliere. Senza scelta vale il banco, dove
+    il torneo lo accetta; un torneo solo online vuole la scelta.
+    """
+    if waitlisted or amount_due(registration, tournament) <= 0:
+        return ""
+    available = payment_methods(tournament)
+    if method is None and "at_event" in available:
+        method = "at_event"
+    if method not in available:
+        raise HTTPException(
+            status_code=422,
+            detail="Scegli come pagare la quota" if available
+            else "Questo torneo non ha un modo per pagare la quota: contatta l'organizzatore",
+        )
+    return "" if method == "at_event" else method
 
 
 @router.get("/{tournament_id}/registrations", response_model=list[OrganizerRegistrationOut])
@@ -664,6 +717,9 @@ def cancel_registration(
     tournament = registration.tournament
     if tournament.status != TournamentStatus.PUBLISHED:
         raise HTTPException(status_code=409, detail="Annullabile solo prima dell'inizio del torneo")
+    # Non ancora pagato online: non era iscritto, e così può riprovare.
+    if _release_my_hold(registration, db):
+        return {"status": "cancelled", "refunded": False}
 
     refunded = False
     payment = registration.payment
@@ -690,6 +746,52 @@ def cancel_registration(
     if was_active:
         promote_from_waitlist(tournament, db)
     return {"status": "cancelled", "refunded": refunded}
+
+
+@router.post("/{tournament_id}/my-registration/abandon-payment")
+def abandon_payment(
+    tournament_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, bool]:
+    """Il giocatore ha annullato il pagamento online scelto all'iscrizione:
+    non è iscritto, e il posto torna libero subito invece che fra mezz'ora.
+
+    Non tocca chi paga al banco né chi ha già pagato. La pagina Stripe si
+    chiude prima di togliere l'iscrizione: se Stripe dice di no (già pagata,
+    per esempio), l'iscrizione resta e la decide la notifica del pagamento.
+    """
+    registration = db.scalar(
+        select(Registration)
+        .where(Registration.tournament_id == tournament_id, Registration.player_id == user.id)
+        .options(joinedload(Registration.payment), joinedload(Registration.tournament))
+    )
+    return {"released": bool(registration) and _release_my_hold(registration, db)}
+
+
+def _release_my_hold(registration: Registration, db: Session) -> bool:
+    """Toglie subito l'iscrizione tenuta per un pagamento online non fatto.
+
+    Falso se non c'è niente da togliere: paga al banco, ha già pagato, oppure
+    Stripe non chiude la pagina di pagamento (già pagata, per esempio) e allora
+    decide la notifica del pagamento.
+    """
+    payment = registration.payment
+    if registration.payment_due_by is None or (payment and payment.status == PaymentStatus.PAID):
+        return False
+    if payment and payment.provider == "stripe" and payment.provider_checkout_id.startswith("cs_"):
+        try:
+            expire_stripe_checkout(payment.provider_checkout_id)
+        except Exception:
+            return False
+    tournament, player_id = registration.tournament, registration.player_id
+    release_hold(registration, db)
+    db.commit()
+    cache_invalidate("tournaments:")
+    cache_invalidate(f"registrations:{tournament.id}")
+    cache_invalidate(f"my-reg:{tournament.id}:{player_id}")
+    promote_from_waitlist(tournament, db)
+    return True
 
 
 @router.get("/{tournament_id}/player-card/{registration_id}", response_model=PlayerCardOut)
