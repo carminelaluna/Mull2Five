@@ -1485,6 +1485,11 @@ class SandboxPaymentOut(BaseModel):
     status: str
 
 
+class PaypalCaptureIn(BaseModel):
+    """L'ordine che PayPal rimette nell'indirizzo di ritorno (`token`)."""
+    order_id: str = Field(min_length=1, max_length=64)
+
+
 class PairingOut(BaseModel):
     id: int
     table_number: int

@@ -138,6 +138,9 @@ def paypal_order_body(registration: Registration, store: Organization | None) ->
         "intent": "CAPTURE",
         "purchase_units": [unit],
         "application_context": {
+            # Si paga su PayPal ("Paga ora"), non "Continua" verso un riepilogo nostro:
+            # al ritorno l'ordine si incassa e basta.
+            "user_action": "PAY_NOW",
             "return_url": f"{frontend_url}/grazie.html?t={tournament.id}&pagamento=ok",
             "cancel_url": f"{frontend_url}/my-registrations.html?pagamento=annullato",
         },
@@ -207,13 +210,16 @@ async def capture_paypal_order(order_id: str) -> str:
     """
     async with httpx.AsyncClient(timeout=20) as client:
         token = await paypal_access_token(client)
-        risposta = await client.post(
-            f"{paypal_base_url()}/v2/checkout/orders/{order_id}/capture",
-            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-        )
+        headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+        risposta = await client.post(f"{paypal_base_url()}/v2/checkout/orders/{order_id}/capture", headers=headers)
+        # Lo incassano in due: il ritorno del giocatore e la notifica di PayPal.
+        # Chi arriva secondo trova l'ordine già incassato e lo rilegge.
+        if risposta.status_code == 422 and "ORDER_ALREADY_CAPTURED" in risposta.text:
+            risposta = await client.get(f"{paypal_base_url()}/v2/checkout/orders/{order_id}", headers=headers)
     risposta.raise_for_status()
     incassi = risposta.json().get("purchase_units", [{}])[0].get("payments", {}).get("captures", [])
-    return incassi[0]["id"] if incassi else ""
+    # Solo un incasso concluso: uno "PENDING" (verifiche di PayPal) non è ancora denaro.
+    return incassi[0]["id"] if incassi and incassi[0].get("status") == "COMPLETED" else ""
 
 
 async def create_paypal_checkout(registration: Registration, store: Organization | None = None) -> CheckoutSession:

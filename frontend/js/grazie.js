@@ -13,6 +13,10 @@ const $ = (s) => document.querySelector(s);
 const params = new URLSearchParams(location.search);
 const TOURNAMENT_ID = Number(params.get('t')) || 0;
 const PAID_ONLINE = params.get('pagamento') === 'ok';
+// PayPal torna con l'ordine in `token`: è approvato, ma i soldi si muovono
+// solo quando lo incassiamo. Stripe non lo mette, e lì non c'è niente da fare.
+const PAYPAL_ORDER = PAID_ONLINE ? params.get('token') : null;
+let paymentError = '';
 
 /* Un genitore vede qui l'iscrizione del profilo che gestisce (X-Act-As). */
 const api = (path) => apiRequest(path, { acting: true });
@@ -45,6 +49,8 @@ function steps(t, reg) {
     out.push(['⏳', tr("Sei in lista d'attesa: se si libera un posto passi tra gli iscritti e te lo diciamo.")]);
   } else if (reg.payment_status === 'paid') {
     out.push(['✓', tr('Quota pagata.')]);
+  } else if (paymentError) {
+    out.push(['!', paymentError, 'my-registrations.html', tr('Riprova')]);
   } else if (PAID_ONLINE) {
     out.push(['✓', tr('Pagamento ricevuto: la conferma arriva tra pochi secondi.')]);
   } else if (t.entry_fee_cents > 0 && (t.pay_stripe || t.pay_paypal)) {
@@ -63,7 +69,8 @@ function steps(t, reg) {
 function render(t, reg) {
   const box = $('#thanks');
   box.removeAttribute('aria-busy');
-  const heading = reg.waitlisted ? tr("Sei in lista d'attesa") : PAID_ONLINE ? tr('Pagamento ricevuto!') : tr('Sei iscritto!');
+  const heading = reg.waitlisted ? tr("Sei in lista d'attesa")
+    : PAID_ONLINE && !paymentError ? tr('Pagamento ricevuto!') : tr('Sei iscritto!');
   const when = [fmtDate(t.starts_on), t.start_time, t.is_online ? tr('Online') : t.venue].filter(Boolean).join(' · ');
   const list = steps(t, reg).map(([mark, text, href, label]) => `<li>
       <span class="step-mark" aria-hidden="true">${esc(mark)}</span>
@@ -100,6 +107,15 @@ async function load() {
   if (!getSession()) {
     renderMessage(tr('Grazie!'), tr('Accedi per vedere la tua iscrizione.'), `login.html?next=${encodeURIComponent(location.pathname + location.search)}`, tr('Accedi'));
     return;
+  }
+  if (PAYPAL_ORDER) {
+    try {
+      await apiRequest('/payments/paypal/capture', {
+        acting: true, method: 'POST', body: JSON.stringify({ order_id: PAYPAL_ORDER }),
+      });
+    } catch (err) {
+      paymentError = err.message || tr('PayPal non ha confermato il pagamento');
+    }
   }
   try {
     const [t, reg] = await Promise.all([api(`/tournaments/${TOURNAMENT_ID}`), api(`/tournaments/${TOURNAMENT_ID}/my-registration`)]);

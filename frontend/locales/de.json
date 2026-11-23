@@ -1144,5 +1144,7 @@
   "0 = sempre": "0 = immer",
   "Valido fino al": "Gültig bis",
   "+ Aggiungi codice": "+ Code hinzufügen",
-  "Ritirare il codice?": "Code zurückziehen?"
+  "Ritirare il codice?": "Code zurückziehen?",
+  "Riprova": "Erneut versuchen",
+  "PayPal non ha confermato il pagamento": "PayPal hat die Zahlung nicht bestätigt"
 }

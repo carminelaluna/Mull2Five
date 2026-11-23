@@ -183,7 +183,9 @@ def paypal(monkeypatch):
 
     async def incassa(order_id):
         stato["incassi"].append(order_id)
-        return "INCASSO-1"
+        if stato.get("errore"):
+            raise stato["errore"]
+        return stato.get("incasso", "INCASSO-1")
 
     monkeypatch.setattr(router_tornei, "create_paypal_checkout", checkout)
     monkeypatch.setattr(router_pagamenti, "paypal_webhook_is_authentic", verifica)
@@ -275,3 +277,106 @@ def test_the_same_notification_twice_sends_one_receipt(client, paypal, db_sessio
 
     assert _pagamento(db_session, pid).status == "paid"
     assert paypal["ricevute"] == 1
+
+
+def _giocatore_con_ordine_paypal(client, email):
+    """Come sopra, ma restituisce anche le credenziali del giocatore."""
+    owner, _ = _store(client, f"owner-{email}", "Tana del Drago")
+    tid = _tournament(client, owner)
+    player = _register_user(client, email)
+    client.post(f"/api/tournaments/{tid}/registrations", headers=player, json={})
+    pagamento = client.post(f"/api/tournaments/{tid}/checkout", headers=player, json={"provider": "paypal"})
+    assert pagamento.status_code in (200, 201), pagamento.text
+    return player, pagamento.json()["id"]
+
+
+def test_coming_back_from_paypal_captures_and_pays(client, paypal, db_session):
+    """Il guasto dello staging (23/11/2026): approvato su PayPal e mai incassato,
+    perché l'incasso aspettava una notifica. Ora lo fa il ritorno del giocatore."""
+    player, pid = _giocatore_con_ordine_paypal(client, "pp-ritorno@example.com")
+
+    risposta = client.post("/api/payments/paypal/capture", headers=player, json={"order_id": "ORDINE-1"})
+
+    assert risposta.status_code == 200 and risposta.json()["status"] == "paid"
+    riga = _pagamento(db_session, pid)
+    assert riga.status == "paid" and riga.provider_payment_id == "INCASSO-1"
+    assert paypal["incassi"] == ["ORDINE-1"] and paypal["ricevute"] == 1
+
+
+def test_the_return_and_the_notification_send_one_receipt(client, paypal, db_session):
+    """Ritorno e notifica arrivano tutti e due: un pagamento, una ricevuta."""
+    player, pid = _giocatore_con_ordine_paypal(client, "pp-entrambi@example.com")
+
+    client.post("/api/payments/paypal/capture", headers=player, json={"order_id": "ORDINE-1"})
+    client.post("/api/payments/paypal/webhook", json=INCASSATO)
+    client.post("/api/payments/paypal/capture", headers=player, json={"order_id": "ORDINE-1"})
+
+    assert _pagamento(db_session, pid).status == "paid"
+    assert paypal["ricevute"] == 1
+    assert paypal["incassi"] == ["ORDINE-1"]   # già pagato: non si richiama PayPal
+
+
+def test_someone_else_cannot_capture_your_order(client, paypal, db_session):
+    """L'ordine è nell'indirizzo, quindi si può copiare: conta di chi è l'iscrizione."""
+    _, pid = _giocatore_con_ordine_paypal(client, "pp-mio@example.com")
+    estraneo = _register_user(client, "pp-estraneo@example.com")
+
+    risposta = client.post("/api/payments/paypal/capture", headers=estraneo, json={"order_id": "ORDINE-1"})
+
+    assert risposta.status_code == 404
+    assert paypal["incassi"] == [] and _pagamento(db_session, pid).status != "paid"
+
+
+def test_a_pending_capture_is_not_paid_yet(client, paypal, db_session):
+    """PayPal può tenere l'incasso in sospeso: finché non è concluso non è denaro."""
+    player, pid = _giocatore_con_ordine_paypal(client, "pp-sospeso@example.com")
+    paypal["incasso"] = ""
+
+    risposta = client.post("/api/payments/paypal/capture", headers=player, json={"order_id": "ORDINE-1"})
+
+    assert risposta.status_code == 200 and risposta.json()["status"] != "paid"
+    assert paypal["ricevute"] == 0
+
+
+def test_an_order_paypal_refuses_to_capture_says_so(client, paypal, db_session):
+    """Chi chiude PayPal senza pagare torna con un ordine non approvato: un
+    messaggio, non un 500."""
+    import httpx
+
+    player, pid = _giocatore_con_ordine_paypal(client, "pp-rifiutato@example.com")
+    richiesta = httpx.Request("POST", "https://api-m.sandbox.paypal.com/v2/checkout/orders/ORDINE-1/capture")
+    paypal["errore"] = httpx.HTTPStatusError(
+        "422", request=richiesta, response=httpx.Response(422, request=richiesta))
+
+    risposta = client.post("/api/payments/paypal/capture", headers=player, json={"order_id": "ORDINE-1"})
+
+    assert risposta.status_code == 409
+    assert _pagamento(db_session, pid).status != "paid"
+
+
+def test_capture_rereads_an_order_already_captured(monkeypatch):
+    """Il secondo che incassa (ritorno o notifica) trova ORDER_ALREADY_CAPTURED:
+    rilegge l'ordine e ne prende l'incasso, invece di fallire."""
+    import asyncio
+
+    import httpx
+
+    from backend.app.services import payments as servizio
+
+    settings = get_settings()
+    monkeypatch.setattr(settings, "paypal_client_id", "id-di-prova")
+    monkeypatch.setattr(settings, "paypal_client_secret", "segreto-di-prova")
+    ordine = {"purchase_units": [{"payments": {"captures": [{"id": "INCASSO-9", "status": "COMPLETED"}]}}]}
+
+    def paypal_finto(request):
+        if request.url.path == "/v1/oauth2/token":
+            return httpx.Response(200, json={"access_token": "t"})
+        if request.method == "POST":
+            return httpx.Response(422, json={"details": [{"issue": "ORDER_ALREADY_CAPTURED"}]})
+        return httpx.Response(200, json=ordine)
+
+    vero = httpx.AsyncClient
+    monkeypatch.setattr(servizio.httpx, "AsyncClient",
+                        lambda **kw: vero(transport=httpx.MockTransport(paypal_finto), **kw))
+
+    assert asyncio.run(servizio.capture_paypal_order("ORDINE-9")) == "INCASSO-9"

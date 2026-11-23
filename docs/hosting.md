@@ -304,6 +304,16 @@ servizio di staging. Per accendere l'online in produzione, dopo il legale:
 chiavi vere, webhook su `mull2five.it` (punto 6 del Passo 8) e
 `ONLINE_PAYMENTS_ENABLED=true`.
 
+I webhook dello staging (23/11/2026): Stripe con una *destinazione eventi*
+sull'ambito **Il tuo account**, payload **Snapshot** (il codice legge
+`data.object`: con *Thin* non c'è), solo `checkout.session.completed`; il
+segreto `whsec_…` va in `STRIPE_WEBHOOK_SECRET`. PayPal sull'app sandbox, con
+`CHECKOUT.ORDER.APPROVED` e `PAYMENT.CAPTURE.COMPLETED`, e il suo ID in
+`PAYPAL_WEBHOOK_ID`. Un ordine PayPal si incassa quando il giocatore torna su
+`grazie.html` (`POST /api/payments/paypal/capture`): la notifica è solo una
+rete. Finché l'incasso aspettava lei, sullo staging i pagamenti PayPal restavano
+in attesa.
+
 **Verifica, appena è su:**
 
 ```bash

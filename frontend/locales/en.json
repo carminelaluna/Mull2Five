@@ -1135,5 +1135,7 @@
   "0 = sempre": "0 = always",
   "Valido fino al": "Valid until",
   "+ Aggiungi codice": "+ Add code",
-  "Ritirare il codice?": "Withdraw the code?"
+  "Ritirare il codice?": "Withdraw the code?",
+  "Riprova": "Try again",
+  "PayPal non ha confermato il pagamento": "PayPal did not confirm the payment"
 }

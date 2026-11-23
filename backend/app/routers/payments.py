@@ -1,5 +1,6 @@
 from datetime import UTC, datetime
 
+import httpx
 import stripe
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from sqlalchemy import select
@@ -7,8 +8,9 @@ from sqlalchemy.orm import Session, joinedload
 
 from backend.app.core.config import get_settings
 from backend.app.db import get_db
-from backend.app.models import Organization, Payment, PaymentStatus, Registration
-from backend.app.schemas import SandboxPaymentOut
+from backend.app.models import Organization, Payment, PaymentStatus, Registration, User
+from backend.app.schemas import PaypalCaptureIn, SandboxPaymentOut
+from backend.app.security import get_current_user
 from backend.app.services.notifications import notify_payment_confirmed
 from backend.app.services.payments import capture_paypal_order, paypal_webhook_is_authentic
 
@@ -144,3 +146,44 @@ async def paypal_webhook(request: Request, db: Session = Depends(get_db)) -> dic
             db.commit()
             _on_payment_paid(db, pagamento)
     return {"status": "ok"}
+
+
+@router.post("/paypal/capture")
+async def paypal_capture(
+    payload: PaypalCaptureIn,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, str]:
+    """Il giocatore torna da PayPal: si incassa adesso, invece di aspettare la notifica.
+
+    Sullo staging, il 23/11/2026, il pagamento restava "in attesa": l'incasso
+    partiva solo da `CHECKOUT.ORDER.APPROVED`, e se quella notifica tardava o
+    non arrivava i soldi non si muovevano. Ora lo fa il ritorno, come vuole
+    PayPal; la notifica resta come rete. Il "pagato" lo decide la risposta di
+    PayPal all'incasso, non l'indirizzo: chi inventa un `token` non incassa niente.
+    """
+    payment = db.scalar(
+        select(Payment)
+        .join(Registration)
+        .where(
+            Payment.provider_checkout_id == payload.order_id,
+            Payment.provider == "paypal",
+            Registration.player_id == user.id,
+        )
+    )
+    if not payment:
+        raise HTTPException(status_code=404, detail="Pagamento non trovato")
+    if payment.status != PaymentStatus.PAID:
+        try:
+            capture_id = await capture_paypal_order(payload.order_id)
+        except httpx.HTTPStatusError as exc:
+            # Di solito un ordine non approvato: il giocatore ha chiuso PayPal prima di pagare.
+            raise HTTPException(status_code=409, detail="PayPal non ha confermato il pagamento") from exc
+        db.refresh(payment)
+        if capture_id and payment.status != PaymentStatus.PAID:
+            payment.status = PaymentStatus.PAID
+            payment.provider_payment_id = capture_id
+            payment.paid_at = datetime.now(UTC)
+            db.commit()
+            _on_payment_paid(db, payment)
+    return {"status": payment.status}

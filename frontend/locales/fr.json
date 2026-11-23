@@ -1141,5 +1141,7 @@
   "0 = sempre": "0 = toujours",
   "Valido fino al": "Valable jusqu'au",
   "+ Aggiungi codice": "+ Ajouter un code",
-  "Ritirare il codice?": "Retirer le code ?"
+  "Ritirare il codice?": "Retirer le code ?",
+  "Riprova": "Réessayer",
+  "PayPal non ha confermato il pagamento": "PayPal n'a pas confirmé le paiement"
 }
