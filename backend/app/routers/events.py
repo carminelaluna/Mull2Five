@@ -8,7 +8,7 @@ tutte le tappe: vedi `staff_role` in routers/tournaments.py.
 """
 import re
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, joinedload
 
@@ -134,9 +134,14 @@ def my_events(
 
 
 @router.get("/public", response_model=list[EventOut])
-def list_public_events(db: Session = Depends(get_db)) -> list[EventOut]:
+def list_public_events(
+    limit: int = Query(default=500, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0),
+    db: Session = Depends(get_db),
+) -> list[EventOut]:
     events = db.scalars(
         select(Event).where(Event.is_public.is_(True)).order_by(Event.starts_on.desc())
+        .limit(limit).offset(offset)
     ).all()
     return [_event_out(e, db) for e in events]
 

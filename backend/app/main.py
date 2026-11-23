@@ -13,6 +13,7 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from sqlalchemy import text
+from starlette.middleware.gzip import GZipMiddleware
 
 from backend.app.core.alerting import send_alert
 from backend.app.core.config import get_settings
@@ -222,6 +223,34 @@ async def security_headers(request: Request, call_next):
 
 # Middleware metriche Prometheus (timing + conteggio richieste)
 app.middleware("http")(metrics_middleware)
+
+# Comprime le risposte (JSON e pagine) sopra 1KB: ultimo add_middleware, quindi
+# il più esterno — comprime quello che esce da tutti gli altri, header compresi.
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+
+_STATIC_ROOT_PATHS = ("/health", "/metrics", "/docs", "/redoc", "/openapi.json",
+                       "/robots.txt", "/sitemap.xml")
+
+
+@app.middleware("http")
+async def static_cache_headers(request: Request, call_next):
+    """Cache del browser per i file che serve StaticFiles (non le rotte /api).
+
+    Gli asset in /assets/ hanno l'hash del contenuto nel nome (build Vite): se
+    cambiano, cambia il nome, quindi si possono cache-are per sempre. Le pagine
+    HTML e tutto il resto (icone, font, sw.js) non hanno hash: una build nuova
+    deve vedersi subito, quindi restano senza cache lunga."""
+    response = await call_next(request)
+    if not settings.frontend_dist or request.url.path.startswith("/api/"):
+        return response
+    if request.url.path in _STATIC_ROOT_PATHS:
+        return response
+    if request.url.path.startswith("/assets/"):
+        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+    else:
+        response.headers["Cache-Control"] = "no-cache"
+    return response
 
 
 app.include_router(auth.router, prefix="/api")
