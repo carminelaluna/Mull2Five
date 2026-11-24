@@ -54,6 +54,19 @@ il negozio ritira il codice.
 
 Un torneo concluso non accetta iscrizioni, nemmeno se la data è più avanti.
 
+**La lista già fatta.** Se il torneo chiede la lista e chi si iscrive ne ha di
+salvate in "Le mie liste", il modulo d'iscrizione ha un menu **La tua lista**
+(uno per porzione in un evento misto): prima le liste del formato del torneo,
+mai quelle di un altro gioco o vuote. La lista scelta parte insieme
+all'iscrizione, prima di andare a pagare; se l'invio non riesce l'iscrizione
+resta, e la pagina di ringraziamento ricorda di caricarla. Chi iscrive il
+figlio sceglie fra le liste del figlio. Da iscritto, accanto a "✓ Iscritto",
+**Invia la lista** (o **Cambia la lista**, se è già arrivata) apre lo stesso
+menu, finché le liste sono aperte; per incollarla o caricarla da file si passa
+da "Le mie iscrizioni". Una lista che non rispetta le regole del formato
+arriva lo stesso, e il messaggio dice di controllarla. Chi sceglie la lista e
+poi non paga online sparisce dal torneo con la lista; quella salvata resta.
+
 **Il QR dell'iscrizione.** Sotto il pulsante d'iscrizione, finché il torneo è
 aperto (non quelli importati dal Locator), c'è **▦ QR iscrizione**: apre una
 finestra col QR, da far inquadrare a chi è accanto, con "Copia link" e il
@@ -166,7 +179,10 @@ il negozio; chi non aveva pagato non deve fare niente.
 
 `decks.html`. Un costruttore con ricerca carte e controllo delle regole del
 formato, oppure la modalità testo. Da qui una lista si può **inviare
-direttamente a un torneo** a cui sei iscritto, senza copiare e incollare.
+direttamente a un torneo** a cui sei iscritto, senza copiare e incollare. Lo
+stesso al contrario: dalla pagina del torneo (iscrivendosi o da iscritto) e
+dalla finestra "Carica lista" di "Le mie iscrizioni" si sceglie una delle liste
+salvate. Quali offrire e in che ordine lo decide `js/saved-decks.js`.
 
 ## Segnalazioni
 

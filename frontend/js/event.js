@@ -5,6 +5,7 @@ import { t as tr } from './i18n.js';
 import { actingAs, actingBanner, bindActingBanner, setActing } from './acting.js';
 import { earlyBirdOn, feeNow, fmtDate, fmtMoney, toast, updateAuthNav, placeLabel } from './catalog.js';
 import { busy } from './form-state.js';
+import { decksFor, deckOptions, deckSegments } from './saved-decks.js';
 import { apiRequest, getSession } from './session.js';
 import { stickyCta } from './site.js';
 
@@ -133,7 +134,7 @@ async function loadEvent() {
             ? `<span class="badge warn">${esc(tr('Pagamento in corso'))}</span>
                <a class="secondary-link" href="my-registrations.html">${esc(tr('Completa il pagamento'))}</a>`
             : isReg
-            ? '<span class="badge ok" style="font-size:1rem">✓ Iscritto</span>'
+            ? `<span class="badge ok" style="font-size:1rem">✓ Iscritto</span>${deckButton(t, myReg)}`
             : canReg
               ? `<button class="primary" id="registerBtn" type="button">Iscriviti — ${fmtMoney(feeNow(t))}</button>`
               : !session
@@ -211,6 +212,7 @@ async function loadEvent() {
       // Le domande in più che l'organizzatore ha messo al torneo.
       const fields = await apiFetch(`/tournaments/${t.id}/fields`).catch(() => []);
       document.querySelector('#regFields').innerHTML = fields.map(fieldInput).join('');
+      await fillRegDecks(t);
       // Su un torneo gratuito un campo "codice sconto" è solo una domanda in più.
       document.querySelector('#regDiscountWrap').style.display = feeNow(t) ? '' : 'none';
       // Come si paga: solo i modi che il torneo accetta. Gratis, niente da scegliere.
@@ -227,6 +229,10 @@ async function loadEvent() {
       document.querySelector('#registerDialog').showModal();
     });
     document.querySelector('#qrOpen')?.addEventListener('click', () => openQr(t));
+    // Chi iscrive il figlio sceglie fra le liste del figlio.
+    document.querySelector('#regWho')?.addEventListener('change', () => fillRegDecks(t));
+    document.querySelector('#deckSendOpen')?.addEventListener('click', () => openDeckSend(t, myReg));
+    document.querySelector('#deckSendSubmit')?.addEventListener('click', () => submitDeckSend(t, myReg));
     document.querySelector('#regPayment')?.addEventListener('change', syncPaymentChoice);
     document.querySelector('#confirmRegister')?.addEventListener('click', () => doRegister(t));
     bindActingBanner(document.querySelector('#eventDetail'));
@@ -280,6 +286,9 @@ async function doRegister(t) {
         answers:             collectAnswers(),
       }),
     });
+    // La lista scelta nel modulo parte subito, prima di andare a pagare. Se non
+    // parte l'iscrizione resta, e la pagina di ringraziamento ricorda di caricarla.
+    await sendPicked(document.querySelector('#regDecks'), t, { 'X-Act-As': who }).catch(() => null);
     // Si prosegue come chi è stato iscritto: il ritorno dal pagamento è suo.
     setActing(who ? { id: who, name: document.querySelector('#regWho').selectedOptions[0].textContent } : null);
     // Ha scelto di pagare online: si paga adesso, e l'iscrizione vale solo dopo.
@@ -293,6 +302,101 @@ async function doRegister(t) {
     location.href = `grazie.html?t=${t.id}`;
   } catch (err) {
     document.querySelector('#regError').textContent = err.message;
+    busy(btn, false);
+  }
+}
+
+/* ── Una lista di "Le mie liste" ─────────────────────────
+   Si manda iscrivendosi, nel modulo, o dopo da iscritto: il testo della lista
+   salvata va a POST /decklist, come se lo si incollasse in "Le mie iscrizioni". */
+let _decks = [];
+
+/** Un menu per ogni lista che il torneo vuole: di solito una, in un evento misto una per porzione. */
+function deckPickers(t, first, sent = new Set()) {
+  const segments = deckSegments(t);
+  return segments.map((seg) => {
+    const label = segments.length > 1 ? tr('Lista {formato}', { formato: seg || t.format }) : tr('La tua lista');
+    const decks = decksFor(_decks, { format: seg || t.format });
+    const empty = sent.has(seg) ? tr('Lascia quella già inviata') : first;
+    return `<label>${esc(label)}<select data-segment="${esc(seg)}">${deckOptions(decks, empty)}</select></label>`;
+  }).join('');
+}
+
+/** Manda le liste scelte nei menu. Dice se una non rispetta le regole del formato. */
+async function sendPicked(box, t, headers = {}) {
+  let invalid = false;
+  for (const select of box.querySelectorAll('select[data-segment]')) {
+    const deck = _decks.find((d) => String(d.id) === select.value);
+    if (!deck) continue;
+    const out = await apiFetch(`/tournaments/${t.id}/decklist`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ raw_text: deck.raw_text, archetype: deck.archetype || '', format: select.dataset.segment }),
+    });
+    invalid ||= out?.status === 'invalid';
+  }
+  return { invalid };
+}
+
+/** Nel modulo d'iscrizione, se il torneo vuole la lista e chi si iscrive ne ha di salvate. */
+async function fillRegDecks(t) {
+  const box = document.querySelector('#regDecks');
+  const who = document.querySelector('#regWho')?.value || '';
+  _decks = t.decklist_required && !t.decklist_locked
+    ? decksFor(await apiFetch('/decks', { headers: { 'X-Act-As': who } }).catch(() => []), { game: t.game })
+    : [];
+  box.style.display = _decks.length ? '' : 'none';
+  box.innerHTML = _decks.length
+    ? deckPickers(t, tr('Nessuna, la carico dopo'))
+      + `<p class="muted-text" style="margin:0">${esc(tr('La puoi cambiare fino alla chiusura delle liste.'))}</p>`
+    : '';
+}
+
+const deckButtonLabel = (t, reg) => (deckSegments(t).every((seg) => (reg.decklist_formats || []).includes(seg))
+  ? tr('Cambia la lista') : tr('Invia la lista'));
+
+/** Da iscritto, accanto a "✓ Iscritto", finché le liste sono aperte. */
+function deckButton(t, reg) {
+  if (!t.decklist_required || t.decklist_locked || reg.dropped) return '';
+  return `<button class="secondary" id="deckSendOpen" type="button">${esc(deckButtonLabel(t, reg))}</button>`;
+}
+
+async function openDeckSend(t, reg) {
+  const box = document.querySelector('#deckSendPickers');
+  const submit = document.querySelector('#deckSendSubmit');
+  document.querySelector('#deckSendError').textContent = '';
+  box.innerHTML = `<p class="muted-text" style="margin:0">${esc(tr('Caricamento…'))}</p>`;
+  submit.disabled = true;
+  submit.style.display = '';
+  document.querySelector('#deckSendDialog').showModal();
+  _decks = decksFor(await apiFetch('/decks').catch(() => []), { game: t.game });
+  box.innerHTML = _decks.length
+    ? deckPickers(t, tr('— Scegli una lista —'), new Set(reg.decklist_formats || []))
+    : `<p class="muted-text" style="margin:0">${esc(tr('Non hai ancora liste salvate.'))}
+         <a href="decks.html">${esc(tr('Creane una in Le mie liste'))}</a></p>`;
+  submit.disabled = !_decks.length;
+  // Spento e acceso hanno lo stesso aspetto: senza liste da mandare non c'è.
+  submit.style.display = _decks.length ? '' : 'none';
+}
+
+async function submitDeckSend(t, reg) {
+  const box = document.querySelector('#deckSendPickers');
+  const errEl = document.querySelector('#deckSendError');
+  const picked = [...box.querySelectorAll('select[data-segment]')].filter((s) => s.value);
+  if (!picked.length) { errEl.textContent = tr('Scegli una lista.'); return; }
+  const btn = document.querySelector('#deckSendSubmit');
+  busy(btn, true);
+  try {
+    const { invalid } = await sendPicked(box, t);
+    reg.decklist_formats = [...new Set([...(reg.decklist_formats || []), ...picked.map((s) => s.dataset.segment)])];
+    document.querySelector('#deckSendDialog').close();
+    document.querySelector('#deckSendOpen').textContent = deckButtonLabel(t, reg);
+    toast(invalid
+      ? tr('Lista inviata, ma non rispetta le regole del formato: controllala in Le mie iscrizioni.')
+      : tr('Lista inviata ✓'), invalid ? 7000 : 3200);
+  } catch (err) {
+    errEl.textContent = err.message;
+  } finally {
     busy(btn, false);
   }
 }

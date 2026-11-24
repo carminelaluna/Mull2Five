@@ -1,6 +1,7 @@
 import { onReady } from './lang.js';   // prima di tutto: la lingua (vedi lang.js)
 import { busy } from './form-state.js';
 import { renderDeck } from './deck-view.js';
+import { decksFor, deckOptions } from './saved-decks.js';
 import { esc } from './escape.js';
 import { gameInfo, gameLabel, scoresFor } from './games.js';
 import { t as tr } from './i18n.js';
@@ -454,12 +455,9 @@ async function fillSavedDecks() {
   } catch {
     _savedDecks = [];
   }
-  // Prima quelle del formato del torneo: sono quelle che servono.
-  const sameFormat = (d) => d.format.toLowerCase() === _activeTournament.format.toLowerCase();
-  const ordered = [..._savedDecks.filter(sameFormat), ..._savedDecks.filter((d) => !sameFormat(d))];
+  const ordered = decksFor(_savedDecks, { format: _activeTournament.format });
   select.innerHTML = ordered.length
-    ? `<option value="">${esc(tr('— Scegli una lista —'))}</option>` + ordered.map((d) =>
-      `<option value="${d.id}">${esc(d.name)} · ${esc(d.format || '—')} (${d.main_count}/${d.side_count})</option>`).join('')
+    ? deckOptions(ordered, tr('— Scegli una lista —'))
     : `<option value="">${esc(tr('Nessuna lista salvata'))}</option>`;
   select.disabled = !ordered.length;
 }

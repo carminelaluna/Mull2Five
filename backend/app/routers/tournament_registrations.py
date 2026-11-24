@@ -1665,6 +1665,10 @@ def submit_decklist(
     )
     db.commit()
     db.refresh(decklist)
+    # Chi ha appena mandato la lista e ricarica la pagina del torneo la deve
+    # vedere; l'organizzatore pure, negli iscritti.
+    cache_invalidate(f"my-reg:{tournament_id}:{registration.player_id}")
+    cache_invalidate(f"registrations:{tournament_id}")
     return decklist
 
 
@@ -1706,6 +1710,7 @@ def submit_decklist_for_registration(
     db.commit()
     db.refresh(decklist)
     cache_invalidate(f"registrations:{tournament_id}")
+    cache_invalidate(f"my-reg:{tournament_id}:{registration.player_id}")
     return decklist
 
 
