@@ -96,6 +96,7 @@ from backend.app.services.payments import (
     amount_due,
     close_stripe_checkout,
     payment_methods,
+    refund_now,
     start_checkout,
 )
 from backend.app.services.player_import import parse_players_csv
@@ -122,7 +123,7 @@ from backend.app.services.tournament_views import (
 router = APIRouter(prefix="/tournaments", tags=["tournaments"])
 
 
-CANCEL_REFUND_HOURS = 24   # rimborso automatico se l'annullamento è > 24h prima dell'inizio
+CANCEL_REFUND_HOURS = 24   # annullando prima di così, chi ha pagato chiede il rimborso
 
 
 IMPORT_LIMIT = 500
@@ -738,13 +739,19 @@ def self_drop(
 
 
 @router.post("/{tournament_id}/my-registration/cancel")
-def cancel_registration(
+async def cancel_registration(
     tournament_id: int,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> dict:
-    """Il giocatore annulla l'iscrizione PRIMA dell'inizio. Se aveva pagato e mancano
-    più di 24h all'inizio, il pagamento viene rimborsato automaticamente."""
+    """Il giocatore annulla l'iscrizione PRIMA dell'inizio.
+
+    Se aveva pagato e mancano più di 24 ore all'inizio, il rimborso lo chiede:
+    online lo fa partire subito da Stripe o PayPal (`refunded`); al banco, sul
+    PayPal del negozio o se il fornitore rifiuta resta "Rimborso richiesto" e lo
+    decide l'organizzatore (`refund_requested`). Prima si segnava "rimborsato"
+    senza chiamare nessuno, e i soldi non tornavano (24/11/2026).
+    """
     registration = db.scalar(
         select(Registration)
         .where(Registration.tournament_id == tournament_id, Registration.player_id == user.id)
@@ -759,33 +766,31 @@ def cancel_registration(
     # e può iscriversi di nuovo. Prima restava "ritirata": la vedeva ancora tra
     # i suoi tornei, e riprovando gli si diceva "Sei già iscritto" (23/11/2026).
     if _delete_unpaid(registration, db):
-        return {"status": "cancelled", "refunded": False}
+        return {"status": "cancelled", "refunded": False, "refund_requested": False}
 
-    refunded = False
     payment = registration.payment
-    if payment and payment.status == PaymentStatus.PAID:
-        # Calcola le ore mancanti all'inizio (se c'è un orario).
-        start_dt = tournament.starts_at
-        within_policy = start_dt is None or datetime.now(UTC) <= start_dt - timedelta(hours=CANCEL_REFUND_HOURS)
-        if within_policy:
-            payment.status = PaymentStatus.REFUNDED
-            payment.refund_reason = "Annullamento self-service"
-            payment.refund_requested_at = datetime.now(UTC)
-            db.add(payment)
-            refunded = True
+    start_dt = tournament.starts_at
+    in_time = start_dt is None or datetime.now(UTC) <= start_dt - timedelta(hours=CANCEL_REFUND_HOURS)
+    to_refund = payment is not None and payment.status == PaymentStatus.PAID and in_time
+    if to_refund:
+        # Prima si scrive la richiesta, poi si chiama il fornitore: se dopo
+        # qualcosa si rompe resta un rimborso da decidere, mai soldi senza traccia.
+        payment.status = PaymentStatus.REFUND_REQUESTED
+        payment.refund_reason = "Annullamento self-service"
+        payment.refund_requested_at = datetime.now(UTC)
 
     # Niente hard-delete (le relazioni non hanno cascade: lascerebbe pagamento/lista
     # orfani con FK NOT NULL). Marca come ritirato e libera il posto, come il drop.
     was_active = not registration.waitlisted and not registration.dropped
     registration.dropped = True
     registration.waitlisted = False
-    db.add(registration)
     db.commit()
     cache_invalidate(f"registrations:{tournament_id}")
     cache_invalidate(f"my-reg:{tournament_id}:{user.id}")
+    refunded = to_refund and await refund_now(payment, db)
     if was_active:
         promote_from_waitlist(tournament, db)
-    return {"status": "cancelled", "refunded": refunded}
+    return {"status": "cancelled", "refunded": refunded, "refund_requested": to_refund and not refunded}
 
 
 @router.post("/{tournament_id}/my-registration/abandon-payment")

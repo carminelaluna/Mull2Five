@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from backend.app.core.clock import local_today
 from backend.app.core.config import get_settings
-from backend.app.models import Organization, Payment, Registration
+from backend.app.models import Organization, Payment, PaymentStatus, Registration
 
 logger = logging.getLogger(__name__)
 
@@ -352,6 +352,57 @@ async def create_paypal_checkout(registration: Registration, store: Organization
     )
     payee = f"paypal:{store.paypal_email}" if store and store.paypal_email else ""
     return CheckoutSession(provider_checkout_id=order["id"], checkout_url=approve_url, payee=payee)
+
+
+async def refund_at_provider(payment: Payment) -> bool:
+    """Restituisce i soldi dal fornitore che li ha incassati.
+
+    Vero se il rimborso è partito, o se era un pagamento di prova e non c'è
+    niente da restituire. Falso se il sito non può farlo da sé: pagato al banco,
+    o incassato sul PayPal del negozio, che rimborsa da lì. Se il fornitore
+    rifiuta l'errore risale, e chi chiama decide che cosa dire.
+
+    È l'unico posto che muove i soldi indietro: lo usano il rimborso deciso
+    dall'organizzatore e l'annullamento del giocatore. Prima l'annullamento
+    segnava "rimborsato" senza chiamare nessuno (24/11/2026).
+    """
+    settings = get_settings()
+    if payment.provider == "stripe":
+        if not settings.stripe_secret_key or not payment.provider_payment_id:
+            return settings.payment_sandbox_mock
+        stripe.api_key = settings.stripe_secret_key
+        # Pagato al negozio: il rimborso riprende il bonifico e restituisce la quota della piattaforma.
+        store_paid = {"reverse_transfer": True, "refund_application_fee": True} if payment.payee.startswith("stripe:") else {}
+        stripe.Refund.create(payment_intent=payment.provider_payment_id, **store_paid)
+        return True
+    if payment.provider == "paypal":
+        if payment.payee.startswith("paypal:"):
+            return False
+        if settings.payment_sandbox_mock:
+            return True
+        await refund_paypal_capture(payment.provider_payment_id)
+        return True
+    return False
+
+
+async def refund_now(payment: Payment, db: Session) -> bool:
+    """Prova a restituire un pagamento già segnato "Rimborso richiesto".
+
+    Vero se il rimborso è partito, e allora il pagamento diventa "Rimborsato".
+    Falso se resta da decidere all'organizzatore: pagato al banco, incassato sul
+    PayPal del negozio, o rifiutato dal fornitore (il motivo va nei log).
+    La richiesta si scrive prima di chiamare: se poi qualcosa si rompe resta un
+    rimborso da decidere, mai soldi senza traccia.
+    """
+    try:
+        done = await refund_at_provider(payment)
+    except Exception:
+        logger.exception("Rimborso del pagamento %s non partito: resta da decidere", payment.id)
+        return False
+    if done:
+        payment.status = PaymentStatus.REFUNDED
+        db.commit()
+    return done
 
 
 async def refund_paypal_capture(capture_id: str) -> None:

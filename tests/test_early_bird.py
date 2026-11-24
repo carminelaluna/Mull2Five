@@ -34,7 +34,9 @@ def _crea(client, org, **extra):
     return client.post("/api/tournaments", headers=org, json=corpo)
 
 
-def test_who_signs_up_early_pays_less_and_the_desk_charges_that(client, db_session):
+def test_who_pays_during_the_early_bird_pays_less_and_the_desk_charges_that(client, db_session):
+    """Conta il giorno in cui si paga, non quello dell'iscrizione: regola
+    confermata il 24/11/2026 (tests/test_terms_promises.py)."""
     org = _register_user(client, "early-org@example.com")
     creato = _crea(client, org, early_bird_cents=1500,
                    early_bird_until=str(local_today() + timedelta(days=3)))

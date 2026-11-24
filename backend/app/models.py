@@ -679,6 +679,9 @@ class Registration(Base):
     checked_in: Mapped[bool] = mapped_column(Boolean, default=False)
     dropped: Mapped[bool] = mapped_column(Boolean, default=False)
     waitlisted: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Quando è entrato dalla lista d'attesa e deve pagare online: da qui partono
+    # le WAITLIST_PAY_HOURS. Su chi è di nuovo in lista vuol dire che il posto
+    # l'ha già avuto e non l'ha pagato: la coda lo mette dietro agli altri.
     promoted_at: Mapped[datetime | None] = mapped_column(UtcDateTime(timezone=True), nullable=True)
     # Chi ha scelto di pagare online non è iscritto finché non paga: il posto è
     # suo fino a quest'ora, poi l'iscrizione sparisce (release_unpaid_holds).

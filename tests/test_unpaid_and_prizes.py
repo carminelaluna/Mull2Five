@@ -3,6 +3,8 @@ test_unpaid_and_prizes.py — Togliere chi non ha pagato; segnare i premi conseg
 """
 from datetime import timedelta
 
+import pytest
+
 from backend.app.core.clock import local_today
 from backend.app.services import registrations
 from backend.app.services.registrations import WAITLIST_PAY_HOURS
@@ -18,20 +20,20 @@ def _register_user(client, email, role="player"):
     return {"Authorization": f"Bearer {login.json()['access_token']}"}
 
 
-def _tournament(client, org, fee=1000, capacity=3):
+def _tournament(client, org, fee=1000, capacity=3, **extra):
     created = client.post("/api/tournaments", headers=org, json={
         "name": "Modern del venerdì", "format": "Modern",
         "starts_on": str(local_today() + timedelta(days=4)), "start_time": "20:00",
         "capacity": capacity, "entry_fee_cents": fee, "currency": "EUR", "status": "published",
-        "pay_at_event": True, "decklist_required": False,
+        "pay_at_event": True, "decklist_required": False, **extra,
     })
     assert created.status_code == 201, created.text
     return created.json()["id"]
 
 
-def _enroll(client, org, tid, email, pay=False):
+def _enroll(client, org, tid, email, pay=False, **extra):
     player = _register_user(client, email)
-    reg = client.post(f"/api/tournaments/{tid}/registrations", headers=player, json={"wizards_account": ""})
+    reg = client.post(f"/api/tournaments/{tid}/registrations", headers=player, json={"wizards_account": "", **extra})
     assert reg.status_code == 201, reg.text
     if pay:
         assert client.post(f"/api/tournaments/{tid}/registrations/{reg.json()['id']}/mark-paid",
@@ -63,33 +65,59 @@ def test_unpaid_players_leave_and_the_waitlist_moves_up(client):
     assert any(a["action"] == "unpaid_dropped" for a in audit)
 
 
-def test_the_promotion_email_says_where_to_pay_and_by_when(client, monkeypatch):
-    """Chi viene promosso ha sei ore per pagare, e quell'email è l'unico posto in
-    cui può venirlo a sapere: senza il link e la scadenza il posto torna in coda
-    e il giocatore non capisce perché."""
-    inviate: list[tuple[str, str, str]] = []
-    mittenti: list = []
+@pytest.fixture
+def promotion_emails(monkeypatch):
+    """Le email partite, e da quale casella."""
+    inviate: list[tuple[str, str, str, object]] = []
     monkeypatch.setattr(
         registrations, "send_email",
         lambda to, subject, body, html_body=None, sender=None:
-            bool(inviate.append((to, subject, body)) or mittenti.append(sender)) or True,
+            bool(inviate.append((to, subject, body, sender))) or True,
     )
+    return inviate
+
+
+def _promotion_of(inviate, email):
+    promozioni = [m for m in inviate if m[0] == email and "Sei dentro" in m[1]]
+    assert promozioni, f"nessuna email di promozione: {inviate}"
+    return promozioni[-1]
+
+
+def test_the_promotion_email_says_where_to_pay_and_by_when(client, promotion_emails):
+    """Chi deve pagare online ha sei ore per farlo, e quell'email è l'unico posto
+    in cui può venirlo a sapere: senza il link e la scadenza il posto torna in
+    coda e il giocatore non capisce perché."""
     org = _register_user(client, "promo-org@example.com", role="organizer")
-    tid = _tournament(client, org, capacity=2)
-    _enroll(client, org, tid, "promo-paid@example.com", pay=True)
-    _enroll(client, org, tid, "promo-unpaid@example.com")
-    waiting = _enroll(client, org, tid, "promo-wait@example.com")
+    tid = _tournament(client, org, capacity=2, pay_at_event=False, pay_stripe=True)
+    _enroll(client, org, tid, "promo-paid@example.com", pay=True, payment_method="stripe")
+    _enroll(client, org, tid, "promo-unpaid@example.com", payment_method="stripe")
+    waiting = _enroll(client, org, tid, "promo-wait@example.com", payment_method="stripe")
     assert waiting["waitlisted"] is True
 
     client.post(f"/api/tournaments/{tid}/drop-unpaid?dry_run=false", headers=org)
 
-    promozioni = [m for m in inviate if m[0] == "promo-wait@example.com" and "Sei dentro" in m[1]]
-    assert promozioni, f"nessuna email di promozione: {inviate}"
-    corpo = promozioni[-1][2]
+    _, _, corpo, mittente = _promotion_of(promotion_emails, "promo-wait@example.com")
     assert f"event.html?id={tid}" in corpo
     assert f"{WAITLIST_PAY_HOURS} ore" in corpo
     # Chiede di pagare: parte dalla casella dei pagamenti, e lì arriva chi risponde.
-    assert mittenti[inviate.index(promozioni[-1])] == "payments"
+    assert mittente == "payments"
+
+
+def test_at_the_desk_the_promotion_email_asks_for_nothing_by_a_deadline(client, promotion_emails):
+    """Al banco non c'è niente da pagare entro sei ore: il posto è suo, e
+    l'email dice solo quanto pagherà il giorno del torneo."""
+    org = _register_user(client, "promo-desk-org@example.com", role="organizer")
+    tid = _tournament(client, org, capacity=2)
+    _enroll(client, org, tid, "promo-desk-paid@example.com", pay=True)
+    _enroll(client, org, tid, "promo-desk-unpaid@example.com")
+    _enroll(client, org, tid, "promo-desk-wait@example.com")
+
+    client.post(f"/api/tournaments/{tid}/drop-unpaid?dry_run=false", headers=org)
+
+    _, _, corpo, mittente = _promotion_of(promotion_emails, "promo-desk-wait@example.com")
+    assert f"event.html?id={tid}" in corpo
+    assert "al banco" in corpo and f"{WAITLIST_PAY_HOURS} ore" not in corpo
+    assert mittente == "general"
 
 
 def test_nothing_to_drop_when_free_or_started(client):

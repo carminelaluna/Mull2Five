@@ -45,10 +45,12 @@ pagamento, l'iscrizione non nasce.
 
 La quota scritta sul pulsante è quella di adesso: se il negozio ha messo una
 quota **early bird**, fino a quella data si paga meno, e la pagina lo dice con
-la data e il prezzo pieno accanto. Chi ha un **codice sconto** lo scrive nel
-modulo d'iscrizione: un codice scaduto, esaurito o di un altro torneo blocca
-l'iscrizione subito, invece di far credere a uno sconto che al banco non c'è.
-Da lì in poi quel prezzo è suo, anche se il negozio ritira il codice.
+la data e il prezzo pieno accanto. Conta il giorno in cui si paga: chi si
+iscrive in tempo e paga al banco dopo quella data paga la quota piena. Chi ha
+un **codice sconto** lo scrive nel modulo d'iscrizione: un codice scaduto,
+esaurito o di un altro torneo blocca l'iscrizione subito, invece di far credere
+a uno sconto che al banco non c'è. Da lì in poi quel prezzo è suo, anche se
+il negozio ritira il codice.
 
 Un torneo concluso non accetta iscrizioni, nemmeno se la data è più avanti.
 
@@ -73,7 +75,18 @@ senza accesso passa dal login e torna lì.
 - il **check-in** da solo, quando l'organizzatore lo permette;
 - la **lista**: si carica, si corregge fino alla scadenza, si sceglie fra
   quelle salvate o si carica da file;
-- il **ritiro** e l'annullamento dell'iscrizione;
+- il **ritiro** e l'annullamento dell'iscrizione. Si annulla finché il torneo
+  non è iniziato; se avevi pagato e mancano più di 24 ore, il rimborso parte da
+  solo quando si può: pagato online sul conto della piattaforma, Stripe o
+  PayPal lo restituiscono subito. Pagato al banco, sul PayPal del negozio o con
+  un rimborso che il fornitore rifiuta, resta **rimborso richiesto** e lo
+  decide l'organizzatore; il messaggio dopo l'annullamento dice quale dei due.
+  Se è il negozio ad annullare un torneo in cui c'erano pagamenti, chi era
+  ancora iscritto lo trova qui come **Annullato**; chi aveva già annullato no.
+  La quota torna indietro a tutti, anche a meno di 24 ore e a chi si era
+  ritirato tenendola, perché il torneo non si gioca: pagata online sul conto
+  della piattaforma parte subito, le altre restano **rimborso richiesto** e le
+  decide il negozio (tutte, se il torneo era già iniziato);
 - i **profili che gestisci** (i figli): li iscrivi e paghi tu, al tavolo
   giocano col loro nome. Per aggiungerne uno si apre una segnalazione: nasce un
   account per un minore, quindi lo creiamo noi.
@@ -136,9 +149,18 @@ Solo se l'organizzatore tiene accese le email del torneo:
 - il **promemoria del giorno prima**, una volta sola, con dove e quando si
   gioca, il link alla pagina del torneo e — se risulti ancora da pagare — la
   quota che manca;
-- la **promozione dalla lista d'attesa**: il posto si è liberato ed è tuo per
-  sei ore, con il link per pagare e l'ora entro cui farlo. Scadute quelle, torni
-  in coda e il posto passa al prossimo.
+- la **promozione dalla lista d'attesa**: il posto si è liberato ed è tuo.
+  Se il torneo si paga solo online, è tuo per sei ore, con il link per pagare e
+  l'ora entro cui farlo: scadute quelle, torni in fondo alla coda e il posto
+  passa al prossimo. Al banco o gratis non c'è nessuna scadenza: l'email dice
+  solo la quota da pagare il giorno del torneo. Dopo l'inizio del torneo
+  l'orologio si ferma.
+
+Sempre, anche con le email del torneo spente: il **torneo annullato**, dalla
+casella dei pagamenti, a chi era iscritto o in lista d'attesa e a chi aveva una
+quota di mezzo. Dice cosa succede alla quota: il rimborso è partito e torna sul
+metodo con cui si è pagato, oppure la richiesta è registrata e la restituisce
+il negozio; chi non aveva pagato non deve fare niente.
 
 ## Le mie liste
 

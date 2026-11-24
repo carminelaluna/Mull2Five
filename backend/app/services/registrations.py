@@ -20,9 +20,10 @@ from backend.app.models import (
     Registration,
     RegistrationField,
     Tournament,
+    TournamentStatus,
 )
 from backend.app.services.email import Sender, send_email
-from backend.app.services.payments import HOLD_GRACE_MINUTES
+from backend.app.services.payments import HOLD_GRACE_MINUTES, amount_due, payment_methods
 
 
 def fields_of(tournament_id: int, db: Session) -> list[RegistrationField]:
@@ -42,11 +43,29 @@ def prior_penalties(player_ids: list[int], tournament_id: int):
     )
 
 
-WAITLIST_PAY_HOURS = 6   # ore per pagare dopo la promozione dalla waitlist (#32)
+WAITLIST_PAY_HOURS = 6   # ore per pagare online dopo la promozione dalla lista d'attesa (#32)
+
+
+def must_pay_online(registration: Registration, tournament: Tournament) -> bool:
+    """Chi entra dalla lista d'attesa deve pagare online per tenersi il posto?
+
+    Solo allora ha WAITLIST_PAY_HOURS per farlo: c'è una quota, non l'ha ancora
+    pagata, e il torneo non accetta il banco. Al banco o gratis il posto è suo e
+    basta; prima tornava in coda ogni sei ore anche lì (24/11/2026).
+    """
+    if registration.payment and registration.payment.status == PaymentStatus.PAID:
+        return False
+    methods = payment_methods(tournament)
+    return bool(methods) and "at_event" not in methods and amount_due(registration, tournament) > 0
 
 
 def promote_from_waitlist(tournament: Tournament, db: Session) -> None:
-    """Promuove il primo in lista d'attesa se si è liberato un posto."""
+    """Promuove il primo in lista d'attesa se si è liberato un posto.
+
+    Chi aveva già avuto il posto e non l'ha pagato in tempo aspetta dietro agli
+    altri: ha ancora `promoted_at` (sweep_waitlist_deadlines), e la coda lo
+    mette in fondo. Prima tornava primo e veniva ripromosso subito.
+    """
     active = db.scalar(
         select(func.count(Registration.id)).where(
             Registration.tournament_id == tournament.id,
@@ -62,36 +81,56 @@ def promote_from_waitlist(tournament: Tournament, db: Session) -> None:
             Registration.tournament_id == tournament.id,
             Registration.waitlisted == True,  # noqa: E712
         )
-        .order_by(Registration.created_at, Registration.id)
+        .order_by(Registration.promoted_at.is_not(None), Registration.created_at, Registration.id)
         .options(joinedload(Registration.player))
     )
     if not next_in_line:
         return
     next_in_line.waitlisted = False
-    next_in_line.promoted_at = datetime.now(UTC)   # parte il timer per il pagamento (#32)
+    # L'orologio parte solo per chi deve pagare online, e solo prima dell'inizio (#32).
+    on_clock = tournament.status == TournamentStatus.PUBLISHED and must_pay_online(next_in_line, tournament)
+    next_in_line.promoted_at = datetime.now(UTC) if on_clock else None
     db.commit()
     cache_invalidate(f"registrations:{tournament.id}")
     cache_invalidate(f"my-reg:{tournament.id}:{next_in_line.player_id}")
-    # Il posto scade, e questa email è l'unico posto in cui il giocatore può
-    # scoprirlo: senza il link e l'ora torna in coda senza aver mai saputo di
-    # avere un orologio addosso.
-    pagina = f"{str(get_settings().frontend_url).rstrip('/')}/event.html?id={tournament.id}"
-    scadenza = next_in_line.promoted_at + timedelta(hours=WAITLIST_PAY_HOURS)
     try:
         send_email(
             next_in_line.player.email,
             f"{tournament.name} — Sei dentro!",
-            f"Ciao {next_in_line.player.display_name},\n\n"
-            f"si è liberato un posto per \"{tournament.name}\" e sei stato promosso "
-            "dalla lista d'attesa.\n\n"
-            f"Il posto resta tuo per {WAITLIST_PAY_HOURS} ore: completa il pagamento "
-            f"entro il {scadenza.strftime('%d/%m alle %H:%M')} UTC, altrimenti torni in "
-            "coda e il posto passa al prossimo.\n\n"
-            f"Paga qui: {pagina}",
-            sender=Sender.PAYMENTS,
+            _promotion_text(next_in_line, tournament),
+            sender=Sender.PAYMENTS if on_clock else Sender.GENERAL,
         )
     except Exception:
         pass
+
+
+def _promotion_text(registration: Registration, tournament: Tournament) -> str:
+    """L'email di chi entra dalla lista d'attesa.
+
+    Se il posto scade, questa email è l'unico modo in cui il giocatore può
+    scoprirlo: senza il link e l'ora tornerebbe in coda senza aver mai saputo di
+    avere un orologio addosso. Se non scade, non gli si chiede di pagare.
+    """
+    pagina = f"{str(get_settings().frontend_url).rstrip('/')}/event.html?id={tournament.id}"
+    testo = (
+        f"Ciao {registration.player.display_name},\n\n"
+        f"si è liberato un posto per \"{tournament.name}\" e sei stato promosso "
+        "dalla lista d'attesa.\n\n"
+    )
+    if registration.promoted_at:
+        scadenza = registration.promoted_at + timedelta(hours=WAITLIST_PAY_HOURS)
+        return testo + (
+            f"Il posto resta tuo per {WAITLIST_PAY_HOURS} ore: completa il pagamento "
+            f"entro il {scadenza.strftime('%d/%m alle %H:%M')} UTC, altrimenti torni in "
+            "fondo alla coda e il posto passa al prossimo.\n\n"
+            f"Paga qui: {pagina}"
+        )
+    quota = amount_due(registration, tournament)
+    if quota and "at_event" in payment_methods(tournament):
+        testo += f"Sei iscritto. La quota (€{quota / 100:.2f}) la paghi al banco, il giorno del torneo.\n\n"
+    else:
+        testo += "Sei iscritto.\n\n"
+    return testo + f"Pagina del torneo: {pagina}"
 
 
 def release_hold(registration: Registration, db: Session) -> None:

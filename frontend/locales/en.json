@@ -1281,5 +1281,19 @@
   "Imbattuto: tutti i match del torneo vinti, i bye compresi. Gli scarti tolgono a ognuno i suoi punteggi di tappa peggiori, contando 0 le tappe saltate: 0 per sommare tutto.": "Undefeated: every match of the event won, byes included. Drops remove each player's worst event scores, counting skipped events as 0: set 0 to add up everything.",
   "Imbattuto": "Undefeated",
   "Scarti": "Dropped",
-  "peggiori scartati oltre {m} tappe": "worst dropped above {m} events"
+  "peggiori scartati oltre {m} tappe": "worst dropped above {m} events",
+  "Annullare l'iscrizione a \"{nome}\"?": "Cancel your registration for \"{nome}\"?",
+  "Se avevi pagato online e mancano più di 24 ore all'inizio, il rimborso parte da solo; se avevi pagato al banco, lo decide l'organizzatore.": "If you paid online and the start is more than 24 hours away, the refund goes out on its own; if you paid at the desk, the organizer decides.",
+  "Iscrizione annullata. Il rimborso è partito: torna sul metodo con cui avevi pagato.": "Registration cancelled. The refund is on its way back to the method you paid with.",
+  "Iscrizione annullata. Il rimborso lo decide l'organizzatore: la richiesta è registrata.": "Registration cancelled. The organizer decides on the refund: your request has been recorded.",
+  "Rimborsa": "Refund",
+  "Rifiuta": "Refuse",
+  "Rimborsare {nome}? Se ha pagato online il rimborso parte subito; se ha pagato al banco, i soldi glieli ridai tu.": "Refund {nome}? If they paid online the refund goes out right away; if they paid at the desk, you give the money back yourself.",
+  "Rifiutare il rimborso a {nome}? Il pagamento resta incassato.": "Refuse the refund to {nome}? The payment stays collected.",
+  "Rimborso registrato.": "Refund recorded.",
+  "Rimborso rifiutato: il pagamento resta incassato.": "Refund refused: the payment stays collected.",
+  "Eliminare il torneo e tutti i dati? Se qualcuno ha già pagato, il torneo viene annullato: le quote pagate online tornano indietro da sole, le altre restano da rimborsare, e ogni iscritto riceve un'email.": "Delete the tournament and all its data? If someone has already paid, the tournament is cancelled instead: fees paid online go back on their own, the others are left to refund, and every registered player gets an email.",
+  "Torneo annullato: ogni iscritto riceve un'email.": "Tournament cancelled: every registered player gets an email.",
+  "Rimborsi partiti: {n}.": "Refunds sent: {n}.",
+  "Da rimborsare: {n}, con Rimborsa o Rifiuta tra i giocatori.": "Left to refund: {n}, with Refund or Refuse in the player list."
 }

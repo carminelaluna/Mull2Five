@@ -16,8 +16,8 @@ import json
 from datetime import UTC, date, datetime, timedelta
 from typing import Annotated
 
-import stripe
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from fastapi.responses import JSONResponse
 from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
@@ -92,7 +92,10 @@ from backend.app.schemas import (
 from backend.app.security import get_current_user, require_organizer
 from backend.app.services.audit import write_audit
 from backend.app.services.email import event_announcement_html, send_email
-from backend.app.services.notifications import notify_tournament_started
+from backend.app.services.notifications import (
+    notify_tournament_cancelled,
+    notify_tournament_started,
+)
 from backend.app.services.pairings import (
     NO_ROUNDS,
     calculate_standings,
@@ -104,12 +107,14 @@ from backend.app.services.payments import (
     ONLINE_METHODS,
     in_person_only,
     online_payments_enabled,
-    refund_paypal_capture,
+    refund_at_provider,
+    refund_now,
     start_checkout,
 )
 from backend.app.services.registration_qr import KINDS, qr_image, registration_url
 from backend.app.services.registrations import (
     WAITLIST_PAY_HOURS,
+    must_pay_online,
     promote_from_waitlist,
 )
 from backend.app.services.schedule_import import parse_schedule_csv
@@ -315,8 +320,12 @@ def my_registrations_list(
 def _cancelled_before_start(registration: Registration, tournament: Tournament) -> bool:
     """Annullata (o ritirata dal negozio) prima che il torneo cominci: non è più
     tra i suoi tornei. Resta una riga solo se c'era un pagamento, per i conti.
-    Chi si ritira a torneo in corso invece lo vede ancora, con "Ritirato"."""
-    return registration.dropped and tournament.status == TournamentStatus.PUBLISHED
+    Chi si ritira a torneo in corso invece lo vede ancora, con "Ritirato".
+
+    Un torneo con pagamenti non si cancella, si annulla (delete_tournament): chi
+    era ancora iscritto lo vede "Annullato", chi aveva già annullato no.
+    """
+    return registration.dropped and tournament.status in {TournamentStatus.PUBLISHED, TournamentStatus.CANCELLED}
 
 
 @router.get("/me/history", response_model=list[PlayerHistoryRowOut])
@@ -1025,16 +1034,45 @@ def _registered_count(tournament_id: int, db: Session) -> int:
     return db.scalar(select(func.count(Registration.id)).where(Registration.tournament_id == tournament_id)) or 0
 
 
+MONEY_MOVED = (PaymentStatus.PAID, PaymentStatus.REFUND_REQUESTED, PaymentStatus.REFUNDED)
+
+
 @router.delete("/{tournament_id}", status_code=204)
-def delete_tournament(
+async def delete_tournament(
     tournament_id: int,
     organizer: User = Depends(require_organizer),
     db: Session = Depends(get_db),
-) -> None:
+) -> Response:
+    """Elimina il torneo, o lo annulla se ci sono passati dei soldi.
+
+    Con pagamenti incassati, rimborsati o da rimborsare il torneo non sparisce:
+    diventa "Annullato", esce dal calendario, e iscrizioni e pagamenti restano,
+    perché le ricevute si tengono per il tempo che chiede la legge fiscale
+    (privacy.html). Prima si cancellavano con il torneo (24/11/2026). La
+    risposta lo dice: 200 con `{"status": "cancelled", ...}` invece di 204.
+
+    Annullare restituisce le quote incassate, con la regola di quando annulla il
+    giocatore (`cancel_registration`): ogni pagamento diventa "Rimborso
+    richiesto", e se il torneo non è iniziato si prova subito a restituirlo dal
+    fornitore. Al banco, sul PayPal del negozio, se il fornitore rifiuta o a
+    torneo iniziato resta da decidere all'organizzatore (Rimborsa / Rifiuta).
+    Vale anche per chi si era ritirato tenendo la quota: il torneo non si gioca.
+    Poi un'email a ognuno, iscritto, in lista d'attesa o con una quota di mezzo.
+    La risposta conta i rimborsi partiti (`refunded`) e quelli da decidere
+    (`refund_requested`). Un torneo già annullato non rimanda niente.
+    """
     tournament = load_owned_tournament(tournament_id, organizer, db)
     # Un torneo concluso è parte dello storico: non può essere eliminato.
     if tournament.status == TournamentStatus.COMPLETED:
         raise HTTPException(status_code=409, detail="I tornei conclusi non possono essere eliminati (storico)")
+    money_moved = db.scalar(
+        select(Payment.id)
+        .join(Registration, Registration.id == Payment.registration_id)
+        .where(Registration.tournament_id == tournament.id, Payment.status.in_(MONEY_MOVED))
+        .limit(1)
+    )
+    if money_moved:
+        return JSONResponse(await _cancel_with_refunds(tournament, db))
     round_ids = db.scalars(select(Round.id).where(Round.tournament_id == tournament.id)).all()
     if round_ids:
         db.execute(delete(PairingResultReport).where(PairingResultReport.pairing_id.in_(select(Pairing.id).where(Pairing.round_id.in_(round_ids)))))
@@ -1053,14 +1091,67 @@ def delete_tournament(
     db.execute(delete(Round).where(Round.tournament_id == tournament.id))
     db.delete(tournament)
     db.commit()
+    return Response(status_code=204)
+
+
+async def _cancel_with_refunds(tournament: Tournament, db: Session) -> dict:
+    """Annulla il torneo, restituisce le quote e avvisa (vedi delete_tournament)."""
+    outcome = {"status": TournamentStatus.CANCELLED.value, "refunded": 0, "refund_requested": 0}
+    if tournament.status == TournamentStatus.CANCELLED:
+        return outcome
+    registrations = db.scalars(
+        select(Registration)
+        .where(Registration.tournament_id == tournament.id)
+        .options(joinedload(Registration.payment), joinedload(Registration.player))
+    ).unique().all()
+    started = tournament.status == TournamentStatus.RUNNING
+    to_refund = [r.payment for r in registrations if r.payment and r.payment.status == PaymentStatus.PAID]
+    now = datetime.now(UTC)
+    tournament.status = TournamentStatus.CANCELLED
+    for payment in to_refund:
+        payment.status = PaymentStatus.REFUND_REQUESTED
+        payment.refund_reason = "Torneo annullato dal negozio"
+        payment.refund_requested_at = now
+    # Prima si scrive la richiesta, poi si muovono i soldi: se il fornitore
+    # risponde e qui qualcosa si rompe, resta "Rimborso richiesto", non "Pagato".
+    db.commit()
+    refunded: set[int] = set()
+    for payment in [] if started else to_refund:
+        if await refund_now(payment, db):
+            refunded.add(payment.id)
+    outcome["refunded"] = len(refunded)
+    outcome["refund_requested"] = len(to_refund) - len(refunded)
+    for key in ("tournaments:", f"registrations:{tournament.id}", f"my-reg:{tournament.id}:",
+                f"public-display:{tournament.id}"):
+        cache_invalidate(key)
+
+    touched = {p.id for p in to_refund}
+    notices = []
+    for reg in registrations:
+        payment = reg.payment
+        if payment and payment.id in touched:
+            notices.append((reg, "refunded" if payment.id in refunded else "requested",
+                            payment.amount_cents / 100))
+        elif not reg.dropped:
+            asked = payment is not None and payment.status == PaymentStatus.REFUND_REQUESTED
+            notices.append((reg, "requested" if asked else None,
+                            payment.amount_cents / 100 if payment else 0.0))
+    notify_tournament_cancelled(tournament, notices)
+    return outcome
 
 
 def sweep_waitlist_deadlines(db: Session) -> int:
-    """Riaccoda i giocatori promossi dalla waitlist che non hanno pagato entro
-    WAITLIST_PAY_HOURS, e promuove il successivo. Ritorna quanti ne ha riaccodati.
-    Pensata per essere chiamata periodicamente da un task in background."""
+    """Rimette in lista chi è entrato dalla lista d'attesa, doveva pagare online
+    e non l'ha fatto entro WAITLIST_PAY_HOURS; il posto passa al prossimo.
+    Ritorna quanti ne ha rimessi in lista. Gira ogni dieci minuti (main.py).
+
+    L'orologio vale solo per chi deve pagare online e finché il torneo non è
+    iniziato: per gli altri si ferma e basta. Prima rimetteva in coda anche chi
+    paga al banco o gioca gratis, e lo ripromuoveva subito con l'email "completa
+    il pagamento" ogni sei ore (24/11/2026).
+    """
     cutoff = datetime.now(UTC) - timedelta(hours=WAITLIST_PAY_HOURS)
-    expired = db.scalars(
+    promoted = db.scalars(
         select(Registration)
         .where(
             Registration.waitlisted == False,   # noqa: E712
@@ -1070,27 +1161,22 @@ def sweep_waitlist_deadlines(db: Session) -> int:
         .options(joinedload(Registration.payment), joinedload(Registration.tournament))
     ).all()
     requeued = 0
-    touched_tournaments = set()
-    for reg in expired:
-        pa = reg.promoted_at
-        if pa and pa.tzinfo is None:
-            pa = pa.replace(tzinfo=UTC)
-        if not pa or pa > cutoff:
+    touched: dict[int, Tournament] = {}
+    for reg in promoted:
+        if reg.tournament.status != TournamentStatus.PUBLISHED or not must_pay_online(reg, reg.tournament):
+            reg.promoted_at = None   # pagato, niente da pagare online o torneo iniziato: l'orologio si ferma
             continue
-        if reg.payment and reg.payment.status == PaymentStatus.PAID:
-            reg.promoted_at = None   # ha pagato: conferma, ferma il timer
-            db.add(reg)
+        if reg.promoted_at > cutoff:
             continue
-        # Non ha pagato in tempo → torna in coda
+        # Non ha pagato in tempo: torna in lista. `promoted_at` resta, e la coda
+        # lo mette dietro a chi il posto non l'ha ancora avuto.
         reg.waitlisted = True
-        reg.promoted_at = None
-        db.add(reg)
         requeued += 1
-        touched_tournaments.add(reg.tournament)
+        touched[reg.tournament_id] = reg.tournament
+        cache_invalidate(f"my-reg:{reg.tournament_id}:{reg.player_id}")
     db.commit()
-    for t in touched_tournaments:
-        if t:
-            promote_from_waitlist(t, db)
+    for tournament in touched.values():
+        promote_from_waitlist(tournament, db)
     return requeued
 
 
@@ -1337,17 +1423,9 @@ async def decide_refund(
         db.refresh(payment)
         return payment
 
-    settings = get_settings()
-    if payment.provider == "stripe" and settings.stripe_secret_key and payment.provider_payment_id:
-        stripe.api_key = settings.stripe_secret_key
-        # Pagato al negozio: il rimborso riprende il bonifico e restituisce la quota della piattaforma.
-        store_paid = {"reverse_transfer": True, "refund_application_fee": True} if payment.payee.startswith("stripe:") else {}
-        stripe.Refund.create(payment_intent=payment.provider_payment_id, **store_paid)
-    elif payment.provider == "paypal" and payment.payee.startswith("paypal:"):
-        pass   # l'incasso è sul PayPal del negozio: il rimborso lo fa il negozio da lì, qui si registra
-    elif payment.provider == "paypal" and not settings.payment_sandbox_mock:
-        await refund_paypal_capture(payment.provider_payment_id)
-
+    # Al banco o sul PayPal del negozio i soldi li restituisce il negozio da sé:
+    # qui l'organizzatore dice che l'ha fatto, e si registra.
+    await refund_at_provider(payment)
     payment.status = PaymentStatus.REFUNDED
     db.commit()
     db.refresh(payment)

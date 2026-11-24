@@ -11,6 +11,23 @@ Cinque sezioni in cima: **Eventi**, **Manifestazioni**, **Circuiti**,
 L'elenco dei tuoi tornei, i prossimi sopra e i conclusi in fondo. I conclusi
 restano consultabili e non si eliminano: sono lo storico del negozio.
 
+**Elimina** cancella un torneo con tutti i suoi dati, tranne quando ci sono
+passati dei soldi: con un pagamento incassato, rimborsato o da rimborsare il
+torneo diventa **Annullato**, esce dal calendario pubblico, e iscrizioni e
+pagamenti restano, perché le ricevute si tengono per il tempo che chiede la
+legge fiscale. Il messaggio dopo "Elimina" dice quale delle due è successa.
+
+Annullare un torneo restituisce le quote, con la regola di quando annulla il
+giocatore ma senza la soglia delle 24 ore. Ogni quota incassata, anche di chi
+si era ritirato, diventa **rimborso richiesto**; se il torneo non è iniziato,
+quelle pagate online sul conto della piattaforma tornano subito indietro da
+Stripe o PayPal.
+Restano da decidere, con **Rimborsa** o **Rifiuta** tra i giocatori, quelle
+pagate al banco, sul PayPal del negozio, quelle che il fornitore rifiuta, e
+tutte se il torneo era già iniziato. Il messaggio dice quanti rimborsi sono
+partiti e quanti restano. Iscritti, lista d'attesa e chi ha una quota di mezzo
+ricevono un'email, anche con le email del torneo spente.
+
 Su ogni scheda: un contatore di avvisi (solo quelli veri, non le note) e le
 azioni rapide — Avvia, Regia a parte, Modifica, Duplica, Ripeti, ★ Modello,
 Chiudi.
@@ -18,9 +35,11 @@ Chiudi.
 **Nuovo evento** chiede il minimo: nome, gioco, formato (da una tendina, con
 "Altro" per i formati di casa), data e ora, luogo e città, posti, quota. Se il
 negozio ha delle sedi, ne scegli una e luogo e città li eredita da lì. Fra le
-opzioni avanzate c'è anche l'**early bird**: una quota ridotta valida fino a una
-data compresa, dopo la quale si torna a quella piena. La pagina pubblica mostra
-sempre quella che si paga adesso, ed è la stessa che incassa il banco.
+opzioni avanzate c'è anche l'**early bird**: una quota ridotta per chi paga
+entro una data compresa, dopo la quale si torna a quella piena. Conta il giorno
+in cui si paga, non quello dell'iscrizione: chi si iscrive in tempo e paga al
+banco dopo la data paga la quota piena. La pagina pubblica mostra sempre quella
+che si paga adesso, ed è la stessa che incassa il banco.
 
 **★ Modello** mette da parte le impostazioni di un torneo col nome che gli dai;
 poi "Parti da un modello", in cima a "Nuovo evento", le rimette nel modulo.
@@ -54,7 +73,12 @@ staging punta allo staging.
 
 - **Giocatori** — una riga per persona: pagamento, check-in, lista, penalità,
   tag. Da qui si iscrive al banco, si importa da file, si tolgono i non
-  paganti, si fanno i pod di draft e le squadre.
+  paganti, si fanno i pod di draft e le squadre. Chi ha annullato in tempo
+  un'iscrizione pagata e non ha avuto il rimborso da solo (pagato al banco, sul
+  PayPal del negozio, o rifiutato dal fornitore) compare con **Rimborso
+  richiesto** e due pulsanti: **Rimborsa** fa partire il rimborso online dove
+  si può, e al banco registra che i soldi glieli hai ridati tu; **Rifiuta**
+  lascia il pagamento incassato.
 - **Annunci** — un messaggio a chi è iscritto, in pagina e via email o push se
   accese. Si può restringere ai portatori di certi tag: vedi sotto.
 - **Staff** — chi ti aiuta su *questo* torneo: capojudge (uno solo) e judge.

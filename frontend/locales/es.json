@@ -1284,5 +1284,19 @@
   "Imbattuto: tutti i match del torneo vinti, i bye compresi. Gli scarti tolgono a ognuno i suoi punteggi di tappa peggiori, contando 0 le tappe saltate: 0 per sommare tutto.": "Invicto: todos los partidos del torneo ganados, byes incluidos. Los descartes quitan a cada uno sus peores puntuaciones de torneo, contando 0 los torneos no jugados: 0 para sumarlo todo.",
   "Imbattuto": "Invicto",
   "Scarti": "Descartes",
-  "peggiori scartati oltre {m} tappe": "peores descartados con más de {m} torneos"
+  "peggiori scartati oltre {m} tappe": "peores descartados con más de {m} torneos",
+  "Annullare l'iscrizione a \"{nome}\"?": "¿Cancelar la inscripción a \"{nome}\"?",
+  "Se avevi pagato online e mancano più di 24 ore all'inizio, il rimborso parte da solo; se avevi pagato al banco, lo decide l'organizzatore.": "Si pagaste online y faltan más de 24 horas para el inicio, el reembolso se envía solo; si pagaste en el mostrador, lo decide el organizador.",
+  "Iscrizione annullata. Il rimborso è partito: torna sul metodo con cui avevi pagato.": "Inscripción cancelada. El reembolso está en camino al método con el que pagaste.",
+  "Iscrizione annullata. Il rimborso lo decide l'organizzatore: la richiesta è registrata.": "Inscripción cancelada. El reembolso lo decide el organizador: la solicitud ha quedado registrada.",
+  "Rimborsa": "Reembolsar",
+  "Rifiuta": "Rechazar",
+  "Rimborsare {nome}? Se ha pagato online il rimborso parte subito; se ha pagato al banco, i soldi glieli ridai tu.": "¿Reembolsar a {nome}? Si pagó online el reembolso sale enseguida; si pagó en el mostrador, le devuelves tú el dinero.",
+  "Rifiutare il rimborso a {nome}? Il pagamento resta incassato.": "¿Rechazar el reembolso a {nome}? El pago sigue cobrado.",
+  "Rimborso registrato.": "Reembolso registrado.",
+  "Rimborso rifiutato: il pagamento resta incassato.": "Reembolso rechazado: el pago sigue cobrado.",
+  "Eliminare il torneo e tutti i dati? Se qualcuno ha già pagato, il torneo viene annullato: le quote pagate online tornano indietro da sole, le altre restano da rimborsare, e ogni iscritto riceve un'email.": "¿Eliminar el torneo y todos sus datos? Si alguien ya ha pagado, el torneo se cancela: las cuotas pagadas online se devuelven solas, las demás quedan por reembolsar, y cada inscrito recibe un correo.",
+  "Torneo annullato: ogni iscritto riceve un'email.": "Torneo cancelado: cada inscrito recibe un correo.",
+  "Rimborsi partiti: {n}.": "Reembolsos enviados: {n}.",
+  "Da rimborsare: {n}, con Rimborsa o Rifiuta tra i giocatori.": "Por reembolsar: {n}, con Reembolsar o Rechazar en la lista de jugadores."
 }

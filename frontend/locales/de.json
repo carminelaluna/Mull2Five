@@ -1290,5 +1290,19 @@
   "Imbattuto: tutti i match del torneo vinti, i bye compresi. Gli scarti tolgono a ognuno i suoi punteggi di tappa peggiori, contando 0 le tappe saltate: 0 per sommare tutto.": "Ungeschlagen: alle Matches des Turniers gewonnen, Byes eingeschlossen. Streichungen entfernen bei allen die schlechtesten Turnierergebnisse, verpasste Turniere zählen 0: 0, um alles zu summieren.",
   "Imbattuto": "Ungeschlagen",
   "Scarti": "Gestrichen",
-  "peggiori scartati oltre {m} tappe": "schlechteste gestrichen ab mehr als {m} Turnieren"
+  "peggiori scartati oltre {m} tappe": "schlechteste gestrichen ab mehr als {m} Turnieren",
+  "Annullare l'iscrizione a \"{nome}\"?": "Anmeldung für „{nome}“ stornieren?",
+  "Se avevi pagato online e mancano più di 24 ore all'inizio, il rimborso parte da solo; se avevi pagato al banco, lo decide l'organizzatore.": "Wenn du online bezahlt hast und der Beginn mehr als 24 Stunden entfernt ist, wird die Erstattung automatisch ausgelöst; wenn du vor Ort bezahlt hast, entscheidet der Veranstalter.",
+  "Iscrizione annullata. Il rimborso è partito: torna sul metodo con cui avevi pagato.": "Anmeldung storniert. Die Erstattung geht an die Zahlungsart zurück, mit der du bezahlt hast.",
+  "Iscrizione annullata. Il rimborso lo decide l'organizzatore: la richiesta è registrata.": "Anmeldung storniert. Über die Erstattung entscheidet der Veranstalter: die Anfrage ist registriert.",
+  "Rimborsa": "Erstatten",
+  "Rifiuta": "Ablehnen",
+  "Rimborsare {nome}? Se ha pagato online il rimborso parte subito; se ha pagato al banco, i soldi glieli ridai tu.": "{nome} erstatten? Bei Online-Zahlung geht die Erstattung sofort raus; bei Zahlung vor Ort gibst du das Geld selbst zurück.",
+  "Rifiutare il rimborso a {nome}? Il pagamento resta incassato.": "Erstattung für {nome} ablehnen? Die Zahlung bleibt vereinnahmt.",
+  "Rimborso registrato.": "Erstattung gespeichert.",
+  "Rimborso rifiutato: il pagamento resta incassato.": "Erstattung abgelehnt: die Zahlung bleibt vereinnahmt.",
+  "Eliminare il torneo e tutti i dati? Se qualcuno ha già pagato, il torneo viene annullato: le quote pagate online tornano indietro da sole, le altre restano da rimborsare, e ogni iscritto riceve un'email.": "Turnier und alle Daten löschen? Wenn schon jemand bezahlt hat, wird das Turnier abgesagt: online bezahlte Gebühren gehen automatisch zurück, die übrigen bleiben zu erstatten, und alle Angemeldeten bekommen eine E-Mail.",
+  "Torneo annullato: ogni iscritto riceve un'email.": "Turnier abgesagt: alle Angemeldeten bekommen eine E-Mail.",
+  "Rimborsi partiti: {n}.": "Erstattungen ausgelöst: {n}.",
+  "Da rimborsare: {n}, con Rimborsa o Rifiuta tra i giocatori.": "Noch zu erstatten: {n}, mit Erstatten oder Ablehnen in der Spielerliste."
 }

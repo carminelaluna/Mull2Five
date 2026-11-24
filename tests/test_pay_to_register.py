@@ -308,7 +308,7 @@ def test_cancelling_a_desk_registration_removes_it(client):
 
     annullata = client.post(f"/api/tournaments/{tid}/my-registration/cancel", headers=player)
 
-    assert annullata.json() == {"status": "cancelled", "refunded": False}
+    assert annullata.json() == {"status": "cancelled", "refunded": False, "refund_requested": False}
     assert _mia(client, tid, player).status_code == 404
     assert client.get("/api/tournaments/me/registrations", headers=player).json() == []
     assert client.get(f"/api/tournaments/{tid}").json()["registered_players"] == 0

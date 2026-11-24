@@ -638,12 +638,29 @@ async function tournamentAction(act, id) {
   if (act === 'repeat') return openRepeatDialog(id);
   if (act === 'tpl') return saveAsTemplate(id);
   if (act === 'edit') return openEvent(id, 'impostazioni');
-  const confirmMsg = act === 'del' ? 'Eliminare definitivamente il torneo e tutti i dati?' : null;
+  const confirmMsg = act === 'del'
+    ? tr('Eliminare il torneo e tutti i dati? Se qualcuno ha già pagato, il torneo viene annullato: le quote pagate online tornano indietro da sole, le altre restano da rimborsare, e ogni iscritto riceve un\'email.')
+    : null;
   if (confirmMsg && !window.confirm(confirmMsg)) return;
   try {
     if (act === 'start') await apiFetch(`/tournaments/${id}/start`, { method: 'POST' });
     if (act === 'close') await apiFetch(`/tournaments/${id}/close`, { method: 'POST' });
-    if (act === 'del')   await apiFetch(`/tournaments/${id}`, { method: 'DELETE' });
+    if (act === 'del') {
+      // Con dei pagamenti il server lo annulla invece di cancellarlo: le
+      // ricevute si tengono per la legge fiscale. Intanto restituisce le quote
+      // che può e avvisa tutti; dice quante sono partite e quante restano.
+      const res = await apiFetch(`/tournaments/${id}`, { method: 'DELETE' });
+      if (res?.status === 'cancelled') {
+        const parts = [tr('Torneo annullato: ogni iscritto riceve un\'email.')];
+        if (res.refunded) parts.push(tr('Rimborsi partiti: {n}.', { n: res.refunded }));
+        if (res.refund_requested) {
+          parts.push(tr('Da rimborsare: {n}, con Rimborsa o Rifiuta tra i giocatori.', { n: res.refund_requested }));
+        }
+        toast(parts.join(' '));
+        await loadTournaments(); render();
+        return;
+      }
+    }
     if (act === 'dup') {
       const t = await apiFetch(`/tournaments/${id}/duplicate`, { method: 'POST' });
       toast('Evento duplicato (data +7 giorni).');
@@ -830,7 +847,10 @@ function playerRow(r) {
     <td>
       ${cell(
         `<span class="pill ${paid ? 'ok' : 'warn'}">${esc(tr(PAYMENT_LABELS[r.payment_status] || r.payment_status))}</span>`,
-        paid ? '' : `<button class="mini-button" data-act="pay" type="button">${esc(tr('Segna pagato'))}</button>`,
+        r.payment_status === 'refund_requested'
+          ? `<button class="mini-button" data-act="refund-ok" type="button">${esc(tr('Rimborsa'))}</button>
+             <button class="mini-button" data-act="refund-no" type="button">${esc(tr('Rifiuta'))}</button>`
+          : paid ? '' : `<button class="mini-button" data-act="pay" type="button">${esc(tr('Segna pagato'))}</button>`,
       )}
     </td>
     <td>
@@ -1017,11 +1037,32 @@ function drawGiocatori(t) {
       if (act === 'deck-edit')  return openDeckDialog(t.id, reg);
       if (act === 'penalty')    return openPenaltyDialog(t.id, reg);
       if (act === 'fixed-table') return setFixedTable(t, reg);
+      if (act === 'refund-ok' || act === 'refund-no') return decideRefund(t, reg, act === 'refund-ok');
       if (act === 'suspend')    return openSuspendDialog(_suspendSlug, {
         user_id: reg.player_id, name: reg.player?.display_name || reg.player_email,
       }, () => renderWarnings(t));
       return regAction(t.id, act, regId, btn.dataset.val);
     }));
+}
+
+/* Chi ha annullato in tempo e aveva pagato al banco, o sul PayPal del negozio,
+   o il cui rimborso online non è partito, aspetta qui: lo decide l'organizzatore.
+   "Rimborsa" fa partire il rimborso online dove può; al banco i soldi li ridà
+   il negozio, e qui si registra. */
+async function decideRefund(t, reg, approve) {
+  const nome = reg.player?.display_name || reg.player_email;
+  const ask = approve
+    ? tr('Rimborsare {nome}? Se ha pagato online il rimborso parte subito; se ha pagato al banco, i soldi glieli ridai tu.', { nome })
+    : tr('Rifiutare il rimborso a {nome}? Il pagamento resta incassato.', { nome });
+  if (!window.confirm(ask)) return;
+  try {
+    await apiFetch(`/tournaments/${t.id}/payments/${reg.payment_id}/refund`, {
+      method: 'POST', body: JSON.stringify({ approve }),
+    });
+    reg.payment_status = approve ? 'refunded' : 'paid';
+    drawGiocatori(t);
+    toast(approve ? tr('Rimborso registrato.') : tr('Rimborso rifiutato: il pagamento resta incassato.'));
+  } catch (err) { toast('Errore: ' + err.message); }
 }
 
 /* Prima dell'inizio, chi occupa un posto senza aver pagato lo lascia a chi

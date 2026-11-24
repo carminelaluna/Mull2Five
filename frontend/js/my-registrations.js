@@ -624,10 +624,18 @@ async function selfDrop(tournamentId, name) {
 
 /* ── #43 Annulla iscrizione self-service (pre-torneo) ──── */
 async function selfCancel(tournamentId, name) {
-  if (!window.confirm(`Annullare l'iscrizione a "${name}"?\nSe avevi pagato e mancano più di 24h all'inizio, riceverai il rimborso automaticamente.`)) return;
+  const ask = [
+    tr('Annullare l\'iscrizione a "{nome}"?', { nome: name }),
+    tr('Se avevi pagato online e mancano più di 24 ore all\'inizio, il rimborso parte da solo; se avevi pagato al banco, lo decide l\'organizzatore.'),
+  ].join('\n');
+  if (!window.confirm(ask)) return;
   try {
     const res = await apiFetch(`/tournaments/${tournamentId}/my-registration/cancel`, { method: 'POST' });
-    toast(res?.refunded ? 'Iscrizione annullata e rimborso avviato.' : 'Iscrizione annullata.');
+    // Il rimborso partito e quello da decidere sono due cose diverse: prima
+    // diceva "rimborso avviato" anche quando non partiva niente (24/11/2026).
+    toast(res?.refunded ? tr('Iscrizione annullata. Il rimborso è partito: torna sul metodo con cui avevi pagato.')
+      : res?.refund_requested ? tr('Iscrizione annullata. Il rimborso lo decide l\'organizzatore: la richiesta è registrata.')
+        : tr('Iscrizione annullata'));
     await loadRegistrations();
   } catch (err) {
     toast('Errore: ' + err.message);

@@ -4,7 +4,7 @@ test_suggestions_batch.py — Test per il batch di suggerimenti #39/#37/#41/#43/
 - #39 correzione risultato post-torneo + audit log
 - #37 no-show: marca assenti e rigenera l'ultimo round
 - #41 statistiche meta (archetipi + win rate)
-- #43 annulla iscrizione self-service + rimborso
+- #43 annulla iscrizione self-service + richiesta di rimborso
 - #46 bracket pubblico dalla SPA
 - #32 scadenza promozione waitlist (sweep diretto)
 - #45 ricevuta pagamento (sandbox complete → PAID + timer waitlist azzerato)
@@ -119,7 +119,7 @@ def test_meta_stats(client):
 
 
 # ── #43 annulla iscrizione + rimborso ─────────────────────────
-def test_cancel_registration_refunds_when_paid(client):
+def test_cancel_registration_asks_the_refund_when_paid(client):
     org = _register(client, "cancel-org@example.com", role="organizer")
     tid = _make_tournament(client, org, start_time="20:00")
     h = _register(client, "cancel-player@example.com")
@@ -131,7 +131,8 @@ def test_cancel_registration_refunds_when_paid(client):
     r = client.post(f"/api/tournaments/{tid}/my-registration/cancel", headers=h)
     assert r.status_code == 200, r.text
     assert r.json()["status"] == "cancelled"
-    assert r.json()["refunded"] is True
+    # Pagato al banco: i soldi li ha il negozio, il rimborso lo decide l'organizzatore.
+    assert (r.json()["refunded"], r.json()["refund_requested"]) == (False, True)
 
 
 # ── #46 bracket pubblico ──────────────────────────────────────
@@ -150,11 +151,14 @@ def test_public_bracket_gated_on_pairings_public(client):
 
 # ── #32 scadenza promozione waitlist (sweep diretto) ──────────
 def test_waitlist_sweep_requeues_unpaid(client, db_session):
+    """Solo chi deve pagare online ha l'orologio: qui il torneo si paga solo
+    online. Al banco e gratis lo sweep non rimette in coda nessuno
+    (tests/test_terms_promises.py)."""
     from backend.app.models import Registration
     from backend.app.routers.tournaments import sweep_waitlist_deadlines
 
     org = _register(client, "sweep-org@example.com", role="organizer")
-    tid = _make_tournament(client, org)
+    tid = _make_tournament(client, org, pay_at_event=False, pay_stripe=True)
     _register(client, "sweep-player@example.com")
     reg = client.post(f"/api/tournaments/{tid}/walk-in", headers=org, json={
         "email": "sweep-player@example.com", "display_name": "Promoted", "mark_paid": False,
@@ -171,8 +175,11 @@ def test_waitlist_sweep_requeues_unpaid(client, db_session):
     # Il promosso non pagante e scaduto viene riaccodato dallo sweep.
     requeued = sweep_waitlist_deadlines(db_session)
     assert requeued == 1
-    # (con un solo iscritto e un posto libero viene poi ri-promosso: ciò che conta è
-    #  che lo sweep abbia rilevato e gestito la scadenza.)
+    # Nessun altro aspetta e il posto è libero: torna dentro, con un orologio nuovo.
+    db_session.expire_all()
+    r = db_session.get(Registration, rid)
+    assert r.waitlisted is False
+    assert r.promoted_at > datetime.now(UTC) - timedelta(minutes=1)
 
 
 # ── #45 ricevuta pagamento (sandbox) ──────────────────────────

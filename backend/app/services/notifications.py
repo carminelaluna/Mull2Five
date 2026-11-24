@@ -74,6 +74,28 @@ def _payment_confirmed(player_name: str, tournament: "Tournament", amount: float
     return subject, body, html
 
 
+def _tournament_cancelled(
+    player_name: str, tournament: "Tournament", refund: str | None, amount: float,
+) -> tuple[str, str, str]:
+    subject = f"Torneo annullato — {tournament.name}"
+    giorno = f" del {tournament.starts_on.strftime('%d/%m/%Y')}" if tournament.starts_on else ""
+    body = (
+        f"Ciao {player_name},\n\n"
+        f"il negozio ha annullato {tournament.name}{giorno}: il torneo non si gioca.\n\n"
+    )
+    if refund == "refunded":
+        body += (f"Avevi pagato €{amount:.2f}: il rimborso è partito e torna sul metodo con cui "
+                 "avevi pagato. Possono volerci alcuni giorni prima che tu lo veda.\n\n")
+    elif refund == "requested":
+        body += (f"Avevi pagato €{amount:.2f}: la richiesta di rimborso è registrata, e la quota "
+                 "te la restituisce il negozio. Per qualsiasi cosa, scrivi a chi organizza.\n\n")
+    else:
+        body += "Non devi fare niente.\n\n"
+    body += "Mull2Five"
+    html = event_announcement_html(tournament.name, "Torneo annullato", body)
+    return subject, body, html
+
+
 # ── Funzioni pubbliche chiamate dai router ────────────
 
 
@@ -158,6 +180,20 @@ def push_to_tournament(
     if stale:
         db.commit()
     return sent
+
+
+def notify_tournament_cancelled(
+    tournament: "Tournament", notices: list[tuple["Registration", str | None, float]],
+) -> None:
+    """Il torneo è stato annullato: lo dice a ognuno, con cosa succede alla sua
+    quota ("refunded", "requested" o None se non aveva pagato). Parte anche con
+    le email del torneo spente, come la ricevuta: ci sono di mezzo dei soldi, e
+    chi viene apposta deve saperlo."""
+    for reg, refund, amount in notices:
+        if not reg.player or not reg.player.email:
+            continue
+        subject, body, html = _tournament_cancelled(reg.player.display_name, tournament, refund, amount)
+        send_email(reg.player.email, subject, body, html, sender=Sender.PAYMENTS)
 
 
 def notify_payment_confirmed(registration: "Registration", amount: float) -> None:
