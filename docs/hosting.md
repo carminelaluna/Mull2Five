@@ -380,6 +380,21 @@ lo stesso vale per Vite: si entra da `localhost:5173`, non da `127.0.0.1`.
 Sullo staging l'email che avvisa dell'unione con un account esistente non parte,
 perché lì l'SMTP è vuoto di proposito.
 
+### L'app Android: il legame col sito
+
+L'app è il sito dentro Chrome, e Chrome la mostra senza la barra dell'indirizzo
+solo se `/.well-known/assetlinks.json` la riconosce. Due variabili, in ciascun
+servizio → *Environment*:
+
+- `ANDROID_PACKAGE` — vuota in produzione (vale `it.mull2five.app`); sullo
+  staging `it.mull2five.app.staging`, già scritto in `render.yaml`;
+- `ANDROID_CERT_FINGERPRINTS` — le impronte SHA-256 dei certificati che firmano
+  l'app, separate da virgola. In produzione le due della Play Console, sullo
+  staging quelle delle chiavi di debug dei PC che la compilano.
+
+Vuote, l'app funziona lo stesso ma con la barra. Come si compila, si firma e si
+pubblica: [`android.md`](android.md).
+
 ### Riempire lo staging da un backup
 
 Fa due cose in una: riempie lo staging **e** mette alla prova il ripristino, che

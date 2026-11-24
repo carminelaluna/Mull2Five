@@ -66,6 +66,27 @@ def test_the_sitemap_lists_public_pages_tournaments_and_stores(client):
     assert not any("organizer.html" in url or "player.html" in url for url in urls)
 
 
+def test_assetlinks_names_the_android_app_only_when_it_has_a_key(client, monkeypatch):
+    # Senza impronte il sito non riconosce nessuna app: l'app si apre lo
+    # stesso, ma con la barra dell'indirizzo (docs/android.md).
+    empty = client.get("/.well-known/assetlinks.json")
+    assert empty.status_code == 200 and empty.json() == []
+
+    settings = get_settings()
+    monkeypatch.setattr(settings, "android_package", "it.mull2five.app.staging")
+    monkeypatch.setattr(settings, "android_cert_fingerprints", " aa:bb:cc , DD:EE:FF,")
+    links = client.get("/.well-known/assetlinks.json")
+    assert links.status_code == 200 and links.headers["content-type"] == "application/json"
+    assert links.json() == [{
+        "relation": ["delegate_permission/common.handle_all_urls"],
+        "target": {
+            "namespace": "android_app",
+            "package_name": "it.mull2five.app.staging",
+            "sha256_cert_fingerprints": ["AA:BB:CC", "DD:EE:FF"],
+        },
+    }]
+
+
 def test_legal_details_come_from_the_settings(client, monkeypatch):
     assert client.get("/api/site/legal").json()["complete"] is False
     settings = get_settings()

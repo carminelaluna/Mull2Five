@@ -215,6 +215,20 @@ Sempre il 24 novembre, una passata per l'uso di tutti i giorni:
 - Sulle pagine di ricerca, da telefono, i filtri stanno dietro un pulsante
   (`js/facets-toggle.js`). DMARC del dominio acceso (`p=none`), DKIM c'era già.
 
+Sempre il 24 novembre è nata **l'app Android**: è il sito dentro Chrome (TWA,
+Bubblewrap), scelta al posto di Capacitor perché in una WebView Google rifiuta
+l'accesso e le notifiche andrebbero rifatte. Pacchetto `it.mull2five.app`, e
+`it.mull2five.app.staging` per la prova sullo staging. Nel repository solo
+`android/<ambiente>/twa-manifest.json` e due script PowerShell: `strumenti.ps1`
+(JDK 17 e Android SDK in `%USERPROFILE%\.bubblewrap`, una volta per PC) e
+`compila.ps1` (rigenera il progetto Gradle e lo compila). Chrome la apre senza
+barra solo se `/.well-known/assetlinks.json` (`routers/site.py`) nomina il
+pacchetto e l'impronta della firma: `ANDROID_PACKAGE` e
+`ANDROID_CERT_FINGERPRINTS` su Render, vuote vale `[]`. Le notifiche sono il
+Web Push di sempre, con il badge monocromatico (`icon-monochrome-512.png`).
+Gli strumenti dell'SDK restano alla 19.0: dalla 23.0 `sdkmanager` è la "Android
+CLI", che non installa i pacchetti ed esce con 0. Tutto in `docs/android.md`.
+
 ## Cosa resta — in ordine
 
 Dettaglio in `TODO.md`. Quelle che contano:
@@ -241,5 +255,6 @@ Dettaglio in `TODO.md`. Quelle che contano:
    e lo staging esiste.
 
 **Rimandabili**
-Locator (spento per le condizioni d'uso di Wizards), ri-podding, app mobile,
-e le idee in fondo al TODO.
+Locator (spento per le condizioni d'uso di Wizards), ri-podding, l'app Android
+su Google Play (account sviluppatore, chiave, 12 tester per 14 giorni:
+`docs/android.md`), e le idee in fondo al TODO.

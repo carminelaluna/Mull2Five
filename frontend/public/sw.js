@@ -6,7 +6,7 @@
  * Riceve anche le notifiche Web Push.
  */
 
-const CACHE = 'mull2five-v2';   // nuova versione: le pagine in cache si riscaricano
+const CACHE = 'mull2five-v3';   // nuova versione: pagine e manifest in cache si riscaricano
 
 /* Solo file che hanno lo stesso nome in sviluppo e nella build. JS e CSS nella
    build prendono un nome con l'hash (/assets/...): finiscono in cache al primo
@@ -85,7 +85,8 @@ self.addEventListener('push', e => {
     self.registration.showNotification(data.title, {
       body: data.body,
       icon: '/icon-192.png',
-      badge: '/icon-192.png',
+      // Android disegna il badge in un colore solo: un'icona piena diventa un quadrato.
+      badge: '/icon-monochrome-512.png',
       data: { url: data.url || '/' },
     })
   );

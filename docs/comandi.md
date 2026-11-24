@@ -234,7 +234,7 @@ gh run rerun <id-del-run> --failed
 ### La CI è rossa
 `gh run view <id> --log-failed` dice quale job e quale test. I job sono quattro:
 Backend su SQLite, Backend su PostgreSQL, Frontend, E2E (solo su `main`).
-Gli stessi controlli si lanciano in locale (sezione 11). Due rossi già visti
+Gli stessi controlli si lanciano in locale (sezione 12). Due rossi già visti
 che non erano bug del sito:
 - `ModuleNotFoundError: No module named 'tests'`: un test importa da un altro.
   Lo risolve `pythonpath = ["."]` in `pyproject.toml`.
@@ -519,7 +519,41 @@ certificato può fallire per qualche minuto, poi Render ritenta da solo.
 
 ---
 
-## 11. Lavorare in locale
+## 11. L'app Android
+
+È il sito dentro Chrome (TWA). Tutto il resto — prima installazione, chiave,
+Google Play — in [`android.md`](android.md).
+
+### L'app si apre con la barra dell'indirizzo in cima
+Il sito non riconosce la firma dell'app. Cosa dichiara:
+```powershell
+Invoke-RestMethod https://mull2five.it/.well-known/assetlinks.json | ConvertTo-Json -Depth 5
+```
+```powershell
+Invoke-RestMethod https://mull2five-staging.onrender.com/.well-known/assetlinks.json | ConvertTo-Json -Depth 5
+```
+- `[]`: manca `ANDROID_CERT_FINGERPRINTS` su Render. In produzione vanno le due
+  impronte della Play Console (*Integrità dell'app* → *Firma dell'app*); sullo
+  staging quella che stampa `compila.ps1`.
+- Pacchetto o impronta diversi da quelli dell'app installata: un APK di staging
+  compilato su un altro PC ha un'altra chiave di debug; si aggiunge la sua
+  impronta dopo una virgola.
+
+Corretta la variabile, Render riparte; Chrome ricontrolla alla riapertura
+dell'app. Se la barra resta, si disinstalla e si reinstalla l'app.
+
+### Ricompilare
+```powershell
+powershell -ExecutionPolicy Bypass -File android\compila.ps1 -Ambiente staging
+```
+⚠️ Quella vera, da caricare su Google Play (chiede la password della chiave):
+```powershell
+powershell -ExecutionPolicy Bypass -File android\compila.ps1 -Ambiente produzione
+```
+
+---
+
+## 12. Lavorare in locale
 
 ### Avviare il sito
 L'API, in un terminale. Va riavviata dopo ogni modifica al backend: gira senza `--reload`.
@@ -575,7 +609,7 @@ Mai modificare file mentre pytest gira.
 
 ---
 
-## 12. Le regole che hanno già fatto danni
+## 13. Le regole che hanno già fatto danni
 
 - **Non pushare su `main` senza volerlo**: parte il deploy sul sito vero. Dal
   24/11/2026 aspetta la CI verde, ma la CI non vede tutto.

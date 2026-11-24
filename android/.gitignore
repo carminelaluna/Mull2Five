@@ -1,0 +1,12 @@
+node_modules/
+
+# Il progetto Gradle lo rigenera compila.ps1 da twa-manifest.json, a ogni
+# compilazione: nel repository c'è solo quello.
+produzione/*
+!produzione/twa-manifest.json
+staging/*
+!staging/twa-manifest.json
+
+# Le chiavi di firma non entrano mai: il repository è pubblico.
+*.jks
+*.keystore

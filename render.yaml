@@ -118,6 +118,13 @@ services:
         sync: false
       - key: GOOGLE_CLIENT_SECRET
         sync: false
+      # L'app Android (docs/android.md): le impronte SHA-256 dei certificati che
+      # la firmano — la chiave di Google Play e quella di caricamento, separate
+      # da virgola. Non sono segrete, ma arrivano dalla Play Console. Senza,
+      # l'app si apre con la barra dell'indirizzo. Il pacchetto resta quello
+      # predefinito, it.mull2five.app.
+      - key: ANDROID_CERT_FINGERPRINTS
+        sync: false
       # Senza, /metrics in produzione risponde 404 (main.py). Con: si legge con
       # `Authorization: Bearer <token>`.
       - key: METRICS_TOKEN
@@ -226,6 +233,14 @@ services:
       - key: GOOGLE_CLIENT_ID
         sync: false
       - key: GOOGLE_CLIENT_SECRET
+        sync: false
+
+      # L'app Android di prova (android/staging): un pacchetto suo, così sul
+      # telefono sta accanto a quella vera. Le impronte sono quelle delle chiavi
+      # di debug dei PC che la compilano (le stampa android/compila.ps1).
+      - key: ANDROID_PACKAGE
+        value: it.mull2five.app.staging
+      - key: ANDROID_CERT_FINGERPRINTS
         sync: false
 
       # Vuote di proposito: una copia che manda email scrive a persone vere.

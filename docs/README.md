@@ -11,6 +11,7 @@ Una guida per parte del sito. Non è la documentazione dell'API (quella è su
 | [Il lato pubblico](pubblico.md) | Cosa vedono i giocatori: ricerca, iscrizione, liste, segnalazioni |
 | [I ruoli](ruoli.md) | Chi può fare cosa: giocatore, organizzatore, judge, capojudge, admin |
 | [La messa online](hosting.md) | Render, Supabase, variabili d'ambiente, backup e ripristino |
+| [L'app Android](android.md) | Il sito dentro Chrome (TWA): compilarla, firmarla, pubblicarla su Google Play |
 | [**I comandi**](comandi.md) | Quando qualcosa non va: dal sintomo (o dall'avviso su Telegram) al comando |
 
 ## Le tre parti in due righe

@@ -1,0 +1,61 @@
+{
+  "packageId": "it.mull2five.app.staging",
+  "host": "mull2five-staging.onrender.com",
+  "name": "Mull2Five Staging",
+  "launcherName": "M2F staging",
+  "display": "standalone",
+  "displayOverride": [],
+  "themeColor": "#0D0D0F",
+  "themeColorDark": "#0D0D0F",
+  "navigationColor": "#0D0D0F",
+  "navigationColorDark": "#0D0D0F",
+  "navigationDividerColor": "#0D0D0F",
+  "navigationDividerColorDark": "#0D0D0F",
+  "backgroundColor": "#0D0D0F",
+  "enableNotifications": true,
+  "startUrl": "/",
+  "iconUrl": "https://mull2five-staging.onrender.com/icon-512.png",
+  "maskableIconUrl": "https://mull2five-staging.onrender.com/icon-maskable-512.png",
+  "monochromeIconUrl": "https://mull2five-staging.onrender.com/icon-monochrome-512.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "~/.android/debug.keystore",
+    "alias": "androiddebugkey"
+  },
+  "appVersionCode": 1,
+  "appVersion": "1.0.0",
+  "shortcuts": [
+    {
+      "name": "Cerca eventi",
+      "shortName": "Eventi",
+      "url": "/events.html",
+      "chosenIconUrl": "https://mull2five-staging.onrender.com/icon-192.png"
+    },
+    {
+      "name": "Le mie iscrizioni",
+      "shortName": "Iscrizioni",
+      "url": "/my-registrations.html",
+      "chosenIconUrl": "https://mull2five-staging.onrender.com/icon-192.png"
+    }
+  ],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://mull2five-staging.onrender.com/site.webmanifest",
+  "fallbackType": "customtabs",
+  "features": {
+    "locationDelegation": {
+      "enabled": true
+    }
+  },
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://mull2five-staging.onrender.com/",
+  "minSdkVersion": 24,
+  "orientation": "default",
+  "fingerprints": [],
+  "additionalTrustedOrigins": [],
+  "retainedBundles": []
+}

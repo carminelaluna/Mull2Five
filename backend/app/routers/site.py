@@ -1,7 +1,7 @@
 """
 site.py — Le pagine di servizio del sito: robots.txt e sitemap.xml per i motori
-di ricerca, i dati di chi gestisce il sito per privacy e termini, e le
-statistiche delle visite.
+di ricerca, assetlinks.json per l'app Android, i dati di chi gestisce il sito
+per privacy e termini, e le statistiche delle visite.
 
 Le statistiche non usano cookie e non salvano IP, user agent né utenti: ogni
 pagina vista aggiunge uno a un contatore per giorno, pagina, dominio di
@@ -18,6 +18,7 @@ from urllib.parse import urlsplit
 from xml.sax.saxutils import escape
 
 from fastapi import APIRouter, Depends, Query, Request, Response
+from fastapi.responses import JSONResponse
 from sqlalchemy import delete, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -125,6 +126,28 @@ def _sitemap(base: str, db: Session) -> str:
     items = "\n".join(f"  <url><loc>{escape(url)}</loc></url>" for url in urls)
     return ('<?xml version="1.0" encoding="UTF-8"?>\n'
             f'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n{items}\n</urlset>\n')
+
+
+@router.get("/.well-known/assetlinks.json", include_in_schema=False)
+def asset_links() -> JSONResponse:
+    """Il legame fra il sito e l'app Android (docs/android.md).
+
+    Chrome apre l'app a schermo intero solo se trova qui il suo pacchetto e
+    l'impronta del certificato che la firma; altrimenti la apre lo stesso, ma
+    con la barra dell'indirizzo in cima, come una scheda qualsiasi. Senza
+    impronte la lista è vuota: il sito non riconosce nessuna app."""
+    settings = get_settings()
+    fingerprints = [f.strip().upper() for f in settings.android_cert_fingerprints.split(",") if f.strip()]
+    if not fingerprints:
+        return JSONResponse([])
+    return JSONResponse([{
+        "relation": ["delegate_permission/common.handle_all_urls"],
+        "target": {
+            "namespace": "android_app",
+            "package_name": settings.android_package,
+            "sha256_cert_fingerprints": fingerprints,
+        },
+    }])
 
 
 @api_router.get("/site/legal", response_model=LegalOut)
