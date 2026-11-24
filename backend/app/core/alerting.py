@@ -46,6 +46,8 @@ def _should_send(key: str, throttle_secs: int) -> bool:
 
 
 def _send_telegram(token: str, chat_id: str, text: str) -> bool:
+    # Un token incollato con un a capo rende l'indirizzo non valido (24/11/2026).
+    token, chat_id = token.strip(), chat_id.strip()
     try:
         response = httpx.post(
             f"https://api.telegram.org/bot{token}/sendMessage",
@@ -53,7 +55,8 @@ def _send_telegram(token: str, chat_id: str, text: str) -> bool:
             timeout=10,
         )
     except Exception as exc:  # noqa: BLE001
-        logger.warning("Alert Telegram non inviato: %s", exc)
+        # Il tipo e basta: il messaggio di httpx può contenere l'indirizzo, cioè il token.
+        logger.warning("Alert Telegram non inviato: %s", type(exc).__name__)
         return False
     if not response.is_success:
         # Il codice e basta: l'indirizzo della richiesta contiene il token.

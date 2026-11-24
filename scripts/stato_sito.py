@@ -20,6 +20,7 @@ lancio a mano da GitHub) scrive lo stato anche se non è cambiato niente.
 Solo libreria standard: sul runner non si installa niente.
 """
 import argparse
+import http.client
 import json
 import os
 import re
@@ -164,16 +165,19 @@ def send_telegram(token: str, chat_id: str, text: str) -> None:
         f"https://api.telegram.org/bot{token}/sendMessage",
         data=data, headers={"Content-Type": "application/json"},
     )
+    # Negli errori la descrizione di Telegram ("chat not found"…) o il tipo, mai
+    # l'indirizzo: contiene il token, e l'errore finisce nel log del workflow.
     try:
         with urllib.request.urlopen(request, timeout=20):  # noqa: S310 — URL fisso, https
             return
     except urllib.error.HTTPError as exc:
-        # La descrizione di Telegram ("chat not found"…), mai l'indirizzo: contiene il token.
         try:
             description = json.loads(exc.read()).get("description", "")
         except ValueError:
             description = ""
         raise RuntimeError(f"Telegram ha rifiutato il messaggio: HTTP {exc.code} {description}") from None
+    except (OSError, ValueError, http.client.HTTPException) as exc:
+        raise RuntimeError(f"Telegram non raggiungibile: {type(exc).__name__}") from None
 
 
 def _load(path: Path) -> dict | None:
@@ -197,7 +201,9 @@ def main(argv: list[str] | None = None) -> int:
                         help="scrive lo stato anche se non è cambiato: per provare bot e segreti")
     args = parser.parse_args(argv)
 
-    token, chat_id = os.environ.get("TELEGRAM_BOT_TOKEN"), os.environ.get("TELEGRAM_CHAT_ID")
+    # Un segreto incollato da BotFather può portarsi dietro un a capo (24/11/2026).
+    token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+    chat_id = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
     if not (token and chat_id):
         print("::warning::Mancano TELEGRAM_BOT_TOKEN o TELEGRAM_CHAT_ID: nessun controllo.")
         return 0

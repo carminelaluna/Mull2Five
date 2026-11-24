@@ -181,6 +181,29 @@ def test_run_by_hand_it_always_says_how_it_is(tmp_path, monkeypatch):
     assert inviati == ["✅ mull2five.it sta bene, commit c8703eb."]
 
 
+def test_a_token_pasted_with_a_newline_still_works(tmp_path, monkeypatch):
+    """Il 24/11/2026 il primo giro vero è caduto così: il segreto copiato da
+    BotFather finiva con un a capo, e l'indirizzo di Telegram non era valido."""
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "123:abc\n")
+    monkeypatch.setenv("TELEGRAM_CHAT_ID", " 42\n")
+    monkeypatch.delenv("GITHUB_OUTPUT", raising=False)
+    monkeypatch.setattr(stato_sito, "check", lambda url: OK)
+    inviati = []
+    monkeypatch.setattr(stato_sito, "send_telegram", lambda *args: inviati.append(args[:2]))
+
+    stato_sito.main(["--stato", str(tmp_path / "stato.json"), "--sempre"])
+
+    assert inviati == [("123:abc", "42")]
+
+
+def test_a_broken_token_never_ends_up_in_the_error():
+    """L'errore finisce nel log del workflow: dentro non ci va l'indirizzo, che
+    contiene il token. Un a capo nel mezzo lo rifiuta Python prima della rete."""
+    with pytest.raises(RuntimeError) as errore:
+        stato_sito.send_telegram("segretissimo\nx", "42", "prova")
+    assert "segretissimo" not in str(errore.value)
+
+
 def test_without_telegram_it_does_nothing(tmp_path, monkeypatch):
     monkeypatch.delenv("TELEGRAM_BOT_TOKEN", raising=False)
     monkeypatch.delenv("TELEGRAM_CHAT_ID", raising=False)

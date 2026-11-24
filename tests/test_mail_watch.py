@@ -261,6 +261,33 @@ def test_the_notice_goes_to_telegram_and_never_to_the_alert_email(monkeypatch):
     assert emailed == []
 
 
+def test_a_token_pasted_with_a_newline_still_works_and_never_reaches_the_log(monkeypatch, caplog):
+    """Un token copiato con un a capo rendeva l'indirizzo non valido, e l'errore
+    di httpx lo riportava intero: il token sarebbe finito nei log di Render."""
+    from backend.app.core import alerting
+
+    urls = []
+
+    class Answer:
+        is_success = True
+
+    def post(url, json, timeout):
+        urls.append(url)
+        if "\n" in url:
+            raise ValueError(f"URL non valido: {url}")
+        return Answer()
+
+    monkeypatch.setattr(get_settings(), "telegram_bot_token", "123:abc\n")
+    monkeypatch.setattr(get_settings(), "telegram_chat_id", "42\n")
+    monkeypatch.setattr(alerting.httpx, "post", post)
+    assert alerting.send_telegram("prova") is True
+    assert urls == ["https://api.telegram.org/bot123:abc/sendMessage"]
+
+    monkeypatch.setattr(get_settings(), "telegram_bot_token", "123:a\nbc")
+    assert alerting.send_telegram("prova") is False
+    assert "123:a" not in caplog.text
+
+
 def test_without_telegram_nothing_is_sent(monkeypatch):
     from backend.app.core import alerting
 
