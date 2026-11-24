@@ -127,8 +127,8 @@ tornei. Dentro un circuito:
 - **Classifica** — i primi 20, la stessa della pagina pubblica.
 - **Regole e anagrafica** — nome, periodo, descrizione, pagina pubblica, e i
   punti: a vittoria (un bye vale una vittoria), a pareggio, **a tappa giocata**,
-  il **bonus torneo vinto**, il **bonus imbattuto** e gli **scarti**, più la
-  **soglia di qualificazione** che sulla classifica segna "qualificato".
+  il **bonus torneo vinto** e il **bonus imbattuto**, più la **soglia di
+  qualificazione** che sulla classifica segna "qualificato".
   Cambiare le regole ricalcola tutto, anche le tappe già giocate.
 
 Ogni tappa dà a ogni giocatore un punteggio: vittorie e pareggi, i punti
@@ -139,22 +139,21 @@ presenza, e i due bonus se li ha presi. Il totale è la somma delle tappe.
   classifica con gli spareggi del gioco.
 - **Bonus imbattuto**: a chi ha vinto *tutti* i match di un torneo concluso, i
   bye compresi. Basta un pareggio per non prenderlo.
-- **Scarti**: "Scarta i peggiori *N* se i tornei sono più di *M*". Quando il
-  circuito ha più di *M* tornei giocati, a ognuno si tolgono i suoi *N*
-  punteggi di tappa più bassi; una tappa saltata vale 0, quindi è la prima a
-  sparire. Ne resta sempre almeno una. Con 0 scarti si somma tutto. In
-  classifica la colonna "Scarti" dice quanti punti ha perso ciascuno; V/P/S e
-  tappe restano quelli di tutto il circuito.
+- **Scarti, spenti**: il calcolo esiste (con più di *M* tornei giocati, a ognuno
+  si tolgono i suoi *N* punteggi di tappa più bassi, una tappa saltata vale 0),
+  ma dal 24/11/2026 il modulo non li offre: per ora non servono. Un circuito
+  creato o salvato dal back-office somma tutte le tappe, anche se prima aveva
+  degli scarti. Per riaccenderli vanno rimessi i due campi in
+  `organizer-circuits.js`; la colonna "Scarti" in classifica compare solo se
+  qualcuno ha perso dei punti.
 
 **Un circuito nuovo parte con le regole della lega del negozio**: 3 a
 vittoria, 1 a pareggio, 1 a tappa giocata, 1 di bonus imbattuto, nessun bonus
-vincitore, e oltre 4 tornei si scartano i 2 punteggi peggiori. Si cambiano nel
-modulo prima di crearlo. I circuiti nati prima del 24/11/2026 hanno bonus
-imbattuto e scarti a zero: la loro classifica non è cambiata.
+vincitore. Si cambiano nel modulo prima di crearlo. I circuiti nati prima del
+24/11/2026 hanno il bonus imbattuto a zero: la loro classifica non è cambiata.
 
 Una tappa conta come giocata se si è giocato almeno un turno: chi è solo
-iscritto a un torneo futuro non compare ancora, e un torneo in calendario non
-conta per la soglia degli scarti.
+iscritto a un torneo futuro non compare ancora.
 
 **Chiudi circuito** lo segna come concluso e non accetta più tornei (la
 classifica resta); "Riapri" lo rimette in corso. **Elimina circuito** lo toglie

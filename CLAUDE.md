@@ -179,17 +179,19 @@ totale somma le tappe:
   primo con gli spareggi del gioco;
 - il **bonus imbattuto**, a chi vince *tutti* i match di un torneo concluso;
   basta un pareggio per perderlo;
-- gli **scarti**: con più di `drop_above_tournaments` tornei *giocati* nel
+- gli **scarti**, che il back-office **non offre più** dal 24/11/2026 ("non
+  serve al momento"): con più di `drop_above_tournaments` tornei *giocati* nel
   circuito, a ognuno si tolgono i suoi `drop_worst_scores` punteggi di tappa
-  peggiori, e una tappa saltata vale 0. Ne resta sempre almeno una.
+  peggiori, e una tappa saltata vale 0. Il calcolo e le colonne restano, ma il
+  modulo manda sempre `drop_worst_scores: 0`: un circuito salvato da lì somma
+  tutto. Per riaccenderli basta rimettere i due campi in `organizer-circuits.js`.
 
 **Le regole della lega del negozio** sono quelle con cui parte un circuito
 nuovo dal back-office (`NEW_CIRCUIT`): vittorie e pareggi come sempre (3 e 1),
 **1 punto presenza, 1 punto bonus imbattuto, nient'altro** (bonus vincitore a
-zero), e **se i tornei sono più di 4 si tolgono i due punteggi peggiori**.
-Bonus imbattuto e scarti sono colonne dello schema `0014`; sui circuiti nati
-prima valgono zero, e la loro classifica non è cambiata. Dettagli in
-`docs/back-office.md`, test in `tests/test_circuits.py`.
+zero, niente scarti). Bonus imbattuto e scarti sono colonne dello schema
+`0014`; sui circuiti nati prima valgono zero, e la loro classifica non è
+cambiata. Dettagli in `docs/back-office.md`, test in `tests/test_circuits.py`.
 
 Sempre il 24 novembre, una passata per l'uso di tutti i giorni:
 - **I posti di un torneo li conta una richiesta alla volta**: `lock_seats` in

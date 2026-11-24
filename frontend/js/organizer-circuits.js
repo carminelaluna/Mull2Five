@@ -88,11 +88,14 @@ export async function renderCircuiti() {
 }
 
 /* Un circuito nuovo parte con le regole della lega del negozio: vittorie e
-   pareggi, 1 punto presenza, 1 bonus a chi chiude imbattuto, e oltre 4 tornei
-   si scartano i 2 punteggi peggiori. Si cambiano prima di creare. */
+   pareggi, 1 punto presenza, 1 bonus a chi chiude imbattuto. Si cambiano prima
+   di creare.
+   Gli scarti dei punteggi peggiori il backend li sa calcolare
+   (`drop_worst_scores`), ma dal 24/11/2026 qui non si scelgono: per ora non
+   servono, e un circuito creato o salvato dal back-office somma tutte le tappe. */
 const NEW_CIRCUIT = {
   points_win: 3, points_draw: 1, points_participation: 1, points_champion_bonus: 0,
-  points_undefeated_bonus: 1, drop_worst_scores: 2, drop_above_tournaments: 4,
+  points_undefeated_bonus: 1,
 };
 
 /* I campi dei punti, uguali nel modulo di creazione e in quello di modifica. */
@@ -105,12 +108,10 @@ function pointsFields(c, prefix) {
     ${num('Part', tr('Punti a tappa giocata'), c.points_participation ?? 0)}
     ${num('Bonus', tr('Bonus torneo vinto'), c.points_champion_bonus ?? 0)}
     ${num('Undefeated', tr('Bonus imbattuto'), c.points_undefeated_bonus ?? 0)}
-    ${num('Drop', tr('Scarta i peggiori'), c.drop_worst_scores ?? 0, 'max="20"')}
-    ${num('DropAbove', tr('Se i tornei sono più di'), c.drop_above_tournaments ?? 4)}
     <label>${esc(tr('Soglia di qualificazione'))}
       <input id="${prefix}Threshold" type="number" min="0" step="1" value="${c.qualification_threshold ?? ''}" placeholder="${esc(tr('nessuna'))}" /></label>
     <p class="muted" style="grid-column:1/-1;margin:0;font-size:.85rem">${esc(tr(
-      'Imbattuto: tutti i match del torneo vinti, i bye compresi. Gli scarti tolgono a ognuno i suoi punteggi di tappa peggiori, contando 0 le tappe saltate: 0 per sommare tutto.'))}</p>`;
+      'Imbattuto: tutti i match del torneo vinti, i bye compresi.'))}</p>`;
 }
 
 function readPoints(prefix) {
@@ -122,8 +123,7 @@ function readPoints(prefix) {
     points_participation: int('Part'),
     points_champion_bonus: int('Bonus'),
     points_undefeated_bonus: int('Undefeated'),
-    drop_worst_scores: int('Drop', 20),
-    drop_above_tournaments: int('DropAbove'),
+    drop_worst_scores: 0,     // niente scarti, anche su un circuito che li aveva
     qualification_threshold: threshold === '' ? null : Math.max(0, parseInt(threshold, 10) || 0),
   };
 }
