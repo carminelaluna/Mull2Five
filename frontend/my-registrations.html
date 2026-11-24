@@ -88,6 +88,12 @@
             <p class="muted">Chiude le sessioni aperte altrove: utile se hai usato un computer non tuo.</p>
           </div>
           <button class="secondary" id="logoutAll" type="button">Esci da tutti i dispositivi</button>
+          <!-- Compare se l'accesso con Google è attivo, o se Google è già collegato -->
+          <div id="googleInfo" hidden>
+            <strong>Accesso con Google</strong>
+            <p class="muted" id="googleState"></p>
+          </div>
+          <button class="secondary" id="googleAction" type="button" hidden></button>
         </div>
       </section>
     </main>

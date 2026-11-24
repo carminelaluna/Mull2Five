@@ -70,6 +70,37 @@ Un torneo concluso non accetta iscrizioni, nemmeno se la data è più avanti.
   giocano col loro nome. Per aggiungerne uno si apre una segnalazione: nasce un
   account per un minore, quindi lo creiamo noi.
 
+## Entrare: password o Google
+
+`login.html` ha le due schede, **Accedi** e **Registrati**, e sotto, dopo un
+"oppure", il bottone **Accedi con Google** (o **Registrati con Google**, a
+seconda della scheda). Il bottone c'è solo se il sito ha le credenziali Google
+(`GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET`, vedi `docs/hosting.md`).
+
+Con Google succede una di tre cose:
+
+- **l'account Google è già collegato** a un account di qui: si entra in quello;
+- **c'è già un account con la stessa email** (aperto con la password, o creato
+  al banco dall'organizzatore): si entra in quello e Google gli resta collegato.
+  Nessun doppione, e la password continua a valere. Se l'account aveva una
+  password arriva un'email che lo dice: se la password non l'aveva scelta chi
+  ha l'email, la cambi da "Password dimenticata";
+- **nessun account**: un ultimo passo chiede nome, età minima, termini e tipo di
+  account, come la registrazione con la password, e l'account nasce.
+
+Vale solo un'email che Google ha verificato: le altre vengono rifiutate.
+
+Nel riquadro **Il tuo account** di `my-registrations.html`:
+
+- **Collega Google** — collega l'account Google a quello con cui sei dentro,
+  anche se ha un'altra email;
+- **Scollega Google** — solo se resta la password per entrare;
+- **Scegli una password** — per chi è nato con Google e non ne ha una: arriva
+  l'email di "Password dimenticata". Dopo, Google si può scollegare.
+
+Il collegamento con Google finisce nel file di "Scarica i miei dati" e sparisce
+con "Elimina account".
+
 ## Il profilo pubblico
 
 `player.html?p=…`, raggiungibile da "Profilo" e dal link che si può copiare.

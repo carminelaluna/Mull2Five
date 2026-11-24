@@ -325,6 +325,46 @@ curl -s https://mull2five-staging.onrender.com/health       # commit e revisione
 niente: è la trappola del 23/09/2026, dove una migrazione sembrava buona e in
 produzione è morta su un errore di unicità che con poche righe non si vede.
 
+### Accesso con Google: le credenziali
+
+Il codice è pronto (`backend/app/services/google_login.py`,
+`backend/app/routers/google_auth.py`); finché le credenziali mancano il bottone
+"Accedi con Google" non compare. Le crea chi ha l'account Google del progetto,
+nella [Google Cloud Console](https://console.cloud.google.com/):
+
+1. **Un progetto** (per esempio "Mull2Five"), poi *APIs & Services* → *OAuth
+   consent screen* (nella console nuova: *Google Auth Platform* → *Branding*).
+   Tipo **External**; nome Mull2Five, email di supporto, dominio autorizzato
+   `mull2five.it`, privacy `https://mull2five.it/privacy.html`, termini
+   `https://mull2five.it/termini.html`. Gli ambiti sono solo `openid`, `email`
+   e `profile`: non sensibili, quindi Google non chiede una verifica.
+   Pubblica l'app (*In production*): in *Testing* entrano solo i tester elencati.
+2. **Due client OAuth**, *Credentials* → *Create credentials* → *OAuth client
+   ID* → **Web application**. Due e non uno, così un segreto dello staging non
+   apre la produzione:
+   - **produzione** — *Authorized redirect URIs*:
+     `https://mull2five.it/api/auth/google/callback`
+   - **staging e sviluppo** — *Authorized redirect URIs*:
+     `https://mull2five-staging.onrender.com/api/auth/google/callback` e, per
+     provare in locale, `http://localhost:5173/api/auth/google/callback`
+
+   Le *Authorized JavaScript origins* non servono: il `code` lo scambia il server.
+3. **Su Render**, in ciascun servizio → *Environment*: `GOOGLE_CLIENT_ID` e
+   `GOOGLE_CLIENT_SECRET` del suo client (in `render.yaml` sono `sync: false`).
+   `GOOGLE_REDIRECT_URI` si lascia vuota: vale `FRONTEND_URL` +
+   `/api/auth/google/callback`, e deve coincidere carattere per carattere con
+   quella registrata nella console, `https` e niente `/` in fondo compresi.
+4. **Prova**: `/api/auth/rules` risponde `"google_login": true` e `login.html`
+   mostra il bottone.
+
+Il giro passa da un cookie (`m2f_google`, solo su `/api/auth/google`) che vive
+sull'host da cui parte: per questo l'indirizzo di ritorno è quello delle pagine
+(`FRONTEND_URL`, cioè `mull2five.it`), non `mull2five.onrender.com`. In locale
+lo stesso vale per Vite: si entra da `localhost:5173`, non da `127.0.0.1`.
+
+Sullo staging l'email che avvisa dell'unione con un account esistente non parte,
+perché lì l'SMTP è vuoto di proposito.
+
 ### Riempire lo staging da un backup
 
 Fa due cose in una: riempie lo staging **e** mette alla prova il ripristino, che

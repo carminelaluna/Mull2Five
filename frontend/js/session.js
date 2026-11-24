@@ -95,6 +95,67 @@ export async function apiRequest(path, { acting = false, requireLogin = false, .
 }
 
 /**
+ * La pagina a cui tornare dopo l'accesso, se è una pagina di questo sito.
+ * `next` arriva dall'indirizzo: "https://altrove" o "javascript:…" non si seguono.
+ */
+export function safeNext(value, fallback = '') {
+  const next = String(value || '').trim();
+  return next.length <= 300 && /^[A-Za-z0-9_-][A-Za-z0-9_\-./?=&%+]*$/.test(next) ? next : fallback;
+}
+
+/* ── Accesso con Google ──────────────────────────────────────────────────
+   Il giro lo fa il server (routers/google_auth.py): qui si chiede l'indirizzo
+   di Google, ci si va, e al ritorno si ritira il token di accesso. Il token
+   non passa mai dall'indirizzo: sta in un cookie che solo il server legge. */
+
+/** Accesso o registrazione con Google: porta il browser da Google. */
+export async function startGoogleLogin(next = '') {
+  const { authorization_url: url } = await apiRequest('/auth/google/start', {
+    method: 'POST', body: JSON.stringify({ next: safeNext(next) }),
+  });
+  location.assign(url);
+}
+
+/** Dal profilo: collega Google all'account con cui si è dentro. */
+export async function startGoogleLink() {
+  const { authorization_url: url } = await apiRequest('/auth/google/link', { method: 'POST', requireLogin: true });
+  location.assign(url);
+}
+
+/**
+ * Di ritorno da Google. Se si entra, salva il token e restituisce la risposta
+ * con `access_token`; se l'account è da creare, `signup_email` e `signup_name`.
+ */
+export async function finishGoogleLogin() {
+  const result = await apiRequest('/auth/google/finish', { method: 'POST' });
+  if (result.access_token) setToken(result.access_token);
+  return result;
+}
+
+/** Chi è nuovo: nome, ruolo, età e termini, e l'account nasce. */
+export async function completeGoogleSignup(data) {
+  const { access_token: token } = await apiRequest('/auth/google/complete', {
+    method: 'POST', body: JSON.stringify(data),
+  });
+  setToken(token);
+}
+
+/** Perché l'accesso con Google non è andato, dal codice che il server mette nell'indirizzo. */
+export function googleErrorText(code) {
+  const texts = {
+    annullato: tr('Accesso con Google annullato.'),
+    stato: tr("L'accesso con Google è scaduto o è partito da un'altra finestra: riprova."),
+    rifiutato: tr("Google non ha confermato l'accesso: riprova."),
+    non_verificata: tr('Il tuo indirizzo Google non è verificato: verificalo su Google, o registrati con email e password.'),
+    disattivato: tr('Questo account è disattivato.'),
+    gia_collegato: tr('Questo account Google è già collegato a un altro account Mull2Five.'),
+    altro_google: tr('Al tuo account è già collegato un altro account Google: entra con quello o con la password.'),
+    non_disponibile: tr("L'accesso con Google non è attivo."),
+  };
+  return texts[code] || tr('Accesso con Google non riuscito: riprova.');
+}
+
+/**
  * Scarica un file dall'API. Come apiRequest, ma il corpo e un file e non JSON:
  * serve per i CSV che genera il server (il report ufficiale del torneo).
  */

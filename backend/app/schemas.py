@@ -44,6 +44,36 @@ class LoginIn(BaseModel):
     password: str
 
 
+class GoogleStartIn(BaseModel):
+    # La pagina a cui tornare dopo l'accesso (solo un indirizzo relativo del sito).
+    next: str = ""
+
+
+class GoogleSignupIn(BaseModel):
+    """Chi entra con Google per la prima volta: i dati che Google non dà."""
+    display_name: str = Field(min_length=2, max_length=160)
+    role: str = "player"
+    age_confirmed: bool | None = None
+    terms_accepted: bool | None = None
+
+
+class GoogleFinishOut(BaseModel):
+    """Il ritorno da Google: o il token di accesso, o la registrazione da completare."""
+    access_token: str | None = None
+    token_type: str = "bearer"
+    # Google è stato appena unito a un account che c'era già (con la password).
+    linked_existing: bool = False
+    signup_email: str | None = None
+    signup_name: str | None = None
+
+
+class GoogleStatusOut(BaseModel):
+    available: bool
+    linked: bool
+    email: str = ""
+    has_password: bool
+
+
 class UserOut(BaseModel):
     id: int
     email: str          # str, non EmailStr: la validazione serve solo in input, non in output

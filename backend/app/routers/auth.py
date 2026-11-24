@@ -9,7 +9,7 @@ from backend.app.core.limiter import limiter
 from backend.app.core.lockout import is_locked, record_failed
 from backend.app.core.lockout import reset as lockout_reset
 from backend.app.db import get_db
-from backend.app.models import Registration, SavedDeck, Tournament, User, UserRole
+from backend.app.models import Registration, SavedDeck, Tournament, User, UserIdentity, UserRole
 from backend.app.schemas import (
     ForgotPasswordIn,
     LoginIn,
@@ -28,6 +28,7 @@ from backend.app.security import (
     verify_password,
     verify_reset_token,
 )
+from backend.app.services import google_login
 from backend.app.services.email import Sender, send_email
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -217,6 +218,11 @@ def export_my_data(
             "created_at": user.created_at.isoformat(),
             "terms_accepted_at": user.terms_accepted_at.isoformat() if user.terms_accepted_at else None,
         },
+        "linked_accounts": [
+            {"provider": identity.provider, "email": identity.email,
+             "linked_at": identity.created_at.isoformat()}
+            for identity in db.scalars(select(UserIdentity).where(UserIdentity.user_id == user.id))
+        ],
         "registrations": [
             {
                 "tournament_id": reg.tournament_id,
@@ -242,6 +248,8 @@ def delete_my_account(
     profiles = db.scalars(select(User).where(User.guardian_id == user.id)).all()
     # Le liste salvate sono solo sue: non servono a nessuna classifica.
     db.execute(delete(SavedDeck).where(SavedDeck.owner_id.in_([user.id, *(p.id for p in profiles)])))
+    # Anche Google: l'account anonimo non si riapre, e la persona può registrarsi di nuovo.
+    db.execute(delete(UserIdentity).where(UserIdentity.user_id == user.id))
     for profile in profiles:
         profile.email = f"deleted-{profile.id}@anon.invalid"
         profile.display_name = "Utente eliminato"
@@ -264,7 +272,9 @@ def delete_my_account(
 @router.get("/rules")
 def account_rules() -> dict:
     """Le regole per aprire un account, per il modulo di registrazione."""
-    return {"min_account_age": get_settings().min_account_age}
+    return {"min_account_age": get_settings().min_account_age,
+            # Il bottone "Accedi con Google" c'è solo se le credenziali sono impostate.
+            "google_login": google_login.is_enabled()}
 
 
 MAX_PROFILES = 10

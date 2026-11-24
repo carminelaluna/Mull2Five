@@ -28,7 +28,7 @@ def _tournament(client, org):
 
 
 def test_minimum_age_at_signup(client):
-    assert client.get("/api/auth/rules").json() == {"min_account_age": 14}
+    assert client.get("/api/auth/rules").json() == {"min_account_age": 14, "google_login": False}
     refused = client.post("/api/auth/register", json={
         "email": "piccolo@example.com", "display_name": "Piccolo", "password": "supersecret123",
         "age_confirmed": False,

@@ -6,7 +6,7 @@ import { gameInfo, gameLabel, scoresFor } from './games.js';
 import { t as tr } from './i18n.js';
 import { actingAs, actingBanner, bindActingBanner, setActing } from './acting.js';
 import { feeNow, fmtDate, fmtMoney, toast } from './catalog.js';
-import { apiRequest, clearToken, logout, requireSession } from './session.js';
+import { apiRequest, clearToken, googleErrorText, logout, requireSession, startGoogleLink } from './session.js';
 
 
 /* ── Auth guard ──────────────────────────────────────── */
@@ -730,10 +730,70 @@ function setupAccount() {
   });
 }
 
+/* L'accesso con Google: collegarlo, scollegarlo, e la password per chi è nato
+   con Google. Vale per il proprio account, non per il profilo di un figlio:
+   per questo le chiamate non passano da apiFetch (niente X-Act-As). */
+async function setupGoogle() {
+  const params = new URLSearchParams(location.search);
+  const code = params.get('google_error');
+  if (params.get('google') === 'collegato') toast(tr('Google collegato: da adesso puoi entrare anche con Google.'));
+  else if (code) toast(googleErrorText(code));
+  if (params.has('google') || code) history.replaceState(null, '', location.pathname);
+
+  const info = document.querySelector('#googleInfo');
+  const stateText = document.querySelector('#googleState');
+  const btn = document.querySelector('#googleAction');
+  if (!info || !btn) return;
+  const own = (path, opts = {}) => apiRequest(path, { requireLogin: true, ...opts });
+  let status;
+  try { status = await own('/auth/google/me'); } catch { return; }
+
+  function render(next) {
+    status = next;
+    info.hidden = btn.hidden = !(status.available || status.linked);
+    if (!status.linked) {
+      stateText.textContent = tr('Collega il tuo account Google per entrare senza password.');
+      btn.textContent = tr('Collega Google');
+    } else if (status.has_password) {
+      stateText.textContent = tr('Collegato a {email}: entri con Google o con la password.', { email: status.email });
+      btn.textContent = tr('Scollega Google');
+    } else {
+      stateText.textContent = tr('Collegato a {email}. È il tuo unico modo di entrare: per scollegarlo scegli prima una password.', { email: status.email });
+      btn.textContent = tr('Scegli una password');
+    }
+  }
+  render(status);
+
+  btn.addEventListener('click', async () => {
+    if (status.linked && status.has_password
+        && !confirm(tr('Scollegare Google? Potrai entrare solo con email e password.'))) return;
+    busy(btn, true);
+    try {
+      if (!status.linked) {
+        await startGoogleLink();   // si va da Google, e si torna qui
+      } else if (!status.has_password) {
+        // Come «Password dimenticata»: il link arriva all'email dell'account.
+        await own('/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email: session.email }) });
+        toast(tr("Ti abbiamo mandato un'email con il link per scegliere la password."));
+      } else {
+        const next = await own('/auth/google/me', { method: 'DELETE' });
+        busy(btn, false);   // prima di render: busy() rimetterebbe l'etichetta di prima
+        render(next);
+        toast(tr('Google scollegato.'));
+      }
+    } catch (err) {
+      toast(err.message);
+    } finally {
+      if (btn.hasAttribute('aria-busy')) busy(btn, false);
+    }
+  });
+}
+
 onReady(() => {
   updateAuthNav();
   showActing();
   setupAccount();
+  setupGoogle();
   // Di ritorno da Stripe o PayPal senza aver pagato: l'iscrizione resta, si riprova da qui.
   if (new URLSearchParams(location.search).get('pagamento') === 'annullato') {
     toast(tr('Pagamento annullato: puoi riprovare quando vuoi da qui.'));

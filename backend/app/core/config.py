@@ -60,6 +60,14 @@ class Settings(BaseSettings):
     # Statistiche delle visite senza cookie né dati personali (routers/site.py).
     analytics_enabled: bool = True
 
+    # Accesso con Google (services/google_login.py): le credenziali OAuth del
+    # progetto nella Google Cloud Console. Senza entrambe il bottone non compare.
+    google_client_id: str | None = None
+    google_client_secret: str | None = None
+    # L'indirizzo a cui Google rimanda dopo l'accesso, registrato tale e quale
+    # nella console. Vuoto: FRONTEND_URL + /api/auth/google/callback.
+    google_redirect_uri: str = ""
+
     smtp_host: str | None = None
     smtp_port: int = 587
     smtp_username: str | None = None

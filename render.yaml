@@ -110,6 +110,12 @@ services:
         sync: false
       - key: VAPID_SUBJECT
         sync: false
+      # Accesso con Google: il client OAuth di produzione (docs/hosting.md,
+      # "Accesso con Google"). Senza, il bottone non compare.
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
       - key: METRICS_TOKEN
         sync: false
       - key: REDIS_URL
@@ -202,6 +208,12 @@ services:
       - key: PAYPAL_CLIENT_SECRET
         sync: false
       - key: PAYPAL_WEBHOOK_ID
+        sync: false
+
+      # Accesso con Google: un client OAuth suo, non quello di produzione.
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
         sync: false
 
       # Vuote di proposito: una copia che manda email scrive a persone vere.

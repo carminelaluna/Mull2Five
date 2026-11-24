@@ -29,6 +29,7 @@ from backend.app.routers import (
     decks,
     events,
     games,
+    google_auth,
     organizations,
     payments,
     public_api,
@@ -311,6 +312,7 @@ async def redirect_to_site_domain(request: Request, call_next):
 
 
 app.include_router(auth.router, prefix="/api")
+app.include_router(google_auth.router, prefix="/api")
 app.include_router(tournaments.router, prefix="/api")
 # Dopo quello principale: le rotte del torneo in corso sono tutte più
 # specifiche, e l'ordine di inclusione decide chi risponde.

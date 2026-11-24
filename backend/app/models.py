@@ -462,6 +462,28 @@ class User(Base):
         return "guest" if self.is_guest else "profile" if self.guardian_id else "account"
 
 
+class UserIdentity(Base):
+    """Un modo di entrare che non è la password: oggi l'account Google.
+
+    `subject` è l'identificativo che Google dà alla persona (il `sub` dell'id_token):
+    non cambia se cambia l'email, quindi è lui a dire chi entra. Un account Google
+    vale per un solo utente, e un utente ha al più un account per fornitore.
+    """
+    __tablename__ = "user_identities"
+    __table_args__ = (
+        UniqueConstraint("provider", "subject", name="uq_user_identities_provider_subject"),
+        UniqueConstraint("user_id", "provider", name="uq_user_identities_user_provider"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    provider: Mapped[str] = mapped_column(String(32))
+    subject: Mapped[str] = mapped_column(String(255))
+    # L'email dell'account Google quando è stato collegato: per mostrarla nel profilo.
+    email: Mapped[str] = mapped_column(String(255), default="")
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
+
+
 class PushSubscription(Base):
     """Subscription Web Push (browser) di un utente per le notifiche di torneo."""
     __tablename__ = "push_subscriptions"

@@ -6,8 +6,8 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  apiRequest, clearToken, decodeToken, errorText, getSession, getToken, refreshSession,
-  requireSession, setToken,
+  apiRequest, clearToken, decodeToken, errorText, finishGoogleLogin, getSession, getToken,
+  refreshSession, requireSession, safeNext, setToken,
 } from '../js/session.js';
 
 /* Un token con le rivendicazioni date: intestazione finta, firma finta. */
@@ -145,5 +145,36 @@ describe('le pagine riservate', () => {
   it('con una sessione valida la restituiscono', () => {
     setToken(fakeToken({ sub: '7', email: 'a@b.it', role: 'organizer', exp: now() + 3600 }));
     expect(requireSession().email).toBe('a@b.it');
+  });
+});
+
+describe('safeNext', () => {
+  it('tiene le pagine di questo sito', () => {
+    expect(safeNext('event.html?id=3')).toBe('event.html?id=3');
+    expect(safeNext('my-registrations.html')).toBe('my-registrations.html');
+  });
+
+  it('non segue altri siti né javascript:', () => {
+    for (const next of ['https://altrove.example', '//altrove.example', 'javascript:alert(1)', '/assoluto', '']) {
+      expect(safeNext(next, 'fallback.html')).toBe('fallback.html');
+    }
+  });
+});
+
+describe('ritorno da Google', () => {
+  it('salva il token quando si entra', async () => {
+    const token = fakeToken({ sub: '4', email: 'g@b.it', exp: now() + 3600 });
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(response(200, { access_token: token }));
+    await finishGoogleLogin();
+    expect(getToken()).toBe(token);
+  });
+
+  it('senza token lascia la sessione com\'è: la registrazione è da completare', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(response(200, {
+      access_token: null, signup_email: 'nuovo@b.it', signup_name: 'Nuovo',
+    }));
+    const result = await finishGoogleLogin();
+    expect(result.signup_email).toBe('nuovo@b.it');
+    expect(getToken()).toBe(null);
   });
 });

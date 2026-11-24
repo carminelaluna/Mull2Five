@@ -1170,6 +1170,15 @@ input[type="checkbox"][aria-invalid="true"] { outline: 2px solid var(--danger); 
 .reg-check > span { flex: 1 1 0; min-width: 0; }
 .reg-legal-links a { color: var(--muted); }
 
+/* Accesso con Google (login.html): sotto i moduli, dopo un "oppure". */
+.google-box { display: grid; gap: 14px; }
+.google-box.hidden, .auth-tabs.hidden { display: none; }
+.auth-divider { display: flex; align-items: center; gap: 12px; margin: 0; color: var(--muted); font-size: .85rem; }
+.auth-divider::before, .auth-divider::after { content: ""; flex: 1; border-top: 1px solid var(--line); }
+.google-btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; width: 100%; }
+.google-btn svg { flex: none; }
+.google-email { margin: -8px 0 0; font-weight: 700; overflow-wrap: anywhere; }
+
 /* Il tuo account (Le mie iscrizioni): azione e spiegazione sulla stessa riga. */
 .account-actions { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px 20px; align-items: center; }
 .account-actions p { margin: 4px 0 0; font-size: .85rem; }
