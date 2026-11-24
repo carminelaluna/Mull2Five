@@ -135,6 +135,13 @@ Workflow `.github/workflows/backup.yml`, ogni notte e a richiesta (*Run workflow
 2. Cifratura con `gpg --symmetric --cipher-algo AES256` e una passphrase.
 3. Caricamento come artifact, tenuto **30 giorni**.
 
+Se fallisce, GitHub manda un'email e arriva 🔴 su Telegram, con il link al run
+(i segreti `TELEGRAM_*` dello stato del sito, vedi "Avvisi su Telegram"). Per
+provare l'avviso: *Run workflow* con **Prova dell'avviso** spuntato; il backup
+fallisce apposta prima di toccare il database, e il messaggio comincia con 🧪.
+"Ogni notte" è un'intenzione: GitHub lo fa partire con ore di ritardo (nel
+novembre 2026 fra le 8 e le 12 italiane), e nei giorni pieni può saltarlo.
+
 Segreti del repo (*Settings → Secrets and variables → Actions*):
 - `BACKUP_DATABASE_URL`: il session pooler, ma con `postgresql://` invece di
   `postgresql+psycopg://` (`pg_dump` non conosce il driver);
@@ -440,7 +447,8 @@ Un bot solo, due fonti (24/11/2026):
   tentativi), 🟠 risponde ma il database no o lo schema è indietro, 🟢 di nuovo
   su e dopo quanto, 🚀 un commit nuovo in produzione con il suo titolo. Serve
   perché se a cadere è Render il sito non può dirlo da solo. GitHub non
-  garantisce i cinque minuti: nelle ore di punta un giro parte in ritardo;
+  garantisce i cinque minuti: nelle ore di punta un giro parte in ritardo.
+  Sempre da GitHub, 🔴 se il backup della notte fallisce (`backup.yml`, passo 6);
 - **dal sito**: il database che cade e torna (ogni minuto), un errore 500 (al
   massimo uno ogni cinque minuti per endpoint), e 📬 ogni email che arriva a
   `info@`, `commercial@` o alla casella admin, con casella, mittente e oggetto.
