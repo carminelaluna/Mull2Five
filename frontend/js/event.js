@@ -48,6 +48,25 @@ function syncPaymentChoice() {
 }
 
 
+/* Il QR dell'iscrizione (lo disegna il server, come quello del foglio qr.html):
+   si fa inquadrare a chi è accanto, o si apre il foglio da stampare. */
+function openQr(t) {
+  const link = `${location.origin}/event.html?id=${t.id}&iscriviti=1`;
+  document.querySelector('#qrDialogTitle').textContent = t.name;
+  document.querySelector('#qrDialogImage').src = `/api/tournaments/${t.id}/registration-qr.svg`;
+  document.querySelector('#qrDialogSheet').href = `qr.html?t=${t.id}`;
+  document.querySelector('#qrDialogCopy').onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(link);
+      toast(tr('Link copiato'));
+    } catch {
+      toast(link, 8000);   // senza permesso sugli appunti: il link si legge e si copia a mano
+    }
+  };
+  document.querySelector('#qrDialog').showModal();
+}
+
+
 async function loadEvent() {
   if (!TOURNAMENT_ID) { document.querySelector('#eventDetail').innerHTML = '<p class="empty">ID torneo mancante.</p>'; return; }
   try {
@@ -120,6 +139,8 @@ async function loadEvent() {
               : !session
                 ? `<a class="primary" id="eventCta" href="login.html?next=${encodeURIComponent(location.pathname + location.search)}" style="text-align:center;text-decoration:none;padding:10px 18px;border-radius:8px">Accedi per iscriverti</a>`
                 : `<span class="badge warn">${spots === 0 ? 'Torneo pieno' : 'Iscrizioni chiuse'}</span>`}
+          ${!imported && aperto
+            ? `<button class="secondary" id="qrOpen" type="button">▦ ${esc(tr('QR iscrizione'))}</button>` : ''}
         </div>
       </div>
 
@@ -205,6 +226,7 @@ async function loadEvent() {
       syncPaymentChoice();
       document.querySelector('#registerDialog').showModal();
     });
+    document.querySelector('#qrOpen')?.addEventListener('click', () => openQr(t));
     document.querySelector('#regPayment')?.addEventListener('change', syncPaymentChoice);
     document.querySelector('#confirmRegister')?.addEventListener('click', () => doRegister(t));
     bindActingBanner(document.querySelector('#eventDetail'));

@@ -52,6 +52,14 @@ Da lì in poi quel prezzo è suo, anche se il negozio ritira il codice.
 
 Un torneo concluso non accetta iscrizioni, nemmeno se la data è più avanti.
 
+**Il QR dell'iscrizione.** Sotto il pulsante d'iscrizione, finché il torneo è
+aperto (non quelli importati dal Locator), c'è **▦ QR iscrizione**: apre una
+finestra col QR, da far inquadrare a chi è accanto, con "Copia link" e il
+"Foglio da stampare" (`qr.html`, lo stesso del back-office). Lo vede chiunque:
+il QR contiene solo l'indirizzo della pagina. Chi lo inquadra arriva su
+`event.html?id=<id>&iscriviti=1`, e la finestra d'iscrizione si apre da sola;
+senza accesso passa dal login e torna lì.
+
 ## Le mie iscrizioni
 
 `my-registrations.html`, il pannello del giocatore:

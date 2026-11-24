@@ -91,6 +91,22 @@
       </form>
     </dialog>
 
+    <!-- Il QR dell'iscrizione: da far inquadrare a chi è accanto, o da stampare. -->
+    <dialog id="qrDialog">
+      <form method="dialog" class="modal qr-dialog">
+        <header>
+          <div><span class="eyebrow">QR iscrizione</span><h2 id="qrDialogTitle"></h2></div>
+          <button class="icon-button" value="cancel" formnovalidate>×</button>
+        </header>
+        <img class="qr-dialog-code" id="qrDialogImage" alt="QR per iscriversi al torneo" />
+        <p class="muted-text qr-dialog-note">Chi lo inquadra arriva qui con l'iscrizione già aperta.</p>
+        <menu>
+          <a class="secondary-link" id="qrDialogSheet" href="#" target="_blank" rel="noopener">Foglio da stampare ↗</a>
+          <button class="secondary" id="qrDialogCopy" type="button">Copia link</button>
+        </menu>
+      </form>
+    </dialog>
+
     <div id="toast" role="status" aria-live="polite"></div>
     <script type="module" src="js/event.js"></script>
     <script type="module" src="js/site.js"></script>
