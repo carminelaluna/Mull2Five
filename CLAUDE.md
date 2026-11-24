@@ -90,6 +90,10 @@ cambia cosa fa una schermata.
   avanti. Erano i rossi intermittenti della suite — sempre un 401, ogni volta su
   un test diverso. `SCARTO_OROLOGIO` in `backend/app/security.py` concede
   sessanta secondi.
+- **ID e secret Google scambiati su Render** (24/11/2026): il bottone compare lo
+  stesso, ma Google rifiuta l'accesso e il secret finisce nell'URL pubblico che
+  restituisce `/api/auth/google/start`. Controllo: lì il `client_id` deve finire
+  con `.apps.googleusercontent.com`; se comincia con `GOCSPX-` è il secret.
 
 ## Dov'è arrivato
 
@@ -97,8 +101,8 @@ Parità con Melee completata (26 passi), checklist di lancio fatta, revisione
 critica chiusa tranne tre punti. Il backend è diviso in `tournaments.py`,
 `tournament_registrations.py`, `tournament_rounds.py` più i servizi; il
 back-office in `organizer.js`, `organizer-store.js`, `organizer-common.js`.
-ESLint sul frontend, Alembic sullo schema. Test: 380 backend (SQLite e
-PostgreSQL), 60 frontend, 9 end-to-end. `/health` dice quale commit sta girando
+ESLint sul frontend, Alembic sullo schema. Test: 448 backend (SQLite e
+PostgreSQL), 64 frontend, 9 end-to-end. `/health` dice quale commit sta girando
 e se lo schema è allineato al codice.
 
 Il 5 ottobre 2026 sono state chiuse le ultime idee in coda al TODO: promemoria
@@ -118,6 +122,21 @@ torneo. Le chiavi esterne su cui le pagine cercano hanno un indice. Infine
 numero di righe: un elenco nuovo va scritto allo stesso modo, con
 `tournament_with_counts` o una query raggruppata, mai `len(relazione)` in un
 ciclo.
+
+Dal 24 novembre 2026 **si entra anche con Google**, in produzione con lo schema
+`0013` (tabella `user_identities`). Il giro è lato server
+(`routers/google_auth.py`, `services/google_login.py`): il token di accesso non
+passa mai dall'URL, lo si ritira con `POST /api/auth/google/finish`, e il cookie
+`m2f_google` vale solo durante l'accesso. **Un'email verificata da Google uguale
+a quella di un account esistente è lo stesso account**: Google gli si collega, e
+se l'account aveva una password questa si spegne, insieme alle sessioni e ai
+link di reset (`_merge_by_email`). Il motivo: la registrazione con password non
+verifica l'email. Collegare Google dal profilo, da dentro l'account, la password
+la lascia. L'unione di due account con email diverse l'utente l'ha scartata:
+basta "Collega Google". Credenziali: progetto Google Cloud `mull2five`, due
+client (produzione e staging+localhost), `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`
+su Render; senza, il bottone non compare. Dettagli in `docs/hosting.md` e
+`docs/pubblico.md`.
 
 ## Cosa resta — in ordine
 
