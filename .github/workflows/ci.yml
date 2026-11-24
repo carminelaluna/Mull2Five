@@ -98,7 +98,10 @@ jobs:
   # ── E2E (solo su push a main) ─────────────────────────
   e2e:
     name: E2E (Playwright)
-    runs-on: ubuntu-latest
+    # Non ubuntu-latest: dal 23/11/2026 è la 26.04, e Playwright non ha Chromium
+    # per lei ("Playwright does not support chromium on ubuntu26.04-x64"): gli E2E
+    # non partivano più. Si torna a latest quando Playwright la supporta.
+    runs-on: ubuntu-24.04
     if: github.ref == 'refs/heads/main'
     needs: [frontend]
     defaults:

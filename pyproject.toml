@@ -49,6 +49,12 @@ ignore = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# La radice del progetto fra i percorsi di import, comunque si lanci pytest: un
+# test che importa da un altro (`from tests.test_query_counts import …`) in
+# locale passava, perché `python -m pytest` ce la mette da sé, e in CI, dove si
+# lancia `pytest`, fermava la raccolta: da quando ci sono i test dei circuiti, in
+# CI non girava più nessun test del backend (24/11/2026).
+pythonpath = ["."]
 # esclude i load test da pytest standard
 addopts   = "--ignore=tests/load"
 
