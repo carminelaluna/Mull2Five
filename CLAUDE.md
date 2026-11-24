@@ -101,8 +101,8 @@ Parità con Melee completata (26 passi), checklist di lancio fatta, revisione
 critica chiusa tranne tre punti. Il backend è diviso in `tournaments.py`,
 `tournament_registrations.py`, `tournament_rounds.py` più i servizi; il
 back-office in `organizer.js`, `organizer-store.js`, `organizer-common.js`.
-ESLint sul frontend, Alembic sullo schema. Test: 448 backend (SQLite e
-PostgreSQL), 64 frontend, 9 end-to-end. `/health` dice quale commit sta girando
+ESLint sul frontend, Alembic sullo schema. Test: 450 backend (SQLite e
+PostgreSQL), 65 frontend, 9 end-to-end. `/health` dice quale commit sta girando
 e se lo schema è allineato al codice.
 
 Il 5 ottobre 2026 sono state chiuse le ultime idee in coda al TODO: promemoria
@@ -137,6 +137,19 @@ basta "Collega Google". Credenziali: progetto Google Cloud `mull2five`, due
 client (produzione e staging+localhost), `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`
 su Render; senza, il bottone non compare. Dettagli in `docs/hosting.md` e
 `docs/pubblico.md`.
+
+Sempre dal 24 novembre c'è il **QR dell'iscrizione**. Porta a
+`event.html?id=<id>&iscriviti=1`, dove la finestra d'iscrizione si apre da sola
+(dopo il login, se serve). Lo disegna il server con `segno`
+(`services/registration_qr.py`, `GET /api/tournaments/{id}/registration-qr.svg|png`,
+pubblico come la pagina) sull'indirizzo di `SITE_URL`: un QR preso dallo staging
+punta allo staging. Si apre in due punti: nel back-office, dentro il torneo,
+"▦ QR iscrizione" porta al foglio A4 da stampare (`qr.html`); sulla pagina
+pubblica, sotto "Iscriviti", lo stesso pulsante apre una finestra col QR, "Copia
+link" e il foglio. Il ritorno dal login passa da `safeNext` in `session.js`:
+toglie una barra davanti (`/event.html?…`, da `location.pathname`) e rifiuta
+`//altro.sito`. Quando la barra veniva rifiutata, "Accedi per iscriverti"
+finiva su "Le mie iscrizioni".
 
 ## Cosa resta — in ordine
 
