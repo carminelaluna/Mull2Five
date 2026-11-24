@@ -429,3 +429,52 @@ giorni: quella chiamata interroga il database e Supabase la conta come attività
 Se il workflow fallisce, GitHub manda un'email: il database è già in pausa. Si
 riaccende dal cruscotto di Supabase ("Resume project", circa sei minuti), poi su
 Render *Manual Deploy* → *Deploy latest commit*. Non è un guasto del codice.
+
+## Avvisi su Telegram
+
+Un bot solo, due fonti (24/11/2026):
+
+- **da fuori, GitHub** (`.github/workflows/stato-sito.yml` e
+  `scripts/stato_sito.py`): ogni cinque minuti chiama `/health` di
+  `mull2five.it` e scrive solo quando qualcosa cambia — 🔴 non risponde (dopo tre
+  tentativi), 🟠 risponde ma il database no o lo schema è indietro, 🟢 di nuovo
+  su e dopo quanto, 🚀 un commit nuovo in produzione con il suo titolo. Serve
+  perché se a cadere è Render il sito non può dirlo da solo. GitHub non
+  garantisce i cinque minuti: nelle ore di punta un giro parte in ritardo;
+- **dal sito**: il database che cade e torna (ogni minuto), un errore 500 (al
+  massimo uno ogni cinque minuti per endpoint), e 📬 ogni email che arriva a
+  `info@`, `commercial@` o alla casella admin, con casella, mittente e oggetto.
+  Il testo resta nella casella, che non viene toccata: l'email non risulta
+  letta. Se una casella non si legge per tre minuti di fila (password cambiata,
+  server giù) arriva ⚠️, e ✅ quando torna (`services/mail_watch.py`).
+
+Le caselle si leggono via IMAP con le stesse credenziali `SMTP_*` con cui
+mandano; su register.it il server è `mail.securemail.pro`, porta 993. Dove si
+era arrivati lo tiene la memoria del processo: un'email arrivata proprio nel
+minuto di un riavvio può non essere avvisata, o esserlo due volte (resta
+comunque nella casella).
+
+Per accenderlo:
+
+1. **Il bot.** Su Telegram, `@BotFather` → `/newbot`: un nome (per esempio
+   "Mull2Five avvisi") e un nome utente che finisce in `bot`. BotFather risponde
+   con il **token** (`123456789:AA…`): è una password, va solo su Render e nei
+   segreti di GitHub.
+2. **La chat.** Scrivi un messaggio qualsiasi al bot, poi apri nel browser
+   `https://api.telegram.org/bot<TOKEN>/getUpdates`: il numero dopo
+   `"chat":{"id":` è il **chat id**. Per un gruppo: aggiungi il bot al gruppo,
+   scrivi lì, e l'id (negativo) è quello del gruppo.
+3. **Render → Mull2Five → Environment**, solo la produzione:
+   `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` e `IMAP_HOST` = `mail.securemail.pro`.
+   Salvare fa partire il deploy. Sullo staging no: le caselle lì sono vuote di
+   proposito, e i suoi errori arriverebbero mescolati a quelli veri.
+4. **GitHub → Settings → Secrets and variables → Actions → New repository
+   secret**: `TELEGRAM_BOT_TOKEN` e `TELEGRAM_CHAT_ID`, gli stessi.
+5. **Prove.** *Actions → Stato del sito → Run workflow*: lanciato a mano scrive
+   sempre, "✅ mull2five.it sta bene, commit …". Il workflow lo vede e lo fa
+   girare solo il ramo `main`: c'è dal primo merge in poi. Poi un'email da un tuo
+   indirizzo a `info@mull2five.it`: entro un minuto arriva 📬.
+
+`ALERT_EMAIL` può restare vuota: con Telegram gli allarmi arrivano già. Se
+punta a una delle tre caselle, ogni allarme arriva due volte — com'è, e come
+email arrivata.

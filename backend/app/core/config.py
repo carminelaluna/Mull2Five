@@ -108,6 +108,12 @@ class Settings(BaseSettings):
     alert_throttle_secs: int = 300
     # Watchdog: intervallo di self-check del DB (0 = disabilitato).
     watchdog_interval_secs: int = 60
+    # Le email che arrivano alle caselle del sito (quelle di SMTP_*), avvisate su
+    # Telegram (services/mail_watch.py). Senza IMAP_HOST o senza Telegram è spento.
+    # register.it: mail.securemail.pro, porta 993.
+    imap_host: str | None = None
+    imap_port: int = 993
+    mail_watch_interval_secs: int = 60
 
     # Multi-tenant: header che identifica l'organizzazione (negozio) corrente.
     tenant_header: str = "X-Mull2Five-Org"

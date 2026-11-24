@@ -1,0 +1,66 @@
+# Lo stato di mull2five.it su Telegram, visto da fuori.
+#
+# Il sito avvisa da solo quando cade il database o un endpoint dà 500, ma se a
+# cadere è Render o il contenitore non può dire niente. Questo controllo chiama
+# /health ogni cinque minuti da GitHub e scrive su Telegram quando qualcosa
+# cambia: giù, risponde ma zoppica, di nuovo su, un commit nuovo in produzione.
+# La logica e i messaggi sono in scripts/stato_sito.py.
+#
+# Fra un giro e l'altro lo stato sta in un file nella cache di GitHub: lo si
+# salva solo quando cambia, e si riprende l'ultimo salvato.
+#
+# Servono i segreti TELEGRAM_BOT_TOKEN e TELEGRAM_CHAT_ID (Settings → Secrets
+# and variables → Actions): senza, il controllo non fa niente. Se Telegram
+# rifiuta il messaggio il giro fallisce e GitHub manda un'email.
+#
+# Gli eventi pianificati GitHub li fa girare solo dal ramo principale: questo
+# file comincia a lavorare quando arriva su main. GitHub non garantisce i
+# cinque minuti: nelle ore di punta un giro può partire in ritardo.
+name: Stato del sito
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Un giro alla volta: due insieme manderebbero lo stesso avviso due volte.
+concurrency:
+  group: stato-del-sito
+  cancel-in-progress: false
+
+jobs:
+  controlla:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      # La storia recente serve a dare il titolo al commit appena andato online.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 50
+
+      - name: Riprende com'era il sito al giro prima
+        uses: actions/cache/restore@v4
+        with:
+          path: .stato-sito.json
+          key: stato-sito-${{ github.run_id }}
+          restore-keys: stato-sito-
+
+      - name: Controlla /health e avvisa se è cambiato qualcosa
+        id: stato
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        # Lanciato a mano ("Run workflow") scrive comunque: è la prova del bot.
+        run: >-
+          python3 scripts/stato_sito.py --stato .stato-sito.json
+          ${{ github.event_name == 'workflow_dispatch' && '--sempre' || '' }}
+
+      - name: Si ricorda il nuovo stato
+        if: steps.stato.outputs.cambiato == 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .stato-sito.json
+          key: stato-sito-${{ github.run_id }}

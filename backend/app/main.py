@@ -131,13 +131,31 @@ async def _reminder_sweeper(interval: int) -> None:
             logger.exception("Errore nel promemoria del giorno prima")
 
 
+async def _mail_watcher(interval: int) -> None:
+    """Le email arrivate alle caselle del sito, su Telegram. Il primo giro parte
+    subito: prende nota di dove sono arrivate le caselle, e da lì si avvisa."""
+    from backend.app.services.mail_watch import MailWatcher
+
+    watcher = MailWatcher()
+    while True:
+        try:
+            await asyncio.to_thread(watcher.check)
+        except Exception:  # noqa: BLE001
+            logger.exception("Errore nel controllo delle caselle email")
+        await asyncio.sleep(interval)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Inizializza il DB e avvia il watchdog di alerting."""
+    from backend.app.services.mail_watch import mail_watch_enabled
+
     create_all()
     tasks: list[asyncio.Task] = []
     if settings.watchdog_interval_secs > 0:
         tasks.append(asyncio.create_task(_db_watchdog(settings.watchdog_interval_secs)))
+    if settings.mail_watch_interval_secs > 0 and mail_watch_enabled():
+        tasks.append(asyncio.create_task(_mail_watcher(settings.mail_watch_interval_secs)))
     # Sweeper waitlist ogni 10 minuti (riaccoda i promossi non paganti scaduti).
     tasks.append(asyncio.create_task(_waitlist_sweeper(600)))
     # Ogni due minuti: chi ha scelto di pagare online e non ha pagato non è iscritto.

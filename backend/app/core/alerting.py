@@ -45,15 +45,31 @@ def _should_send(key: str, throttle_secs: int) -> bool:
     return False
 
 
-def _send_telegram(token: str, chat_id: str, text: str) -> None:
+def _send_telegram(token: str, chat_id: str, text: str) -> bool:
     try:
-        httpx.post(
+        response = httpx.post(
             f"https://api.telegram.org/bot{token}/sendMessage",
             json={"chat_id": chat_id, "text": text, "disable_web_page_preview": True},
             timeout=10,
         )
     except Exception as exc:  # noqa: BLE001
         logger.warning("Alert Telegram non inviato: %s", exc)
+        return False
+    if not response.is_success:
+        # Il codice e basta: l'indirizzo della richiesta contiene il token.
+        logger.warning("Alert Telegram rifiutato: HTTP %s", response.status_code)
+    return response.is_success
+
+
+def send_telegram(text: str) -> bool:
+    """Un messaggio su Telegram e basta: niente email, niente throttle. Vero se
+    Telegram l'ha preso. Le email arrivate alle caselle passano da qui e non da
+    send_alert: un avviso via email finirebbe in una casella sorvegliata, e da lì
+    di nuovo qui."""
+    s = get_settings()
+    if not (s.telegram_bot_token and s.telegram_chat_id):
+        return False
+    return _send_telegram(s.telegram_bot_token, s.telegram_chat_id, text)
 
 
 def _send_email_alert(to: str, subject: str, body: str) -> None:

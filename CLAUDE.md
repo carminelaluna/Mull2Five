@@ -204,7 +204,9 @@ Dettaglio in `TODO.md`. Quelle che contano:
    (`Sender` in `services/email.py`). Il reset password è stato provato e arriva.
 
 **Infrastruttura, quel che resta del guasto del 23/09**
-5. Far aspettare la CI al deploy (nel cruscotto Render) e impostare `ALERT_EMAIL`.
+5. Far aspettare la CI al deploy (nel cruscotto Render) e accendere gli avvisi
+   su Telegram: il codice c'è, mancano il bot e le variabili (`docs/hosting.md`,
+   "Avvisi su Telegram").
    Il ripristino dal backup è stato provato il 29/09, e lo staging esiste.
 
 **Rimandabili**
