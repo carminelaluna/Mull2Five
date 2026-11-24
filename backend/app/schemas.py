@@ -286,6 +286,8 @@ class TournamentOut(BaseModel):
     distance_km: float | None = None
     event_slug: str | None = None
     event_name: str | None = None
+    # Il circuito in cui conta il torneo (uno solo).
+    season_id: int | None = None
     organization_slug: str | None = None
     organization_name: str | None = None
     starts_on: date
@@ -575,8 +577,20 @@ class ResetPasswordIn(BaseModel):
 
 class SeasonCreate(BaseModel):
     name: str = Field(min_length=3, max_length=120)
-    points_win: int = 3
-    points_draw: int = 1
+    description: str = Field(default="", max_length=2000)
+    starts_on: date | None = None
+    ends_on: date | None = None
+    points_win: int = Field(default=3, ge=0, le=100)
+    points_draw: int = Field(default=1, ge=0, le=100)
+    points_participation: int = Field(default=0, ge=0, le=100)
+    points_champion_bonus: int = Field(default=0, ge=0, le=100)
+    qualification_threshold: int | None = Field(default=None, ge=0)
+    is_public: bool = True
+
+
+class SeasonTournamentsIn(BaseModel):
+    """Più tornei in una volta: quelli scelti dall'elenco del back-office."""
+    tournament_ids: list[int] = Field(min_length=1, max_length=200)
 
 
 class SeasonOut(BaseModel):
@@ -610,6 +624,8 @@ class SeasonUpdate(BaseModel):
     points_champion_bonus: int | None = Field(default=None, ge=0, le=100)
     qualification_threshold: int | None = Field(default=None, ge=0)
     is_public: bool | None = None
+    # Chiudere e riaprire il circuito: chiuso non prende tornei nuovi.
+    is_active: bool | None = None
 
 
 class SeriesPublicOut(BaseModel):
@@ -647,6 +663,8 @@ class LeaderboardRowOut(BaseModel):
     draws: int
     losses: int
     tournaments_played: int
+    # Tornei vinti: ognuno vale il bonus vincitore del circuito.
+    titles: int = 0
 
 
 class StaffIn(BaseModel):

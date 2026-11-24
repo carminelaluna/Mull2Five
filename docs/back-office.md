@@ -3,8 +3,8 @@
 `organizer.html` — riservato a chi ha un account da organizzatore o admin. Un
 giocatore che ci arriva trova una spiegazione, non una pagina vuota.
 
-Quattro sezioni in cima: **Eventi**, **Manifestazioni**, **Community**,
-**Negozio**.
+Cinque sezioni in cima: **Eventi**, **Manifestazioni**, **Circuiti**,
+**Community**, **Negozio**.
 
 ## Eventi
 
@@ -79,6 +79,42 @@ dire che non ne entrano altri.
 Un contenitore di tornei che si svolgono insieme (un weekend, una convention).
 Ha una pagina pubblica con il programma raggruppato per giornata, e uno staff
 che vale su tutte le tappe.
+
+## Circuiti
+
+Le leghe del negozio: i tornei scelti sommano i punti in **una classifica
+sola**, con una pagina pubblica (`series.html?c=<slug>`) se la si vuole.
+Una manifestazione raggruppa tornei che si giocano *insieme*; un circuito somma
+tornei giocati in giorni diversi, anche per mesi.
+
+**+ Nuovo circuito** chiede nome e regole dei punti, poi si entra a scegliere i
+tornei. Dentro un circuito:
+
+- **Tornei del circuito** — quelli che contano, con "Togli": il torneo resta,
+  escono solo i suoi punti.
+- **Aggiungi tornei** — l'elenco dei tuoi tornei, filtrabile in *Già giocati* e
+  *In programma*. Si spuntano e si aggiungono insieme ("Seleziona tutti" per
+  prenderli in blocco): i già giocati portano subito i risultati in classifica,
+  quelli in calendario contano appena si gioca un turno. Si può fare tutto
+  all'inizio o un torneo alla volta, man mano. **Un torneo sta in un circuito
+  solo**: se era in un altro, l'elenco lo dice e chiede conferma prima di
+  spostarlo. Anche "Duplica" e "Ripeti" lasciano la copia nel circuito
+  dell'originale.
+- **Classifica** — i primi 20, la stessa della pagina pubblica.
+- **Regole e anagrafica** — nome, periodo, descrizione, pagina pubblica, e i
+  punti: a vittoria (un bye vale una vittoria), a pareggio, **a tappa giocata**
+  e il **bonus a chi vince un torneo**, più la **soglia di qualificazione** che
+  sulla classifica segna "qualificato". Cambiare i punti ricalcola tutto.
+
+Il vincitore di un torneo concluso è chi vince la finale se c'è un taglio (top
+8, eliminazione diretta), altrimenti il primo in classifica con gli spareggi
+del gioco. Una tappa conta come giocata se si è giocato almeno un turno: chi è
+solo iscritto a un torneo futuro non compare ancora.
+
+**Chiudi circuito** lo segna come concluso e non accetta più tornei (la
+classifica resta); "Riapri" lo rimette in corso. **Elimina circuito** lo toglie
+del tutto: i tornei restano, liberi. Il circuito lo gestisce chi l'ha creato e
+chi fa parte del suo negozio.
 
 ## Community
 

@@ -54,6 +54,9 @@ async function load() {
           <div class="profile-stat"><strong>${s.tournament_count}</strong><span>tappe</span></div>
           <div class="profile-stat"><strong>${s.points_win}</strong><span>punti vittoria</span></div>
           <div class="profile-stat"><strong>${s.points_draw}</strong><span>punti pareggio</span></div>
+          ${s.points_participation
+            ? `<div class="profile-stat"><strong>${s.points_participation}</strong><span>punti a tappa</span></div>`
+            : ''}
           ${s.points_champion_bonus
             ? `<div class="profile-stat"><strong>+${s.points_champion_bonus}</strong><span>bonus vincitore</span></div>`
             : ''}

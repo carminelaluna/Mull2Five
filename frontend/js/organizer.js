@@ -17,11 +17,14 @@ import './payment-options.js';   // nasconde Stripe e PayPal se sul sito sono sp
 import { t as tr } from './i18n.js';
 import { $, apiFetch, fmtDate, money, session } from './organizer-common.js';
 import { myLocations, myStore, renderNegozio, setStoreReload } from './organizer-store.js';
+import { leaveCircuits, renderCircuiti, setCircuitSource } from './organizer-circuits.js';
 import { apiDownload, logout } from './session.js';
 
 // Ricaricare i tornei dopo un cambio di negozio lo sa fare solo questo file.
 setStoreReload(loadTournaments);
-let _section = 'eventi';     // eventi | community | negozio
+// I circuiti scelgono fra i tornei già caricati qui, e li ricaricano dopo una modifica.
+setCircuitSource(() => _tournaments, loadTournaments);
+let _section = 'eventi';     // eventi | manifestazioni | circuiti | community | negozio
 let _myStores = new Set();   // slug dei negozi di cui si fa parte
 let _suspendSlug = null;     // il negozio del torneo aperto, se lo si gestisce: da lì si sospende
 let _byesEditable = false;   // i bye si assegnano prima dell'inizio, e solo se ci sono turni
@@ -72,6 +75,7 @@ async function init() {
       _section = b.dataset.section;
       _activeId = null;            // cambiando sezione si esce dall'evento
       _openEventId = null;
+      leaveCircuits();
       document.querySelectorAll('.bo-nav-item').forEach(x => x.classList.toggle('active', x === b));
       render();
     }));
@@ -246,6 +250,7 @@ function render() {
   if (_tab !== 'regia' || !_activeId) stopConsole();
   renderCrumb();
   if (_section === 'manifestazioni') return renderManifestazioni();
+  if (_section === 'circuiti')  return renderCircuiti();
   if (_section === 'community') return renderTag();
   if (_section === 'negozio')   return renderNegozio();
   if (!_activeId)               return renderEventList();
