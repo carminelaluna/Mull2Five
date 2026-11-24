@@ -18,13 +18,23 @@
       di caricamento indicata in produzione\twa-manifest.json (signingKey).
       Le password le chiede Bubblewrap qui nel terminale.
 
+  -Ambiente produzione -ChiaveDebug
+      L'app vera (mull2five.it) firmata con la chiave di debug di questo PC, per
+      provarla sul telefono senza Google Play: android\produzione\mull2five-produzione-debug.apk.
+      Prima di installare quella di Google Play va disinstallata.
+
   Prima volta su questo PC: android\strumenti.ps1.
+
+.PARAMETER ChiaveDebug
+  Firma con la chiave di debug invece che con quella di caricamento. Lo staging
+  si firma sempre così.
 
 .PARAMETER Installa
   Dopo la compilazione installa l'APK sul telefono collegato con il cavo (adb).
 #>
 param(
     [Parameter(Mandatory)][ValidateSet('staging', 'produzione')][string]$Ambiente,
+    [switch]$ChiaveDebug,
     [switch]$Installa
 )
 
@@ -43,9 +53,18 @@ $config = Get-Content $configFile -Raw | ConvertFrom-Json
 $env:JAVA_HOME = $config.jdkPath
 $env:ANDROID_HOME = $config.androidSdkPath
 
-$twa = Get-Content (Join-Path $PSScriptRoot "$Ambiente\twa-manifest.json") -Raw | ConvertFrom-Json
-$key = $twa.signingKey.path -replace '^~', $HOME
-$alias = $twa.signingKey.alias
+$debug = $ChiaveDebug -or $Ambiente -eq 'staging'
+if ($debug) {
+    # La crea Gradle alla prima compilazione; ha la stessa password su tutti i
+    # PC ("android"): non è un segreto, ed è diversa da PC a PC.
+    $key = Join-Path $HOME '.android\debug.keystore'
+    $alias = 'androiddebugkey'
+} else {
+    $twa = Get-Content (Join-Path $PSScriptRoot "$Ambiente\twa-manifest.json") -Raw | ConvertFrom-Json
+    $key = $twa.signingKey.path -replace '^~', $HOME
+    $alias = $twa.signingKey.alias
+}
+$service = if ($Ambiente -eq 'staging') { 'mull2five-staging' } else { 'mull2five' }
 $bubblewrap = Join-Path $PSScriptRoot 'node_modules\@bubblewrap\cli\bin\bubblewrap.js'
 
 Push-Location $PSScriptRoot
@@ -58,18 +77,18 @@ try {
     }
 
     Set-Location $Ambiente
-    if ($Ambiente -eq 'staging') {
+    if ($debug) {
         Invoke-Checked 'gradle' { .\gradlew.bat assembleDebug --no-daemon }
-        $apk = Join-Path (Get-Location) 'mull2five-staging.apk'
+        $name = if ($Ambiente -eq 'staging') { 'mull2five-staging.apk' } else { 'mull2five-produzione-debug.apk' }
+        $apk = Join-Path (Get-Location) $name
         Copy-Item 'app\build\outputs\apk\debug\app-debug.apk' $apk -Force
 
-        # La chiave di debug ha la stessa password su tutti i PC ("android"): non è un segreto.
         $keytool = Join-Path $config.jdkPath 'bin\keytool.exe'
         $sha = & $keytool -list -v -keystore $key -alias $alias -storepass android |
             Select-String 'SHA256:' | ForEach-Object { ($_ -split 'SHA256:')[1].Trim() }
         Write-Host ''
         Write-Host "Impronta della chiave di debug di questo PC: $sha"
-        Write-Host 'Su Render, servizio mull2five-staging: ANDROID_CERT_FINGERPRINTS (separate da virgola se sono piu'' di una).'
+        Write-Host "Su Render, servizio ${service}: ANDROID_CERT_FINGERPRINTS (separate da virgola se sono piu' di una)."
     } else {
         if (-not (Test-Path $key)) { throw "Manca la chiave di caricamento $key (docs/android.md, ""La chiave di caricamento"")" }
         Invoke-Checked 'bubblewrap build' {

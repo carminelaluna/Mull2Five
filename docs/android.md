@@ -132,6 +132,22 @@ Invoke-RestMethod https://mull2five-staging.onrender.com/.well-known/assetlinks.
 Lo staging è sul piano gratuito e **si addormenta** dopo 15 minuti: la prima
 apertura dopo una pausa resta sulla schermata iniziale per un minuto circa.
 
+## L'app vera sul telefono, senza Google Play
+
+Per provare l'app di produzione (`it.mull2five.app`, apre `mull2five.it`) prima
+che ci sia Google Play, la si firma con la chiave di debug come lo staging:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File android\compila.ps1 -Ambiente produzione -ChiaveDebug
+```
+
+Esce `android\produzione\mull2five-produzione-debug.apk`, e lo script stampa
+l'impronta: va in `ANDROID_CERT_FINGERPRINTS` del servizio `mull2five`, accanto
+alle altre. Due cose da sapere:
+- quando arriverà quella di Google Play, questa va **disinstallata** prima: la
+  firma è diversa e Android non la sovrascrive;
+- arrivate le impronte della Play Console, quella di debug si toglie da Render.
+
 ## Pubblicare su Google Play
 
 ### Una volta sola: l'account

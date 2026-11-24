@@ -156,12 +156,15 @@ git push origin develop
 
 ### Portare in produzione quello che c'è su develop
 Prima si controlla che `main` non abbia commit che `develop` non ha. Poi `main`
-si porta avanti fino a `develop`, senza merge e senza force.
+si porta avanti fino a `develop`, senza merge e senza force. Si porta
+`origin/develop`, cioè quello che lo staging ha già, non il `develop` locale:
+lì possono esserci commit mai pushati, mai passati dallo staging (il 24/11/2026
+ce n'era uno di un'altra sessione).
 ⚠️
 ```powershell
 git fetch origin
-git merge-base --is-ancestor origin/main develop
-if ($LASTEXITCODE -eq 0) { git push origin develop:main } else { "main ha commit che develop non ha: fermati e guarda" }
+git merge-base --is-ancestor origin/main origin/develop
+if ($LASTEXITCODE -eq 0) { git push origin origin/develop:refs/heads/main } else { "main ha commit che develop non ha: fermati e guarda" }
 ```
 **Mai `git push --force` su `main`.**
 
