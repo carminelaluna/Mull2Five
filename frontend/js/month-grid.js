@@ -96,7 +96,7 @@ export function renderMonth(host, { month, events = [], onMonth }) {
       <button class="secondary" type="button" data-month="next"
               aria-label="${esc(tr('Mese successivo'))}">→</button>
       <button class="chip" type="button" data-month="today">${esc(tr('Oggi'))}</button>
-      <span class="cal-count">${events.length} ${esc(tr('eventi'))}</span>
+      <span class="cal-count">${esc(events.length === 1 ? tr('1 evento') : tr('{n} eventi', { n: events.length }))}</span>
     </div>
     <div class="cal-grid" role="grid">
       ${weekdayNames().map((n) => `<div class="cal-head">${esc(n)}</div>`).join('')}

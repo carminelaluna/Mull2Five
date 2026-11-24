@@ -23,8 +23,8 @@ let _position = savedPosition();
 
 /* ── Stato = querystring ───────────────────────────────────── */
 
-function readState() {
-  const q = new URLSearchParams(location.search);
+function readState(search = location.search) {
+  const q = new URLSearchParams(search);
   const list = (key) => (q.get(key) || '').split(',').filter(Boolean);
   return {
     games: list('games'),
@@ -101,10 +101,10 @@ function checkboxes(title, key, options, state, { limit = 6 } = {}) {
     </label>`).join('');
   const more = options.length > limit
     ? `<button class="facet-more" type="button" data-more="${key}">
-         ${state[`_more_${key}`] ? 'Mostra meno' : `Mostra altri ${options.length - limit}`}
+         ${esc(state[`_more_${key}`] ? tr('Mostra meno') : tr('Mostra altri {n}', { n: options.length - limit }))}
        </button>`
     : '';
-  return `<div class="facet"><h3>${esc(title)}</h3>${rows}${more}</div>`;
+  return `<div class="facet"><h3>${esc(tr(title))}</h3>${rows}${more}</div>`;
 }
 
 function radios(title, key, options, current) {
@@ -114,7 +114,7 @@ function radios(title, key, options, current) {
              ${String(current) === String(value) ? 'checked' : ''} />
       ${esc(label)}
     </label>`).join('');
-  return `<div class="facet"><h3>${esc(title)}</h3>${rows}</div>`;
+  return `<div class="facet"><h3>${esc(tr(title))}</h3>${rows}</div>`;
 }
 
 function renderFacets(state) {
@@ -193,27 +193,44 @@ function renderFacets(state) {
 
 /* ── Riassunto in linguaggio naturale ──────────────────────── */
 
+/* Il periodo come pezzo di frase: si traduce intero, perché "entro" e il nome
+   del periodo cambiano insieme da una lingua all'altra. */
+const WITHIN = {
+  1: 'entro oggi', 7: 'entro una settimana', 14: 'entro due settimane',
+  30: 'entro un mese', 180: 'entro sei mesi', 365: 'entro un anno',
+};
+
+/* Ogni frase passa intera da tr(), con i valori nei segnaposto: tradotta a
+   pezzi restava in italiano, perché nessun pezzo è una frase del dizionario. */
 function summarize(state, total) {
-  const kinds = state.event_types.length
-    ? state.event_types.map(typeLabel).join(', ')
-    : 'eventi di ogni tipo';
-  const formats = state.formats.length ? ` in ${state.formats.join(', ')}` : '';
-  const rel = state.rel.length ? ` a livello ${state.rel.join('/')}` : '';
-  const near = state.radius_km && _position ? `entro <b>${state.radius_km} km</b> da te` : 'ovunque';
-  const where = state.luogo === 'online' ? '<b>online</b>' : near + (state.luogo === 'negozio' ? ' nei negozi' : '');
+  const bold = (text) => `<b>${esc(text)}</b>`;
+  const what = [
+    state.event_types.length ? state.event_types.map((v) => tr(typeLabel(v))).join(', ') : tr('eventi di ogni tipo'),
+    state.formats.length ? tr('in {formati}', { formati: state.formats.join(', ') }) : '',
+    state.rel.length ? tr('a livello {livelli}', { livelli: state.rel.join('/') }) : '',
+  ].filter(Boolean).join(' ');
+  const near = state.radius_km && _position
+    ? tr('entro {km} da te', { km: `<b>${esc(state.radius_km)} km</b>` })
+    : esc(tr('ovunque'));
+  const where = state.luogo === 'online' ? '<b>online</b>'
+    : state.luogo === 'negozio' ? tr('{dove} nei negozi', { dove: near }) : near;
+  const n = bold(total);
   if (state.stato === 'conclusi') {
-    $('#filterSummary').innerHTML =
-      `<b>${esc(total)}</b> tornei <b>conclusi</b>: <b>${esc(kinds)}${esc(formats)}${esc(rel)}</b> ${where}.`;
+    const sentence = total === 1 ? '{n} torneo concluso: {cosa} {dove}.' : '{n} tornei conclusi: {cosa} {dove}.';
+    $('#filterSummary').innerHTML = tr(sentence, { n, cosa: bold(what), dove: where });
     return;
   }
-  const when = DATE_RANGES.find((d) => d.value === state.days)?.label.toLowerCase() || `${state.days} giorni`;
-  // "entro" e non "nei prossimi": le etichette sono "oggi", "una settimana",
-  // "due settimane", "un mese" — con nessuna di queste "nei prossimi" concorda.
-  $('#filterSummary').innerHTML =
-    `<b>${esc(total)}</b> risultati: <b>${esc(kinds)}${esc(formats)}${esc(rel)}</b> ${where}, entro <b>${esc(when)}</b>.`;
+  const when = WITHIN[state.days] ? tr(WITHIN[state.days]) : tr('entro {n} giorni', { n: state.days });
+  const sentence = total === 1 ? '{n} risultato: {cosa} {dove}, {quando}.' : '{n} risultati: {cosa} {dove}, {quando}.';
+  $('#filterSummary').innerHTML = tr(sentence, { n, cosa: bold(what), dove: where, quando: bold(when) });
 }
 
 /* ── Risultati ─────────────────────────────────────────────── */
+
+function seatsLeft(t) {
+  const n = Math.max((t.capacity || 0) - (t.registered_players || 0), 0);
+  return n === 1 ? tr('1 posto') : tr('{n} posti', { n });
+}
 
 function renderRows(events) {
   const body = $('#resultsBody');
@@ -240,7 +257,7 @@ function renderRows(events) {
         ${t.distance_km != null ? `<span class="col-sub dist-badge">${t.distance_km} km</span>` : ''}</td>
       <td>${feeNow(t) ? fmtMoney(feeNow(t)) : 'Gratis'}${earlyBirdOn(t) ? ` <s>${fmtMoney(t.entry_fee_cents)}</s>` : ''}
         <span class="col-sub">${t.source === 'wizards' ? esc(tr('Iscrizione in negozio'))
-          : `${Math.max((t.capacity || 0) - (t.registered_players || 0), 0)} posti`}</span></td>
+          : esc(seatsLeft(t))}</span></td>
     </tr>`).join('');
   body.querySelectorAll('[data-id]').forEach((tr) =>
     tr.addEventListener('click', () => {
@@ -316,8 +333,9 @@ async function run({ keepFocus = false } = {}) {
       renderRows(events);
     }
   } catch (err) {
-    if (mese) $('#calendarPanel').innerHTML = `<p class="muted">Errore: ${esc(err.message)}</p>`;
-    else body.innerHTML = `<tr><td colspan="5" class="muted">Errore: ${esc(err.message)}</td></tr>`;
+    const text = esc(tr('Errore: {msg}', { msg: err.message }));
+    if (mese) $('#calendarPanel').innerHTML = `<p class="muted">${text}</p>`;
+    else body.innerHTML = `<tr><td colspan="5" class="muted">${text}</td></tr>`;
   }
 }
 
@@ -345,17 +363,18 @@ function writeSaved(list) {
 
 function describe(state) {
   const parts = [];
-  if (state.event_types.length) parts.push(state.event_types.map(typeLabel).join('/'));
+  if (state.event_types.length) parts.push(state.event_types.map((v) => tr(typeLabel(v))).join('/'));
   if (state.formats.length) parts.push(state.formats.join('/'));
   if (state.radius_km) parts.push(`${state.radius_km} km`);
-  parts.push(DATE_RANGES.find((d) => d.value === state.days)?.label || `${state.days} gg`);
+  const range = DATE_RANGES.find((d) => d.value === state.days);
+  parts.push(range ? tr(range.label) : tr('{n} giorni', { n: state.days }));
   return parts.join(' · ');
 }
 
 function saveCurrentSearch() {
   const search = location.search || '?days=14';
   const list = readSaved().filter((s) => s.search !== search);
-  list.unshift({ search, label: describe(readState()) });
+  list.unshift({ search });
   writeSaved(list);
   renderSaved();
 }
@@ -367,7 +386,7 @@ function renderSaved() {
   host.innerHTML = '<span style="color:var(--muted);font-size:.82rem">Ricerche salvate:</span>' +
     list.map((s, i) => `
       <span class="chip saved-chip">
-        <a href="${esc(s.search)}" style="color:inherit;text-decoration:none">${esc(s.label)}</a>
+        <a href="${esc(s.search)}" style="color:inherit;text-decoration:none">${esc(describe(readState(s.search)))}</a>
         <button type="button" data-drop="${i}" title="Rimuovi">×</button>
       </span>`).join('');
   host.querySelectorAll('[data-drop]').forEach((btn) =>
