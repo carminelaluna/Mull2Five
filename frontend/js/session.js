@@ -99,7 +99,9 @@ export async function apiRequest(path, { acting = false, requireLogin = false, .
  * `next` arriva dall'indirizzo: "https://altrove" o "javascript:…" non si seguono.
  */
 export function safeNext(value, fallback = '') {
-  const next = String(value || '').trim();
+  // Le pagine mandano anche la barra davanti ("/event.html?id=3", da location.pathname):
+  // la si toglie. Due barre ("//altro.sito") sono un altro sito, e restano rifiutate.
+  const next = String(value || '').trim().replace(/^\/(?!\/)/, '');
   return next.length <= 300 && /^[A-Za-z0-9_-][A-Za-z0-9_\-./?=&%+]*$/.test(next) ? next : fallback;
 }
 

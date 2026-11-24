@@ -154,8 +154,14 @@ describe('safeNext', () => {
     expect(safeNext('my-registrations.html')).toBe('my-registrations.html');
   });
 
+  it('accetta la barra davanti che mandano le pagine (location.pathname)', () => {
+    // "Accedi per iscriverti" e il QR dell'iscrizione: senza, si finiva su "Le mie iscrizioni".
+    expect(safeNext('/event.html?id=3&iscriviti=1')).toBe('event.html?id=3&iscriviti=1');
+  });
+
   it('non segue altri siti né javascript:', () => {
-    for (const next of ['https://altrove.example', '//altrove.example', 'javascript:alert(1)', '/assoluto', '']) {
+    for (const next of ['https://altrove.example', '//altrove.example', '///altrove.example',
+      '/\\altrove.example', 'javascript:alert(1)', '/javascript:alert(1)', '']) {
       expect(safeNext(next, 'fallback.html')).toBe('fallback.html');
     }
   });
