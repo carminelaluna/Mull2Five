@@ -16,7 +16,7 @@ from slowapi.middleware import SlowAPIMiddleware
 from sqlalchemy import text
 from starlette.middleware.gzip import GZipMiddleware
 
-from backend.app.core.alerting import send_alert
+from backend.app.core.alerting import alerting_enabled, send_alert
 from backend.app.core.config import get_settings
 from backend.app.core.limiter import limiter
 from backend.app.core.monitoring import metrics_middleware, metrics_response
@@ -42,6 +42,7 @@ from backend.app.routers import (
     tournament_rounds,
     tournaments,
 )
+from backend.app.services import site_watch
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
@@ -145,6 +146,16 @@ async def _mail_watcher(interval: int) -> None:
         await asyncio.sleep(interval)
 
 
+async def _site_watch(interval: int) -> None:
+    """Il controllo da GitHub che non passa più, e il database vicino al limite."""
+    while True:
+        await asyncio.sleep(interval)
+        try:
+            await asyncio.to_thread(site_watch.check)
+        except Exception:  # noqa: BLE001
+            logger.exception("Errore nel controllo del sito")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Inizializza il DB e avvia il watchdog di alerting."""
@@ -156,6 +167,8 @@ async def lifespan(app: FastAPI):
         tasks.append(asyncio.create_task(_db_watchdog(settings.watchdog_interval_secs)))
     if settings.mail_watch_interval_secs > 0 and mail_watch_enabled():
         tasks.append(asyncio.create_task(_mail_watcher(settings.mail_watch_interval_secs)))
+    if settings.watchdog_interval_secs > 0 and alerting_enabled():
+        tasks.append(asyncio.create_task(_site_watch(600)))
     # Sweeper waitlist ogni 10 minuti (riaccoda i promossi non paganti scaduti).
     tasks.append(asyncio.create_task(_waitlist_sweeper(600)))
     # Ogni due minuti: chi ha scelto di pagare online e non ha pagato non è iscritto.
@@ -383,7 +396,7 @@ def _revisione_applicata() -> str | None:
 
 
 @app.get("/health")
-def health() -> dict:
+def health(request: Request) -> dict:
     """Database, cache, e cosa sta girando davvero.
 
     Le ultime due voci sono nate da una giornata persa: il 29/09/2026, per sapere
@@ -395,7 +408,12 @@ def health() -> dict:
     ferma l'avvio — `sync_alembic` la annota e basta — quindi senza questo il sito
     sembrerebbe sano mentre certi endpoint danno 500. Un database che Alembic non
     ha mai toccato (sviluppo, test) non è "indietro": è un altro caso.
+
+    Il controllo da GitHub passa da qui ogni cinque minuti: se smette, il sito lo
+    dice (services/site_watch.py).
     """
+    if request.headers.get("user-agent", "").startswith(site_watch.STATUS_CHECK_AGENT):
+        site_watch.status_check.seen()
     db_ok = True
     try:
         with engine.connect() as conn:

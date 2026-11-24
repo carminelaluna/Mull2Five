@@ -204,9 +204,10 @@ Dettaglio in `TODO.md`. Quelle che contano:
    (`Sender` in `services/email.py`). Il reset password è stato provato e arriva.
 
 **Infrastruttura, quel che resta del guasto del 23/09**
-5. Far aspettare la CI al deploy (nel cruscotto Render) e accendere gli avvisi
-   su Telegram: il codice c'è, mancano il bot e le variabili (`docs/hosting.md`,
-   "Avvisi su Telegram").
+5. Far aspettare la CI al deploy (nel cruscotto Render). Intanto una CI rossa su
+   main arriva su Telegram, come il deploy che non arriva, il backup fallito o
+   saltato, il sito giù e le email che non partono: dal 24/11/2026 gli avvisi
+   sono accesi (`docs/hosting.md`, "Avvisi su Telegram").
    Il ripristino dal backup è stato provato il 29/09, e lo staging esiste.
 
 **Rimandabili**

@@ -1,0 +1,78 @@
+# Un workflow andato male, su Telegram: il backup, la CI su main, lo staging.
+#
+# Finora lo diceva solo l'email di GitHub, che si perde fra le altre. La CI
+# conta più di quel che sembra: il deploy non la aspetta, quindi una CI rossa
+# su main è codice rotto già in produzione.
+#
+# Parte da solo quando uno di quei workflow finisce, e scrive solo se è fallito
+# (o è andato oltre il tempo). Per provarlo: Actions → Backup → Run workflow con
+# "Prova dell'avviso", che fallisce apposta prima di toccare il database.
+#
+# Servono i segreti TELEGRAM_BOT_TOKEN e TELEGRAM_CHAT_ID, gli stessi dello
+# stato del sito. Come gli eventi pianificati, workflow_run lo vede solo il ramo
+# principale: questo file comincia a lavorare quando arriva su main.
+name: Avvisi
+
+on:
+  workflow_run:
+    workflows: [Backup, CI, Staging sveglio]
+    types: [completed]
+
+permissions: {}
+
+jobs:
+  telegram:
+    # La CI solo sui push a main: su develop e sulle pull request un rosso non
+    # è ancora in produzione, e lo si vede da dove si lavora.
+    if: >-
+      contains(fromJSON('["failure", "timed_out"]'), github.event.workflow_run.conclusion)
+      && (github.event.workflow_run.name != 'CI'
+          || (github.event.workflow_run.head_branch == 'main'
+              && github.event.workflow_run.event == 'push'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Avviso su Telegram
+        env:
+          TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          WORKFLOW: ${{ github.event.workflow_run.name }}
+          TITLE: ${{ github.event.workflow_run.display_title }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+        run: |
+          set -euo pipefail
+          # Un segreto incollato può portarsi dietro un a capo (24/11/2026).
+          token="$(printf '%s' "$TOKEN" | tr -d '[:space:]')"
+          chat_id="$(printf '%s' "$CHAT_ID" | tr -d '[:space:]')"
+          if [ -z "$token" ] || [ -z "$chat_id" ]; then
+            echo "::warning::Mancano TELEGRAM_BOT_TOKEN o TELEGRAM_CHAT_ID: niente avviso."
+            exit 0
+          fi
+          case "$WORKFLOW" in
+            Backup)
+              text="🔴 Backup del database fallito: oggi non c'è una copia nuova."
+              # Il run lanciato con "Prova dell'avviso" ha la prova nel nome (run-name).
+              case "$TITLE" in
+                *prova*) text="🧪 Prova, il database sta bene. ${text}" ;;
+              esac
+              ;;
+            CI)
+              text="❌ CI rossa su main: ${TITLE} (${SHA:0:7}). Il deploy non la aspetta: questo codice è già in produzione."
+              ;;
+            "Staging sveglio")
+              text="😴 Lo staging non risponde o ha il database in pausa: Supabase → Resume project, poi Manual Deploy su Render."
+              ;;
+            *)
+              text="⚠️ ${WORKFLOW} non è andato a buon fine."
+              ;;
+          esac
+          payload="$(jq -n --arg chat "$chat_id" --arg text "${text} ${RUN_URL}" \
+            '{chat_id: $chat, text: $text, disable_web_page_preview: true}')"
+          # -sS: negli errori curl dice il codice, mai l'indirizzo, che contiene il token.
+          if ! answer="$(curl -sS --fail-with-body --max-time 20 \
+                -H 'Content-Type: application/json' -d "$payload" \
+                "https://api.telegram.org/bot${token}/sendMessage")"; then
+            echo "::error::Telegram non ha preso l'avviso: $(jq -r '.description // empty' <<<"$answer" 2>/dev/null)"
+            exit 1
+          fi

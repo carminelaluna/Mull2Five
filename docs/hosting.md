@@ -135,12 +135,13 @@ Workflow `.github/workflows/backup.yml`, ogni notte e a richiesta (*Run workflow
 2. Cifratura con `gpg --symmetric --cipher-algo AES256` e una passphrase.
 3. Caricamento come artifact, tenuto **30 giorni**.
 
-Se fallisce, GitHub manda un'email e arriva 🔴 su Telegram, con il link al run
-(i segreti `TELEGRAM_*` dello stato del sito, vedi "Avvisi su Telegram"). Per
-provare l'avviso: *Run workflow* con **Prova dell'avviso** spuntato; il backup
-fallisce apposta prima di toccare il database, e il messaggio comincia con 🧪.
-"Ogni notte" è un'intenzione: GitHub lo fa partire con ore di ritardo (nel
-novembre 2026 fra le 8 e le 12 italiane), e nei giorni pieni può saltarlo.
+Se fallisce, GitHub manda un'email e arriva 🔴 su Telegram con il link al run
+(`avvisi.yml`, vedi "Avvisi su Telegram"). Per provare l'avviso: *Run workflow*
+con **Prova dell'avviso** spuntato; il backup fallisce apposta prima di toccare
+il database, e il messaggio comincia con 🧪. "Ogni notte" è un'intenzione:
+GitHub lo fa partire con ore di ritardo (nel novembre 2026 fra le 8 e le 12
+italiane), e nei giorni pieni può saltarlo. Se per 30 ore non ce n'è uno
+riuscito, lo dice lo stato del sito: 🗄️.
 
 Segreti del repo (*Settings → Secrets and variables → Actions*):
 - `BACKUP_DATABASE_URL`: il session pooler, ma con `postgresql://` invece di
@@ -439,22 +440,46 @@ Render *Manual Deploy* → *Deploy latest commit*. Non è un guasto del codice.
 
 ## Avvisi su Telegram
 
-Un bot solo, due fonti (24/11/2026):
+Un bot solo, due fonti che si guardano a vicenda (24/11/2026):
 
 - **da fuori, GitHub** (`.github/workflows/stato-sito.yml` e
   `scripts/stato_sito.py`): ogni cinque minuti chiama `/health` di
-  `mull2five.it` e scrive solo quando qualcosa cambia — 🔴 non risponde (dopo tre
-  tentativi), 🟠 risponde ma il database no o lo schema è indietro, 🟢 di nuovo
-  su e dopo quanto, 🚀 un commit nuovo in produzione con il suo titolo. Serve
-  perché se a cadere è Render il sito non può dirlo da solo. GitHub non
+  `mull2five.it` e scrive solo quando qualcosa cambia:
+  - 🔴 non risponde (dopo tre tentativi), 🟠 risponde ma il database no o lo
+    schema è indietro, 🟢 di nuovo su e dopo quanto;
+  - 🚀 un commit nuovo in produzione, con il suo titolo;
+  - ⏳ main è avanti e dopo 20 minuti in produzione gira ancora il commit di
+    prima: il deploy è fallito o è fermo (il 29/09 uno è rimasto appeso per
+    sempre mentre il sito vecchio rispondeva);
+  - 🗄️ nessun backup riuscito da più di 30 ore, e ✅ quando torna: un backup che
+    GitHub non fa partire non fallisce, semplicemente non c'è.
+
+  Serve perché se a cadere è Render il sito non può dirlo da solo. GitHub non
   garantisce i cinque minuti: nelle ore di punta un giro parte in ritardo.
-  Sempre da GitHub, 🔴 se il backup della notte fallisce (`backup.yml`, passo 6);
+- **da GitHub, quando un workflow va male** (`.github/workflows/avvisi.yml`):
+  🔴 il backup è fallito; ❌ la CI è rossa su main, cioè codice rotto già in
+  produzione, perché il deploy non la aspetta; 😴 lo staging non risponde o ha il
+  database in pausa. Si prova con *Actions → Backup → Run workflow* e **Prova
+  dell'avviso** spuntato: arriva 🧪.
 - **dal sito**: il database che cade e torna (ogni minuto), un errore 500 (al
   massimo uno ogni cinque minuti per endpoint), e 📬 ogni email che arriva a
   `info@`, `commercial@` o alla casella admin, con casella, mittente e oggetto.
   Il testo resta nella casella, che non viene toccata: l'email non risulta
   letta. Se una casella non si legge per tre minuti di fila (password cambiata,
-  server giù) arriva ⚠️, e ✅ quando torna (`services/mail_watch.py`).
+  server giù) arriva ⚠️, e ✅ quando torna (`services/mail_watch.py`). Poi,
+  ogni dieci minuti (`services/site_watch.py`):
+  - ⏸️ il controllo da GitHub non passa da più di tre ore
+    (`STATUS_CHECK_ALERT_HOURS`), e ▶️ quando riparte. Il sito lo riconosce dallo
+    User-Agent `mull2five-stato-sito`. È il controllo del controllore: GitHub
+    spegne i lavori pianificati dopo 60 giorni senza commit, e nelle giornate
+    storte li salta. Quando succede si ferma anche il backup;
+  - il database oltre i 400 MB (`DB_SIZE_ALERT_MB`), una volta al giorno: il
+    piano gratuito di Supabase arriva a 500, ed è ora di passare a Pro.
+
+  Infine, quando un'email **non parte** (password cambiata, server giù) arriva
+  "Email non partite da …", al massimo una volta l'ora per casella: un reset
+  password che non arriva, altrimenti, lo vede solo chi non riesce a entrare. Va
+  su Telegram e non per email, che passerebbe dalla stessa casella rotta.
 
 Le caselle si leggono via IMAP con le stesse credenziali `SMTP_*` con cui
 mandano; su register.it il server è **`pop.securemail.pro`**, porta 993 (sì,

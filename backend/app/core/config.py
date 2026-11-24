@@ -114,6 +114,13 @@ class Settings(BaseSettings):
     imap_host: str | None = None
     imap_port: int = 993
     mail_watch_interval_secs: int = 60
+    # Il controllo da GitHub (scripts/stato_sito.py) che non passa da tante ore:
+    # nessuno avvisa più se il sito cade, e di solito è fermo anche il backup.
+    # Solo con Telegram; 0 = spento (services/site_watch.py).
+    status_check_alert_hours: int = 3
+    # Il piano gratuito di Supabase arriva a 500 MB: oltre questa soglia si avvisa,
+    # una volta al giorno. 0 = spento.
+    db_size_alert_mb: int = 400
 
     # Multi-tenant: header che identifica l'organizzazione (negozio) corrente.
     tenant_header: str = "X-Mull2Five-Org"

@@ -84,34 +84,40 @@ def _send_email_alert(to: str, subject: str, body: str) -> None:
         logger.warning("Alert email non inviato: %s", exc)
 
 
-def _dispatch(subject: str, message: str) -> None:
+def _dispatch(subject: str, message: str, email: bool = True) -> None:
     s = get_settings()
-    if s.alert_email:
+    if email and s.alert_email:
         _send_email_alert(s.alert_email, subject, message)
     if s.telegram_bot_token and s.telegram_chat_id:
         _send_telegram(s.telegram_bot_token, s.telegram_chat_id, f"{subject}\n\n{message}")
 
 
-def send_alert(key: str, subject: str, message: str, *, level: str = "error") -> bool:
+def send_alert(
+    key: str, subject: str, message: str, *, level: str = "error",
+    email: bool = True, throttle_secs: int | None = None,
+) -> bool:
     """Invia un alert sui canali configurati (throttled per `key`).
     Ritorna True se l'alert è stato accodato, False se soppresso/disabilitato.
     Non solleva mai: l'alerting non deve mai rompere il flusso chiamante.
+
+    `email=False` per gli allarmi sull'email stessa: passerebbero dalla casella
+    rotta. `throttle_secs` per un allarme che non serve ripetere ogni cinque minuti.
     """
     try:
         s = get_settings()
         if not alerting_enabled():
             return False
-        if not _should_send(key, s.alert_throttle_secs):
+        if not _should_send(key, s.alert_throttle_secs if throttle_secs is None else throttle_secs):
             return False
         full_subject = f"[Mull2Five {level.upper()}] {subject}"
         logger.warning("ALERT %s: %s — %s", level, subject, message)
         # Fire-and-forget: non blocchiamo il chiamante.
         try:
             loop = asyncio.get_running_loop()
-            loop.run_in_executor(None, _dispatch, full_subject, message)
+            loop.run_in_executor(None, _dispatch, full_subject, message, email)
         except RuntimeError:
             # Nessun event loop (contesto sincrono): invia inline.
-            _dispatch(full_subject, message)
+            _dispatch(full_subject, message, email)
         return True
     except Exception as exc:  # noqa: BLE001
         logger.warning("send_alert fallito: %s", exc)

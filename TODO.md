@@ -230,7 +230,7 @@ decisioni tue.
       invece di annotarlo, e le migrazioni girano prima di uvicorn in `backend/app/prepara_database.py`,
       chiamato dal `CMD`: se falliscono il contenitore esce con un errore, il deploy si ferma e resta
       su la versione di prima. In più `/health` dice se lo schema è rimasto indietro.
-- [ ] **Avvisi su Telegram: il codice c'è (24/11/2026), mancano bot e variabili.** Da fuori, GitHub controlla `/health` ogni cinque minuti (giù, zoppo, di nuovo su, deploy nuovo); dal sito arrivano database, errori 500 e le email delle tre caselle. Creare il bot, mettere `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` e `IMAP_HOST` su Render e i due segreti su GitHub, poi provarlo: `docs/hosting.md`, "Avvisi su Telegram".
+- [x] **Avvisi su Telegram: accesi il 24/11/2026.** Da fuori, GitHub controlla `/health` ogni cinque minuti (giù, zoppo, di nuovo su, deploy nuovo, deploy che non arriva, backup che manca da 30 ore); un workflow avvisa del backup fallito, della CI rossa su main e dello staging addormentato; dal sito arrivano database, errori 500, le email delle tre caselle, quelle che non partono, il database oltre 400 MB e il controllo da GitHub fermo da tre ore. Dettagli: `docs/hosting.md`, "Avvisi su Telegram".
 - [x] **Ripristino dal backup: provato il 29/09/2026, funziona.** Decifrato, ripristinato nello staging e anonimizzato con `scripts/anonimizza.py`: 7 tornei
       e una classifica da 64 giocatori, con i nomi sostituiti fin dentro le risposte pubbliche.
       Procedura in `docs/hosting.md`. Da ripetere quando lo staging va riallineato.

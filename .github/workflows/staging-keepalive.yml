@@ -6,8 +6,9 @@
 # Supabase lo conti come attività. Il primo colpo sveglia anche Render, che sul
 # piano gratuito impiega fino a un minuto: per questo l'attesa è lunga.
 #
-# Se fallisce, GitHub manda un'email: vuol dire che lo staging è già giù o che
-# il database è in pausa (Supabase → Resume project, poi Manual Deploy su Render).
+# Se fallisce, GitHub manda un'email e arriva 😴 su Telegram (avvisi.yml): vuol
+# dire che lo staging è già giù o che il database è in pausa (Supabase → Resume
+# project, poi Manual Deploy su Render).
 #
 # Gli eventi pianificati GitHub li fa girare solo dal ramo principale: questo
 # file comincia a lavorare quando arriva su main.

@@ -7,11 +7,15 @@
 # Segreti richiesti (Settings → Secrets and variables → Actions):
 #   BACKUP_DATABASE_URL  session pooler di Supabase, con postgresql:// (senza +psycopg)
 #   BACKUP_PASSPHRASE    tenuta anche in un password manager
-#   TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID  quelli dello stato del sito: se il
-#                        backup fallisce arriva 🔴 su Telegram, oltre all'email di GitHub
+#
+# Se fallisce arriva 🔴 su Telegram, oltre all'email di GitHub: lo manda il
+# workflow Avvisi (avvisi.yml). Se GitHub non lo fa partire affatto, dopo 30 ore
+# lo dice lo stato del sito (scripts/stato_sito.py).
 #
 # Ripristino: vedi docs/hosting.md, passo 6.
 name: Backup
+# Il nome del run dice se è una prova: Avvisi lo legge da lì.
+run-name: ${{ inputs.prova_avviso && 'Backup, prova dell''avviso' || 'Backup' }}
 
 on:
   schedule:
@@ -62,33 +66,3 @@ jobs:
           path: mull2five-*.dump.gpg
           retention-days: 30
           if-no-files-found: error
-
-      - name: Avviso su Telegram
-        if: failure()
-        env:
-          TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          PROVA: ${{ inputs.prova_avviso }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: |
-          set -euo pipefail
-          # Un segreto incollato può portarsi dietro un a capo (24/11/2026).
-          token="$(printf '%s' "$TOKEN" | tr -d '[:space:]')"
-          chat_id="$(printf '%s' "$CHAT_ID" | tr -d '[:space:]')"
-          if [ -z "$token" ] || [ -z "$chat_id" ]; then
-            echo "::warning::Mancano TELEGRAM_BOT_TOKEN o TELEGRAM_CHAT_ID: niente avviso."
-            exit 0
-          fi
-          text="🔴 Backup del database fallito: oggi non c'è una copia nuova. ${RUN_URL}"
-          if [ "$PROVA" = "true" ]; then
-            text="🧪 Prova, il database sta bene. ${text}"
-          fi
-          payload="$(jq -n --arg chat "$chat_id" --arg text "$text" \
-            '{chat_id: $chat, text: $text, disable_web_page_preview: true}')"
-          # -sS: negli errori curl dice il codice, mai l'indirizzo, che contiene il token.
-          if ! answer="$(curl -sS --fail-with-body --max-time 20 \
-                -H 'Content-Type: application/json' -d "$payload" \
-                "https://api.telegram.org/bot${token}/sendMessage")"; then
-            echo "::error::Telegram non ha preso l'avviso: $(jq -r '.description // empty' <<<"$answer" 2>/dev/null)"
-            exit 1
-          fi

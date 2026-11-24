@@ -3,7 +3,8 @@
 # Il sito avvisa da solo quando cade il database o un endpoint dà 500, ma se a
 # cadere è Render o il contenitore non può dire niente. Questo controllo chiama
 # /health ogni cinque minuti da GitHub e scrive su Telegram quando qualcosa
-# cambia: giù, risponde ma zoppica, di nuovo su, un commit nuovo in produzione.
+# cambia: giù, risponde ma zoppica, di nuovo su, un commit nuovo in produzione,
+# un deploy che non arriva, un backup che manca da più di 30 ore.
 # La logica e i messaggi sono in scripts/stato_sito.py.
 #
 # Fra un giro e l'altro lo stato sta in un file nella cache di GitHub: lo si
@@ -25,6 +26,7 @@ on:
 
 permissions:
   contents: read
+  actions: read      # quando è finito l'ultimo backup riuscito
 
 # Un giro alla volta: due insieme manderebbero lo stesso avviso due volte.
 concurrency:
@@ -53,9 +55,12 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GITHUB_TOKEN: ${{ github.token }}
         # Lanciato a mano ("Run workflow") scrive comunque: è la prova del bot.
+        # --main solo da main: lanciato da un altro ramo, quel ramo non va online.
         run: >-
           python3 scripts/stato_sito.py --stato .stato-sito.json
+          --main=${{ github.ref == 'refs/heads/main' && github.sha || '' }}
           ${{ github.event_name == 'workflow_dispatch' && '--sempre' || '' }}
 
       - name: Si ricorda il nuovo stato

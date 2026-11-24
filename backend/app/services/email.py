@@ -13,9 +13,12 @@ from email.message import EmailMessage
 from enum import StrEnum
 from html import escape
 
+from backend.app.core.alerting import send_alert
 from backend.app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
+# Una casella rotta fallisce a ogni email: basta saperlo una volta l'ora.
+FAILURE_ALERT_SECS = 3600
 # Poche email per volta: sono avvisi, non una newsletter.
 _sender = ThreadPoolExecutor(max_workers=2, thread_name_prefix="email")
 
@@ -62,6 +65,16 @@ def _deliver(message: EmailMessage, mailbox: _Mailbox) -> None:
             smtp.send_message(message)
     except OSError as exc:      # server giù, timeout, credenziali rifiutate
         logger.warning("Email non inviata a %s: %s", message["To"], exc)
+        # Una casella che non manda è un reset password che non arriva, e
+        # nessuno se ne accorge: lo si dice, su Telegram e non per email (che
+        # passerebbe dalla stessa casella). Il destinatario resta fuori: è di
+        # un giocatore, e non serve a capire il guasto.
+        send_alert(
+            f"email-failed:{mailbox.from_email}",
+            f"Email non partite da {mailbox.from_email}",
+            f"{type(exc).__name__}: {exc}",
+            email=False, throttle_secs=FAILURE_ALERT_SECS,
+        )
 
 
 def send_email(
