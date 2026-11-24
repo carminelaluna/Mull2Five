@@ -128,7 +128,8 @@ services:
         sync: false
       - key: TELEGRAM_CHAT_ID
         sync: false
-      # Le email che arrivano alle caselle SMTP_*, su Telegram: mail.securemail.pro
+      # Le email che arrivano alle caselle SMTP_*, su Telegram: pop.securemail.pro
+      # (non mail.securemail.pro, che rifiuta l'accesso: docs/hosting.md)
       - key: IMAP_HOST
         sync: false
 

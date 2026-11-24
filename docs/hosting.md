@@ -449,10 +449,15 @@ Un bot solo, due fonti (24/11/2026):
   server giù) arriva ⚠️, e ✅ quando torna (`services/mail_watch.py`).
 
 Le caselle si leggono via IMAP con le stesse credenziali `SMTP_*` con cui
-mandano; su register.it il server è `mail.securemail.pro`, porta 993. Dove si
-era arrivati lo tiene la memoria del processo: un'email arrivata proprio nel
-minuto di un riavvio può non essere avvisata, o esserlo due volte (resta
-comunque nella casella).
+mandano; su register.it il server è **`pop.securemail.pro`**, porta 993 (sì,
+"pop": è lo stesso server delle email in arrivo, `mail.register.it`, che però ha
+il certificato a nome `*.securemail.pro`). Non `mail.securemail.pro`: risponde
+anche lui, ma è un altro gruppo di server e rifiuta tutte e tre le caselle con
+`AUTHENTICATIONFAILED` (24/11/2026). Dove si era arrivati lo tiene la memoria
+del processo: un'email arrivata proprio nel minuto di un riavvio può non essere
+avvisata, o esserlo due volte (resta comunque nella casella). Per lo stesso
+motivo, dopo un deploy il primo giro prende solo nota: un accesso che riesce
+non manda niente, e la prova è un'email vera.
 
 Per accenderlo:
 
@@ -465,7 +470,7 @@ Per accenderlo:
    `"chat":{"id":` è il **chat id**. Per un gruppo: aggiungi il bot al gruppo,
    scrivi lì, e l'id (negativo) è quello del gruppo.
 3. **Render → Mull2Five → Environment**, solo la produzione:
-   `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` e `IMAP_HOST` = `mail.securemail.pro`.
+   `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` e `IMAP_HOST` = `pop.securemail.pro`.
    Salvare fa partire il deploy. Sullo staging no: le caselle lì sono vuote di
    proposito, e i suoi errori arriverebbero mescolati a quelli veri.
 4. **GitHub → Settings → Secrets and variables → Actions → New repository

@@ -110,7 +110,7 @@ class Settings(BaseSettings):
     watchdog_interval_secs: int = 60
     # Le email che arrivano alle caselle del sito (quelle di SMTP_*), avvisate su
     # Telegram (services/mail_watch.py). Senza IMAP_HOST o senza Telegram è spento.
-    # register.it: mail.securemail.pro, porta 993.
+    # register.it: pop.securemail.pro, porta 993 (mail.securemail.pro rifiuta l'accesso).
     imap_host: str | None = None
     imap_port: int = 993
     mail_watch_interval_secs: int = 60
