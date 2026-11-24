@@ -82,9 +82,12 @@ Con Google succede una di tre cose:
 - **l'account Google è già collegato** a un account di qui: si entra in quello;
 - **c'è già un account con la stessa email** (aperto con la password, o creato
   al banco dall'organizzatore): si entra in quello e Google gli resta collegato.
-  Nessun doppione, e la password continua a valere. Se l'account aveva una
-  password arriva un'email che lo dice: se la password non l'aveva scelta chi
-  ha l'email, la cambi da "Password dimenticata";
+  Nessun doppione. **Se l'account aveva una password, questa si spegne**, e con
+  lei le sessioni aperte e i link di reset già spediti; arriva un'email che lo
+  spiega. Il motivo: la registrazione con la password non verifica l'email, e
+  chi avesse aperto un account con l'indirizzo di un altro resterebbe dentro con
+  la sua password. Chi la vuole ancora ne sceglie una nuova da "Password
+  dimenticata". Succede solo alla prima unione: dopo, Google è già collegato;
 - **nessun account**: un ultimo passo chiede nome, età minima, termini e tipo di
   account, come la registrazione con la password, e l'account nasce.
 
@@ -93,9 +96,11 @@ Vale solo un'email che Google ha verificato: le altre vengono rifiutate.
 Nel riquadro **Il tuo account** di `my-registrations.html`:
 
 - **Collega Google** — collega l'account Google a quello con cui sei dentro,
-  anche se ha un'altra email;
+  anche se ha un'altra email. Qui la password resta: chi è dentro ha già
+  dimostrato di conoscerla;
 - **Scollega Google** — solo se resta la password per entrare;
-- **Scegli una password** — per chi è nato con Google e non ne ha una: arriva
+- **Scegli una password** — per chi non ne ha una (nato con Google, o con la
+  password spenta dall'unione): arriva
   l'email di "Password dimenticata". Dopo, Google si può scollegare.
 
 Il collegamento con Google finisce nel file di "Scarica i miei dati" e sparisce

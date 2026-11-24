@@ -159,7 +159,15 @@ def test_il_cookie_non_e_un_token_di_accesso(client, google):
 
 # ── Unione con l'account che c'era ────────────────────────────────────────
 
-def test_utente_con_password_viene_collegato_senza_doppioni(client, google, db_session):
+@pytest.fixture
+def mails(monkeypatch):
+    sent = []
+    monkeypatch.setattr("backend.app.routers.google_auth.send_email",
+                        lambda to, subject, body, **kw: sent.append((to, subject, body)))
+    return sent
+
+
+def test_utente_con_password_viene_collegato_senza_doppioni(client, google, db_session, mails):
     first = client.get("/api/auth/me", headers=register(client)).json()
 
     path, query = google_sign_in(client, google, sub="google-mario", email="MARIO@example.com")
@@ -171,9 +179,55 @@ def test_utente_con_password_viene_collegato_senza_doppioni(client, google, db_s
     assert db_session.scalar(select(func.count(User.id)).where(User.email == "mario@example.com")) == 1
     identity = db_session.scalar(select(UserIdentity).where(UserIdentity.user_id == first["id"]))
     assert identity.subject == "google-mario"
-    # La password continua a valere.
-    login = client.post("/api/auth/login", json={"email": "mario@example.com", "password": "password-lunga"})
-    assert login.status_code == 200
+
+
+def test_la_password_di_prima_si_spegne_alla_prima_unione(client, google, db_session, mails):
+    """Chi ha aperto l'account con l'email di un altro perde la password e la sessione."""
+    squatter = register(client)
+    user_id = client.get("/api/auth/me", headers=squatter).json()["id"]
+    reset_link = create_reset_token(db_session.get(User, user_id))
+
+    google_sign_in(client, google, sub="google-mario", email="mario@example.com")
+    owner = bearer(client.post("/api/auth/google/finish").json()["access_token"])
+
+    refused = client.post("/api/auth/login", json={"email": "mario@example.com", "password": "password-lunga"})
+    assert refused.status_code == 401
+    assert client.get("/api/auth/me", headers=squatter).status_code == 401
+    assert client.post("/api/auth/reset-password", json={
+        "token": reset_link, "new_password": "presa-di-nuovo-123"}).status_code == 400
+    assert client.get("/api/auth/me", headers=owner).json()["id"] == user_id
+    assert client.get("/api/auth/google/me", headers=owner).json()["has_password"] is False
+
+    [(to, subject, body)] = mails
+    assert to == "mario@example.com" and "disattivato la password" in body
+
+    # Le volte dopo si entra e basta: niente più avvisi né sessioni chiuse.
+    google_sign_in(client, google, sub="google-mario", email="mario@example.com")
+    assert client.post("/api/auth/google/finish").json()["linked_existing"] is False
+    assert client.get("/api/auth/me", headers=owner).status_code == 200
+    assert len(mails) == 1
+
+
+def test_chi_nasce_con_google_non_riceve_avvisi(client, google, mails):
+    google_sign_in(client, google, sub="google-nuovo", email="nuovo@example.com")
+    client.post("/api/auth/google/complete", json={
+        "display_name": "Nuovo", "age_confirmed": True, "terms_accepted": True})
+    assert mails == []
+
+
+def test_la_password_si_spegne_anche_se_l_account_nasce_durante_la_registrazione(
+        client, google, db_session, mails):
+    """Il giro di registrazione con Google è aperto, e intanto qualcuno usa l'email."""
+    google_sign_in(client, google, sub="google-mario", email="mario@example.com")
+    squatter = register(client)
+
+    done = client.post("/api/auth/google/complete", json={
+        "display_name": "Mario", "age_confirmed": True, "terms_accepted": True})
+    assert done.status_code == 201, done.text
+    assert client.get("/api/auth/me", headers=squatter).status_code == 401
+    assert client.post("/api/auth/login", json={
+        "email": "mario@example.com", "password": "password-lunga"}).status_code == 401
+    assert len(mails) == 1
 
 
 def test_un_account_google_non_si_collega_a_due_utenti(client, google):
@@ -313,9 +367,10 @@ def test_collegare_vale_solo_per_il_proprio_account(client, google):
 
 
 def test_eliminare_laccount_toglie_anche_google(client, google, db_session):
-    headers = register(client)
+    register(client)
     google_sign_in(client, google, sub="google-mario")
-    client.post("/api/auth/google/finish")
+    # L'unione chiude la sessione della password: si va avanti con quella di Google.
+    headers = bearer(client.post("/api/auth/google/finish").json()["access_token"])
     export = client.get("/api/auth/me/export", headers=headers).json()
     assert export["linked_accounts"][0]["provider"] == "google"
 

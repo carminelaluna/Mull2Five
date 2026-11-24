@@ -138,17 +138,35 @@ def _attach(db: Session, user: User, account: GoogleAccount) -> None:
                         email=account.email))
 
 
+def _merge_by_email(db: Session, user: User, account: GoogleAccount) -> bool:
+    """Google entra nell'account che ha la sua stessa email. Dice se c'era una password.
+
+    La registrazione con password non verifica l'email: chiunque può aprire un account
+    con l'indirizzo di un altro. Google invece l'indirizzo l'ha verificato, quindi chi
+    arriva da lì è il padrone dell'email. La password che c'era la toglie, e con lei le
+    sessioni aperte e i link di reset già spediti (vanno tutti con `token_version`):
+    se era sua, se ne sceglie una nuova con «Password dimenticata».
+    """
+    _attach(db, user, account)
+    if not user.password_hash:
+        return False
+    user.password_hash = None
+    user.token_version = (user.token_version or 0) + 1
+    return True
+
+
 def _tell_about_merge(user: User, account: GoogleAccount) -> None:
     send_email(
         user.email,
         "Mull2Five — Google collegato al tuo account",
         f"Ciao {user.display_name},\n\n"
         f"sei appena entrato in Mull2Five con Google ({account.email}): l'account che "
-        "avevi con questa email è lo stesso, e da adesso si apre sia con Google sia con "
-        "la password.\n\n"
-        "Se la password non l'hai scelta tu, cambiala subito con «Password dimenticata» "
-        "dalla pagina di accesso: qualcuno potrebbe aver aperto l'account con il tuo "
-        "indirizzo prima di te.",
+        "avevi con questa email è lo stesso, e da adesso si apre con Google.\n\n"
+        "Per sicurezza abbiamo disattivato la password che aveva l'account e chiuso le "
+        "sessioni aperte: un account con password si può aprire anche con l'indirizzo di "
+        "un altro, Google invece ci conferma che l'email è tua.\n\n"
+        "Se vuoi entrare anche con la password, scegline una nuova con «Password "
+        "dimenticata» dalla pagina di accesso.",
         sender=Sender.ACCOUNT,
     )
 
@@ -257,10 +275,10 @@ def _sign_in(db: Session, account: GoogleAccount, next_page: str) -> RedirectRes
                         gsub=account.subject, email=account.email, name=account.name)
             return response
         if user.is_active:
-            _attach(db, user, account)
+            had_password = _merge_by_email(db, user, account)
             db.commit()
             merged = True
-            if user.password_hash:
+            if had_password:
                 _tell_about_merge(user, account)
     if user is None or not user.is_active:
         raise GoogleLoginError("disattivato")
@@ -310,7 +328,7 @@ def complete_signup(
         identity = _identity_by_subject(db, account.subject)
         # Nel frattempo l'account può essere nato da un'altra scheda, o con la password.
         user = db.get(User, identity.user_id) if identity else _user_by_email(db, account.email)
-        merged = identity is None and user is not None and bool(user.password_hash)
+        merged = False
         if user is None:
             role = payload.role if payload.role in {UserRole.PLAYER, UserRole.ORGANIZER} else UserRole.PLAYER
             default_org = db.scalar(select(Organization).where(Organization.is_default.is_(True)))
@@ -326,7 +344,8 @@ def complete_signup(
             db.flush()
         if not user.is_active:
             raise GoogleLoginError("disattivato")
-        _attach(db, user, account)
+        if identity is None:
+            merged = _merge_by_email(db, user, account)
         db.commit()
     except (GoogleLoginError, IntegrityError):
         db.rollback()
