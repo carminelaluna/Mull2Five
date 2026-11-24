@@ -107,6 +107,18 @@
         <button class="bo-nav-item" data-section="community" type="button">Community</button>
         <button class="bo-nav-item" data-section="negozio" type="button">Negozio</button>
       </nav>
+      <!-- Da telefono le cinque sezioni non stanno in una riga: al posto della
+           barra c'è questo menu, e sceglierne una è come cliccarla (organizer.js). -->
+      <label class="bo-nav-select">
+        <span>Sezione</span>
+        <select id="boNavSelect">
+          <option value="eventi">Eventi</option>
+          <option value="manifestazioni">Manifestazioni</option>
+          <option value="circuiti">Circuiti</option>
+          <option value="community">Community</option>
+          <option value="negozio">Negozio</option>
+        </select>
+      </label>
 
       <div id="boCrumb" class="bo-crumb" style="display:none"></div>
       <div class="bo-tabs" id="boEventTabs" style="display:none"></div>

@@ -525,6 +525,8 @@ html[data-online-payments="off"] .pay-online { display: none; }
 }
 .bo-nav-item:hover { color: var(--ink); }
 .bo-nav-item.active { color: var(--ink); border-bottom-color: var(--accent); }
+/* Il menu delle sezioni c'è solo da telefono, al posto della barra (sotto). */
+.bo-nav-select { display: none; }
 
 .bo-head {
   display: flex;
@@ -671,8 +673,19 @@ html[data-online-payments="off"] .pay-online { display: none; }
 .bo-more summary:hover { color: var(--ink); }
 
 @media (max-width: 640px) {
-  .bo-nav { overflow-x: auto; }
-  .bo-nav-item { margin-right: 16px; white-space: nowrap; }
+  /* Cinque sezioni non stanno in una riga: invece di una barra che scorre con
+     la sua barra di scorrimento, un menu a tendina (organizer.js lo tiene allineato). */
+  .bo-nav { display: none; }
+  .bo-nav-select {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--line);
+  }
+  .bo-nav-select > span { flex: none; color: var(--muted); font-size: .86rem; font-weight: 700; }
+  .bo-nav-select select { flex: 1; min-width: 0; font-weight: 700; }
   .bo-event { flex-direction: column; align-items: stretch; }
 }
 

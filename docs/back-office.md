@@ -4,7 +4,8 @@
 giocatore che ci arriva trova una spiegazione, non una pagina vuota.
 
 Cinque sezioni in cima: **Eventi**, **Manifestazioni**, **Circuiti**,
-**Community**, **Negozio**.
+**Community**, **Negozio**. Da telefono (sotto i 640 px) non stanno in una riga:
+al posto della barra c'è il menu a tendina **Sezione**.
 
 ## Eventi
 

@@ -70,22 +70,30 @@ async function init() {
      <button class="secondary-link" id="logoutBtn" type="button">${esc(tr('Esci'))}</button>`;
   $('#logoutBtn').addEventListener('click', () => logout('index.html'));
 
+  // La sezione accesa si vede in due posti: la barra, e da telefono il menu a tendina.
+  const navSelect = $('#boNavSelect');
+  const markSection = (button) => {
+    document.querySelectorAll('.bo-nav-item').forEach((x) => x.classList.toggle('active', x === button));
+    if (navSelect) navSelect.value = button.dataset.section;
+  };
   document.querySelectorAll('.bo-nav-item').forEach(b =>
     b.addEventListener('click', () => {
       _section = b.dataset.section;
       _activeId = null;            // cambiando sezione si esce dall'evento
       _openEventId = null;
       leaveCircuits();
-      document.querySelectorAll('.bo-nav-item').forEach(x => x.classList.toggle('active', x === b));
+      markSection(b);
       render();
     }));
+  navSelect?.addEventListener('change', () =>
+    document.querySelector(`.bo-nav-item[data-section="${CSS.escape(navSelect.value)}"]`)?.click());
 
   // ?sezione=negozio apre il Negozio: ci si torna da Stripe dopo aver collegato l'account.
   const params = new URLSearchParams(location.search);
   const section = document.querySelector(`.bo-nav-item[data-section="${CSS.escape(params.get('sezione') || '')}"]`);
   if (section) {
     _section = section.dataset.section;
-    document.querySelectorAll('.bo-nav-item').forEach((x) => x.classList.toggle('active', x === section));
+    markSection(section);
   }
   // ?t=ID apre direttamente quell'evento: ci si arriva dai link della regia.
   const wanted = params.get('t');
