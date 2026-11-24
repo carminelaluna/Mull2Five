@@ -1216,5 +1216,16 @@
   "La registrazione con Google è scaduta: riprova": "L'inscription avec Google a expiré : réessayez",
   "Questo account Google è già collegato a un altro account": "Ce compte Google est déjà lié à un autre compte",
   "Google non è collegato al tuo account": "Google n'est pas lié à votre compte",
-  "Prima di scollegare Google scegli una password: senza, non avresti più modo di entrare": "Avant de délier Google choisissez un mot de passe : sans lui vous n'auriez plus aucun moyen de vous connecter"
+  "Prima di scollegare Google scegli una password: senza, non avresti più modo di entrare": "Avant de délier Google choisissez un mot de passe : sans lui vous n'auriez plus aucun moyen de vous connecter",
+  "Link copiato": "Lien copié",
+  "Seleziona il link e copialo": "Sélectionne le lien et copie-le",
+  "QR iscrizione": "QR d'inscription",
+  "Il QR che apre l'iscrizione: da stampare per il banco o da condividere": "Le QR qui ouvre l'inscription : à imprimer pour le comptoir ou à partager",
+  "Chi lo inquadra arriva sulla pagina del torneo con l'iscrizione già aperta. Stampalo per il banco o scaricalo per i social.": "Qui le scanne arrive sur la page du tournoi avec l'inscription déjà ouverte. Imprime-le pour le comptoir ou télécharge-le pour les réseaux sociaux.",
+  "🖨 Stampa": "🖨 Imprimer",
+  "⬇ Scarica SVG": "⬇ Télécharger SVG",
+  "Copia link": "Copier le lien",
+  "Iscriviti al torneo": "Inscris-toi au tournoi",
+  "Inquadra il codice con la fotocamera per iscriverti": "Scanne le code avec l'appareil photo pour t'inscrire",
+  "QR per iscriversi al torneo": "QR pour s'inscrire au tournoi"
 }

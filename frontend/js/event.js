@@ -12,6 +12,8 @@ const params = new URLSearchParams(location.search);
 const TOURNAMENT_ID = params.get('id');
 // Di ritorno da Stripe o PayPal senza aver pagato: non è iscritto.
 const PAYMENT_CANCELLED = params.get('pagamento') === 'annullato';
+/* Dal QR dell'organizzatore (qr.html): si arriva con la finestra d'iscrizione aperta. */
+const OPEN_REGISTRATION = params.get('iscriviti') === '1';
 
 /* Chi gestisce il profilo di un figlio lo iscrive per lui (X-Act-As). */
 const apiFetch = (path, opts = {}) => apiRequest(path, { acting: true, ...opts });
@@ -206,6 +208,12 @@ async function loadEvent() {
     document.querySelector('#regPayment')?.addEventListener('change', syncPaymentChoice);
     document.querySelector('#confirmRegister')?.addEventListener('click', () => doRegister(t));
     bindActingBanner(document.querySelector('#eventDetail'));
+
+    // Senza accesso il parametro resta: torna qui dal login, e la finestra si apre allora.
+    if (OPEN_REGISTRATION && session) {
+      history.replaceState(null, '', `event.html?id=${TOURNAMENT_ID}`);
+      document.querySelector('#registerBtn')?.click();
+    }
 
   } catch (err) {
     document.querySelector('#eventDetail').innerHTML = `<p class="empty">Errore: ${esc(err.message)}</p>`;

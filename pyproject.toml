@@ -19,6 +19,8 @@ dependencies = [
   "redis>=5.0.0",
   "prometheus-client>=0.20.0",
   "pywebpush>=2.0.0",
+  # Il QR dell'iscrizione ai tornei (services/registration_qr.py): puro Python, zero dipendenze.
+  "segno>=1.6",
   # I fusi orari per zoneinfo: l'immagine python-slim può non averli.
   "tzdata>=2024.1",
 ]

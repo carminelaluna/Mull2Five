@@ -1210,5 +1210,16 @@
   "La registrazione con Google è scaduta: riprova": "The Google sign-up expired: please try again",
   "Questo account Google è già collegato a un altro account": "This Google account is already linked to another account",
   "Google non è collegato al tuo account": "Google is not linked to your account",
-  "Prima di scollegare Google scegli una password: senza, non avresti più modo di entrare": "Before unlinking Google choose a password: without one you would have no way to sign in"
+  "Prima di scollegare Google scegli una password: senza, non avresti più modo di entrare": "Before unlinking Google choose a password: without one you would have no way to sign in",
+  "Link copiato": "Link copied",
+  "Seleziona il link e copialo": "Select the link and copy it",
+  "QR iscrizione": "Sign-up QR",
+  "Il QR che apre l'iscrizione: da stampare per il banco o da condividere": "The QR code that opens sign-up: print it for the counter or share it",
+  "Chi lo inquadra arriva sulla pagina del torneo con l'iscrizione già aperta. Stampalo per il banco o scaricalo per i social.": "Whoever scans it lands on the tournament page with sign-up already open. Print it for the counter or download it for social media.",
+  "🖨 Stampa": "🖨 Print",
+  "⬇ Scarica SVG": "⬇ Download SVG",
+  "Copia link": "Copy link",
+  "Iscriviti al torneo": "Sign up for the tournament",
+  "Inquadra il codice con la fotocamera per iscriverti": "Scan the code with your camera to sign up",
+  "QR per iscriversi al torneo": "QR code to sign up for the tournament"
 }

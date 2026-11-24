@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>QR iscrizione — Mull2Five</title>
+    <meta name="description" content="Il QR che porta all'iscrizione al torneo, da stampare o condividere." />
+    <meta name="robots" content="noindex" />
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="theme-color" content="#0d0d0f" />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="app.css" />
+  </head>
+  <body class="qr-body">
+    <header class="public-header">
+      <a class="brand" href="index.html">
+        <img src="/brand/header-logo-orizzontale-su-scuro.svg" alt="Mull2Five" class="brand-logo" />
+      </a>
+      <nav class="public-nav" aria-label="Navigazione">
+        <a href="events.html">Eventi</a>
+        <a href="stores.html">Negozi</a>
+        <a href="circuits.html">Circuiti</a>
+        <a href="decklists.html">Liste</a>
+        <a href="organizer.html">Organizza</a>
+      </nav>
+      <div class="public-auth" id="publicAuth"></div>
+    </header>
+
+    <main class="public-main" id="qrPage">
+      <div class="qr-tools" id="qrTools" hidden>
+        <div>
+          <span class="eyebrow">QR iscrizione</span>
+          <p class="muted qr-help">Chi lo inquadra arriva sulla pagina del torneo con l'iscrizione già aperta. Stampalo per il banco o scaricalo per i social.</p>
+        </div>
+        <div class="qr-actions">
+          <button class="primary" id="qrPrint" type="button">🖨 Stampa</button>
+          <a class="mini-button" id="qrPng" href="#" download>⬇ Scarica PNG</a>
+          <a class="mini-button" id="qrSvg" href="#" download>⬇ Scarica SVG</a>
+          <button class="mini-button" id="qrCopy" type="button">Copia link</button>
+        </div>
+      </div>
+
+      <article class="qr-poster" id="qrPoster" hidden>
+        <p class="qr-kicker">Iscriviti al torneo</p>
+        <h1 id="qrName"></h1>
+        <p class="qr-when" id="qrWhen"></p>
+        <p class="qr-where" id="qrWhere"></p>
+        <img class="qr-code" id="qrImage" alt="QR per iscriversi al torneo" />
+        <p class="qr-scan">Inquadra il codice con la fotocamera per iscriverti</p>
+        <p class="qr-url" id="qrUrl"></p>
+        <img class="qr-brand" src="/favicon.svg" alt="" width="28" height="28" />
+      </article>
+    </main>
+
+    <div id="toast" role="status" aria-live="polite"></div>
+    <script type="module" src="js/qr.js"></script>
+    <script type="module" src="js/site.js"></script>
+  </body>
+</html>

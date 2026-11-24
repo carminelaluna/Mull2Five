@@ -17,7 +17,7 @@ from datetime import UTC, date, datetime, timedelta
 from typing import Annotated
 
 import stripe
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
@@ -54,6 +54,7 @@ from backend.app.models import (
     TournamentTemplate,
     User,
 )
+from backend.app.routers.site import site_url
 from backend.app.schemas import (
     AnnouncementAudienceOut,
     AnnouncementCreate,
@@ -106,6 +107,7 @@ from backend.app.services.payments import (
     refund_paypal_capture,
     start_checkout,
 )
+from backend.app.services.registration_qr import KINDS, qr_image, registration_url
 from backend.app.services.registrations import (
     WAITLIST_PAY_HOURS,
     promote_from_waitlist,
@@ -1431,6 +1433,29 @@ def tournament_ical(tournament_id: int, db: Session = Depends(get_db)) -> Respon
         content=body,
         media_type="text/calendar",
         headers={"Content-Disposition": f'attachment; filename="torneo-{tournament_id}.ics"'},
+    )
+
+
+@router.get("/{tournament_id}/registration-qr.{kind}")
+def registration_qr(
+    tournament_id: int, kind: str, request: Request, download: bool = False,
+    db: Session = Depends(get_db),
+) -> Response:
+    """Il QR che apre l'iscrizione al torneo, da stampare o condividere — pubblico.
+
+    Pubblico come la pagina a cui porta: contiene solo il suo indirizzo.
+    """
+    if kind not in KINDS:
+        raise HTTPException(status_code=404, detail="Formato non disponibile: svg o png")
+    tournament = db.get(Tournament, tournament_id)
+    if not tournament or tournament.status == TournamentStatus.CANCELLED:
+        raise HTTPException(status_code=404, detail="Torneo non trovato")
+    headers = {"Cache-Control": "public, max-age=3600"}
+    if download:
+        headers["Content-Disposition"] = f'attachment; filename="iscrizione-torneo-{tournament_id}.{kind}"'
+    return Response(
+        content=qr_image(registration_url(site_url(request), tournament_id), kind),
+        media_type=KINDS[kind], headers=headers,
     )
 
 

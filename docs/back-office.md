@@ -41,6 +41,17 @@ Cinque schede: **Regia**, **Giocatori**, **Annunci**, **Staff**,
 **Impostazioni**, **Risultati**. Un evento di sola iscrizione non ha Regia né
 Risultati, perché non ha turni.
 
+Sopra le schede, accanto a "Pagina pubblica", c'è **▦ QR iscrizione** (finché
+l'evento non è concluso). Apre `qr.html?t=<id>`: un foglio con nome, formato,
+data, negozio e luogo, e un QR grande. Chi lo inquadra arriva sulla pagina del
+torneo con la finestra d'iscrizione già aperta (`event.html?id=<id>&iscriviti=1`);
+se non ha fatto l'accesso passa dal login e torna lì. Il foglio si stampa (A4,
+solo il foglio, senza menu) o si scarica in PNG o SVG per i social, e c'è
+"Copia link". Il QR lo disegna il server
+(`/api/tournaments/{id}/registration-qr.svg` o `.png`, pubblico come la pagina
+a cui porta) con l'indirizzo del sito (`SITE_URL`): un foglio stampato dallo
+staging punta allo staging.
+
 - **Giocatori** — una riga per persona: pagamento, check-in, lista, penalità,
   tag. Da qui si iscrive al banco, si importa da file, si tolgono i non
   paganti, si fanno i pod di draft e le squadre.

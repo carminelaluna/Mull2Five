@@ -41,6 +41,7 @@ export default defineConfig({
         series:             'series.html',         // pagina circuito
         circuits:           'circuits.html',       // elenco circuiti
         coverage:           'coverage.html',       // scheda social del torneo
+        qr:                 'qr.html',             // QR dell'iscrizione, da stampare
         'event-page':       'event-page.html',     // programma di una manifestazione
         login:              'login.html',
         history:            'history.html',

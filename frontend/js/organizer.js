@@ -167,6 +167,8 @@ function renderCrumb() {
          title="Apre la stessa console a tutto schermo: per un secondo monitor o per i judge">🖥 Regia a parte</a>
       <a class="mini-button" href="display.html?t=${t.id}" target="_blank" rel="noopener">📺 Display</a>`}
       <a class="mini-button" href="event.html?id=${t.id}" target="_blank" rel="noopener">↗ Pagina pubblica</a>
+      ${isClosed(t) ? '' : `<a class="mini-button" href="qr.html?t=${t.id}" target="_blank" rel="noopener"
+         title="${esc(tr('Il QR che apre l\'iscrizione: da stampare per il banco o da condividere'))}">▦ ${esc(tr('QR iscrizione'))}</a>`}
       ${isClosed(t) ? `<a class="mini-button" href="coverage.html?t=${t.id}" target="_blank" rel="noopener">🖼 Scheda social</a>` : ''}
     </div>`;
   $('#boBack').addEventListener('click', closeEvent);
