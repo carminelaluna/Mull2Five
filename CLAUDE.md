@@ -37,7 +37,9 @@ wsl bash -lc 'cd "/mnt/c/Users/Zero/Documents/Project/Tournament Organizer" && .
 
 `docs/` spiega ogni parte: back-office (Community e tag compresi), regia, lato
 pubblico, ruoli, e la messa online (`docs/hosting.md`). Da aggiornare quando si
-cambia cosa fa una schermata.
+cambia cosa fa una schermata. **`docs/comandi.md`** è il manuale per i guasti,
+dal sintomo o dall'avviso su Telegram fino al comando, scritto per PowerShell:
+va aggiornato quando cambia una procedura o arriva un avviso nuovo.
 
 ## Regole del progetto
 
