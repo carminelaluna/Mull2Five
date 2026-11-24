@@ -36,6 +36,10 @@ function pointsSummary(c) {
   const parts = [tr('{n} a vittoria', { n: c.points_win }), tr('{n} a pareggio', { n: c.points_draw })];
   if (c.points_participation) parts.push(tr('{n} a tappa giocata', { n: c.points_participation }));
   if (c.points_champion_bonus) parts.push(tr('+{n} a chi vince un torneo', { n: c.points_champion_bonus }));
+  if (c.points_undefeated_bonus) parts.push(tr('+{n} a chi chiude imbattuto', { n: c.points_undefeated_bonus }));
+  if (c.drop_worst_scores) {
+    parts.push(tr('scarta i {n} peggiori oltre {m} tornei', { n: c.drop_worst_scores, m: c.drop_above_tournaments }));
+  }
   return parts.join(' · ');
 }
 
@@ -83,6 +87,14 @@ export async function renderCircuiti() {
     el.addEventListener('click', () => { _openId = el.dataset.openCircuit; renderCircuiti(); }));
 }
 
+/* Un circuito nuovo parte con le regole della lega del negozio: vittorie e
+   pareggi, 1 punto presenza, 1 bonus a chi chiude imbattuto, e oltre 4 tornei
+   si scartano i 2 punteggi peggiori. Si cambiano prima di creare. */
+const NEW_CIRCUIT = {
+  points_win: 3, points_draw: 1, points_participation: 1, points_champion_bonus: 0,
+  points_undefeated_bonus: 1, drop_worst_scores: 2, drop_above_tournaments: 4,
+};
+
 /* I campi dei punti, uguali nel modulo di creazione e in quello di modifica. */
 function pointsFields(c, prefix) {
   const num = (id, label, value, extra = '') => `
@@ -92,18 +104,26 @@ function pointsFields(c, prefix) {
     ${num('Draw', tr('Punti a pareggio'), c.points_draw ?? 1, 'required')}
     ${num('Part', tr('Punti a tappa giocata'), c.points_participation ?? 0)}
     ${num('Bonus', tr('Bonus torneo vinto'), c.points_champion_bonus ?? 0)}
+    ${num('Undefeated', tr('Bonus imbattuto'), c.points_undefeated_bonus ?? 0)}
+    ${num('Drop', tr('Scarta i peggiori'), c.drop_worst_scores ?? 0, 'max="20"')}
+    ${num('DropAbove', tr('Se i tornei sono più di'), c.drop_above_tournaments ?? 4)}
     <label>${esc(tr('Soglia di qualificazione'))}
-      <input id="${prefix}Threshold" type="number" min="0" step="1" value="${c.qualification_threshold ?? ''}" placeholder="${esc(tr('nessuna'))}" /></label>`;
+      <input id="${prefix}Threshold" type="number" min="0" step="1" value="${c.qualification_threshold ?? ''}" placeholder="${esc(tr('nessuna'))}" /></label>
+    <p class="muted" style="grid-column:1/-1;margin:0;font-size:.85rem">${esc(tr(
+      'Imbattuto: tutti i match del torneo vinti, i bye compresi. Gli scarti tolgono a ognuno i suoi punteggi di tappa peggiori, contando 0 le tappe saltate: 0 per sommare tutto.'))}</p>`;
 }
 
 function readPoints(prefix) {
-  const int = (id) => Math.min(100, Math.max(0, parseInt($(`#${prefix}${id}`).value, 10) || 0));
+  const int = (id, max = 100) => Math.min(max, Math.max(0, parseInt($(`#${prefix}${id}`).value, 10) || 0));
   const threshold = $(`#${prefix}Threshold`).value.trim();
   return {
     points_win: int('Win'),
     points_draw: int('Draw'),
     points_participation: int('Part'),
     points_champion_bonus: int('Bonus'),
+    points_undefeated_bonus: int('Undefeated'),
+    drop_worst_scores: int('Drop', 20),
+    drop_above_tournaments: int('DropAbove'),
     qualification_threshold: threshold === '' ? null : Math.max(0, parseInt(threshold, 10) || 0),
   };
 }
@@ -114,9 +134,9 @@ function openNewDialog() {
     <form method="dialog" class="modal">
       <header><div><span class="eyebrow">${esc(tr('Circuito'))}</span><h2>${esc(tr('Nuovo circuito'))}</h2></div>
         <button class="icon-button" value="cancel" formnovalidate>&times;</button></header>
-      <div class="bo-grid">
+      <div class="bo-grid ci-form">
         <label style="grid-column:1/-1">${esc(tr('Nome'))}<input id="ciName" required minlength="3" maxlength="120" placeholder="${esc(tr('Lega del venerdì'))}" /></label>
-        ${pointsFields({}, 'ciN')}
+        ${pointsFields(NEW_CIRCUIT, 'ciN')}
         <label class="bo-check" style="grid-column:1/-1"><input id="ciPub" type="checkbox" checked /> ${esc(tr('Pagina pubblica con la classifica'))}</label>
       </div>
       <menu>
@@ -147,6 +167,9 @@ function leaderboardTable(rows, threshold) {
   if (!rows.length) {
     return `<p class="muted" style="margin:0">${esc(tr('Ancora nessun punto: la classifica nasce dai turni giocati nei tornei del circuito.'))}</p>`;
   }
+  // Le colonne di bonus e scarti solo se qualcuno li ha: altrimenti sono zeri.
+  const undefeated = rows.some((r) => r.undefeated);
+  const discarded = rows.some((r) => r.discarded);
   const body = rows.slice(0, 20).map((r) => `
     <tr>
       <td>${r.position}</td>
@@ -156,10 +179,14 @@ function leaderboardTable(rows, threshold) {
       <td>${r.wins}/${r.draws}/${r.losses}</td>
       <td>${r.tournaments_played}</td>
       <td>${r.titles || ''}</td>
+      ${undefeated ? `<td>${r.undefeated || ''}</td>` : ''}
+      ${discarded ? `<td>${r.discarded ? `−${r.discarded}` : ''}</td>` : ''}
     </tr>`).join('');
   return `<div class="table-scroll"><table class="bo">
     <thead><tr><th>#</th><th>${esc(tr('Giocatore'))}</th><th>${esc(tr('Punti'))}</th><th>V/P/S</th>
-      <th>${esc(tr('Tappe'))}</th><th>${esc(tr('Vinti'))}</th></tr></thead>
+      <th>${esc(tr('Tappe'))}</th><th>${esc(tr('Vinti'))}</th>
+      ${undefeated ? `<th>${esc(tr('Imbattuto'))}</th>` : ''}
+      ${discarded ? `<th>${esc(tr('Scarti'))}</th>` : ''}</tr></thead>
     <tbody>${body}</tbody></table></div>
     ${rows.length > 20 ? `<p class="muted" style="margin:8px 0 0">${esc(tr('I primi 20 di {n}: la classifica intera è sulla pagina pubblica.', { n: rows.length }))}</p>` : ''}`;
 }
@@ -248,7 +275,7 @@ async function renderCircuito(id) {
 
     <div class="panel">
       <h3>${esc(tr('Regole e anagrafica'))}</h3>
-      <form id="ciEditForm" class="bo-grid">
+      <form id="ciEditForm" class="bo-grid ci-form">
         <label style="grid-column:1/-1">${esc(tr('Nome'))}<input id="ciEName" required minlength="3" maxlength="120" value="${esc(c.name)}" /></label>
         <label>${esc(tr('Dal'))}<input id="ciEFrom" type="date" value="${esc(day(c.starts_on))}" /></label>
         <label>${esc(tr('Al'))}<input id="ciETo" type="date" value="${esc(day(c.ends_on))}" /></label>

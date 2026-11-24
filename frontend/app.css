@@ -1241,6 +1241,9 @@ input[type="checkbox"][aria-invalid="true"] { outline: 2px solid var(--danger); 
 .bulk-bar button:disabled { opacity: .45; cursor: not-allowed; }
 /* Circuiti: "Aggiungi selezionati" resta spento finché non si spunta un torneo. */
 #ciAdd:disabled { opacity: .45; cursor: not-allowed; }
+/* Un'etichetta che va a capo ("Soglia di qualificazione") non abbassa il suo
+   campo: nella riga i campi si allineano in basso. */
+.ci-form > label { align-self: end; }
 
 /* Il tabellone del taglio finale: una colonna per turno, dai quarti alla finale. */
 .br-grid { display: flex; gap: 20px; overflow-x: auto; padding-bottom: 4px; }

@@ -267,6 +267,8 @@ def _champion(
 def season_leaderboard(season_id: int, db: Session = Depends(get_db)) -> list[LeaderboardRowOut]:
     """Classifica cumulativa del circuito — pubblica, cache 30s.
 
+    Il punteggio di una tappa: vittorie e pareggi, i punti presenza, il bonus
+    vincitore e il bonus imbattuto. Il totale somma le tappe, meno gli scarti.
     Contano i tornei in cui si è giocato almeno un turno: chi è solo iscritto a
     una tappa futura non compare, e non prende i punti di partecipazione.
     Query costanti, quanti che siano i tornei: tutto si carica in blocco.
@@ -303,67 +305,89 @@ def season_leaderboard(season_id: int, db: Session = Depends(get_db)) -> list[Le
     ).all():
         pairings_by_tournament[tid].append((pairing, phase, number))
 
-    stats: dict[int, dict] = {}
+    # Il record di ogni iscrizione nel suo torneo: [vittorie, pareggi, sconfitte].
+    # Nasce al primo abbinamento, anche senza risultato: quella tappa è giocata.
+    records: dict[int, list[int]] = {}
 
-    def player(registration_id: int | None) -> dict | None:
-        reg = reg_by_id.get(registration_id) if registration_id is not None else None
-        if reg is None:
+    def record(registration_id: int | None) -> list[int] | None:
+        if registration_id is None or registration_id not in reg_by_id:
             return None
-        item = stats.setdefault(reg.player_id, {
-            "name": reg.player.display_name, "wins": 0, "draws": 0, "losses": 0,
-            "tournaments": set(), "titles": 0,
-        })
-        item["tournaments"].add(reg.tournament_id)
-        return item
+        return records.setdefault(registration_id, [0, 0, 0])
 
     for rows in pairings_by_tournament.values():
         for pairing, _, _ in rows:
-            a = player(pairing.player_a_registration_id)
-            b = player(pairing.player_b_registration_id)
+            a = record(pairing.player_a_registration_id)
+            b = record(pairing.player_b_registration_id)
             if a is None:
                 continue
             if pairing.player_b_registration_id is None:       # BYE = vittoria
-                a["wins"] += 1
+                a[0] += 1
             elif not pairing.result:
                 continue
             elif pairing.result == "A":
-                a["wins"] += 1
+                a[0] += 1
                 if b is not None:
-                    b["losses"] += 1
+                    b[2] += 1
             elif pairing.result == "B":
                 if b is not None:
-                    b["wins"] += 1
-                a["losses"] += 1
+                    b[0] += 1
+                a[2] += 1
             else:                                           # pareggio
-                a["draws"] += 1
+                a[1] += 1
                 if b is not None:
-                    b["draws"] += 1
+                    b[1] += 1
 
-    for tournament in tournaments:
-        if tournament.status != TournamentStatus.COMPLETED:
-            continue
-        winner = player(_champion(
-            tournament, regs_by_tournament[tournament.id], pairings_by_tournament[tournament.id],
-        ))
-        if winner is not None:
-            winner["titles"] += 1
+    # Vincitore e imbattuti si sanno solo a torneo concluso.
+    completed = {t.id for t in tournaments if t.status == TournamentStatus.COMPLETED}
+    champions = {
+        _champion(t, regs_by_tournament[t.id], pairings_by_tournament[t.id])
+        for t in tournaments if t.id in completed
+    }
 
-    leaderboard = [
-        LeaderboardRowOut(
+    # Il punteggio di ogni giocatore tappa per tappa: serve agli scarti.
+    stats: dict[int, dict] = {}
+    for registration_id, (wins, draws, losses) in records.items():
+        reg = reg_by_id[registration_id]
+        item = stats.setdefault(reg.player_id, {
+            "name": reg.player.display_name, "wins": 0, "draws": 0, "losses": 0,
+            "titles": 0, "undefeated": 0, "stages": defaultdict(int),
+        })
+        item["wins"] += wins
+        item["draws"] += draws
+        item["losses"] += losses
+        score = wins * season.points_win + draws * season.points_draw + season.points_participation
+        if registration_id in champions:
+            item["titles"] += 1
+            score += season.points_champion_bonus
+        # Imbattuto: tutti i match vinti, i bye compresi. Un pareggio basta a perderlo.
+        if reg.tournament_id in completed and wins and not draws and not losses:
+            item["undefeated"] += 1
+            score += season.points_undefeated_bonus
+        item["stages"][reg.tournament_id] += score
+
+    # Scarti: con più di N tornei giocati nel circuito, a ognuno si tolgono i
+    # suoi punteggi peggiori, contando 0 le tappe che ha saltato. Almeno una resta.
+    played = [tid for tid in tournament_ids if pairings_by_tournament[tid]]
+    drop = 0
+    if season.drop_worst_scores and len(played) > season.drop_above_tournaments:
+        drop = min(season.drop_worst_scores, len(played) - 1)
+
+    leaderboard = []
+    for item in stats.values():
+        scores = sorted(item["stages"].get(tid, 0) for tid in played)
+        discarded = sum(scores[:drop])
+        leaderboard.append(LeaderboardRowOut(
             position=0,
             player_name=item["name"],
-            points=(item["wins"] * season.points_win
-                    + item["draws"] * season.points_draw
-                    + len(item["tournaments"]) * season.points_participation
-                    + item["titles"] * season.points_champion_bonus),
+            points=sum(scores) - discarded,
             wins=item["wins"],
             draws=item["draws"],
             losses=item["losses"],
-            tournaments_played=len(item["tournaments"]),
+            tournaments_played=len(item["stages"]),
             titles=item["titles"],
-        )
-        for item in stats.values()
-    ]
+            undefeated=item["undefeated"],
+            discarded=discarded,
+        ))
     leaderboard.sort(key=lambda r: (r.points, r.wins), reverse=True)
     for index, row in enumerate(leaderboard, start=1):
         row.position = index

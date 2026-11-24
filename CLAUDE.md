@@ -101,7 +101,7 @@ Parità con Melee completata (26 passi), checklist di lancio fatta, revisione
 critica chiusa tranne tre punti. Il backend è diviso in `tournaments.py`,
 `tournament_registrations.py`, `tournament_rounds.py` più i servizi; il
 back-office in `organizer.js`, `organizer-store.js`, `organizer-common.js`.
-ESLint sul frontend, Alembic sullo schema. Test: 460 backend (SQLite e
+ESLint sul frontend, Alembic sullo schema. Test: 463 backend (SQLite e
 PostgreSQL), 65 frontend, 9 end-to-end. `/health` dice quale commit sta girando
 e se lo schema è allineato al codice.
 
@@ -150,6 +150,41 @@ link" e il foglio. Il ritorno dal login passa da `safeNext` in `session.js`:
 toglie una barra davanti (`/event.html?…`, da `location.pathname`) e rifiuta
 `//altro.sito`. Quando la barra veniva rifiutata, "Accedi per iscriverti"
 finiva su "Le mie iscrizioni".
+
+Sempre dal 24 novembre c'è la **lega, cioè i Circuiti** (nel codice `Season`,
+"stagione"). Nel back-office la sezione **Circuiti** (`organizer-circuits.js`)
+crea il circuito e ne sceglie i tornei fra quelli che si gestiscono, già giocati
+o in calendario, tutti insieme o uno alla volta man mano che si giocano; "Togli"
+ne toglie uno, e il torneo resta. **Un torneo sta in un circuito solo**
+(`tournaments.season_id`): sceglierlo in un altro lo sposta, e il back-office
+chiede conferma. Un circuito chiuso non prende tornei; lo gestisce chi l'ha creato
+e lo staff del suo negozio. API in `routers/seasons.py`: `/mine`, `POST
+/{id}/tournaments` (più tornei, o tutti o nessuno), `DELETE
+/{id}/tournaments/{tid}`, `DELETE /{id}`. La pagina pubblica è
+`series.html?c=<slug>`.
+
+**La classifica** la calcola `season_leaderboard`, in blocco con query costanti
+(c'è il test che lo controlla), con 30 secondi di cache che si svuota quando
+cambiano tornei o regole. Ogni tappa dà a ogni giocatore un punteggio, e il
+totale somma le tappe:
+- vittorie e pareggi (un bye è una vittoria) e i **punti presenza**, per ogni
+  torneo in cui si è giocato almeno un turno: chi è solo iscritto a una tappa
+  futura non compare;
+- il **bonus vincitore**: chi vince la finale se c'è un taglio, altrimenti il
+  primo con gli spareggi del gioco;
+- il **bonus imbattuto**, a chi vince *tutti* i match di un torneo concluso;
+  basta un pareggio per perderlo;
+- gli **scarti**: con più di `drop_above_tournaments` tornei *giocati* nel
+  circuito, a ognuno si tolgono i suoi `drop_worst_scores` punteggi di tappa
+  peggiori, e una tappa saltata vale 0. Ne resta sempre almeno una.
+
+**Le regole della lega del negozio** sono quelle con cui parte un circuito
+nuovo dal back-office (`NEW_CIRCUIT`): vittorie e pareggi come sempre (3 e 1),
+**1 punto presenza, 1 punto bonus imbattuto, nient'altro** (bonus vincitore a
+zero), e **se i tornei sono più di 4 si tolgono i due punteggi peggiori**.
+Bonus imbattuto e scarti sono colonne dello schema `0014`; sui circuiti nati
+prima valgono zero, e la loro classifica non è cambiata. Dettagli in
+`docs/back-office.md`, test in `tests/test_circuits.py`.
 
 ## Cosa resta — in ordine
 

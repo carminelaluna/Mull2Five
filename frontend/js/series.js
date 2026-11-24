@@ -60,6 +60,12 @@ async function load() {
           ${s.points_champion_bonus
             ? `<div class="profile-stat"><strong>+${s.points_champion_bonus}</strong><span>bonus vincitore</span></div>`
             : ''}
+          ${s.points_undefeated_bonus
+            ? `<div class="profile-stat"><strong>+${s.points_undefeated_bonus}</strong><span>bonus imbattuto</span></div>`
+            : ''}
+          ${s.drop_worst_scores
+            ? `<div class="profile-stat"><strong>−${s.drop_worst_scores}</strong><span>${esc(tr('peggiori scartati oltre {m} tappe', { m: s.drop_above_tournaments }))}</span></div>`
+            : ''}
           ${s.qualification_threshold != null
             ? `<div class="profile-stat"><strong>${s.qualification_threshold}</strong><span>soglia qualificazione</span></div>`
             : ''}

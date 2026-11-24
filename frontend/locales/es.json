@@ -1275,5 +1275,14 @@
   "Salvato: la classifica usa le regole nuove.": "Guardado: la clasificación usa las nuevas reglas.",
   "Eliminare il circuito «{name}»? I tornei restano, si perde la classifica.": "¿Eliminar el circuito «{name}»? Los torneos se quedan; se pierde la clasificación.",
   "Circuito eliminato.": "Circuito eliminado.",
-  "Al": "Al"
+  "Al": "Al",
+  "+{n} a chi chiude imbattuto": "+{n} por terminar invicto",
+  "scarta i {n} peggiori oltre {m} tornei": "descarta los {n} peores con más de {m} torneos",
+  "Bonus imbattuto": "Bonus invicto",
+  "Scarta i peggiori": "Descartar los peores",
+  "Se i tornei sono più di": "Si los torneos son más de",
+  "Imbattuto: tutti i match del torneo vinti, i bye compresi. Gli scarti tolgono a ognuno i suoi punteggi di tappa peggiori, contando 0 le tappe saltate: 0 per sommare tutto.": "Invicto: todos los partidos del torneo ganados, byes incluidos. Los descartes quitan a cada uno sus peores puntuaciones de torneo, contando 0 los torneos no jugados: 0 para sumarlo todo.",
+  "Imbattuto": "Invicto",
+  "Scarti": "Descartes",
+  "peggiori scartati oltre {m} tappe": "peores descartados con más de {m} torneos"
 }

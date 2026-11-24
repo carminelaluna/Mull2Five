@@ -975,6 +975,13 @@ class Season(Base):
     # Punti bonus a chi vince il torneo, e soglia sopra cui si e qualificati.
     points_participation: Mapped[int] = mapped_column(Integer, default=0)
     points_champion_bonus: Mapped[int] = mapped_column(Integer, default=0)
+    # Bonus a chi vince tutti i match di un torneo concluso (i bye contano come vittorie).
+    points_undefeated_bonus: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    # Scarti: con più di `drop_above_tournaments` tornei giocati nel circuito, a
+    # ognuno si tolgono i suoi `drop_worst_scores` punteggi di tappa peggiori
+    # (una tappa saltata vale 0). Zero scarti: si somma tutto.
+    drop_worst_scores: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    drop_above_tournaments: Mapped[int] = mapped_column(Integer, default=4, server_default="4")
     qualification_threshold: Mapped[int | None] = mapped_column(Integer, nullable=True)
     is_public: Mapped[bool] = mapped_column(Boolean, default=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)

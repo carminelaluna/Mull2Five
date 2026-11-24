@@ -32,7 +32,7 @@ def _tournament(client, org, **extra):
 
 
 def _played(client, org, players, winner):
-    """Un torneo concluso in un turno: `winner` (il nome) batte l'altro 2-0."""
+    """Un torneo concluso in un turno: `winner` (il nome) batte l'altro 2-0; None è un pareggio 1-1."""
     tid = _tournament(client, org)
     for headers in players:
         reg = client.post(f"/api/tournaments/{tid}/registrations",
@@ -43,8 +43,10 @@ def _played(client, org, players, winner):
     assert started.status_code == 200, started.text
     pairing = next(p for p in started.json()["pairings"] if p["player_b"])
     a_wins = pairing["player_a"] == winner
-    client.patch(f"/api/tournaments/{tid}/pairings/{pairing['id']}/result", headers=org,
-                 json={"match_wins_a": 2 if a_wins else 0, "match_wins_b": 0 if a_wins else 2, "draws": 0})
+    score = (1, 1) if winner is None else (2, 0) if a_wins else (0, 2)
+    saved = client.patch(f"/api/tournaments/{tid}/pairings/{pairing['id']}/result", headers=org,
+                         json={"match_wins_a": score[0], "match_wins_b": score[1], "draws": 0})
+    assert saved.status_code == 200, saved.text
     assert client.post(f"/api/tournaments/{tid}/close", headers=org).status_code == 200
     return tid
 
@@ -187,6 +189,68 @@ def test_deleting_the_circuit_keeps_the_tournaments(client):
     assert client.delete(f"/api/seasons/{circuit['id']}", headers=org).status_code == 204
     assert client.get(f"/api/tournaments/{tid}").json()["season_id"] is None
     assert client.get("/api/seasons/mine", headers=org).json() == []
+
+
+def test_undefeated_bonus_needs_every_match_won(client):
+    """La lega del negozio: 1 punto presenza, 1 bonus imbattuto, niente bonus vincitore."""
+    org = _login(client, "lega-org10@example.com", role="organizer")
+    anna, bruno = _login(client, "anna10@example.com"), _login(client, "bruno10@example.com")
+    circuit = _circuit(client, org, points_participation=1, points_undefeated_bonus=1)
+    assert circuit["points_undefeated_bonus"] == 1
+    won = _played(client, org, [anna, bruno], winner="anna10")
+    drawn = _played(client, org, [anna, bruno], winner=None)
+    client.post(f"/api/seasons/{circuit['id']}/tournaments", headers=org, json={"tournament_ids": [won, drawn]})
+
+    board = _board(client, circuit["id"])
+    # Tappa vinta: 3 + 1 presenza + 1 imbattuto. Tappa pareggiata: 1 + 1, nessun bonus.
+    assert (board["anna10"]["points"], board["anna10"]["undefeated"]) == (7, 1)
+    assert (board["bruno10"]["points"], board["bruno10"]["undefeated"]) == (3, 0)
+
+
+def test_the_two_worst_scores_go_above_four_tournaments(client):
+    org = _login(client, "lega-org11@example.com", role="organizer")
+    anna, bruno = _login(client, "anna11@example.com"), _login(client, "bruno11@example.com")
+    carla, dario = _login(client, "carla11@example.com"), _login(client, "dario11@example.com")
+    circuit = _circuit(client, org, points_participation=1, drop_worst_scores=2, drop_above_tournaments=4)
+    add = lambda ids: client.post(f"/api/seasons/{circuit['id']}/tournaments", headers=org,  # noqa: E731
+                                  json={"tournament_ids": ids})
+
+    # Quattro tornei: non più di quattro, si somma tutto. Anna 4 a tappa, Bruno 1.
+    add([_played(client, org, [anna, bruno], winner="anna11") for _ in range(4)])
+    board = _board(client, circuit["id"])
+    assert (board["anna11"]["points"], board["anna11"]["discarded"]) == (16, 0)
+    assert (board["bruno11"]["points"], board["bruno11"]["discarded"]) == (4, 0)
+
+    # Il quinto: si tolgono i due punteggi peggiori di ognuno.
+    add([_played(client, org, [anna, bruno], winner="bruno11")])
+    board = _board(client, circuit["id"])
+    assert (board["anna11"]["points"], board["anna11"]["discarded"]) == (12, 5)     # 4+4+4+4+1, via 1 e 4
+    assert (board["bruno11"]["points"], board["bruno11"]["discarded"]) == (6, 2)    # 1+1+1+1+4, via 1 e 1
+
+    # Il sesto lo giocano altri due: per Anna e Bruno è una tappa saltata, vale 0 e va negli scarti.
+    add([_played(client, org, [carla, dario], winner="carla11")])
+    board = _board(client, circuit["id"])
+    assert (board["anna11"]["points"], board["anna11"]["discarded"]) == (16, 1)     # via 0 e 1
+    assert (board["bruno11"]["points"], board["bruno11"]["discarded"]) == (7, 1)    # via 0 e 1
+    assert (board["carla11"]["points"], board["carla11"]["discarded"]) == (4, 0)    # via due tappe da 0
+    assert board["anna11"]["position"] == 1
+
+
+def test_existing_circuits_keep_their_leaderboard(client):
+    """Senza bonus imbattuto e senza scarti la classifica è quella di sempre."""
+    org = _login(client, "lega-org12@example.com", role="organizer")
+    anna, bruno = _login(client, "anna12@example.com"), _login(client, "bruno12@example.com")
+    circuit = _circuit(client, org)
+    assert (circuit["points_undefeated_bonus"], circuit["drop_worst_scores"]) == (0, 0)
+    ids = [_played(client, org, [anna, bruno], winner="anna12") for _ in range(5)]
+    client.post(f"/api/seasons/{circuit['id']}/tournaments", headers=org, json={"tournament_ids": ids})
+    board = _board(client, circuit["id"])
+    assert (board["anna12"]["points"], board["anna12"]["discarded"]) == (15, 0)
+
+    changed = client.patch(f"/api/seasons/{circuit['id']}", headers=org,
+                           json={"drop_worst_scores": 2, "drop_above_tournaments": 4})
+    assert changed.status_code == 200 and changed.json()["drop_worst_scores"] == 2
+    assert _board(client, circuit["id"])["anna12"]["points"] == 9        # la modifica si vede subito
 
 
 def test_with_a_top_cut_the_final_decides_the_champion():

@@ -1281,5 +1281,14 @@
   "{n} tornei aggiunti al circuito.": "{n} Turniere zur Serie hinzugefügt.",
   "Salvato: la classifica usa le regole nuove.": "Gespeichert: Die Rangliste nutzt die neuen Regeln.",
   "Eliminare il circuito «{name}»? I tornei restano, si perde la classifica.": "Turnierserie „{name}“ löschen? Die Turniere bleiben, die Rangliste geht verloren.",
-  "Circuito eliminato.": "Turnierserie gelöscht."
+  "Circuito eliminato.": "Turnierserie gelöscht.",
+  "+{n} a chi chiude imbattuto": "+{n} für ein Turnier ohne Niederlage",
+  "scarta i {n} peggiori oltre {m} tornei": "streicht die {n} schlechtesten ab mehr als {m} Turnieren",
+  "Bonus imbattuto": "Bonus ungeschlagen",
+  "Scarta i peggiori": "Schlechteste streichen",
+  "Se i tornei sono più di": "Wenn mehr Turniere als",
+  "Imbattuto: tutti i match del torneo vinti, i bye compresi. Gli scarti tolgono a ognuno i suoi punteggi di tappa peggiori, contando 0 le tappe saltate: 0 per sommare tutto.": "Ungeschlagen: alle Matches des Turniers gewonnen, Byes eingeschlossen. Streichungen entfernen bei allen die schlechtesten Turnierergebnisse, verpasste Turniere zählen 0: 0, um alles zu summieren.",
+  "Imbattuto": "Ungeschlagen",
+  "Scarti": "Gestrichen",
+  "peggiori scartati oltre {m} tappe": "schlechteste gestrichen ab mehr als {m} Turnieren"
 }

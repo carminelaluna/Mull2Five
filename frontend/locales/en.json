@@ -1272,5 +1272,14 @@
   "{n} tornei aggiunti al circuito.": "{n} events added to the circuit.",
   "Salvato: la classifica usa le regole nuove.": "Saved: the leaderboard uses the new rules.",
   "Eliminare il circuito «{name}»? I tornei restano, si perde la classifica.": "Delete the circuit «{name}»? The events stay; the leaderboard is lost.",
-  "Circuito eliminato.": "Circuit deleted."
+  "Circuito eliminato.": "Circuit deleted.",
+  "+{n} a chi chiude imbattuto": "+{n} for going undefeated",
+  "scarta i {n} peggiori oltre {m} tornei": "drops the {n} worst above {m} events",
+  "Bonus imbattuto": "Undefeated bonus",
+  "Scarta i peggiori": "Drop the worst",
+  "Se i tornei sono più di": "If events are more than",
+  "Imbattuto: tutti i match del torneo vinti, i bye compresi. Gli scarti tolgono a ognuno i suoi punteggi di tappa peggiori, contando 0 le tappe saltate: 0 per sommare tutto.": "Undefeated: every match of the event won, byes included. Drops remove each player's worst event scores, counting skipped events as 0: set 0 to add up everything.",
+  "Imbattuto": "Undefeated",
+  "Scarti": "Dropped",
+  "peggiori scartati oltre {m} tappe": "worst dropped above {m} events"
 }

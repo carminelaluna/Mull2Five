@@ -1278,5 +1278,14 @@
   "{n} tornei aggiunti al circuito.": "{n} tournois ajoutés au circuit.",
   "Salvato: la classifica usa le regole nuove.": "Enregistré : le classement applique les nouvelles règles.",
   "Eliminare il circuito «{name}»? I tornei restano, si perde la classifica.": "Supprimer le circuit « {name} » ? Les tournois restent ; le classement est perdu.",
-  "Circuito eliminato.": "Circuit supprimé."
+  "Circuito eliminato.": "Circuit supprimé.",
+  "+{n} a chi chiude imbattuto": "+{n} pour un parcours sans défaite",
+  "scarta i {n} peggiori oltre {m} tornei": "retire les {n} pires au-delà de {m} tournois",
+  "Bonus imbattuto": "Bonus invaincu",
+  "Scarta i peggiori": "Retirer les pires",
+  "Se i tornei sono più di": "Si les tournois sont plus de",
+  "Imbattuto: tutti i match del torneo vinti, i bye compresi. Gli scarti tolgono a ognuno i suoi punteggi di tappa peggiori, contando 0 le tappe saltate: 0 per sommare tutto.": "Invaincu : tous les matchs du tournoi gagnés, byes compris. Les retraits enlèvent à chacun ses pires scores d'étape, en comptant 0 les étapes manquées : 0 pour tout additionner.",
+  "Imbattuto": "Invaincu",
+  "Scarti": "Retirés",
+  "peggiori scartati oltre {m} tappe": "pires retirés au-delà de {m} étapes"
 }

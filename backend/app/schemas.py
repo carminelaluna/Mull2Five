@@ -584,6 +584,9 @@ class SeasonCreate(BaseModel):
     points_draw: int = Field(default=1, ge=0, le=100)
     points_participation: int = Field(default=0, ge=0, le=100)
     points_champion_bonus: int = Field(default=0, ge=0, le=100)
+    points_undefeated_bonus: int = Field(default=0, ge=0, le=100)
+    drop_worst_scores: int = Field(default=0, ge=0, le=20)
+    drop_above_tournaments: int = Field(default=4, ge=0, le=100)
     qualification_threshold: int | None = Field(default=None, ge=0)
     is_public: bool = True
 
@@ -604,6 +607,9 @@ class SeasonOut(BaseModel):
     points_draw: int
     points_participation: int = 0
     points_champion_bonus: int = 0
+    points_undefeated_bonus: int = 0
+    drop_worst_scores: int = 0
+    drop_above_tournaments: int = 4
     qualification_threshold: int | None = None
     is_public: bool = True
     is_active: bool
@@ -622,6 +628,9 @@ class SeasonUpdate(BaseModel):
     points_draw: int | None = Field(default=None, ge=0, le=100)
     points_participation: int | None = Field(default=None, ge=0, le=100)
     points_champion_bonus: int | None = Field(default=None, ge=0, le=100)
+    points_undefeated_bonus: int | None = Field(default=None, ge=0, le=100)
+    drop_worst_scores: int | None = Field(default=None, ge=0, le=20)
+    drop_above_tournaments: int | None = Field(default=None, ge=0, le=100)
     qualification_threshold: int | None = Field(default=None, ge=0)
     is_public: bool | None = None
     # Chiudere e riaprire il circuito: chiuso non prende tornei nuovi.
@@ -665,6 +674,10 @@ class LeaderboardRowOut(BaseModel):
     tournaments_played: int
     # Tornei vinti: ognuno vale il bonus vincitore del circuito.
     titles: int = 0
+    # Tornei chiusi senza perdere né pareggiare: ognuno vale il bonus imbattuto.
+    undefeated: int = 0
+    # Punti tolti dagli scarti: i punteggi di tappa peggiori, quando la regola vale.
+    discarded: int = 0
 
 
 class StaffIn(BaseModel):
