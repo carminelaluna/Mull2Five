@@ -225,7 +225,8 @@ decisioni tue.
 
 ## Infrastruttura (dal guasto in produzione del 23 settembre 2026)
 
-- [ ] **Il deploy non aspetta la CI.** Render pubblica al push comunque: il 23/09 la CI era rossa e il deploy è uscito. Attivare l'attesa dei check nel cruscotto Render.
+- [x] **Il deploy aspetta la CI** (24/11/2026). Render pubblicava al push comunque: il 23/09 la CI era rossa e il deploy è uscito. Ora *Auto-Deploy → After CI Checks Pass* (`autoDeployTrigger: checksPass` in `render.yaml`); lo staging resta a ogni push.
+- [ ] **Il battito su Healthchecks.io.** Il codice c'è (`site_watch.heartbeat`, ogni cinque minuti): manca l'account, il controllo collegato a Telegram e `HEARTBEAT_URL` su Render. Passi in `docs/hosting.md`, "Avvisi su Telegram", punto 6.
 - [x] **Un deploy rotto non sembra più riuscito** (29/09/2026). `sync_alembic` rilancia l'errore
       invece di annotarlo, e le migrazioni girano prima di uvicorn in `backend/app/prepara_database.py`,
       chiamato dal `CMD`: se falliscono il contenitore esce con un errore, il deploy si ferma e resta

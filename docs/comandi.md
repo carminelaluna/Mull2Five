@@ -69,8 +69,10 @@ dei fornitori:
 | 🟠 risponde, ma lo schema è a X invece che a Y | Migrazioni non applicate | Sezione 6 |
 | 🟢 è di nuovo su, dopo … | Risolto | Niente |
 | 🚀 In produzione abc1234: titolo | Deploy arrivato | Niente |
-| ⏳ main è a X, ma in produzione gira ancora Y | Il deploy è fallito o è fermo | Sezione 4, "Il deploy non arriva" |
-| ❌ CI rossa su main | Codice rotto già in produzione: il deploy non aspetta la CI | Sezione 5, poi correggere o fare un revert (sezione 4) |
+| ⏳ main è a X, ma in produzione gira ancora Y | La CI non è verde, o il deploy è fallito o fermo | Sezione 4, "Il deploy non arriva" |
+| ❌ CI rossa su main | Quel commit non va in produzione: il sito resta alla versione di prima | Sezione 5; corretto e pushato, con la CI verde il deploy parte da solo |
+| mull2five.it is DOWN (dal bot di Healthchecks.io) | Da un quarto d'ora il sito non manda il battito: giù, o non raggiungibile dal suo dominio | Come 🔴: status page, poi i log di Render (sezione 3) |
+| mull2five.it is UP (Healthchecks.io) | Il battito è tornato | Niente |
 | 🔴 Backup del database fallito | Il backup di oggi non c'è | Sezione 7, "Il backup fallisce" |
 | 🗄️ Nessun backup riuscito da … | GitHub non l'ha fatto partire | Sezione 7, lanciarlo a mano |
 | ✅ Backup di nuovo a posto | Risolto | Niente |
@@ -128,8 +130,10 @@ Lo tiene sveglio `staging-keepalive.yml`, ogni tre giorni.
 ## 4. Deploy, rami e come tornare indietro
 
 `develop` va sullo staging, `main` va in produzione. **Il push su `main` è
-l'unico gesto che tocca il sito vero**, e il deploy parte da solo senza
-aspettare la CI.
+l'unico gesto che tocca il sito vero**. Il deploy parte da solo, ma dal
+24/11/2026 solo quando la CI di quel commit è verde (Render → *Settings →
+Auto-Deploy → After CI Checks Pass*): con la CI che gira passano una decina di
+minuti, con la CI rossa non parte. Lo staging invece si aggiorna a ogni push.
 
 ### Dov'è il codice
 ```powershell
@@ -162,23 +166,37 @@ if ($LASTEXITCODE -eq 0) { git push origin develop:main } else { "main ha commit
 **Mai `git push --force` su `main`.**
 
 ### Il deploy non arriva (⏳, o `commit` vecchio in /health)
-1. Render → `mull2five` → **Events**: l'ultimo deploy è *failed*, *canceled* o
+1. La CI di quel commit è finita, e verde? Finché gira o è rossa, Render non
+   pubblica: è voluto.
+   ```powershell
+   gh run list --workflow ci.yml --branch main --limit 3
+   ```
+   Rossa: sezione 5, "La CI è rossa". Per pubblicare lo stesso, sapendo cosa
+   si fa: ⚠️ **Manual Deploy → Deploy latest commit**, che non guarda la CI.
+2. Render → `mull2five` → **Events**: l'ultimo deploy è *failed*, *canceled* o
    in corso da tanto?
-2. **Fallito**: i log del deploy dicono perché. Se c'è "Database non pronto",
-   è fallita una migrazione (sezione 6). Il sito intanto resta sulla versione
-   di prima: non è giù.
-3. **Fermo da tanto**, magari con *Timed Out / no open ports*: quasi sempre è
+3. **Fallito**: i log del deploy dicono perché. Il sito intanto resta sulla
+   versione di prima: non è giù.
+   - "Database non pronto": è fallita una migrazione (sezione 6).
+   - "SECRET_KEY è quella scritta nel repository pubblico": su Render manca
+     `SECRET_KEY`, o è rimasta quella d'esempio. Il sito si rifiuta di partire,
+     perché con quella chiunque si firmerebbe un accesso da admin. ⚠️ Render →
+     Environment → `SECRET_KEY` = una stringa lunga e casuale, da
+     `python -c "import secrets; print(secrets.token_urlsafe(48))"`. Cambiarla
+     fa uscire tutti: si rientra normalmente.
+4. **Fermo da tanto**, magari con *Timed Out / no open ports*: quasi sempre è
    una migrazione che aspetta un lock (29/09/2026). ⚠️ **Restart service**, e
    subito dopo **Manual Deploy → Deploy latest commit**: l'istanza vecchia
    molla le connessioni, e il lock si libera.
-4. Il deploy non è proprio partito: GitHub → *Settings → GitHub Apps* → l'app
-   **Render** deve essere installata sul repository. Intanto, **Deploy latest commit**.
+5. Il deploy non è proprio partito, con la CI verde: GitHub → *Settings →
+   GitHub Apps* → l'app **Render** deve essere installata sul repository.
+   Intanto, **Deploy latest commit**.
 
 ### Tornare a una versione precedente
 **Strada veloce, da Render.** ⚠️ Render → `mull2five` → **Events** → sul deploy
 buono **Rollback**, oppure **Manual Deploy → Deploy a specific commit**. Dopo,
-controlla in *Settings* che l'**Auto-Deploy** sia ancora acceso. Il prossimo
-push su `main` ripubblica comunque il codice nuovo.
+controlla in *Settings* che l'**Auto-Deploy** sia ancora su *After CI Checks
+Pass*. Il prossimo push su `main` ripubblica comunque il codice nuovo.
 
 **Strada pulita, da git**: il revert resta nella storia.
 ⚠️
@@ -559,8 +577,8 @@ Mai modificare file mentre pytest gira.
 
 ## 12. Le regole che hanno già fatto danni
 
-- **Non pushare su `main` senza volerlo**: parte il deploy sul sito vero, anche
-  con la CI rossa.
+- **Non pushare su `main` senza volerlo**: parte il deploy sul sito vero. Dal
+  24/11/2026 aspetta la CI verde, ma la CI non vede tutto.
 - **In produzione gira l'ultimo commit pubblicato**, non quello che hai in locale.
 - **Mai `ALTER TABLE` a mano**: una revisione Alembic.
 - **Mai committare** `reports/`, `*.db*`, `.env`, dump o dati personali: il

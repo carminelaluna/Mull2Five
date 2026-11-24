@@ -1,8 +1,9 @@
 # Un workflow andato male, su Telegram: il backup, la CI su main, lo staging.
 #
-# Finora lo diceva solo l'email di GitHub, che si perde fra le altre. La CI
-# conta più di quel che sembra: il deploy non la aspetta, quindi una CI rossa
-# su main è codice rotto già in produzione.
+# Finora lo diceva solo l'email di GitHub, che si perde fra le altre. Dal
+# 24/11/2026 il deploy di produzione aspetta la CI (Render, "After CI Checks
+# Pass"): una CI rossa su main vuol dire che il push non va in produzione, e il
+# sito resta alla versione di prima finché non torna verde.
 #
 # Parte da solo quando uno di quei workflow finisce, e scrive solo se è fallito
 # (o è andato oltre il tempo). Per provarlo: Actions → Backup → Run workflow con
@@ -58,7 +59,7 @@ jobs:
               esac
               ;;
             CI)
-              text="❌ CI rossa su main: ${TITLE} (${SHA:0:7}). Il deploy non la aspetta: questo codice è già in produzione."
+              text="❌ CI rossa su main: ${TITLE} (${SHA:0:7}). Questo commit non va in produzione: il sito resta alla versione di prima finché la CI non torna verde."
               ;;
             "Staging sveglio")
               text="😴 Lo staging non risponde o ha il database in pausa: Supabase → Resume project, poi Manual Deploy su Render."

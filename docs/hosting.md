@@ -115,7 +115,14 @@ pannello) e **non fa backup**: per quello c'è il passo 6.
    (`ONLINE_PAYMENTS_ENABLED=false`, vedi "Pagamenti" più sotto).
    Facoltative: `SMTP_*` (senza, il reset password non manda l'email) e `VAPID_*`
    (senza, niente notifiche push).
-3. *Health check path*: `/health`. *Auto-Deploy*: a ogni push su `main`.
+   Con `SECRET_KEY` mancante o rimasta quella d'esempio il sito non parte: fuori
+   dallo sviluppo `prepara_database.py` si ferma e il deploy fallisce, perché
+   quella chiave sta nel repository pubblico e chiunque si firmerebbe un accesso.
+   `/metrics` (le metriche Prometheus) fuori dallo sviluppo risponde solo con
+   `METRICS_TOKEN`, passato come `Authorization: Bearer …`; senza, è un 404.
+3. *Health check path*: `/health`. *Auto-Deploy*: **After CI Checks Pass**, cioè
+   a ogni push su `main` ma solo con la CI verde (dal 24/11/2026; prima partiva
+   comunque, e il 23/09 è uscito un commit rosso). Lo staging: *On Commit*.
 
    Il deploy automatico parte solo se l'app **Render** è installata sul repository
    (GitHub → *Settings → GitHub Apps*). Collegare GitHub dal pannello di Render
@@ -454,13 +461,24 @@ Un bot solo, due fonti che si guardano a vicenda (24/11/2026):
   - 🗄️ nessun backup riuscito da più di 30 ore, e ✅ quando torna: un backup che
     GitHub non fa partire non fallisce, semplicemente non c'è.
 
-  Serve perché se a cadere è Render il sito non può dirlo da solo. GitHub non
-  garantisce i cinque minuti: nelle ore di punta un giro parte in ritardo.
+  Serve perché se a cadere è Render il sito non può dirlo da solo. GitHub però
+  non garantisce i cinque minuti, e nemmeno che il giro parta: il 24/11/2026, in
+  due ore e mezza dal primo push, non ne era partito nessuno. Per questo c'è
+  anche il battito qui sotto.
+- **da fuori, Healthchecks.io** (il battito, `services/site_watch.py`,
+  `heartbeat`): ogni cinque minuti il sito chiama il proprio `/health` passando
+  dal dominio pubblico, come un visitatore, e se risponde `ok` lo dice a
+  Healthchecks.io. Se il battito smette — Render spento, dominio o certificato
+  rotti, database giù — dopo la tolleranza è **Healthchecks.io** a scrivere su
+  Telegram, con il suo bot: "mull2five.it is DOWN", e "UP" quando torna. È
+  l'avviso che non dipende né dal sito né da GitHub. Si accende con
+  `HEARTBEAT_URL` (vedi sotto, punto 6); senza, il battito è spento.
 - **da GitHub, quando un workflow va male** (`.github/workflows/avvisi.yml`):
-  🔴 il backup è fallito; ❌ la CI è rossa su main, cioè codice rotto già in
-  produzione, perché il deploy non la aspetta; 😴 lo staging non risponde o ha il
-  database in pausa. Si prova con *Actions → Backup → Run workflow* e **Prova
-  dell'avviso** spuntato: arriva 🧪.
+  🔴 il backup è fallito; ❌ la CI è rossa su main: dal 24/11/2026 Render
+  pubblica solo a CI verde (*Settings → Auto-Deploy → After CI Checks Pass*),
+  quindi quel commit resta fuori e il sito rimane alla versione di prima; 😴 lo
+  staging non risponde o ha il database in pausa. Si prova con *Actions →
+  Backup → Run workflow* e **Prova dell'avviso** spuntato: arriva 🧪.
 - **dal sito**: il database che cade e torna (ogni minuto), un errore 500 (al
   massimo uno ogni cinque minuti per endpoint), e 📬 ogni email che arriva a
   `info@`, `commercial@` o alla casella admin, con casella, mittente e oggetto.
@@ -512,6 +530,23 @@ Per accenderlo:
    sempre, "✅ mull2five.it sta bene, commit …". Il workflow lo vede e lo fa
    girare solo il ramo `main`: c'è dal primo merge in poi. Poi un'email da un tuo
    indirizzo a `info@mull2five.it`: entro un minuto arriva 📬.
+6. **Il battito, su Healthchecks.io** (gratuito fino a 20 controlli):
+   - crea l'account su https://healthchecks.io (va bene anche "Sign in with
+     Google");
+   - **Add Check**: nome `mull2five.it`, *Period* **5 minuti**, *Grace* **10
+     minuti** — l'avviso parte dopo un quarto d'ora senza battiti, e un intoppo
+     di rete non sveglia nessuno;
+   - **Integrations → Telegram → Add Integration**: si apre il bot
+     `@HealthchecksBot`, premi *Start* nella chat dove vuoi gli avvisi (la stessa
+     del bot del sito va bene). Niente token da copiare: lo collega il bot;
+   - copia il **Ping URL** del controllo (`https://hc-ping.com/…`) e mettilo su
+     Render → `mull2five` → Environment come `HEARTBEAT_URL`, solo in
+     produzione. Chi lo conosce può far credere che il sito sia vivo: non va
+     altrove.
+
+   Dopo il deploy il primo battito parte entro un minuto, e il controllo su
+   Healthchecks.io passa da *new* a *up*. Per provare l'avviso: *Pause* e poi
+   aspettare, oppure togliere per un momento `HEARTBEAT_URL`.
 
 `ALERT_EMAIL` può restare vuota: con Telegram gli allarmi arrivano già. Se
 punta a una delle tre caselle, ogni allarme arriva due volte — com'è, e come

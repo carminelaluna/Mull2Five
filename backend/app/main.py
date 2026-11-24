@@ -1,4 +1,5 @@
 import asyncio
+import hmac
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -14,10 +15,11 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 from starlette.middleware.gzip import GZipMiddleware
 
 from backend.app.core.alerting import alerting_enabled, send_alert
-from backend.app.core.config import get_settings
+from backend.app.core.config import LOCAL_ENVS, get_settings
 from backend.app.core.limiter import limiter
 from backend.app.core.monitoring import metrics_middleware, metrics_response
 from backend.app.core.redis import redis_is_real
@@ -46,6 +48,9 @@ from backend.app.services import site_watch
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
+# Anche qui, non solo in prepara_database: uvicorn si può lanciare da solo.
+if settings.secret_key_problem():
+    raise RuntimeError(settings.secret_key_problem())
 # Uvicorn configura solo i suoi logger: senza questo i nostri `logger.exception`
 # non arrivavano nei log di Render, e un 500 non lasciava traccia (23/11/2026).
 if not logging.getLogger().handlers:
@@ -156,6 +161,20 @@ async def _site_watch(interval: int) -> None:
             logger.exception("Errore nel controllo del sito")
 
 
+async def _heartbeat(interval: int) -> None:
+    """Il battito verso Healthchecks.io: se smette, l'avviso arriva da fuori.
+
+    Il primo aspetta un minuto: all'avvio la porta non è ancora aperta, e
+    durante un deploy il dominio risponde ancora con l'istanza vecchia."""
+    await asyncio.sleep(60)
+    while True:
+        try:
+            await asyncio.to_thread(site_watch.heartbeat)
+        except Exception:  # noqa: BLE001
+            logger.exception("Errore nel battito verso Healthchecks.io")
+        await asyncio.sleep(interval)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Inizializza il DB e avvia il watchdog di alerting."""
@@ -169,6 +188,8 @@ async def lifespan(app: FastAPI):
         tasks.append(asyncio.create_task(_mail_watcher(settings.mail_watch_interval_secs)))
     if settings.watchdog_interval_secs > 0 and alerting_enabled():
         tasks.append(asyncio.create_task(_site_watch(600)))
+    if settings.heartbeat_url and settings.heartbeat_interval_secs > 0:
+        tasks.append(asyncio.create_task(_heartbeat(settings.heartbeat_interval_secs)))
     # Sweeper waitlist ogni 10 minuti (riaccoda i promossi non paganti scaduti).
     tasks.append(asyncio.create_task(_waitlist_sweeper(600)))
     # Ogni due minuti: chi ha scelto di pagare online e non ha pagato non è iscritto.
@@ -203,6 +224,39 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
         level="error",
     )
     return JSONResponse(status_code=500, content={"detail": "Errore interno del server"})
+
+
+def is_duplicate(exc: IntegrityError) -> bool:
+    """La riga esiste già: un vincolo di unicità, non un altro guasto.
+
+    PostgreSQL lo dice col codice 23505 (psycopg lo mette in `sqlstate`),
+    SQLite solo a parole.
+    """
+    if getattr(exc.orig, "sqlstate", None) == "23505":
+        return True
+    return "UNIQUE constraint failed" in str(exc.orig)
+
+
+@app.exception_handler(IntegrityError)
+async def integrity_error_handler(request: Request, exc: IntegrityError):
+    """Un doppio clic, o due persone che fanno la stessa cosa nello stesso istante.
+
+    Il secondo "Genera turno" o la stessa iscrizione inviata due volte arrivano
+    al vincolo di unicità del database, che fa il suo lavoro: la seconda riga
+    non nasce. Prima però la risposta era un 500 "Errore interno" e un avviso
+    su Telegram per un guasto che non c'era. Ora è un 409 che dice cosa fare.
+    Gli altri vincoli violati (una chiave esterna, un campo obbligatorio) sono
+    difetti veri e restano un 500 con l'avviso.
+    """
+    if not is_duplicate(exc):
+        return await unhandled_exception_handler(request, exc)
+    route = request.scope.get("route")
+    logger.warning("Riga doppia su %s %s: %s", request.method,
+                   getattr(route, "path", request.url.path), exc.orig)
+    return JSONResponse(status_code=409, content={
+        "detail": "Già fatto: la richiesta è arrivata due volte, o qualcun altro l'ha "
+                  "appena fatta. Ricarica la pagina per vedere com'è adesso.",
+    })
 
 
 @app.exception_handler(RequestValidationError)
@@ -433,12 +487,24 @@ def health(request: Request) -> dict:
     }
 
 
-@app.get("/metrics")
+@app.get("/metrics", include_in_schema=False)
 def metrics(request: Request):
-    """Metriche Prometheus. Se METRICS_TOKEN è impostato, richiede ?token=..."""
-    if settings.metrics_token:
-        if request.query_params.get("token") != settings.metrics_token:
-            raise HTTPException(status_code=403, detail="Token delle metriche non valido")
+    """Metriche Prometheus, solo per chi ha METRICS_TOKEN.
+
+    Il token arriva come `Authorization: Bearer …` (quello che manda Prometheus)
+    o come `?token=…`. Senza METRICS_TOKEN le metriche si vedono solo sul
+    proprio computer e nei test: fino al 24/11/2026 in produzione erano aperte a
+    tutti, con memoria, processi e il traffico di ogni pagina.
+    """
+    expected = settings.metrics_token
+    if not expected:
+        if settings.app_env.strip().lower() not in LOCAL_ENVS:
+            raise HTTPException(status_code=404, detail="Not Found")
+        return metrics_response()
+    header = request.headers.get("authorization", "")
+    given = header[7:] if header.lower().startswith("bearer ") else request.query_params.get("token", "")
+    if not hmac.compare_digest(given.encode(), expected.encode()):
+        raise HTTPException(status_code=403, detail="Token delle metriche non valido")
     return metrics_response()
 
 

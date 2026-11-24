@@ -10,8 +10,9 @@ import math
 import re
 from datetime import UTC, datetime, timedelta
 
+from anyio import from_thread
 from fastapi import APIRouter, Depends, HTTPException, Response
-from sqlalchemy import delete, func, or_, select
+from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from backend.app.core.cache import cache_get, cache_invalidate, cache_set
@@ -102,6 +103,7 @@ from backend.app.services.payments import (
 from backend.app.services.player_import import parse_players_csv
 from backend.app.services.registrations import (
     fields_of,
+    lock_seats,
     prior_penalties,
     promote_from_waitlist,
     release_hold,
@@ -436,7 +438,7 @@ def delete_discount_code(
 
 
 @router.post("/{tournament_id}/registrations", response_model=RegistrationOut, status_code=201)
-async def register_for_tournament(
+def register_for_tournament(
     tournament_id: int,
     payload: RegistrationCreate,
     user: User = Depends(get_current_user),
@@ -448,6 +450,12 @@ async def register_for_tournament(
     posto è tenuto per PAYMENT_HOLD_MINUTES e la risposta porta `checkout_url`;
     l'iscrizione vale quando il pagamento arriva, altrimenti sparisce. Prima,
     23/11/2026, si era iscritti comunque e il pagamento restava da fare altrove.
+
+    È `def` e non `async def`, come l'annullamento qui sotto: le query sono
+    sincrone, e dentro una funzione async avrebbero fermato il server intero
+    per tutta la loro durata — proprio quando un torneo atteso apre le
+    iscrizioni e arrivano tutti insieme. Così gira su un thread suo; Stripe e
+    PayPal, che sono async, li chiama con `from_thread.run`.
     """
     tournament = db.get(Tournament, tournament_id)
     if not tournament or tournament.status not in {
@@ -461,6 +469,8 @@ async def register_for_tournament(
         raise HTTPException(status_code=409, detail="Le iscrizioni a torneo iniziato sono chiuse")
     # I posti tenuti a chi non ha pagato in tempo tornano liberi prima di contarli.
     release_unpaid_holds(db, tournament_id)
+    # Dopo, perché quella fa commit e scioglierebbe il lock.
+    lock_seats(tournament_id, db)
     # Chi ha annullato o si è ritirato non occupa un posto: è lo stesso conto
     # che fa la promozione dalla lista d'attesa.
     registered = db.scalar(
@@ -506,14 +516,15 @@ async def register_for_tournament(
     db.add(registration)
     db.flush()
     if code:
-        code.uses += 1
-        db.add(code)
+        # Il conto lo fa il database: vedi release_hold.
+        db.execute(update(DiscountCode).where(DiscountCode.id == code.id)
+                   .values(uses=DiscountCode.uses + 1))
     save_answers(registration.id, answers, db)
     checkout_url = ""
     if online:
         # Niente commit prima: se Stripe o PayPal rifiutano, l'iscrizione non nasce.
         try:
-            checkout_url = (await start_checkout(registration, online, db)).checkout_url
+            checkout_url = from_thread.run(start_checkout, registration, online, db).checkout_url
         except Exception:
             db.rollback()
             raise
@@ -739,7 +750,7 @@ def self_drop(
 
 
 @router.post("/{tournament_id}/my-registration/cancel")
-async def cancel_registration(
+def cancel_registration(
     tournament_id: int,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -787,7 +798,7 @@ async def cancel_registration(
     db.commit()
     cache_invalidate(f"registrations:{tournament_id}")
     cache_invalidate(f"my-reg:{tournament_id}:{user.id}")
-    refunded = to_refund and await refund_now(payment, db)
+    refunded = to_refund and from_thread.run(refund_now, payment, db)
     if was_active:
         promote_from_waitlist(tournament, db)
     return {"status": "cancelled", "refunded": refunded, "refund_requested": to_refund and not refunded}
@@ -1464,6 +1475,7 @@ def add_walk_in(
         raise HTTPException(status_code=409, detail="Il giocatore è già iscritto")
     check_not_suspended(player, tournament, db, at_desk=True)
     answers = validate_answers(tournament.id, payload.answers, db, enforce_required=False)
+    lock_seats(tournament_id, db)
     active = db.scalar(
         select(func.count(Registration.id)).where(
             Registration.tournament_id == tournament_id,
@@ -1521,6 +1533,7 @@ def import_registrations(
     if len(players) > IMPORT_LIMIT:
         raise HTTPException(status_code=422, detail=f"Al massimo {IMPORT_LIMIT} righe per volta")
 
+    lock_seats(tournament.id, db)
     active = db.scalar(select(func.count(Registration.id)).where(
         Registration.tournament_id == tournament.id, Registration.waitlisted.is_(False),
     )) or 0

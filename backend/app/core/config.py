@@ -96,7 +96,7 @@ class Settings(BaseSettings):
     vapid_private_key: str | None = None
     vapid_subject: str = "mailto:noreply@mull2five.local"
 
-    # Monitoring: protegge /metrics con un token (se impostato).
+    # /metrics si legge solo con questo token; senza, fuori dallo sviluppo è un 404.
     metrics_token: str | None = None
 
     # Alerting: notifica operativa quando qualcosa va storto (DB giù, errori 5xx).
@@ -121,6 +121,12 @@ class Settings(BaseSettings):
     # Il piano gratuito di Supabase arriva a 500 MB: oltre questa soglia si avvisa,
     # una volta al giorno. 0 = spento.
     db_size_alert_mb: int = 400
+    # Il battito verso Healthchecks.io (services/site_watch.py, `heartbeat`):
+    # l'indirizzo di ping del controllo, https://hc-ping.com/<uuid>. Chi lo
+    # conosce può far credere che il sito sia vivo, quindi sta solo su Render.
+    # Vuoto: spento, come sullo staging e in sviluppo.
+    heartbeat_url: str | None = None
+    heartbeat_interval_secs: int = 300
 
     # Multi-tenant: header che identifica l'organizzazione (negozio) corrente.
     tenant_header: str = "X-Mull2Five-Org"
@@ -148,6 +154,28 @@ class Settings(BaseSettings):
         """
         return self.app_env.strip().lower() in {"development", "dev", "staging", "stage",
                                                 "test", "preview", "local"}
+
+
+    def secret_key_problem(self) -> str | None:
+        """Perché la SECRET_KEY non va bene per un sito raggiungibile da fuori.
+
+        Firma i token di accesso. Il repository è pubblico, quindi il valore di
+        default e quello di `.env.example` li conosce chiunque: con uno dei due
+        in produzione, chiunque si fabbrica un token da admin. Sul proprio
+        computer e nei test va bene tutto.
+        """
+        if self.app_env.strip().lower() in LOCAL_ENVS:
+            return None
+        if self.secret_key in PUBLIC_SECRET_KEYS:
+            return (f"SECRET_KEY è quella scritta nel repository pubblico (APP_ENV={self.app_env}): "
+                    "chiunque potrebbe firmarsi un accesso. Impostane una lunga e casuale.")
+        return None
+
+
+# Dove la SECRET_KEY di default va bene: il proprio computer e i test.
+LOCAL_ENVS = {"development", "dev", "test", "local"}
+# Le chiavi che chiunque legge nel repository.
+PUBLIC_SECRET_KEYS = {"dev-secret-change-me", "change-me-with-a-long-random-value"}
 
 
 @lru_cache

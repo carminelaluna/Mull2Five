@@ -26,7 +26,9 @@ services:
     region: frankfurt          # lo stesso di Supabase: il database è lì accanto
     plan: starter              # sempre acceso; il gratuito si addormentava dopo 15 minuti
     branch: main
-    autoDeploy: true           # il push su main va in produzione da solo
+    # Il push su main va in produzione da solo, ma solo con la CI verde: dal
+    # 24/11/2026. Prima partiva comunque, e il 23/09 è uscito un commit rosso.
+    autoDeployTrigger: checksPass
     healthCheckPath: /health
 
     envVars:
@@ -116,7 +118,13 @@ services:
         sync: false
       - key: GOOGLE_CLIENT_SECRET
         sync: false
+      # Senza, /metrics in produzione risponde 404 (main.py). Con: si legge con
+      # `Authorization: Bearer <token>`.
       - key: METRICS_TOKEN
+        sync: false
+      # Il battito verso Healthchecks.io: l'indirizzo di ping del controllo
+      # (docs/hosting.md, "Avvisi su Telegram"). Solo la produzione.
+      - key: HEARTBEAT_URL
         sync: false
       - key: REDIS_URL
         sync: false

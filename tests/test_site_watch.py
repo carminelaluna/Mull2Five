@@ -176,3 +176,78 @@ def test_a_mailbox_that_cannot_send_is_told_without_the_recipient(monkeypatch, t
     assert "SMTPAuthenticationError" in posted[0]
     assert "giocatore@example.com" not in posted[0] and "sbagliata" not in posted[0]
     assert emailed == []                        # non dalla casella rotta
+
+
+# ── Il battito verso Healthchecks.io ─────────────────────────────────────
+
+class _Risposta:
+    def __init__(self, status_code=200, body=None):
+        self.status_code = status_code
+        self._body = body if body is not None else {"status": "ok"}
+
+    def json(self):
+        return self._body
+
+
+def _rete(salute):
+    """Una finta httpx.get: /health risponde `salute`, il ping si annota."""
+    chiamate = []
+
+    def get(url, **kwargs):
+        chiamate.append(url)
+        if url.endswith("/health"):
+            if isinstance(salute, Exception):
+                raise salute
+            return salute
+        return _Risposta()
+    return get, chiamate
+
+
+@pytest.fixture
+def battito(monkeypatch):
+    s = get_settings()
+    monkeypatch.setattr(s, "heartbeat_url", "https://hc-ping.com/prova-uuid")
+    monkeypatch.setattr(s, "site_url", "https://mull2five.it")
+    return s
+
+
+def test_the_heartbeat_pings_only_when_the_public_site_is_healthy(battito):
+    get, chiamate = _rete(_Risposta())
+    assert site_watch.heartbeat(get=get) == "ok"
+    # Dal dominio pubblico, non da dentro: così si ferma anche se cade il DNS.
+    assert chiamate == ["https://mull2five.it/health", "https://hc-ping.com/prova-uuid"]
+
+
+@pytest.mark.parametrize("salute, stato", [
+    (_Risposta(body={"status": "degraded"}), "degraded"),
+    (_Risposta(status_code=502, body={}), "HTTP 502"),
+    (ConnectionError("dominio irraggiungibile"), "ConnectionError"),
+])
+def test_no_ping_when_the_site_is_not_well(battito, salute, stato):
+    """Niente battito vuol dire avviso da Healthchecks.io, dopo la tolleranza."""
+    get, chiamate = _rete(salute)
+    assert site_watch.heartbeat(get=get) == stato
+    assert chiamate == ["https://mull2five.it/health"]
+
+
+def test_no_heartbeat_without_its_address(monkeypatch):
+    monkeypatch.setattr(get_settings(), "heartbeat_url", None)
+    get, chiamate = _rete(_Risposta())
+    assert site_watch.heartbeat(get=get) is None
+    assert chiamate == []
+
+
+def test_a_lost_ping_does_not_break_the_loop(battito):
+    def get(url, **kwargs):
+        if url.endswith("/health"):
+            return _Risposta()
+        raise TimeoutError("hc-ping.com non risponde")
+    assert site_watch.heartbeat(get=get) == "ok"
+
+
+def test_the_heartbeat_is_not_mistaken_for_the_github_check(client):
+    """/health riconosce il controllo da GitHub dallo User-Agent: il battito ne
+    ha un altro, e non deve far credere che GitHub stia ancora controllando."""
+    site_watch.status_check.last_seen = -1.0
+    client.get("/health", headers={"User-Agent": site_watch.HEARTBEAT_AGENT})
+    assert site_watch.status_check.last_seen == -1.0

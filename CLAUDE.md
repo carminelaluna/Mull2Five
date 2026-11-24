@@ -67,7 +67,10 @@ va aggiornato quando cambia una procedura o arriva un avviso nuovo.
   `CMD` del Dockerfile): se falliscono il contenitore esce con un errore, il
   deploy si ferma e resta su la versione di prima. In più `/health` dice se lo
   schema è rimasto indietro, e in quel caso lo stato è `degraded`.
-- **Il deploy non aspetta la CI**: un push con la CI rossa va in produzione lo stesso.
+- **Il deploy non aspettava la CI**: fino al 24/11/2026 un push con la CI rossa
+  andava in produzione lo stesso. Ora Render pubblica solo a CI verde
+  (`autoDeployTrigger: checksPass`, e nel cruscotto *After CI Checks Pass*);
+  *Manual Deploy* invece non la guarda. Lo staging si aggiorna a ogni push.
 - **Un `ALTER TABLE` che aspetta un lock bloccava il deploy per sempre**
   (29/09/2026, con `0006_tag_author`): l'istanza vecchia è ancora viva e serve
   traffico, la porta non si apriva mai e Render diceva `Timed Out / no open
@@ -188,6 +191,28 @@ Bonus imbattuto e scarti sono colonne dello schema `0014`; sui circuiti nati
 prima valgono zero, e la loro classifica non è cambiata. Dettagli in
 `docs/back-office.md`, test in `tests/test_circuits.py`.
 
+Sempre il 24 novembre, una passata per l'uso di tutti i giorni:
+- **I posti di un torneo li conta una richiesta alla volta**: `lock_seats` in
+  `services/registrations.py` blocca la riga del torneo (`FOR UPDATE`) prima di
+  contare. Senza, due iscrizioni insieme sull'ultimo posto entravano tutte e
+  due. Ogni punto nuovo che conta i posti e poi iscrive va dopo `lock_seats`.
+  Su SQLite non fa niente: il test (`tests/test_concurrency.py`) gira solo su
+  PostgreSQL.
+- **Un doppio clic è un 409, non un 500**: un vincolo di unicità violato passa
+  da `integrity_error_handler` in `main.py`, senza avviso su Telegram.
+- **Iscrizione e annullamento sono `def`**: Stripe e PayPal si chiamano in modo
+  sincrono, e in una funzione `async` fermavano tutto il server. Il codice
+  asincrono dei pagamenti ci arriva con `anyio.from_thread.run`.
+- `/metrics` fuori dallo sviluppo vuole `METRICS_TOKEN`, sennò è un 404; il sito
+  non parte con la `SECRET_KEY` scritta nel repository (`secret_key_problem` in
+  `core/config.py`, controllata anche da `prepara_database.py`).
+- **Il battito**: ogni cinque minuti il sito chiama il proprio `/health` dal
+  dominio e, se è `ok`, lo dice a Healthchecks.io (`HEARTBEAT_URL`). Se smette,
+  è Healthchecks.io ad avvisare su Telegram: l'unico avviso che non dipende né
+  dal sito né da GitHub.
+- Sulle pagine di ricerca, da telefono, i filtri stanno dietro un pulsante
+  (`js/facets-toggle.js`). DMARC del dominio acceso (`p=none`), DKIM c'era già.
+
 ## Cosa resta — in ordine
 
 Dettaglio in `TODO.md`. Quelle che contano:
@@ -205,12 +230,13 @@ Dettaglio in `TODO.md`. Quelle che contano:
    tipo — `info@` l'accesso, `commercial@` i pagamenti, la casella admin il resto
    (`Sender` in `services/email.py`). Il reset password è stato provato e arriva.
 
-**Infrastruttura, quel che resta del guasto del 23/09**
-5. Far aspettare la CI al deploy (nel cruscotto Render). Intanto una CI rossa su
-   main arriva su Telegram, come il deploy che non arriva, il backup fallito o
-   saltato, il sito giù e le email che non partono: dal 24/11/2026 gli avvisi
-   sono accesi (`docs/hosting.md`, "Avvisi su Telegram").
-   Il ripristino dal backup è stato provato il 29/09, e lo staging esiste.
+**Infrastruttura**
+5. Accendere il battito: account e controllo su Healthchecks.io, collegati a
+   Telegram, e il Ping URL in `HEARTBEAT_URL` su Render (`docs/hosting.md`,
+   "Avvisi su Telegram", punto 6). Il codice c'è; senza l'indirizzo è spento.
+   Il resto del guasto del 23/09 è chiuso: il deploy aspetta la CI, gli avvisi
+   su Telegram sono accesi, il ripristino dal backup è stato provato il 29/09,
+   e lo staging esiste.
 
 **Rimandabili**
 Locator (spento per le condizioni d'uso di Wizards), ri-podding, app mobile,

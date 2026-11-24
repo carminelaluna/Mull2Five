@@ -11,6 +11,14 @@ controlla il controllore è il sito: solo lui resta acceso comunque.
 
 Il database che si avvicina al limite. Il piano gratuito di Supabase arriva a
 500 MB; quando si avvicina è ora di passare a Pro (docs/hosting.md, passo 8).
+
+E un terzo, che va nel verso opposto: il battito verso Healthchecks.io
+(`heartbeat`). Gli avvisi qui sopra li manda il sito, quindi tacciono proprio
+quando il sito è spento; il controllo da GitHub doveva coprire quel caso, ma il
+24/11/2026 in due ore e mezza non era partito neanche una volta. Ora è il sito a
+farsi sentire ogni cinque minuti, passando dal dominio pubblico come un
+visitatore qualunque; se smette, l'avviso su Telegram lo manda Healthchecks.io,
+da fuori.
 """
 from __future__ import annotations
 
@@ -18,6 +26,7 @@ import logging
 import time
 from collections.abc import Callable
 
+import httpx
 from sqlalchemy import text
 
 from backend.app.core.alerting import send_alert, send_telegram
@@ -85,6 +94,39 @@ def check_database_size(size_mb: float | None, limit_mb: int) -> bool:
         "è ora di passare a Supabase Pro (docs/hosting.md, passo 8).",
         level="warning", throttle_secs=DB_SIZE_ALERT_SECS,
     )
+
+
+HEARTBEAT_AGENT = "mull2five-battito"           # diverso da quello di GitHub: non lo sostituisce
+
+
+def heartbeat(get: Callable[..., httpx.Response] = httpx.get) -> str | None:
+    """Un battito: /health dal dominio pubblico e, se sta bene, il ping a Healthchecks.io.
+
+    La richiesta esce da Render e rientra da mull2five.it, come quella di un
+    giocatore: così il battito si ferma anche se cadono il dominio, il
+    certificato o il database, non solo il processo. Se qualcosa non va non
+    manda niente: dopo il periodo di tolleranza scelto su Healthchecks.io
+    l'avviso parte da lì, e un singolo intoppo di rete non sveglia nessuno.
+    Ritorna lo stato letto, None se HEARTBEAT_URL non è impostato.
+    """
+    settings = get_settings()
+    if not settings.heartbeat_url:
+        return None
+    site = (settings.site_url or str(settings.frontend_url)).rstrip("/")
+    try:
+        response = get(f"{site}/health", timeout=20, headers={"User-Agent": HEARTBEAT_AGENT})
+        state = response.json().get("status", "?") if response.status_code == 200 \
+            else f"HTTP {response.status_code}"
+    except Exception as exc:  # noqa: BLE001 — qualunque guasto vuol dire niente battito
+        state = type(exc).__name__
+    if state != "ok":
+        logger.warning("Battito saltato: %s/health risponde %s", site, state)
+        return state
+    try:
+        get(settings.heartbeat_url, timeout=10)
+    except Exception:  # noqa: BLE001
+        logger.warning("Healthchecks.io non ha ricevuto il battito", exc_info=True)
+    return state
 
 
 def check() -> None:

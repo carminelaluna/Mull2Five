@@ -16,12 +16,19 @@ motivo è nel log invece che nascosto dietro un timeout.
 import logging
 import sys
 
+from backend.app.core.config import get_settings
 from backend.app.db import create_all
 
 
 def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     log = logging.getLogger("prepara_database")
+    # Prima delle migrazioni: un sito che non deve partire non tocca lo schema.
+    problema = get_settings().secret_key_problem()
+    if problema:
+        log.error(problema)
+        log.error("Il sito non viene acceso: meglio la versione di prima che una aperta a tutti.")
+        return 1
     try:
         create_all()
     except Exception as exc:   # noqa: BLE001 — qualunque guasto qui ferma il deploy, ed è giusto

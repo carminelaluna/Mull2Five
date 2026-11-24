@@ -7,7 +7,7 @@ degli iscritti, quindi non possono stare ne in uno ne nell'altro.
 """
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import delete, func, or_, select
+from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.orm import Session, joinedload
 
 from backend.app.core.cache import cache_invalidate
@@ -59,6 +59,19 @@ def must_pay_online(registration: Registration, tournament: Tournament) -> bool:
     return bool(methods) and "at_event" not in methods and amount_due(registration, tournament) > 0
 
 
+def lock_seats(tournament_id: int, db: Session) -> None:
+    """I posti di un torneo li conta una richiesta alla volta, fino al commit.
+
+    Contare i posti liberi e poi iscrivere sono due passi. Senza questo lock due
+    persone che prendono l'ultimo posto nello stesso istante lo trovano libero
+    tutte e due, ed entrano tutte e due; lo stesso per l'ultimo uso di un codice
+    sconto. Si blocca la riga del torneo: chi arriva secondo aspetta il commit
+    del primo, e poi conta i posti che restano. Va chiamato prima di contare.
+    SQLite il FOR UPDATE non lo conosce, ma lì le scritture vanno già in fila.
+    """
+    db.execute(select(Tournament.id).where(Tournament.id == tournament_id).with_for_update())
+
+
 def promote_from_waitlist(tournament: Tournament, db: Session) -> None:
     """Promuove il primo in lista d'attesa se si è liberato un posto.
 
@@ -66,6 +79,7 @@ def promote_from_waitlist(tournament: Tournament, db: Session) -> None:
     altri: ha ancora `promoted_at` (sweep_waitlist_deadlines), e la coda lo
     mette in fondo. Prima tornava primo e veniva ripromosso subito.
     """
+    lock_seats(tournament.id, db)
     active = db.scalar(
         select(func.count(Registration.id)).where(
             Registration.tournament_id == tournament.id,
@@ -142,9 +156,13 @@ def release_hold(registration: Registration, db: Session) -> None:
     torna disponibile. Il commit lo fa chi chiama.
     """
     if registration.discount_code_id:
-        code = db.get(DiscountCode, registration.discount_code_id)
-        if code and code.uses > 0:
-            code.uses -= 1
+        # Il conto lo fa il database, non Python: leggere, togliere uno e
+        # riscrivere perderebbe l'uso aggiunto nel frattempo da un'iscrizione.
+        db.execute(
+            update(DiscountCode)
+            .where(DiscountCode.id == registration.discount_code_id, DiscountCode.uses > 0)
+            .values(uses=DiscountCode.uses - 1)
+        )
     paired = db.scalar(
         select(Pairing.id).where(or_(
             Pairing.player_a_registration_id == registration.id,
