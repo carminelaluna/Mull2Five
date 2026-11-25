@@ -12,7 +12,7 @@ import { renderDeck } from './deck-view.js';
 import { cityInput } from './city-input.js';
 import { esc } from './escape.js';
 import { bindFormatPicker, formatOptions, formatPicker, formatValue, setFormatValue } from './formats.js';
-import { bestOfLabel, gameInfo, gameLabel, loadGames, tiebreakerColumns } from './games.js';
+import { gameInfo, gameLabel, loadGames, tiebreakerColumns } from './games.js';
 import './payment-options.js';   // nasconde Stripe e PayPal se sul sito sono spenti
 import { t as tr } from './i18n.js';
 import { $, apiFetch, fmtDate, money, session } from './organizer-common.js';
@@ -418,9 +418,6 @@ function openNewEventDialog() {
       <details class="bo-more">
         <summary>${esc(tr('Opzioni avanzate'))}</summary>
         <div class="bo-grid" style="margin-top:10px">
-          <label>${esc(tr('Early bird €'))}<input id="nEarlyFee" type="number" min="0" step="0.01"
-                 placeholder="${esc(tr('vuoto: nessuno sconto'))}" /></label>
-          <label>${esc(tr('Early bird fino al'))}<input id="nEarlyUntil" type="date" /></label>
           <label class="bo-check"><input id="nDeck" type="checkbox" checked /> Lista obbligatoria</label>
           <label class="bo-check"><input id="nAtEvent" type="checkbox" checked /> Pagamento al banco</label>
           <label class="bo-check pay-online"><input id="nStripe" type="checkbox" /> Online Stripe</label>
@@ -428,12 +425,14 @@ function openNewEventDialog() {
           <label class="bo-check"><input id="nPairPub" type="checkbox" checked /> Abbinamenti pubblici</label>
           <label class="bo-check"><input id="nStandPub" type="checkbox" checked /> Classifica pubblica</label>
           <label class="bo-check"><input id="nDeckPub" type="checkbox" /> Liste pubbliche a fine torneo</label>
-          <label>${esc(tr('ID evento (EventLink)'))}<input id="nSanction" maxlength="60" placeholder="${esc(tr('se è un evento ufficiale'))}" /></label>
-          <label>${esc(tr('Match in svizzera'))}<select id="nBestOf">
-            ${[1, 2, 3].map((n) => `<option value="${n}">${esc(bestOfLabel(n))}</option>`).join('')}
-          </select></label>
           <label class="bo-check"><input id="nIds" type="checkbox" checked /> ${esc(tr('Patte intenzionali'))}</label>
-          <label>${esc(tr('Formula'))}<select id="nTeam">${[1, 2, 3].map((n) => `<option value="${n}"${n === 1 ? ' selected' : ''}>${esc(n === 1 ? tr('Individuale') : tr('Squadre da {n}', { n }))}</option>`).join('')}</select></label>
+          <label class="span-2">${esc(tr('ID evento (EventLink)'))}<input id="nSanction" maxlength="60" placeholder="${esc(tr('se è un evento ufficiale'))}" /></label>
+          <!-- Early bird, match in svizzera e formula non si scelgono più: tolti
+               dalla creazione il 24/11/2026 e dalle Impostazioni il 25/11.
+               Restano nascosti i due valori che il gioco o un modello possono
+               portare: il formato dei match e la grandezza delle squadre. -->
+          <input id="nBestOf" type="hidden" value="" />
+          <input id="nTeam" type="hidden" value="1" />
           <label class="bo-check" style="grid-column:1/-1"><input id="nRegOnly" type="checkbox" /> ${esc(tr('Solo iscrizioni: niente turni né classifica (serata casual, draft tra amici, presentazione)'))}</label>
         </div>
       </details>
@@ -605,10 +604,6 @@ async function createTournament(e) {
     start_time: $('#nTime').value || null,
     capacity: +$('#nCap').value || 8,
     entry_fee_cents: Math.round((+$('#nFee').value || 0) * 100),
-    // Early bird: o tutt'e due o niente, e il backend rifiuta uno sconto che non sconta.
-    ...($('#nEarlyFee').value !== '' && $('#nEarlyUntil').value
-      ? { early_bird_cents: Math.round(+$('#nEarlyFee').value * 100), early_bird_until: $('#nEarlyUntil').value }
-      : {}),
     currency: 'EUR',
     status: 'published',
     event_type: $('#nType').value,
@@ -2622,12 +2617,7 @@ async function renderImpostazioni() {
         <div class="bo-grid">
           <label>Capienza<input id="sCap" type="number" min="2" value="${t.capacity}" ${lock('capacity')} /></label>
           <label>Entry fee €<input id="sFee" type="number" min="0" step="0.01" value="${((t.entry_fee_cents || 0) / 100).toFixed(2)}" ${lock('entry_fee')} /></label>
-          <label>${esc(tr('Early bird €'))}<input id="sEarlyFee" type="number" min="0" step="0.01"
-                 placeholder="${esc(tr('vuoto: nessuno sconto'))}" ${lock('entry_fee')}
-                 value="${t.early_bird_cents == null ? '' : (t.early_bird_cents / 100).toFixed(2)}" /></label>
-          <label>${esc(tr('Early bird fino al'))}<input id="sEarlyUntil" type="date" ${lock('entry_fee')}
-                 value="${esc(t.early_bird_until || '')}" /></label>
-          <label class="bo-check"><input id="sAtEvent" type="checkbox" ${checked(t.pay_at_event)} ${lock('pay_at_event')} /> Pagamento al banco</label>
+          <label class="bo-check" style="grid-column:1"><input id="sAtEvent" type="checkbox" ${checked(t.pay_at_event)} ${lock('pay_at_event')} /> Pagamento al banco</label>
           <label class="bo-check pay-online"><input id="sStripe" type="checkbox" ${checked(t.pay_stripe)} ${lock('pay_stripe')} /> Online Stripe</label>
           <label class="bo-check pay-online"><input id="sPaypal" type="checkbox" ${checked(t.pay_paypal)} ${lock('pay_paypal')} /> Online PayPal</label>
           <label class="bo-check"><input id="sEmail" type="checkbox" ${checked(t.email_notifications_enabled)} /> ${esc(tr('Notifiche email ai giocatori'))}</label>
@@ -2638,14 +2628,11 @@ async function renderImpostazioni() {
       <div class="panel">
         <h3>${esc(tr('Svolgimento'))}</h3>
         <div class="bo-grid">
-          <label>${esc(tr('Match in svizzera'))}<select id="sBestOf" ${lock('best_of')}>
-            ${[1, 2, 3].map((n) => option(n, bestOfLabel(n), t.best_of || 3)).join('')}</select></label>
           <label>${esc(tr('Struttura'))}<select id="sStructure" ${lock('structure')}>
             ${option('swiss', tr('Svizzera'), t.structure)}
             ${option('swiss_topcut', tr('Svizzera + top cut'), t.structure)}
             ${option('single_elimination', tr('Eliminazione diretta'), t.structure)}
             ${option('registration_only', tr('Solo iscrizioni, senza turni'), t.structure)}</select></label>
-          <label>${esc(tr('Formula'))}<select id="sTeam" ${lock('team_size')}>${[1, 2, 3].map((n) => `<option value="${n}"${n === (t.team_size || 1) ? ' selected' : ''}>${esc(n === 1 ? tr('Individuale') : tr('Squadre da {n}', { n }))}</option>`).join('')}</select></label>
           <label>${esc(tr('Turni svizzeri (0 = automatico)'))}<input id="sRounds" type="number" min="0" value="${t.swiss_rounds || 0}" ${lock('swiss_rounds')} /></label>
           <label>${esc(tr('Top cut'))}<select id="sCut" ${lock('top_cut_size')}>
             ${[2, 4, 8, 16].map((n) => option(n, `Top ${n}`, t.top_cut_size || 8)).join('')}</select></label>
@@ -2667,17 +2654,15 @@ async function renderImpostazioni() {
   renderFieldsEditor(t);
   renderDiscountCodes(t);
 
-  // Cambiando gioco cambiano i formati proposti e, a torneo non avviato, il formato dei match.
-  const syncFormats = (fromUser) => {
+  // Cambiando gioco cambiano i formati proposti. Il formato dei match non si
+  // sceglie più (25/11/2026): cambiando gioco lo rimette il backend, quello del gioco.
+  const syncFormats = () => {
     const game = games.find((g) => g.code === $('#sGame').value) || games[0];
     if (!game) return;
     $('#sFormat').innerHTML = formatOptions(game.formats, formatValue('sFormat'));
-    if (fromUser) {
-      $('#sBestOf').value = String(game.default_best_of);
-    }
   };
-  $('#sGame').addEventListener('change', () => syncFormats(true));
-  syncFormats(false);
+  $('#sGame').addEventListener('change', syncFormats);
+  syncFormats();
   bindFormatPicker('sFormat');
   cityInput($('#sTCity'));
   fillLocationChoices('#sLocation', '#sLocationWrap', '#sVenueWrap, #sCityWrap', t.location_id ?? undefined);
@@ -2704,17 +2689,14 @@ async function renderImpostazioni() {
       ...onlineBody('s'),
       capacity: +$('#sCap').value,
       entry_fee_cents: Math.round((+$('#sFee').value || 0) * 100),
-      // Campo vuoto = 0 = "togli l'early bird" (il backend azzera anche la data).
-      early_bird_cents: $('#sEarlyFee').value === '' ? 0 : Math.round(+$('#sEarlyFee').value * 100),
-      early_bird_until: $('#sEarlyUntil').value || null,
+      // Early bird, formato dei match e squadre non si mandano (25/11/2026): il
+      // back-office non li offre più, e quello che un torneo ha già resta com'è.
       pay_at_event: $('#sAtEvent').checked,
       pay_stripe: $('#sStripe').checked,
       pay_paypal: $('#sPaypal').checked,
       email_notifications_enabled: $('#sEmail').checked,
       refund_policy: $('#sRefund').value.trim(),
-      best_of: +$('#sBestOf').value,
       structure: $('#sStructure').value,
-      team_size: +$('#sTeam').value || 1,
       swiss_rounds: +$('#sRounds').value || 0,
       top_cut_size: +$('#sCut').value,
       round_timer_minutes: +$('#sTimer').value,

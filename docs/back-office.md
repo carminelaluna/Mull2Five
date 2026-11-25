@@ -35,12 +35,20 @@ Chiudi.
 
 **Nuovo evento** chiede il minimo: nome, gioco, formato (da una tendina, con
 "Altro" per i formati di casa), data e ora, luogo e città, posti, quota. Se il
-negozio ha delle sedi, ne scegli una e luogo e città li eredita da lì. Fra le
-opzioni avanzate c'è anche l'**early bird**: una quota ridotta per chi paga
-entro una data compresa, dopo la quale si torna a quella piena. Conta il giorno
-in cui si paga, non quello dell'iscrizione: chi si iscrive in tempo e paga al
-banco dopo la data paga la quota piena. La pagina pubblica mostra sempre quella
-che si paga adesso, ed è la stessa che incassa il banco.
+negozio ha delle sedi, ne scegli una e luogo e città li eredita da lì. Le
+opzioni avanzate tengono pagamenti, visibilità, ID EventLink, patte
+intenzionali e "solo iscrizioni". **Early bird**, **match in svizzera** e
+**formula** non si scelgono più: tolti dalla creazione il 24/11/2026 e dalle
+Impostazioni il 25/11. Il torneo nasce con il formato dei match del gioco (o
+quello del modello) e individuale; cambiando gioco dalle Impostazioni, il
+formato dei match torna quello del nuovo gioco (lo decide il backend).
+
+Il backend sa ancora fare tutte e tre le cose, e un torneo che le aveva prima
+le tiene: la quota early bird (ridotta per chi paga entro una data, dopo la
+quale si torna a quella piena, contando il giorno in cui si paga) resta sulla
+pagina pubblica e al banco, e un torneo a squadre resta a squadre. Per
+riaccenderle basta rimettere i campi nel modulo e nelle Impostazioni
+(`organizer.js`, `openNewEventDialog` e `renderImpostazioni`).
 
 **★ Modello** mette da parte le impostazioni di un torneo col nome che gli dai;
 poi "Parti da un modello", in cima a "Nuovo evento", le rimette nel modulo.
@@ -85,7 +93,7 @@ staging punta allo staging.
 - **Staff** — chi ti aiuta su *questo* torneo: capojudge (uno solo) e judge.
 - **Impostazioni** — tutto il resto: struttura, turni previsti, timer, scadenza
   liste, visibilità di abbinamenti e classifica, domande all'iscrizione, quota
-  ed early bird, e i **codici sconto**.
+  e i **codici sconto**.
 - **Risultati** — classifica, premi consegnati, report ufficiale ed esportazioni.
 
 **I codici sconto** stanno in fondo a Impostazioni, sotto le domande
