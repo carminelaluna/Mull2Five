@@ -94,6 +94,12 @@ $apk = Join-Path $PSScriptRoot "$name.apk"
 Copy-Item (Join-Path $outputs "apk\$Ambiente\release\app-$Ambiente-release.apk") $apk -Force
 Write-Host ''
 Write-Host "APK: $apk"
+# Le notifiche all'istante vogliono app\google-services.json (docs/android.md, "Firebase").
+if (Test-Path (Join-Path $PSScriptRoot 'app\google-services.json')) {
+    Write-Host 'Firebase: si, notifiche all''istante.'
+} else {
+    Write-Host 'Firebase: no (manca app\google-services.json): notifiche ogni 15 minuti.'
+}
 if (-not $debug) {
     $aab = Join-Path $PSScriptRoot "$name.aab"
     Copy-Item (Join-Path $outputs "bundle\${Ambiente}Release\app-$Ambiente-release.aab") $aab -Force

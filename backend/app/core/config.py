@@ -102,6 +102,11 @@ class Settings(BaseSettings):
     vapid_private_key: str | None = None
     vapid_subject: str = "mailto:noreply@mull2five.local"
 
+    # Le notifiche dell'app all'istante (services/fcm.py): il JSON della chiave
+    # dell'account di servizio del progetto Firebase, tutto su una riga. È un
+    # segreto: sta solo su Render. Vuoto: l'app le prende ogni 15 minuti.
+    fcm_service_account: str | None = None
+
     # /metrics si legge solo con questo token; senza, fuori dallo sviluppo è un 404.
     metrics_token: str | None = None
 

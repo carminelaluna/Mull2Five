@@ -57,5 +57,15 @@
                     android:scheme="https" />
             </intent-filter>
         </activity>
+
+        <!-- Firebase sveglia l'app appena c'è una notifica (notify/Push.kt). Senza
+             google-services.json non arriva niente: resta il giro dei 15 minuti. -->
+        <service
+            android:name=".notify.PushService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
     </application>
 </manifest>

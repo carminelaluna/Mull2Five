@@ -64,7 +64,13 @@ class ProfileViewModel(private val c: AppContainer) : ViewModel() {
 
     fun stopActing() = c.session.actAs(null)
 
-    fun logout() = c.session.clear()
+    fun logout() {
+        val bearer = c.session.token
+        c.session.clear()
+        // Dopo, senza far aspettare chi esce: il server smetta di svegliare questo
+        // telefono per l'account appena uscito. Senza rete pazienza.
+        if (bearer != null) viewModelScope.launch { c.attempt { c.inbox.forgetDevice(bearer) } }
+    }
 }
 
 /**

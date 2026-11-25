@@ -29,6 +29,9 @@ import it.mull2five.app.data.Session
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeoutOrNull
 import java.text.NumberFormat
 import java.time.OffsetDateTime
 import java.util.Currency
@@ -37,16 +40,17 @@ import java.util.concurrent.TimeUnit
 /**
  * La campanella nell'app: il numero da leggere e le notifiche del telefono.
  *
- * Il sito le scrive nello storico (services/inbox.py). Una spinta dal server
- * vorrebbe Firebase, che l'app non ha: allora è l'app ad andare a chiedere.
- * Ogni quindici minuti WorkManager sveglia InboxWorker, che scarica quelle
- * arrivate dopo l'ultima mostrata e le mette fra le notifiche del telefono.
+ * Il sito le scrive nello storico (services/inbox.py). Se l'app ha Firebase
+ * (Push.kt) il server la sveglia appena ce n'è una; in ogni caso, ogni quindici
+ * minuti WorkManager sveglia InboxWorker. Tutti e due scaricano quelle arrivate
+ * dopo l'ultima mostrata e le mettono fra le notifiche del telefono.
  * Quando il telefono dorme Android può ritardare il giro. Il giro rinnova anche
  * il token, come l'app aperta: si ferma solo uscendo.
  */
 class Inbox(private val context: Context, private val api: Api, private val session: Session) {
     private val prefs = context.getSharedPreferences("campanella", Context.MODE_PRIVATE)
     private val _unread = MutableStateFlow(0)
+    private val showing = Mutex()
 
     /** Quante da leggere: il numero sulla campanella in alto. */
     val unread: StateFlow<Int> = _unread.asStateFlow()
@@ -62,9 +66,29 @@ class Inbox(private val context: Context, private val api: Api, private val sess
     /**
      * Le arrivate dopo l'ultima mostrata, fra le notifiche del telefono. La prima
      * volta per un account segna il punto e basta: chi installa l'app non si
-     * trova addosso le notifiche di un mese.
+     * trova addosso le notifiche di un mese. Una alla volta: Firebase e il giro
+     * dei quindici minuti possono arrivare insieme.
      */
-    suspend fun showNew() {
+    suspend fun showNew() = showing.withLock { fetchAndPost() }
+
+    /** Con Firebase: il server sveglia questo telefono per chi c'è dentro (notify/Push.kt). */
+    suspend fun registerDevice(token: String? = null) {
+        if (session.user.value == null || !Push.available(context)) return
+        val value = token ?: withTimeoutOrNull(TOKEN_WAIT_MS) { Push.token() } ?: return
+        api.registerDevice(value)
+    }
+
+    /**
+     * Uscendo: il server smette di svegliare questo telefono per quell'account.
+     * `bearer` è il token di chi è uscito, già tolto dalla sessione.
+     */
+    suspend fun forgetDevice(bearer: String) {
+        if (!Push.available(context)) return
+        val value = withTimeoutOrNull(TOKEN_WAIT_MS) { Push.token() } ?: return
+        api.forgetDevice(value, bearer)
+    }
+
+    private suspend fun fetchAndPost() {
         val user = session.user.value ?: return
         val key = "ultima_${user.id}"
         val last = prefs.getInt(key, -1)
@@ -151,6 +175,7 @@ class Inbox(private val context: Context, private val api: Api, private val sess
         private const val CHANNEL = "tornei"
         private const val KEY_ASKED = "permesso_chiesto"
         private const val ACCENT = 0xFFC6FF3D.toInt()
+        private const val TOKEN_WAIT_MS = 10_000L
     }
 }
 

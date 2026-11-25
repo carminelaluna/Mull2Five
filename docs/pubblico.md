@@ -199,6 +199,8 @@ gli annunci, la lista d'attesa, il promemoria, le risposte alle segnalazioni),
 `POST /read`), `js/inbox.js` le mostra. Il server salva il tipo e i pezzi della
 frase, non la frase: la scrive chi la mostra, nella lingua di chi legge. Un tipo
 nuovo vuole la sua frase in `phrase()` (e nell'app), o compare come "Notifica".
+L'app Android le mette anche fra le notifiche del telefono, all'istante se c'è
+Firebase (`services/fcm.py`): vedi `docs/android.md`.
 
 ## Le mie liste
 

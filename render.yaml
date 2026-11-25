@@ -118,6 +118,11 @@ services:
         sync: false
       - key: GOOGLE_CLIENT_SECRET
         sync: false
+      # Le notifiche dell'app all'istante (services/fcm.py, docs/android.md,
+      # "Firebase"): il JSON della chiave dell'account di servizio di Firebase.
+      # Senza, l'app le prende ogni 15 minuti.
+      - key: FCM_SERVICE_ACCOUNT
+        sync: false
       # L'app Android (docs/android.md): le impronte SHA-256 dei certificati che
       # la firmano — la chiave di Google Play e quella di caricamento, separate
       # da virgola. Non sono segrete, ma arrivano dalla Play Console. Senza,
@@ -233,6 +238,9 @@ services:
       - key: GOOGLE_CLIENT_ID
         sync: false
       - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      # Firebase: la stessa chiave della produzione (un progetto solo, le due app).
+      - key: FCM_SERVICE_ACCOUNT
         sync: false
 
       # L'app Android di prova (android/staging): un pacchetto suo, così sul

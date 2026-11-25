@@ -155,6 +155,8 @@ fun AppRoot(container: AppContainer) {
         LaunchedEffect(user?.id) {
             if (user == null) return@LaunchedEffect
             container.attempt { container.inbox.refreshUnread() }
+            // Con Firebase, il server sveglia questo telefono per chi è appena entrato.
+            container.attempt { container.inbox.registerDevice() }
             if (container.inbox.needsPermissionPrompt()) {
                 container.inbox.permissionAsked()
                 askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)

@@ -68,20 +68,35 @@ da leggere: è lo stesso storico del sito (`GET /api/notifications`, vedi
 una porta alla schermata giusta: il torneo, il torneo dal vivo fra le
 iscrizioni, le segnalazioni.
 
-Le stesse arrivano **fra le notifiche del telefono**, senza Firebase: ogni
-quindici minuti WorkManager sveglia `InboxWorker` (`notify/Inbox.kt`), che
-chiede al server quelle dopo l'ultima mostrata e le mette sul telefono, nel
-canale "Tornei". Non sono istantanee: arrivano entro un quarto d'ora, di più se
-il telefono è in risparmio energetico. La prima volta per un account segna solo
-il punto da cui partire, così chi installa l'app non riceve lo storico intero.
-Da Android 13 il permesso lo si chiede una volta, appena si entra; negato, la
-campanella dentro l'app funziona lo stesso. Il giro usa il token dell'app e lo
-rinnova come fa l'app aperta: si ferma solo uscendo, o con "Esci da tutti i
-dispositivi".
+Le stesse arrivano **fra le notifiche del telefono**, nel canale "Tornei", in
+due modi che fanno la stessa cosa — chiedere al server quelle dopo l'ultima
+mostrata e metterle sul telefono:
 
-Per averle all'istante servirebbe Firebase Cloud Messaging: un progetto
-Firebase, il `google-services.json` nell'app e la chiave del servizio sul
-server, che manderebbe a Firebase oltre che al browser.
+- **all'istante, con Firebase** (`notify/Push.kt`, `services/fcm.py`): appena
+  il sito scrive una notifica, il server manda a Firebase un messaggio **senza
+  testo** ("c'è qualcosa nella campanella") per i telefoni di chi la riceve e
+  del genitore che ne gestisce il profilo, e Firebase sveglia l'app. A Google
+  non passa niente di quello che c'è scritto: la frase la compone l'app. C'è
+  solo se l'app è compilata con `google-services.json` e il server ha
+  `FCM_SERVICE_ACCOUNT` (vedi "Firebase" più sotto);
+- **ogni quindici minuti, sempre**: WorkManager sveglia `InboxWorker`
+  (`notify/Inbox.kt`). Senza Firebase è l'unico modo, e le notifiche arrivano
+  entro un quarto d'ora, di più se il telefono è in risparmio energetico; con
+  Firebase recupera quello che si fosse perso.
+
+La prima volta per un account si segna solo il punto da cui partire, così chi
+installa l'app non riceve lo storico intero. Da Android 13 il permesso lo si
+chiede una volta, appena si entra; negato, la campanella dentro l'app funziona
+lo stesso. Il giro usa il token dell'app e lo rinnova come fa l'app aperta: si
+ferma solo uscendo, o con "Esci da tutti i dispositivi".
+
+**Il telefono registrato** (`POST /api/notifications/devices`, tabella
+`device_tokens`) è dell'account, anche quando il genitore agisce per un figlio.
+Lo stesso telefono con un altro account passa a quello; uscendo dall'app lo si
+dimentica (`/devices/forget`). Vale finché vale la sessione con cui si è
+registrato: "Esci da tutti i dispositivi", un reset della password o Google che
+prende il posto della password lo spengono (`token_version`). Dieci telefoni al
+massimo per account; i token che Google non riconosce più se ne vanno da soli.
 
 **Non c'è** il back-office: gli organizzatori usano il sito.
 
@@ -221,6 +236,44 @@ powershell -ExecutionPolicy Bypass -File android\compila.ps1 -Ambiente staging -
 `10.0.2.2` è il PC visto dall'emulatore. Solo con `-Api http://…` l'app accetta
 indirizzi senza HTTPS. L'accesso con Google in locale non va: Google rimanda a
 `localhost:5173`, che dall'emulatore non è il PC.
+
+## Firebase: le notifiche all'istante
+
+Senza Firebase l'app funziona e le notifiche arrivano ogni 15 minuti. Con
+Firebase arrivano subito. Servono due cose dello stesso progetto Firebase, e
+**le crea e le inserisce solo chi ha l'account Google del progetto**: non
+entrano nel repository, che è pubblico.
+
+Un progetto solo per le due app (produzione e staging): un solo
+`google-services.json` le contiene tutte e due, e la stessa chiave va sui due
+servizi di Render. Ogni server sveglia solo i telefoni registrati da lui, quindi
+lo staging non tocca i telefoni della produzione.
+
+1. [console.firebase.google.com](https://console.firebase.google.com) →
+   *Aggiungi progetto* → si sceglie il progetto Google Cloud che c'è già,
+   `mull2five` (quello dell'accesso con Google). Google Analytics non serve.
+2. *Aggiungi app* → Android, due volte: pacchetto `it.mull2five.app`, poi
+   `it.mull2five.app.staging`. L'impronta SHA-1 non serve.
+3. *Impostazioni progetto* → *Generali* → **`google-services.json`**, scaricato
+   dopo aver aggiunto tutte e due le app, va in `android\app\google-services.json`.
+   `android/.gitignore` lo tiene fuori. Da lì in poi `compila.ps1` dice
+   "Firebase: si".
+4. *Impostazioni progetto* → *Cloud Messaging*: **API Firebase Cloud Messaging
+   (V1)** dev'essere attivata (lo è, nei progetti nuovi).
+5. *Impostazioni progetto* → *Account di servizio* → *Genera nuova chiave
+   privata*: un file JSON. È **un segreto**: chi lo ha manda notifiche a nome
+   del progetto. Su Render, servizio `mull2five` e `mull2five-staging` →
+   *Environment* → **`FCM_SERVICE_ACCOUNT`**, con dentro il contenuto del file
+   (va bene anche su più righe: è JSON). Poi il file si cancella dal PC, o si
+   tiene dove si tengono le chiavi.
+6. **Prova**: si ricompila e si installa l'app di prova, si entra, ci si
+   iscrive a un torneo dello staging: "Iscrizione confermata" arriva subito sul
+   telefono. Se non arriva, i log di Render dicono `FCM: risposta …` con il
+   motivo, o `FCM_SERVICE_ACCOUNT non è il JSON di una chiave di servizio`.
+
+L'informativa privacy deve nominare Firebase (Google) fra chi tratta i dati per
+conto del sito: il token del telefono e l'identificativo d'installazione che
+Firebase crea.
 
 ## I test
 
@@ -369,7 +422,8 @@ ignora.
 |---|---|---|
 | Il link a un torneo apre il browser, non l'app | Il sito non riconosce la firma dell'app | `assetlinks.json` (comando sopra): pacchetto giusto? Impronta giusta? L'APK compilato su un altro PC ha un'altra chiave di debug; quella di Google Play ha l'impronta della *chiave di firma dell'app*. Corretto Render, Android ricontrolla quando l'app si reinstalla o si aggiorna |
 | "Nessuna connessione" sullo staging | Lo staging dormiva | Un minuto, poi "Riprova" |
-| Le notifiche non arrivano sul telefono, ma la campanella nell'app sì | Permesso negato, canale "Tornei" spento, o il risparmio energetico ferma il giro | Impostazioni di Android → App → Mull2Five → Notifiche; per la batteria, "Senza restrizioni". Il giro passa ogni 15 minuti, non subito |
+| Le notifiche non arrivano sul telefono, ma la campanella nell'app sì | Permesso negato, canale "Tornei" spento, o il risparmio energetico ferma il giro | Impostazioni di Android → App → Mull2Five → Notifiche; per la batteria, "Senza restrizioni". Senza Firebase il giro passa ogni 15 minuti, non subito |
+| Arrivano, ma dopo un quarto d'ora invece che subito | Firebase manca nell'app o sul server | `compila.ps1` dice "Firebase: no"? Manca `android\app\google-services.json`. Sul server: `FCM_SERVICE_ACCOUNT` su Render, e i log `FCM: …` ("Firebase", sopra) |
 | *Accesso con Google non è attivo* | Il servizio non ha `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` | `docs/hosting.md`, "Accesso con Google" |
 | `compila.ps1`: *Manca …config.json* | Strumenti mai installati su questo PC | `android\strumenti.ps1` |
 | `compila.ps1`: *Manca la chiave di caricamento* | La chiave non è in `%USERPROFILE%\.mull2five` | Si ripristina dal backup, o si indica con `$env:M2F_KEYSTORE` |

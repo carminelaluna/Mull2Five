@@ -227,6 +227,13 @@ class Api(siteUrl: String, private val session: Session, private val texts: Serv
     suspend fun unreadNotifications(): UnreadCount = get("/notifications/unread")
     suspend fun markNotificationsRead(ids: List<Int>? = null): UnreadCount =
         post("/notifications/read", NotificationsReadIn(ids))
+    suspend fun registerDevice(token: String) {
+        send("POST", "/notifications/devices", json.encodeToString(DeviceIn(token)))
+    }
+    /** Dopo l'uscita: la sessione è già vuota, il token di chi è uscito lo passa chi chiama. */
+    suspend fun forgetDevice(token: String, bearer: String) {
+        send("POST", "/notifications/devices/forget", json.encodeToString(DeviceIn(token)), bearer = bearer)
+    }
 
     // ── Il trasporto ──────────────────────────────────────────────────────
 
@@ -243,6 +250,7 @@ class Api(siteUrl: String, private val session: Session, private val texts: Serv
         path: String,
         body: String?,
         query: List<Pair<String, String>> = emptyList(),
+        bearer: String? = null,
     ): String = withContext(Dispatchers.IO) {
         val url = "$base$path".toHttpUrl().newBuilder()
             .apply { query.forEach { (key, value) -> addQueryParameter(key, value) } }
@@ -252,7 +260,7 @@ class Api(siteUrl: String, private val session: Session, private val texts: Serv
             method == "GET" || method == "DELETE" -> null
             else -> ByteArray(0).toRequestBody(null)
         }
-        val token = session.token
+        val token = bearer ?: session.token
         // Per il profilo di un figlio: iscrizioni, pagamenti e liste (acting.js). L'account no.
         val acting = session.acting.value?.takeIf { token != null && ACTING_PATHS.any(path::startsWith) }
         val request = Request.Builder().url(url).method(method, content)
@@ -267,7 +275,8 @@ class Api(siteUrl: String, private val session: Session, private val texts: Serv
         }
         response.use {
             val text = it.body?.string().orEmpty()
-            if (it.code == 401 && token != null) session.clear()
+            // Con un token passato da fuori la sessione è un'altra: non è lei a essere scaduta.
+            if (it.code == 401 && token != null && bearer == null) session.clear()
             if (!it.isSuccessful) throw ApiException(it.code, errorText(text, it.code))
             text
         }

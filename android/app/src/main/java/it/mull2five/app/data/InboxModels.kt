@@ -32,3 +32,7 @@ data class UnreadCount(val unread: Int = 0, @SerialName("latest_id") val latestI
 /** Quali segnare come lette: null vuol dire tutte. */
 @Serializable
 data class NotificationsReadIn(val ids: List<Int>? = null)
+
+/** Il token che Firebase dà a questo telefono (notify/Push.kt, services/fcm.py). */
+@Serializable
+data class DeviceIn(val token: String)

@@ -395,6 +395,14 @@ Due variabili, in ciascun servizio → *Environment*:
 Vuote, l'app funziona lo stesso e i link si aprono nel browser. Come si
 compila, si firma e si pubblica: [`android.md`](android.md).
 
+### L'app Android: le notifiche all'istante
+
+Con `FCM_SERVICE_ACCOUNT` il server sveglia l'app con Firebase appena c'è una
+notifica (`services/fcm.py`); senza, l'app le prende da sola ogni 15 minuti. È
+il JSON della chiave dell'account di servizio del progetto Firebase, **un
+segreto**: in `render.yaml` è `sync: false`, la stessa nei due servizi. Come si
+crea: [`android.md`](android.md), "Firebase".
+
 ### Riempire lo staging da un backup
 
 Fa due cose in una: riempie lo staging **e** mette alla prova il ripristino, che

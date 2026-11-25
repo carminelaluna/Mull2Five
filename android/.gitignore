@@ -14,3 +14,6 @@ captures/
 # Le chiavi di firma non entrano mai: il repository è pubblico.
 *.jks
 *.keystore
+
+# La configurazione di Firebase è del progetto Firebase dell'utente: la mette lui.
+google-services.json

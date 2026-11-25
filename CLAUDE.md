@@ -106,7 +106,7 @@ Parità con Melee completata (26 passi), checklist di lancio fatta, revisione
 critica chiusa tranne tre punti. Il backend è diviso in `tournaments.py`,
 `tournament_registrations.py`, `tournament_rounds.py` più i servizi; il
 back-office in `organizer.js`, `organizer-store.js`, `organizer-common.js`.
-ESLint sul frontend, Alembic sullo schema. Test: 588 backend (SQLite e
+ESLint sul frontend, Alembic sullo schema. Test: 596 backend (SQLite e
 PostgreSQL), 74 frontend, 17 dell'app Android, 9 end-to-end. `/health` dice quale commit sta girando
 e se lo schema è allineato al codice.
 
@@ -266,10 +266,17 @@ Il 25 novembre, tre richieste:
   tipo e i pezzi della frase (`services/inbox.py`), la frase la scrive chi la
   mostra: un tipo nuovo vuole la sua frase in `phrase()` di `js/inbox.js` e di
   `notify/Inbox.kt`. Dopo 90 giorni se ne vanno (`prune`, nel giro dei
-  promemoria). **L'app** le mette fra le notifiche del telefono **senza
-  Firebase**: WorkManager chiede ogni 15 minuti quelle nuove
-  (`GET /api/notifications?after_id=`). Per averle all'istante servirebbe
-  Firebase Cloud Messaging, con un progetto e delle chiavi dell'utente.
+  promemoria). **L'app** le mette fra le notifiche del telefono: WorkManager
+  chiede ogni 15 minuti quelle nuove (`GET /api/notifications?after_id=`), e
+  **con Firebase** il server la sveglia subito (`services/fcm.py`, schema
+  `0016`, tabella `device_tokens`). Il messaggio di Firebase **non ha testo**,
+  solo "c'è qualcosa": l'app scarica la campanella e scrive lei la frase, così
+  a Google non passa niente. Il telefono si sveglia finché vale la sessione con
+  cui si è registrato (`token_version`). Si accende con
+  `android/app/google-services.json` (fuori dal repository) e
+  `FCM_SERVICE_ACCOUNT` su Render; senza, resta il giro dei 15 minuti.
+  Firebase BoM 35.2: porta `kotlin-stdlib` 2.1.21, il Kotlin dell'app — una più
+  nuova va provata prima.
 
 ## Cosa resta — in ordine
 
@@ -296,4 +303,6 @@ Healthchecks.io anche (25/11/2026), il ripristino dal backup è stato provato il
 **Rimandabili**
 Locator (spento per le condizioni d'uso di Wizards), ri-podding, l'app Android
 su Google Play (account sviluppatore, chiave, 12 tester per 14 giorni:
-`docs/android.md`), e le idee in fondo al TODO.
+`docs/android.md`), le notifiche dell'app all'istante (il codice c'è: manca il
+progetto Firebase, `docs/android.md`, "Firebase", e una riga su Firebase
+nell'informativa privacy), e le idee in fondo al TODO.

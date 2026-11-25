@@ -553,6 +553,14 @@ guarda se il sito risponde:
 Invoke-RestMethod https://mull2five.it/health
 ```
 
+### Le notifiche arrivano sul telefono dopo un quarto d'ora, non subito
+Firebase manca da una delle due parti (`android.md`, "Firebase"). Alla fine di
+`compila.ps1` c'è scritto "Firebase: si" o "Firebase: no": con "no" manca
+`android\app\google-services.json`. Sul server serve `FCM_SERVICE_ACCOUNT` su
+Render; se c'è ma è sbagliata, nei log di Render si legge `FCM: risposta …` o
+`FCM_SERVICE_ACCOUNT non è il JSON di una chiave di servizio`. Nel frattempo le
+notifiche arrivano lo stesso, ogni 15 minuti.
+
 ### Ricompilare
 ```powershell
 powershell -ExecutionPolicy Bypass -File android\compila.ps1 -Ambiente staging

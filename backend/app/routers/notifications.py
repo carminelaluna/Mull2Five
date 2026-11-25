@@ -7,17 +7,24 @@ gestisce (`for_name` dice di chi sono): l'iscrizione del figlio la fa lui, e a
 lui serve sapere che i turni sono pronti.
 
 L'app chiede `/unread` ogni tanto e scarica solo le notifiche dopo l'ultima che
-ha già mostrato (`after_id`): sono le notifiche del telefono.
+ha già mostrato (`after_id`): sono le notifiche del telefono. Con Firebase si
+registra anche (`/devices`), e il server la sveglia appena ce n'è una.
 """
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, select, update
+from fastapi import APIRouter, Depends, Query, Request, Response
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session
 
 from backend.app.db import get_db
-from backend.app.models import Notification, User
-from backend.app.schemas import NotificationOut, NotificationsOut, NotificationsReadIn, UnreadOut
+from backend.app.models import DeviceToken, Notification, User
+from backend.app.schemas import (
+    DeviceIn,
+    NotificationOut,
+    NotificationsOut,
+    NotificationsReadIn,
+    UnreadOut,
+)
 from backend.app.security import get_current_user
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
@@ -87,3 +94,60 @@ def mark_read(
     db.execute(stmt.values(read_at=datetime.now(UTC)))
     db.commit()
     return _unread(owners, db)
+
+
+# Oltre questi telefoni per account, i più vecchi si dimenticano: chi cambia
+# telefono non si porta dietro tutti quelli di prima.
+MAX_DEVICES = 10
+
+
+def _account(user: User, request: Request, db: Session) -> User:
+    """Il telefono è dell'account, non del profilo per cui il genitore sta agendo."""
+    if request.headers.get("X-Act-As") and user.guardian_id:
+        return db.get(User, user.guardian_id) or user
+    return user
+
+
+@router.post("/devices", status_code=204)
+def register_device(
+    payload: DeviceIn,
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Response:
+    """L'app chiede di essere svegliata da Firebase quando arriva una notifica
+    (services/fcm.py). Lo stesso telefono con un altro account passa a quello:
+    il token è del telefono, e il telefono è di chi c'è dentro adesso."""
+    account = _account(user, request, db)
+    device = db.scalar(select(DeviceToken).where(DeviceToken.token == payload.token))
+    if device is None:
+        device = DeviceToken(token=payload.token)
+        db.add(device)
+    device.user_id = account.id
+    device.platform = payload.platform
+    # Vale finché vale questa sessione: "Esci da tutti i dispositivi" lo spegne.
+    device.token_version = account.token_version or 0
+    device.last_seen_at = datetime.now(UTC)
+    db.flush()
+    extra = db.scalars(
+        select(DeviceToken.id).where(DeviceToken.user_id == account.id)
+        .order_by(DeviceToken.last_seen_at.desc(), DeviceToken.id.desc()).offset(MAX_DEVICES)
+    ).all()
+    if extra:
+        db.execute(delete(DeviceToken).where(DeviceToken.id.in_(extra)))
+    db.commit()
+    return Response(status_code=204)
+
+
+@router.post("/devices/forget", status_code=204)
+def forget_device(
+    payload: DeviceIn,
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Response:
+    """Uscendo dall'app: questo telefono non si sveglia più per questo account."""
+    account = _account(user, request, db)
+    db.execute(delete(DeviceToken).where(DeviceToken.token == payload.token, DeviceToken.user_id == account.id))
+    db.commit()
+    return Response(status_code=204)

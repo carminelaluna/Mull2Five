@@ -780,6 +780,12 @@ class NotificationsReadIn(BaseModel):
     ids: list[int] | None = Field(default=None, max_length=500)
 
 
+class DeviceIn(BaseModel):
+    """Il token che Firebase ha dato all'app, per svegliarla (services/fcm.py)."""
+    token: str = Field(min_length=20, max_length=512, pattern=r"^[A-Za-z0-9_:.\-]+$")
+    platform: Literal["android"] = "android"
+
+
 class EventCreate(BaseModel):
     name: str = Field(min_length=3, max_length=180)
     description: str = ""

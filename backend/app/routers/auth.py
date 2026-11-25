@@ -10,6 +10,7 @@ from backend.app.core.lockout import is_locked, record_failed
 from backend.app.core.lockout import reset as lockout_reset
 from backend.app.db import get_db
 from backend.app.models import (
+    DeviceToken,
     Notification,
     Registration,
     SavedDeck,
@@ -238,6 +239,12 @@ def export_my_data(
             for note in db.scalars(
                 select(Notification).where(Notification.user_id == user.id).order_by(Notification.id))
         ],
+        # I telefoni che Firebase sveglia: quando si sono registrati, non il token.
+        "devices": [
+            {"platform": device.platform, "registered_at": device.created_at.isoformat(),
+             "last_seen_at": device.last_seen_at.isoformat()}
+            for device in db.scalars(select(DeviceToken).where(DeviceToken.user_id == user.id))
+        ],
         "registrations": [
             {
                 "tournament_id": reg.tournament_id,
@@ -267,6 +274,8 @@ def delete_my_account(
     db.execute(delete(UserIdentity).where(UserIdentity.user_id == user.id))
     # La campanella: dentro ci sono segnalazioni e annunci scritti per lei.
     db.execute(delete(Notification).where(Notification.user_id.in_([user.id, *(p.id for p in profiles)])))
+    # E nessun telefono si sveglia più per un account che non c'è.
+    db.execute(delete(DeviceToken).where(DeviceToken.user_id == user.id))
     for profile in profiles:
         profile.email = f"deleted-{profile.id}@anon.invalid"
         profile.display_name = "Utente eliminato"

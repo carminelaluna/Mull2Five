@@ -23,6 +23,7 @@ from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
 from backend.app.models import Notification
+from backend.app.services import fcm
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +82,7 @@ def notify(
         db.rollback()
         logger.exception("Notifica %s non salvata per %d persone", kind, len(ids))
         return 0
+    fcm.wake(ids)   # i telefoni con l'app, subito se c'è Firebase
     return len(ids)
 
 

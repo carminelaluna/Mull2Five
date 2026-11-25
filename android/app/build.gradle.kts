@@ -7,6 +7,12 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization")
 }
 
+// Le notifiche all'istante con Firebase (notify/Push.kt) ci sono solo se qui
+// accanto c'è google-services.json, che si scarica dalla console di Firebase e
+// resta fuori dal repository (docs/android.md). Senza, l'app compila lo stesso
+// e le notifiche le prende ogni 15 minuti.
+if (file("google-services.json").exists()) apply(plugin = "com.google.gms.google-services")
+
 // Per provarla con l'API di sviluppo: compila.ps1 -Api http://10.0.2.2:8000
 // (dall'emulatore 10.0.2.2 è il PC). Senza, parla col sito del suo ambiente.
 val apiOverride: String? = providers.gradleProperty("api").orNull?.trimEnd('/')
@@ -112,6 +118,10 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.1")
     implementation("androidx.browser:browser:1.8.0")
     implementation("androidx.work:work-runtime-ktx:2.10.1")
+    // La 35.2 porta kotlin-stdlib 2.1.21, lo stesso Kotlin di qui: una più nuova
+    // potrebbe volerne uno che questo compilatore non legge.
+    implementation(platform("com.google.firebase:firebase-bom:35.2.0"))
+    implementation("com.google.firebase:firebase-messaging")
 
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")

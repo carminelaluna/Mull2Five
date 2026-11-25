@@ -520,6 +520,26 @@ class Notification(Base):
     read_at: Mapped[datetime | None] = mapped_column(UtcDateTime(timezone=True), nullable=True)
 
 
+class DeviceToken(Base):
+    """Un telefono con l'app, da svegliare con Firebase quando arriva una
+    notifica nuova (services/fcm.py). `token` è quello che Firebase dà all'app.
+
+    `token_version` è quella dell'account quando il telefono si è registrato:
+    "Esci da tutti i dispositivi", un reset della password o Google che prende
+    il posto della password la cambiano, e quel telefono non si sveglia più
+    finché non si rientra."""
+    __tablename__ = "device_tokens"
+    __table_args__ = (UniqueConstraint("token", name="uq_device_tokens_token"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    token: Mapped[str] = mapped_column(String(512))
+    platform: Mapped[str] = mapped_column(String(16), default="android")
+    token_version: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
+    last_seen_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
+
+
 class Tournament(Base):
     __tablename__ = "tournaments"
     __table_args__ = (Index("idx_tournaments_event_type", "event_type"),)
