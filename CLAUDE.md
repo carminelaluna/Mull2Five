@@ -106,8 +106,8 @@ Parità con Melee completata (26 passi), checklist di lancio fatta, revisione
 critica chiusa tranne tre punti. Il backend è diviso in `tournaments.py`,
 `tournament_registrations.py`, `tournament_rounds.py` più i servizi; il
 back-office in `organizer.js`, `organizer-store.js`, `organizer-common.js`.
-ESLint sul frontend, Alembic sullo schema. Test: 463 backend (SQLite e
-PostgreSQL), 65 frontend, 9 end-to-end. `/health` dice quale commit sta girando
+ESLint sul frontend, Alembic sullo schema. Test: 588 backend (SQLite e
+PostgreSQL), 74 frontend, 17 dell'app Android, 9 end-to-end. `/health` dice quale commit sta girando
 e se lo schema è allineato al codice.
 
 Il 5 ottobre 2026 sono state chiuse le ultime idee in coda al TODO: promemoria
@@ -228,8 +228,7 @@ e metagame), risultati pubblici, le mie iscrizioni con il torneo dal vivo
 (check-in, pagamento, lista, turno e tutti gli abbinamenti, risultato,
 classifica, ritiro, ID Wizards), statistiche, le mie liste con l'editor,
 segnalazioni, account (Google, profili dei figli con `X-Act-As`, esporta,
-elimina) — sulla stessa API del sito; niente back-office né notifiche
-(servirebbe Firebase). Pacchetto `it.mull2five.app`, e `it.mull2five.app.staging` che parla
+elimina) — sulla stessa API del sito; niente back-office. Pacchetto `it.mull2five.app`, e `it.mull2five.app.staging` che parla
 con lo staging. **L'accesso con Google dell'app** è un giro a sé con PKCE
 (`/api/auth/google/app/start|finish|complete` in `routers/google_auth.py`):
 Chrome non passa il cookie all'app, quindi la `/callback` rimanda a
@@ -245,6 +244,32 @@ Si compila con `android\compila.ps1` (JDK 17 e SDK da `android\strumenti.ps1`,
 in `%USERPROFILE%\.bubblewrap`); gli strumenti dell'SDK restano alla 19.0,
 perché dalla 23.0 `sdkmanager` è la "Android CLI", che non installa i pacchetti
 ed esce con 0. Tutto in `docs/android.md`.
+
+Il 25 novembre, tre richieste:
+- **Ogni organizzatore ha il suo negozio.** Un torneo creato da chi non faceva
+  parte di un negozio finiva in quello di default e usciva "a nome di
+  Mull2Five". Ora `working_store` (`services/stores.py`) gliene apre uno col
+  nome dell'account al primo torneo, evento o circuito; chi aveva già creato
+  qualcosa lo riceve all'avvio da `seed_own_stores` (`db.py`), una volta, con
+  tornei, eventi, circuiti, modelli e tag (`_OWN_ROWS`). Il negozio di default
+  non è più di nessuno e non compare fra i Negozi. Test in
+  `tests/test_own_store.py`.
+- **Le liste si guardano come su Melee** (`js/deck-view.js`): immagini ordinate
+  per tipo e costo col sideboard a lato, testo per tipo, e una **grafica** 16:9
+  o 1:1 da scaricare, disegnata su un canvas. Le carte le chiede **il server** a
+  Scryfall (`POST /api/cards/lookup`, pubblico): la CSP non lascia al browser
+  `api.scryfall.com`, ed è per questo che prima le immagini non comparivano.
+- **La campanella**: lo storico delle notifiche (tabella `notifications`, schema
+  `0015`), in un menu a tendina in alto (`js/inbox.js`) e nell'app. Ci finisce
+  tutto quello che il sito dice da solo, **anche con le email spente**:
+  quell'interruttore spegne le email, non la campanella. Il server salva il
+  tipo e i pezzi della frase (`services/inbox.py`), la frase la scrive chi la
+  mostra: un tipo nuovo vuole la sua frase in `phrase()` di `js/inbox.js` e di
+  `notify/Inbox.kt`. Dopo 90 giorni se ne vanno (`prune`, nel giro dei
+  promemoria). **L'app** le mette fra le notifiche del telefono **senza
+  Firebase**: WorkManager chiede ogni 15 minuti quelle nuove
+  (`GET /api/notifications?after_id=`). Per averle all'istante servirebbe
+  Firebase Cloud Messaging, con un progetto e delle chiavi dell'utente.
 
 ## Cosa resta — in ordine
 

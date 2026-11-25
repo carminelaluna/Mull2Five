@@ -62,6 +62,7 @@ import it.mull2five.app.ui.MessageBox
 import it.mull2five.app.ui.MultiChoiceChip
 import it.mull2five.app.ui.Tone
 import it.mull2five.app.ui.appViewModel
+import it.mull2five.app.ui.inbox.InboxAction
 import it.mull2five.app.ui.rememberLocationRequest
 import it.mull2five.app.ui.theme.Brand
 import kotlinx.coroutines.Job
@@ -196,7 +197,7 @@ fun EventsScreen(onOpen: (Int) -> Unit) {
                     Spacer(Modifier.width(10.dp))
                     Text(stringResource(R.string.events_title))
                 }
-            })
+            }, actions = { InboxAction() })
         },
     ) { padding ->
         Column(Modifier.padding(padding).fillMaxSize()) {

@@ -127,9 +127,8 @@ def _testo(message):
 
 
 def test_a_new_ticket_on_a_tournament_mails_who_runs_it(client, scena, posta):
-    # Aprendo il negozio il torneo ne entra a far parte: lo staff lo gestisce.
-    slug = client.post("/api/organizations/mine", headers=scena["org"],
-                       json={"name": "Carte e Draghi", "city": "Pavia"}).json()["slug"]
+    # Il torneo è nel negozio che gli ha aperto il primo torneo: lo staff lo gestisce.
+    slug = client.get("/api/organizations/mine", headers=scena["org"]).json()["slug"]
     _user(client, "tk-staff@example.com")
     assert client.post(f"/api/organizations/{slug}/members", headers=scena["org"],
                        json={"email": "tk-staff@example.com", "role": "organizer"}).status_code == 201

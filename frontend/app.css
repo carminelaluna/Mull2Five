@@ -52,6 +52,41 @@
 /* Il margine sotto il logo serve alla barra laterale del back-office: qui lo alzava
    sopra i link. */
 .public-header .brand { margin-bottom: 0; }
+
+/* La campanella (inbox.js): accanto alla lingua. Sul telefono sale in alto a destra
+   con lei, mentre i link del profilo scendono. */
+.inbox { position: relative; display: flex; }
+.inbox-bell { position: relative; display: grid; place-items: center; width: 36px; height: 36px; padding: 0;
+  border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--muted); cursor: pointer; }
+.inbox-bell:hover, .inbox-bell[aria-expanded="true"] { color: var(--ink); border-color: var(--soft); }
+.inbox-count { position: absolute; top: -6px; right: -6px; min-width: 18px; height: 18px; padding: 0 5px;
+  border-radius: 9px; background: var(--accent); color: var(--accent-ink); font-size: .7rem; font-weight: 800;
+  line-height: 18px; text-align: center; }
+.public-header.is-compact .inbox { margin-left: auto; }
+.public-header.is-compact .inbox + .lang-select { margin-left: 0; }
+.inbox-panel { position: fixed; z-index: 50; width: min(380px, calc(100vw - 16px)); max-height: min(70vh, 560px);
+  display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 14px;
+  background: var(--panel); box-shadow: var(--shadow); overflow: hidden; }
+.inbox-panel[hidden] { display: none; }
+.inbox-panel > header { padding: 14px 16px 10px; border-bottom: 1px solid var(--line); }
+.inbox-panel h2 { margin: 0; font-size: 1rem; }
+.inbox-list { overflow-y: auto; overscroll-behavior: contain; }
+.inbox-item { display: grid; gap: 3px; padding: 12px 16px 12px 20px; border-bottom: 1px solid var(--line);
+  color: var(--ink); text-decoration: none; position: relative; }
+a.inbox-item:hover { background: var(--panel-2); }
+.inbox-item.unread { background: var(--accent-dim); }
+.inbox-item.unread::before { content: ""; position: absolute; left: 8px; top: 18px; width: 6px; height: 6px;
+  border-radius: 50%; background: var(--accent); }
+.inbox-line { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.inbox-line strong { font-size: .92rem; }
+.inbox-line time { flex: none; color: var(--soft); font-size: .75rem; }
+.inbox-where { color: var(--muted); font-size: .84rem; }
+.inbox-body { color: var(--muted); font-size: .84rem; display: -webkit-box; -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical; overflow: hidden; }
+.inbox-for { color: var(--teal); font-size: .78rem; font-weight: 700; }
+.inbox-empty { margin: 0; padding: 22px 16px; color: var(--muted); text-align: center; }
+.inbox-more { margin: 10px 16px; }
+.inbox-more[hidden] { display: none; }
 .secondary-link { color: var(--muted); text-decoration: none; font-weight: 700; background: none; border: 0; cursor: pointer; font: inherit; }
 .secondary-link:hover { color: var(--ink); }
 .primary-btn {
@@ -142,25 +177,55 @@
 }
 
 /* ── Vista grafica decklist (deck-view.js) ───────────────────── */
-.deck-sections { display: grid; gap: 20px; }
-.deck-title { margin: 0 0 12px; font-size: 1.05rem; }
-.deck-section h3 { margin: 0 0 10px; font-size: .95rem; }
-.deck-hint { font-size: .8rem; margin-top: 10px; }
+.deck-view { display: grid; gap: 14px; }
+.deck-title { margin: 0; font-size: 1.05rem; }
+.deck-hint { font-size: .8rem; margin: 0; }
+.deck-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+.deck-counts { font-weight: 700; }
+.deck-modes { display: flex; flex-wrap: wrap; gap: 6px; }
+.deck-toolbar .deck-modes { margin-left: auto; }
+.deck-modes .chip:disabled { opacity: .45; cursor: default; }
+
+/* Il main a griglia e il sideboard in colonna a destra, come la vista di Melee. */
+.deck-visual { display: grid; grid-template-columns: minmax(0, 1fr) 150px; gap: 18px; align-items: start; }
+.deck-visual.no-side { grid-template-columns: minmax(0, 1fr); }
+.deck-side-stack h4 { margin: 0 0 8px; font-size: .85rem; }
+/* Le carte del sideboard si coprono a vicenda e lasciano vedere il titolo:
+   il margine in % è sulla larghezza, e una carta è alta 1,39 volte la sua larghezza. */
+.side-cards .card-tile + .card-tile { margin-top: -112%; }
+.side-cards .card-tile { box-shadow: 0 -3px 10px rgba(0, 0, 0, .5); }
+.side-cards .card-tile:hover { z-index: 3; }
 
 .card-image-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(124px, 1fr));
   gap: 10px;
 }
 
 .card-tile {
   position: relative;
+  margin: 0;
   border-radius: 10px;
   overflow: hidden;
   background: var(--panel-2);
   aspect-ratio: 488 / 680;   /* proporzioni di una carta Magic */
 }
 .card-tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* Il testo per tipo, in colonne. */
+.deck-text { columns: 2 240px; column-gap: 28px; }
+.deck-text-group { break-inside: avoid; margin-bottom: 16px; }
+.deck-text-group h4 { margin: 0 0 6px; padding-bottom: 4px; font-size: .85rem; border-bottom: 1px solid var(--line); }
+.deck-text-group ul { list-style: none; margin: 0; padding: 0; }
+.deck-text-group li { display: grid; grid-template-columns: 2.4ch minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 3px 0; }
+.deck-text-group .qty { color: var(--accent); font-weight: 700; text-align: right; }
+.deck-text-group .cost { white-space: nowrap; }
+
+/* La grafica da scaricare. */
+.deck-graphic-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+.deck-graphic-tools .deck-download { margin-left: auto; text-decoration: none; }
+.deck-graphic-frame { min-height: 120px; }
+.deck-graphic { display: block; width: 100%; height: auto; border-radius: 10px; border: 1px solid var(--line); }
 
 /* Segnaposto mostrato finché Scryfall non risponde: la lista è già leggibile. */
 .card-tile.fallback-card {
@@ -174,7 +239,7 @@
 
 .card-qty {
   position: absolute;
-  top: 6px; left: 6px;
+  top: 6px; right: 6px;
   z-index: 1;
   min-width: 22px;
   padding: 2px 6px;
@@ -189,8 +254,15 @@
 dialog.deck-view-dialog { max-width: min(1100px, 94vw); width: 100%; }
 .deck-view-body { max-height: 74vh; overflow: auto; }
 
-@media (max-width: 560px) {
-  .card-image-grid { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); }
+@media (max-width: 640px) {
+  /* Sul telefono il sideboard va sotto, a griglia come il main. */
+  .deck-visual { grid-template-columns: minmax(0, 1fr); }
+  /* I pulsanti vanno a capo: con 74vh la finestra scorreva due volte. */
+  .deck-view-body { max-height: 60vh; }
+  .side-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+  .side-cards .card-tile + .card-tile { margin-top: 0; }
+  .card-image-grid { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+  .deck-toolbar .deck-modes { margin-left: 0; }
 }
 
 /* ══ Discover & ricerca eventi ═══════════════════════════════

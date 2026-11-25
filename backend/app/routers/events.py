@@ -33,7 +33,7 @@ from backend.app.schemas import (
     StaffOut,
 )
 from backend.app.security import get_current_user, require_organizer
-from backend.app.services.stores import store_ids, store_role
+from backend.app.services.stores import store_ids, store_role, working_store
 from backend.app.services.tournament_access import owns_tournament
 from backend.app.services.tournament_views import tournament_with_counts
 from backend.app.services.warnings import event_warnings
@@ -103,7 +103,7 @@ def create_event(
     _check_period(payload.starts_on, payload.ends_on)
     event = Event(
         organizer_id=organizer.id,
-        organization_id=organizer.organization_id,
+        organization_id=working_store(organizer, db),
         slug=_unique_slug(payload.name, db),
         name=payload.name,
         description=payload.description,

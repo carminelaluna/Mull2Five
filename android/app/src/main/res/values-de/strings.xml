@@ -393,4 +393,29 @@
     <string name="stats_history">Gespielte Turniere</string>
     <string name="stats_no_history">Noch keine Turniere gespielt.</string>
     <string name="stats_invited">Einladung</string>
+
+    <!-- La campanella: le stesse frasi di js/inbox.js sul sito. -->
+    <string name="inbox_title">Benachrichtigungen</string>
+    <string name="inbox_unread">Benachrichtigungen: %1$d ungelesen</string>
+    <string name="inbox_empty">Noch keine Benachrichtigungen.</string>
+    <string name="inbox_more">Ältere anzeigen</string>
+    <string name="inbox_for">Für %1$s</string>
+    <string name="inbox_other">Benachrichtigung</string>
+    <string name="inbox_registered">Anmeldung bestätigt</string>
+    <string name="inbox_waitlisted">Du stehst auf der Warteliste</string>
+    <string name="inbox_waitlist_in">Ein Platz ist frei geworden: du bist dabei</string>
+    <string name="inbox_waitlist_pay">Ein Platz ist frei geworden: zahl innerhalb von %1$s Stunden</string>
+    <string name="inbox_paid">Zahlung erhalten: %1$s</string>
+    <string name="inbox_reminder">Morgen wird gespielt</string>
+    <string name="inbox_reminder_at">Morgen um %1$s wird gespielt</string>
+    <string name="inbox_started">Das Turnier hat begonnen</string>
+    <string name="inbox_pairings">Runde %1$s: Paarungen stehen</string>
+    <string name="inbox_announcement">Neue Ankündigung</string>
+    <string name="inbox_cancelled">Turnier abgesagt</string>
+    <string name="inbox_cancelled_refunded">Turnier abgesagt: die Erstattung ist unterwegs</string>
+    <string name="inbox_cancelled_requested">Turnier abgesagt: der Laden erstattet dir den Betrag</string>
+    <string name="inbox_ticket_new">Neue Meldung</string>
+    <string name="inbox_ticket_reply">Neue Antwort auf eine Meldung</string>
+    <string name="inbox_channel">Turniere</string>
+    <string name="inbox_channel_info">Anmeldungen, Runden, Ankündigungen und Meldungen: dieselben wie die Glocke.</string>
 </resources>

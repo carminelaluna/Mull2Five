@@ -240,6 +240,16 @@ def test_card_search_and_lookup(client, monkeypatch):
     assert cards[0]["image"] == "https://img.example/delver.jpg"
 
 
+def test_anyone_can_look_up_the_cards_of_a_public_list(client, monkeypatch):
+    """L'archivio delle liste è pubblico, e la sua vista grafica chiede le carte
+    al sito: il browser non può chiederle a Scryfall (la CSP lo vieta)."""
+    _fake_scryfall(monkeypatch, [{**_card("Murktide Regent"), "type_line": "Creature — Dragon", "cmc": 7.0}])
+    cards = client.post("/api/cards/lookup", json={"names": ["Murktide Regent", "Nope"]})
+    assert cards.status_code == 200, cards.text
+    assert [(c["name"], c["category"], c["cmc"]) for c in cards.json()] == [
+        ("Murktide Regent", "creature", 7.0), ("Nope", "other", 0)]
+
+
 def test_a_segment_list_follows_its_own_format(client):
     """In un evento misto la lista del draft si controlla come limited, non come Modern."""
     org = _register_user(client, "deck-seg-org@example.com", role="organizer")

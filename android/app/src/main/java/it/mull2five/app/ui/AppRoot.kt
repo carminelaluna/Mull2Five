@@ -1,6 +1,9 @@
 package it.mull2five.app.ui
 
+import android.Manifest
 import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
@@ -45,6 +48,9 @@ import it.mull2five.app.ui.discover.ManifestationScreen
 import it.mull2five.app.ui.discover.StoreScreen
 import it.mull2five.app.ui.event.EventScreen
 import it.mull2five.app.ui.events.EventsScreen
+import it.mull2five.app.ui.inbox.InboxScreen
+import it.mull2five.app.ui.inbox.LocalOpenInbox
+import it.mull2five.app.ui.inbox.routeOf
 import it.mull2five.app.ui.login.AuthEvent
 import it.mull2five.app.ui.login.AuthViewModel
 import it.mull2five.app.ui.login.GoogleSignupScreen
@@ -80,6 +86,7 @@ object Routes {
     const val TICKETS = "segnalazioni"
     const val TICKET = "segnalazione/{id}"
     const val NEW_TICKET = "nuova-segnalazione?profilo={profilo}"
+    const val INBOX = "campanella"
 
     fun event(id: Int, register: Boolean = false) = "evento/$id?iscriviti=$register"
     fun myTournament(id: Int) = "torneo/$id"
@@ -112,11 +119,15 @@ private fun NavBackStackEntry.slug(): String = arguments?.getString("slug").orEm
 
 @Composable
 fun AppRoot(container: AppContainer) {
-    CompositionLocalProvider(LocalContainer provides container) {
-        val nav = rememberNavController()
+    val nav = rememberNavController()
+    CompositionLocalProvider(LocalContainer provides container, LocalOpenInbox provides { nav.navigate(Routes.INBOX) }) {
         // Fuori dal NavHost: l'accesso vale per tutta l'attività, e il ritorno da
         // Google può arrivare mentre si guarda qualunque schermata.
         val auth = appViewModel { AuthViewModel(it) }
+        // Una scheda si raggiunge cambiando scheda, il resto aprendolo sopra.
+        val openRoute: (String) -> Unit = { route ->
+            if (tabs.any { it.route == route }) nav.switchTab(route) else nav.navigate(route)
+        }
 
         val incoming by container.incoming.collectAsStateWithLifecycle()
         LaunchedEffect(incoming) {
@@ -125,9 +136,29 @@ fun AppRoot(container: AppContainer) {
             when (val link = incoming) {
                 is Incoming.OpenTournament -> nav.navigate(Routes.event(link.id, link.register))
                 is Incoming.GoogleReturn -> auth.finishGoogle(link)
+                is Incoming.FromBell -> {
+                    openRoute(routeOf(link.url) ?: Routes.INBOX)
+                    if (link.id > 0) {
+                        container.attempt { container.api.markNotificationsRead(listOf(link.id)) }
+                            .onSuccess { container.inbox.setUnread(it.unread) }
+                    }
+                }
                 null -> return@LaunchedEffect
             }
             container.incoming.value = null
+        }
+
+        // Appena si entra: il numero sulla campanella e, da Android 13, il permesso
+        // per le notifiche del telefono, chiesto una volta sola.
+        val user by container.session.user.collectAsStateWithLifecycle()
+        val askNotifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+        LaunchedEffect(user?.id) {
+            if (user == null) return@LaunchedEffect
+            container.attempt { container.inbox.refreshUnread() }
+            if (container.inbox.needsPermissionPrompt()) {
+                container.inbox.permissionAsked()
+                askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
         }
         LaunchedEffect(auth) {
             nav.currentBackStackEntryFlow.first()
@@ -271,6 +302,10 @@ fun AppRoot(container: AppContainer) {
                             nav.navigate(Routes.ticket(id))
                         },
                     )
+                }
+
+                composable(Routes.INBOX) {
+                    InboxScreen(onBack = back, onOpen = openRoute)
                 }
 
                 composable(Routes.LOGIN) {

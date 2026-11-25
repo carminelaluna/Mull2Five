@@ -10,7 +10,8 @@ deve far ripartire le stesse email da capo.
 
 Rispetta l'interruttore del torneo (`email_notifications_enabled`), come tutte le
 altre email automatiche: se l'organizzatore ha deciso che il sito non scrive ai
-suoi giocatori, questo non fa eccezione.
+suoi giocatori, questo non fa eccezione. La campanella (inbox.py) invece lo
+riceve sempre: l'interruttore spegne le email.
 """
 from datetime import UTC, datetime, timedelta
 
@@ -26,6 +27,7 @@ from backend.app.models import (
     TournamentStatus,
 )
 from backend.app.services.email import event_announcement_html, send_email
+from backend.app.services.inbox import event_url, notify
 
 
 def reminder_body(player_name: str, tournament: Tournament, to_pay: bool) -> str:
@@ -68,13 +70,13 @@ def send_event_reminders(db: Session) -> int:
         .where(
             Tournament.starts_on == tomorrow,
             Tournament.reminder_sent_at.is_(None),
-            Tournament.email_notifications_enabled == True,   # noqa: E712
             Tournament.status.in_([TournamentStatus.PUBLISHED, TournamentStatus.RUNNING]),
         )
         .options(joinedload(Tournament.location))
     ).all()
 
     sent = 0
+    bells: list[tuple[list[int], str, str, int]] = []
     for tournament in tournaments:
         registrations = db.scalars(
             select(Registration)
@@ -85,7 +87,11 @@ def send_event_reminders(db: Session) -> int:
             )
             .options(joinedload(Registration.player), joinedload(Registration.payment))
         ).all()
+        bells.append(([reg.player_id for reg in registrations], tournament.name,
+                      tournament.start_time or "", tournament.id))
         for reg in registrations:
+            if not tournament.email_notifications_enabled:
+                break
             if not reg.player or not reg.player.email:
                 continue
             to_pay = bool(tournament.entry_fee_cents) and not (
@@ -100,4 +106,8 @@ def send_event_reminders(db: Session) -> int:
         tournament.reminder_sent_at = datetime.now(UTC)
         db.add(tournament)
     db.commit()
+    # Dopo il commit: se la campanella fallisse, le email risultano partite lo
+    # stesso e non ripartono fra un'ora.
+    for players, name, start_time, tournament_id in bells:
+        notify(db, players, "reminder", context=name, detail=start_time, url=event_url(tournament_id))
     return sent

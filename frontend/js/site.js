@@ -8,10 +8,12 @@
  *   tecnica, quindi è un avviso e non una richiesta di consenso (cookie.html).
  * - La CTA fissa in basso sul telefono (stickyCta), quando quella della pagina
  *   esce dallo schermo.
+ * - La campanella delle notifiche, a chi è collegato (inbox.js).
  */
 import { onReady } from './lang.js';
 import { esc } from './escape.js';
 import { t as tr } from './i18n.js';
+import { mountInbox } from './inbox.js';
 import { getSession, refreshSession } from './session.js';
 
 const NOTICE_KEY = 'mull2five-privacy-notice-v1';
@@ -138,6 +140,7 @@ export function stickyCta(source) {
 onReady(() => {
   testingBanner();
   hideOrganizerNav();
+  mountInbox();       // prima di fitHeader: la campanella occupa posto nell'header
   fitHeader();
   countVisit();
   privacyNotice();

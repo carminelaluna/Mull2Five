@@ -6,6 +6,8 @@ import it.mull2five.app.data.Api
 import it.mull2five.app.data.ApiException
 import it.mull2five.app.data.ServerText
 import it.mull2five.app.data.Session
+import it.mull2five.app.notify.Inbox
+import it.mull2five.app.notify.InboxWorker
 import it.mull2five.app.ui.UiText
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,6 +19,8 @@ class Mull2FiveApp : Application() {
     override fun onCreate() {
         super.onCreate()
         container = AppContainer(this)
+        // Il giro della campanella (notify/Inbox.kt): senza nessuno dentro non fa niente.
+        InboxWorker.schedule(this)
     }
 }
 
@@ -27,6 +31,7 @@ class AppContainer(context: Context) {
     val session = Session(context)
     val texts = ServerText(context)
     val api = Api(siteUrl, session, texts)
+    val inbox = Inbox(context, api, session)
 
     /** Un indirizzo arrivato da fuori, in attesa che l'interfaccia lo prenda. */
     val incoming = MutableStateFlow<Incoming?>(null)
@@ -56,4 +61,7 @@ sealed interface Incoming {
 
     /** Il ritorno dalla scheda di Google: il `code` da ritirare, o il motivo del rifiuto. */
     data class GoogleReturn(val code: String?, val error: String?) : Incoming
+
+    /** Il tocco su una notifica del telefono: la pagina a cui porta e quale era. */
+    data class FromBell(val url: String, val id: Int) : Incoming
 }

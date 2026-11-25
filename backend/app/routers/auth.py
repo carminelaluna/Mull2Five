@@ -9,7 +9,15 @@ from backend.app.core.limiter import limiter
 from backend.app.core.lockout import is_locked, record_failed
 from backend.app.core.lockout import reset as lockout_reset
 from backend.app.db import get_db
-from backend.app.models import Registration, SavedDeck, Tournament, User, UserIdentity, UserRole
+from backend.app.models import (
+    Notification,
+    Registration,
+    SavedDeck,
+    Tournament,
+    User,
+    UserIdentity,
+    UserRole,
+)
 from backend.app.schemas import (
     ForgotPasswordIn,
     LoginIn,
@@ -223,6 +231,13 @@ def export_my_data(
              "linked_at": identity.created_at.isoformat()}
             for identity in db.scalars(select(UserIdentity).where(UserIdentity.user_id == user.id))
         ],
+        "notifications": [
+            {"kind": note.kind, "context": note.context, "title": note.title, "body": note.body,
+             "detail": note.detail, "created_at": note.created_at.isoformat(),
+             "read_at": note.read_at.isoformat() if note.read_at else None}
+            for note in db.scalars(
+                select(Notification).where(Notification.user_id == user.id).order_by(Notification.id))
+        ],
         "registrations": [
             {
                 "tournament_id": reg.tournament_id,
@@ -250,6 +265,8 @@ def delete_my_account(
     db.execute(delete(SavedDeck).where(SavedDeck.owner_id.in_([user.id, *(p.id for p in profiles)])))
     # Anche Google: l'account anonimo non si riapre, e la persona può registrarsi di nuovo.
     db.execute(delete(UserIdentity).where(UserIdentity.user_id == user.id))
+    # La campanella: dentro ci sono segnalazioni e annunci scritti per lei.
+    db.execute(delete(Notification).where(Notification.user_id.in_([user.id, *(p.id for p in profiles)])))
     for profile in profiles:
         profile.email = f"deleted-{profile.id}@anon.invalid"
         profile.display_name = "Utente eliminato"

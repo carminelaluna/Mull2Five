@@ -228,7 +228,10 @@ async function openDeck(id) {
   }
   $('#deckViewEyebrow').textContent = `${_open.position}° · ${_open.tournament_name}`;
   $('#deckViewTitle').textContent = `${_open.archetype || tr('Lista')} — ${_open.player_name}`;
-  await renderDeck(body, _open.raw_text);
+  await renderDeck(body, _open.raw_text, { meta: {
+    title: _open.archetype || tr('Lista'), by: _open.player_name,
+    details: [`${_open.position}° / ${_open.players}`, _open.tournament_name, fmtDate(_open.starts_on), _open.format],
+  } });
 }
 
 async function saveOpenDeck() {

@@ -34,7 +34,7 @@ from backend.app.models import (
 )
 from backend.app.schemas import TicketCreate, TicketMessageIn, TicketOut
 from backend.app.security import get_current_user
-from backend.app.services.notifications import notify_ticket_opened
+from backend.app.services.notifications import notify_ticket_opened, notify_ticket_reply
 from backend.app.services.stores import managed_tournaments
 from backend.app.services.tournament_access import owns_tournament
 
@@ -203,6 +203,10 @@ def reply(
     ticket.updated_at = datetime.now(UTC)
     db.add(ticket)
     db.commit()
+    # Risponde chi l'ha aperta: lo sa chi la legge. Risponde il negozio o il sito:
+    # lo sa chi l'ha aperta.
+    other_side = recipients(ticket, db) if ticket.opened_by_id == user.id else [ticket.opened_by]
+    notify_ticket_reply(ticket, payload.body.strip(), [u for u in other_side if u and u.id != user.id])
     return ticket_out(load_ticket(ticket_id, user, db))
 
 

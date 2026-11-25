@@ -1036,7 +1036,7 @@ function drawGiocatori(t) {
       const regId = btn.closest('[data-reg]').dataset.reg;
       const reg = _players.find(r => String(r.id) === String(regId));
       const act = btn.dataset.act;
-      if (act === 'deck-view')  return openDeckViewDialog(reg);
+      if (act === 'deck-view')  return openDeckViewDialog(reg, t);
       if (act === 'deck-edit')  return openDeckDialog(t.id, reg);
       if (act === 'penalty')    return openPenaltyDialog(t.id, reg);
       if (act === 'fixed-table') return setFixedTable(t, reg);
@@ -1482,12 +1482,15 @@ function openWalkInDialog(tid) {
   });
 }
 
-async function openDeckViewDialog(reg) {
+async function openDeckViewDialog(reg, t) {
   const body = $('#deckViewBody');
   $('#deckViewTitle').textContent = reg.player?.display_name || reg.player_email;
   body.innerHTML = '<p class="empty">Caricamento lista…</p>';
   $('#deckViewDialog').showModal();
-  await renderDeck(body, reg.decklist_raw_text, { title: reg.archetype || '' });
+  await renderDeck(body, reg.decklist_raw_text, {
+    title: reg.archetype || '',
+    meta: { by: reg.player?.display_name || '', details: [t?.name, t?.format] },
+  });
 }
 
 function openDeckDialog(tid, reg) {

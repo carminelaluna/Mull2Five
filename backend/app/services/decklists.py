@@ -281,7 +281,7 @@ MTG_CATEGORIES = ("creature", "planeswalker", "battle", "instant", "sorcery", "a
 def _mtg_card_info(name: str, card: dict | None) -> dict:
     if card is None:
         return {"query": name, "found": False, "name": name, "mana_cost": "", "type_line": "",
-                "category": "other", "image": ""}
+                "category": "other", "image": "", "cmc": 0}
     faces = card.get("card_faces") or []
     front = faces[0] if faces else card
     type_line = card.get("type_line") or front.get("type_line", "")
@@ -293,6 +293,8 @@ def _mtg_card_info(name: str, card: dict | None) -> dict:
         "mana_cost": card.get("mana_cost") or front.get("mana_cost", ""),
         "type_line": type_line, "category": category,
         "image": images.get("normal") or images.get("small") or "",
+        # Il costo totale ordina le carte dentro un gruppo, come nelle liste stampate.
+        "cmc": card.get("cmc") or 0,
     }
 
 

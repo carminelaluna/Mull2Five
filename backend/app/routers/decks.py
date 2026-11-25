@@ -144,8 +144,11 @@ def search_cards(
 
 @router.post("/cards/lookup", response_model=list[CardOut])
 @limiter.limit("60/minute")
-def lookup_cards(request: Request, payload: CardLookupIn, user: User = Depends(get_current_user)) -> list[dict]:
-    """Costo, tipo e immagine delle carte di una lista: il costruttore le raggruppa per tipo."""
+def lookup_cards(request: Request, payload: CardLookupIn) -> list[dict]:
+    """Costo, tipo e immagine delle carte di una lista: il costruttore le raggruppa
+    per tipo, la vista grafica (deck-view.js) le mostra. Senza accesso: le liste
+    dell'archivio sono pubbliche, e il browser non può chiedere a Scryfall da sé
+    (la CSP lascia chiamare solo il sito)."""
     source = _card_source(payload.game)
     names = [name.strip() for name in dict.fromkeys(payload.names) if name.strip()]
     if not names:

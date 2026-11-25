@@ -50,6 +50,7 @@ import it.mull2five.app.ui.MessageBox
 import it.mull2five.app.ui.SectionTitle
 import it.mull2five.app.ui.Tone
 import it.mull2five.app.ui.appViewModel
+import it.mull2five.app.ui.inbox.InboxAction
 import it.mull2five.app.ui.theme.Brand
 import kotlinx.coroutines.launch
 
@@ -85,7 +86,7 @@ fun MyRegistrationsScreen(onOpen: (Int) -> Unit, onLogin: () -> Unit, onBrowse: 
         vm.load()
         onPauseOrDispose { }
     }
-    Scaffold(topBar = { TopAppBar(title = { Text(stringResource(R.string.mine_title)) }) }) { padding ->
+    Scaffold(topBar = { TopAppBar(title = { Text(stringResource(R.string.mine_title)) }, actions = { InboxAction() }) }) { padding ->
         val modifier = Modifier.padding(padding)
         if (user == null) {
             MessageBox(stringResource(R.string.mine_login), modifier, stringResource(R.string.login_submit), onLogin)

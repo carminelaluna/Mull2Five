@@ -41,9 +41,27 @@ def test_without_a_store_there_is_nothing_to_manage(client):
     assert client.get("/api/organizations/mine", headers=org).status_code == 404
 
 
-def test_opening_a_store_brings_along_the_tournaments_so_far(client):
+def _legacy_tournament(db_session, email, **fields):
+    """Un torneo come nasceva prima del 25/11/2026 da chi non aveva un negozio:
+    nel negozio di default. Ora la creazione gliene apre uno, quindi si scrive a mano."""
+    from sqlalchemy import select
+
+    from backend.app.models import Organization, Tournament, User
+
+    default = db_session.scalar(select(Organization).where(Organization.is_default.is_(True)))
+    organizer = db_session.scalar(select(User).where(User.email == email))
+    tournament = Tournament(
+        name="Serata di prima", format="Modern", organizer_id=organizer.id, organization_id=default.id,
+        starts_on=date.today() + timedelta(days=5), capacity=16, rules_enforcement_level="Regular",
+        venue="", **fields)
+    db_session.add(tournament)
+    db_session.commit()
+    return tournament
+
+
+def test_opening_a_store_brings_along_the_tournaments_so_far(client, db_session):
     owner = _register_user(client, "staff-owner@example.com", role="organizer")
-    tid = _tournament(client, owner)["id"]
+    tid = _legacy_tournament(db_session, "staff-owner@example.com").id
     slug = _store(client, owner)
     assert slug == "carte-e-draghi"
 
@@ -164,14 +182,9 @@ def test_a_tournament_leaving_for_the_new_store_keeps_its_place(client, db_sessi
     db_session.commit()
 
     owner = _register_user(client, "staff-o9@example.com", role="organizer")
-    created = client.post("/api/tournaments", headers=owner, json={
-        "name": "Serata in sala comune", "format": "Modern", "location_id": hall.id,
-        "starts_on": str(date.today() + timedelta(days=5)), "capacity": 8,
-        "entry_fee_cents": 0, "currency": "EUR", "status": "published", "pay_at_event": True,
-    })
-    assert created.status_code == 201, created.text
+    tid = _legacy_tournament(db_session, "staff-o9@example.com", location_id=hall.id).id
     _store(client, owner)
-    body = client.get(f"/api/tournaments/{created.json()['id']}").json()
+    body = client.get(f"/api/tournaments/{tid}").json()
     assert (body["location_id"], body["venue"], body["latitude"]) == (None, "Sala comune, Milano", 45.46)
 
 

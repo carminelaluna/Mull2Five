@@ -409,4 +409,29 @@
     <string name="stats_history">Tornei giocati</string>
     <string name="stats_no_history">Nessun torneo giocato, per ora.</string>
     <string name="stats_invited">Invito</string>
+
+    <!-- La campanella: le stesse frasi di js/inbox.js sul sito. -->
+    <string name="inbox_title">Notifiche</string>
+    <string name="inbox_unread">Notifiche: %1$d da leggere</string>
+    <string name="inbox_empty">Nessuna notifica, per ora.</string>
+    <string name="inbox_more">Mostra le precedenti</string>
+    <string name="inbox_for">Per %1$s</string>
+    <string name="inbox_other">Notifica</string>
+    <string name="inbox_registered">Iscrizione confermata</string>
+    <string name="inbox_waitlisted">Sei in lista d\'attesa</string>
+    <string name="inbox_waitlist_in">Si è liberato un posto: sei iscritto</string>
+    <string name="inbox_waitlist_pay">Si è liberato un posto: paga entro %1$s ore</string>
+    <string name="inbox_paid">Pagamento ricevuto: %1$s</string>
+    <string name="inbox_reminder">Si gioca domani</string>
+    <string name="inbox_reminder_at">Si gioca domani alle %1$s</string>
+    <string name="inbox_started">Il torneo è iniziato</string>
+    <string name="inbox_pairings">Turno %1$s: abbinamenti pronti</string>
+    <string name="inbox_announcement">Nuovo annuncio</string>
+    <string name="inbox_cancelled">Torneo annullato</string>
+    <string name="inbox_cancelled_refunded">Torneo annullato: il rimborso è partito</string>
+    <string name="inbox_cancelled_requested">Torneo annullato: il rimborso lo fa il negozio</string>
+    <string name="inbox_ticket_new">Nuova segnalazione</string>
+    <string name="inbox_ticket_reply">Nuova risposta a una segnalazione</string>
+    <string name="inbox_channel">Tornei</string>
+    <string name="inbox_channel_info">Iscrizioni, turni, annunci e segnalazioni: le stesse della campanella.</string>
 </resources>

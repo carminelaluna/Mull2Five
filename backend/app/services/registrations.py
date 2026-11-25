@@ -23,6 +23,7 @@ from backend.app.models import (
     TournamentStatus,
 )
 from backend.app.services.email import Sender, send_email
+from backend.app.services.inbox import event_url, notify
 from backend.app.services.payments import HOLD_GRACE_MINUTES, amount_due, payment_methods
 
 
@@ -107,6 +108,8 @@ def promote_from_waitlist(tournament: Tournament, db: Session) -> None:
     db.commit()
     cache_invalidate(f"registrations:{tournament.id}")
     cache_invalidate(f"my-reg:{tournament.id}:{next_in_line.player_id}")
+    notify(db, [next_in_line.player_id], "waitlist_in", context=tournament.name,
+           detail=str(WAITLIST_PAY_HOURS) if on_clock else "", url=event_url(tournament.id))
     try:
         send_email(
             next_in_line.player.email,

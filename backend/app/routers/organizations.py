@@ -18,10 +18,8 @@ from backend.app.core.tenant import resolve_org
 from backend.app.db import get_db
 from backend.app.models import (
     ApiKey,
-    Event,
     Location,
     Organization,
-    PlayerTag,
     StoreMember,
     StoreRole,
     Suspension,
@@ -56,6 +54,8 @@ from backend.app.services.stores import (
     active_suspension,
     can_manage_store,
     is_store_owner,
+    keep_place,
+    open_store,
     store_role,
 )
 from backend.app.services.tournament_views import haversine_km, tournament_with_counts
@@ -109,8 +109,9 @@ def list_organizations(
     premium_only: bool = False,
     db: Session = Depends(get_db),
 ) -> list[OrganizationOut]:
-    """Elenco pubblico dei negozi, con conteggi e distanza opzionale."""
-    stmt = select(Organization)
+    """Elenco pubblico dei negozi, con conteggi e distanza opzionale. Il negozio
+    di default non c'è: è un deposito interno, non un posto dove giocare."""
+    stmt = select(Organization).where(Organization.is_default.is_(False))
     if premium_only:
         stmt = stmt.where(Organization.is_premium.is_(True))
     found = db.scalars(stmt.order_by(Organization.name)).all()
@@ -178,14 +179,13 @@ def my_organization(user: User = Depends(require_organizer), db: Session = Depen
     404 finché non ne ha uno: il negozio di default non è di nessuno."""
     org = db.get(Organization, user.organization_id) if user.organization_id else None
     role = store_role(user.id, org.id, db) if org else None
-    if org and not role and user.role == UserRole.ADMIN:
+    # All'admin basta averlo scelto, ma non il negozio di default: senza un
+    # negozio suo deve vedere "Apri il negozio" come tutti.
+    if org and not role and user.role == UserRole.ADMIN and not org.is_default:
         role = StoreRole.OWNER
     if not org or not role:
         raise HTTPException(status_code=404, detail="Non fai ancora parte di un negozio")
     return _org_out(org, db).model_copy(update={"my_role": role})
-
-
-RESERVED_SLUGS = {"mine", "current", "memberships"}
 
 
 @router.post("/mine", response_model=OrganizationOut, status_code=201)
@@ -196,33 +196,7 @@ def create_my_store(
 ) -> OrganizationOut:
     """Apre il proprio negozio: chi lo crea ne è il titolare. I tornei, gli
     eventi e i tag creati finora senza negozio vengono con lui."""
-    base = _slugify(payload.name)
-    slug, n = base, 1
-    while slug in RESERVED_SLUGS or db.scalar(select(Organization.id).where(Organization.slug == slug)):
-        n += 1
-        slug = f"{base}-{n}"
-    org = Organization(slug=slug, name=payload.name.strip(), city=payload.city.strip(), is_default=False)
-    db.add(org)
-    db.flush()
-    db.add(StoreMember(organization_id=org.id, user_id=user.id, role=StoreRole.OWNER))
-
-    default_id = db.scalar(select(Organization.id).where(Organization.is_default.is_(True)))
-    homeless = (None, default_id)
-    for model in (Tournament, Event):
-        for row in db.scalars(select(model).where(model.organizer_id == user.id)).all():
-            if row.organization_id in homeless:
-                row.organization_id = org.id
-                # La sede era del negozio di prima: resta scritta, non collegata.
-                if model is Tournament and row.location:
-                    _keep_place(row)
-    # Anche i tag creati nel negozio di default, quando non serviva un negozio per
-    # usarli. Questo è nuovo e non ne ha altri: i nomi non si scontrano.
-    own_tags = select(PlayerTag).where(
-        PlayerTag.organization_id == default_id, PlayerTag.created_by_id == user.id
-    )
-    for tag in db.scalars(own_tags).all():
-        tag.organization_id = org.id
-    user.organization_id = org.id
+    org = open_store(user, payload.name, db, city=payload.city)
     db.commit()
     _forget_tournaments()
     return _org_out(org, db).model_copy(update={"my_role": StoreRole.OWNER})
@@ -361,7 +335,7 @@ def delete_location(
     giocati: lo storico non deve perdere il luogo."""
     location = _store_location(_managed_store(slug, user, db), location_id, db)
     for tournament in db.scalars(select(Tournament).where(Tournament.location_id == location.id)).all():
-        _keep_place(tournament)
+        keep_place(tournament)
     db.delete(location)
     db.commit()
     _forget_tournaments()
@@ -515,17 +489,6 @@ def revoke_api_key(slug: str, key_id: int, user: User = Depends(require_organize
         raise HTTPException(status_code=404, detail="Chiave non trovata")
     key.revoked_at = datetime.now(UTC)
     db.commit()
-
-
-def _keep_place(tournament: Tournament) -> None:
-    """Stacca il torneo dalla sede tenendo scritto dove si gioca."""
-    location = tournament.location
-    if not tournament.venue:
-        tournament.venue = location.label[:180]
-        if tournament.latitude is None:
-            tournament.latitude, tournament.longitude = location.latitude, location.longitude
-    tournament.location_id = None
-    tournament.location = None
 
 
 def _forget_tournaments() -> None:

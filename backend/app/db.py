@@ -197,6 +197,7 @@ def create_all() -> None:
             apply_row_level_security()
             seed_default_organization()
             seed_store_owners()
+            seed_own_stores()
             return
         except OperationalError as exc:
             # Due guasti diversi arrivano qui sotto lo stesso tipo: il database
@@ -277,6 +278,20 @@ def seed_store_owners() -> None:
             ),
             {"no": False if not _is_sqlite else 0},
         )
+
+
+def seed_own_stores() -> None:
+    """Dal 25/11/2026 chi organizza senza negozio ne riceve uno col suo nome al
+    primo torneo. Chi aveva già creato qualcosa prima lo riceve qui, una volta:
+    i suoi tornei smettono di uscire a nome di Mull2Five."""
+    import logging
+
+    from backend.app.services.stores import give_stores_to_organizers
+
+    with SessionLocal() as db:
+        opened = give_stores_to_organizers(db)
+    if opened:
+        logging.getLogger(__name__).info("Aperti %d negozi per chi organizzava senza", opened)
 
 
 def seed_default_organization() -> None:

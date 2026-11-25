@@ -38,7 +38,12 @@ from backend.app.security import require_organizer
 from backend.app.services.standings import Match as StandingMatch
 from backend.app.services.standings import Player as StandingPlayer
 from backend.app.services.standings import compute_standings
-from backend.app.services.stores import can_manage_store, managed_tournaments, store_ids
+from backend.app.services.stores import (
+    can_manage_store,
+    managed_tournaments,
+    store_ids,
+    working_store,
+)
 from backend.app.services.tournament_views import tournament_with_counts
 
 router = APIRouter(prefix="/seasons", tags=["seasons"])
@@ -153,7 +158,7 @@ def create_season(
 ) -> SeasonOut:
     season = Season(
         organizer_id=organizer.id,
-        organization_id=organizer.organization_id,
+        organization_id=working_store(organizer, db),
         slug=_unique_slug(payload.name, db),
         **payload.model_dump(),
     )

@@ -748,6 +748,38 @@ class VapidKeyOut(BaseModel):
     enabled: bool = False
 
 
+class NotificationOut(BaseModel):
+    """Una riga della campanella. La frase la scrive chi la mostra, da `kind` e
+    `detail` (services/inbox.py)."""
+    id: int
+    kind: str
+    context: str = ""
+    title: str = ""
+    body: str = ""
+    detail: str = ""
+    url: str = ""
+    created_at: datetime
+    read: bool = False
+    # Il profilo di un figlio: la notifica è sua, la legge il genitore.
+    for_name: str = ""
+
+
+class NotificationsOut(BaseModel):
+    items: list[NotificationOut]
+    unread: int
+
+
+class UnreadOut(BaseModel):
+    unread: int
+    # L'ultima notifica, letta o no: l'app chiede solo quelle dopo.
+    latest_id: int = 0
+
+
+class NotificationsReadIn(BaseModel):
+    """Quali segnare come lette: senza `ids`, tutte."""
+    ids: list[int] | None = Field(default=None, max_length=500)
+
+
 class EventCreate(BaseModel):
     name: str = Field(min_length=3, max_length=180)
     description: str = ""
@@ -1479,6 +1511,7 @@ class CardOut(BaseModel):
     type_line: str
     category: str
     image: str
+    cmc: float = 0
 
 
 class ArchiveDeckOut(BaseModel):

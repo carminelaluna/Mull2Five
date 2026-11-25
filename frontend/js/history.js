@@ -80,7 +80,7 @@ async function showResults(tid) {
   </div>`;
   box.querySelectorAll('[data-deck]').forEach(b => b.addEventListener('click', () => {
     const s = r.standings.find(x => String(x.registration_id) === b.dataset.deck);
-    showDeck(s);
+    showDeck(s, r);
   }));
 
   // #46 Bracket Top 8 (se gli abbinamenti sono pubblici)
@@ -116,13 +116,16 @@ async function loadMeta(tid, box) {
 }
 
 /* Lista di un piazzato, con le immagini delle carte. */
-async function showDeck(standing) {
+async function showDeck(standing, tournament) {
   const body = document.querySelector('#deckViewBody');
   document.querySelector('#deckViewTitle').textContent =
     `${standing.name}${standing.archetype ? ' — ' + standing.archetype : ''}`;
   body.innerHTML = '<p class="empty">Caricamento lista…</p>';
   document.querySelector('#deckViewDialog').showModal();
-  await renderDeck(body, standing.decklist || '');
+  await renderDeck(body, standing.decklist || '', { meta: {
+    title: standing.archetype || tr('Lista'), by: standing.name,
+    details: [`${standing.position}°`, tournament.name, fmtDate(String(tournament.starts_on)), tournament.format],
+  } });
 }
 
 /* #46 Bracket pubblico Top 8: mostrato sotto la classifica se pairings_public. */

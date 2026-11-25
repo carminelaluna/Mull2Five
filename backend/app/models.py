@@ -498,6 +498,28 @@ class PushSubscription(Base):
     user: Mapped[User] = relationship(back_populates="push_subscriptions")
 
 
+class Notification(Base):
+    """Una riga dello storico della campanella (services/inbox.py).
+
+    La frase non si salva: si salva il tipo (`kind`) e i pezzi che la frase
+    contiene — il torneo, il turno, la cifra — e la scrive chi la mostra, nella
+    lingua di chi legge. `title` e `body` sono testo libero scritto da qualcuno
+    (un annuncio, una segnalazione), e quello resta com'è."""
+    __tablename__ = "notifications"
+    __table_args__ = (Index("idx_notifications_user_created", "user_id", "created_at"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    kind: Mapped[str] = mapped_column(String(32))
+    context: Mapped[str] = mapped_column(String(200), default="")   # di solito il nome del torneo
+    title: Mapped[str] = mapped_column(String(200), default="")
+    body: Mapped[str] = mapped_column(Text, default="")
+    detail: Mapped[str] = mapped_column(String(64), default="")     # il turno, la cifra
+    url: Mapped[str] = mapped_column(String(300), default="")
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
+    read_at: Mapped[datetime | None] = mapped_column(UtcDateTime(timezone=True), nullable=True)
+
+
 class Tournament(Base):
     __tablename__ = "tournaments"
     __table_args__ = (Index("idx_tournaments_event_type", "event_type"),)

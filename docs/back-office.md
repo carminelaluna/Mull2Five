@@ -212,6 +212,16 @@ finché non la revochi.
 
 ## Negozio
 
+**Ogni organizzatore ha un negozio** (dal 25/11/2026). Chi non ne fa parte lo
+apre da qui con nome e città, oppure gli nasce da solo al primo torneo, evento o
+circuito, col nome del suo account (`working_store` in `services/stores.py`): si
+rinomina dal profilo. Prima quei tornei finivano nel negozio interno, e le
+pagine dicevano "Organizzato da Fumetteria X · Mull2Five". Chi li aveva creati
+così riceve il suo negozio all'avvio (`seed_own_stores` in `db.py`), con
+tornei, eventi, circuiti, modelli e tag. Il negozio interno ("Mull2Five", il
+default) non compare più fra i Negozi e non è di nessuno: nemmeno all'admin il
+back-office lo presenta come suo.
+
 Il profilo pubblico che i giocatori vedono, e tutto quello che sta intorno:
 
 - **Profilo** — nome, città, indirizzo, descrizione, sito, logo, coordinate.

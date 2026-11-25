@@ -113,12 +113,13 @@ def test_tournament_inherits_store_coordinates(client, db_session):
 
     from backend.app.models import Organization
 
-    org_row = db_session.scalar(select(Organization).where(Organization.is_default.is_(True)))
-    org_row.latitude, org_row.longitude = MILANO
-    db_session.commit()
-
     organizer = _register_user(client, "inherit-org@example.com", role="organizer")
     _make(client, organizer, name="Serata del negozio")
+    # Il primo torneo gli ha aperto il negozio: le coordinate sono di quello.
+    slug = client.get("/api/organizations/mine", headers=organizer).json()["slug"]
+    org_row = db_session.scalar(select(Organization).where(Organization.slug == slug))
+    org_row.latitude, org_row.longitude = MILANO
+    db_session.commit()
 
     near = _search(client, near_lat=MILANO[0], near_lng=MILANO[1], radius_km=10)
     assert [t["name"] for t in near] == ["Serata del negozio"]
@@ -132,7 +133,8 @@ def test_store_profile_splits_upcoming_and_past(client):
     _make(client, org, name="Prossimo", starts_on=str(date.today() + timedelta(days=5)))
     _make(client, org, name="Passato", starts_on=str(date.today() - timedelta(days=5)))
 
-    profile = client.get("/api/organizations/mull2five/profile")
+    slug = client.get("/api/organizations/mine", headers=org).json()["slug"]
+    profile = client.get(f"/api/organizations/{slug}/profile")
     assert profile.status_code == 200, profile.text
     body = profile.json()
     assert [t["name"] for t in body["upcoming"]] == ["Prossimo"]

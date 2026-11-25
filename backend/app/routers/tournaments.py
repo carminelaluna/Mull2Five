@@ -118,7 +118,7 @@ from backend.app.services.registrations import (
     promote_from_waitlist,
 )
 from backend.app.services.schedule_import import parse_schedule_csv
-from backend.app.services.stores import managed_tournaments, store_ids
+from backend.app.services.stores import managed_tournaments, own_store, store_ids, working_store
 from backend.app.services.tournament_access import (
     ensure_head_judge_seat_free,
     is_tournament_staff,
@@ -735,8 +735,9 @@ def import_schedule(
     if len(parsed) > SCHEDULE_LIMIT:
         raise HTTPException(status_code=422, detail=f"Al massimo {SCHEDULE_LIMIT} righe per volta")
 
-    mine = (Tournament.organization_id == organizer.organization_id if organizer.organization_id
-            else Tournament.organizer_id == organizer.id)
+    # Senza negozio contano i propri: il negozio di default è di tutti.
+    store_id = own_store(organizer, db)
+    mine = Tournament.organization_id == store_id if store_id else Tournament.organizer_id == organizer.id
     existing = {(name.strip().lower(), day) for name, day in db.execute(
         select(Tournament.name, Tournament.starts_on).where(mine, Tournament.status != TournamentStatus.CANCELLED)
     ).all()}
@@ -778,8 +779,10 @@ def import_schedule(
         existing.add(key)   # la stessa riga due volte nel file conta una
 
     if not payload.dry_run and planned:
+        # Chi non ha ancora un negozio lo riceve qui, non con una prova.
+        store_id = working_store(organizer, db)
         db.add_all([Tournament(**in_person_only(data.model_dump()), organizer_id=organizer.id,
-                               organization_id=organizer.organization_id) for data in planned])
+                               organization_id=store_id) for data in planned])
         db.commit()
         cache_invalidate("tournaments:")
     return ScheduleImportOut(rows=rows, new=len(planned), skipped=len(rows) - len(planned))
@@ -791,11 +794,13 @@ def create_tournament(
     organizer: User = Depends(require_organizer),
     db: Session = Depends(get_db),
 ) -> TournamentOut:
+    # Prima il negozio, poi la sede: chi lo riceve adesso ci lavora già.
+    store_id = working_store(organizer, db)
     check_location(payload.location_id, organizer, db)
     tournament = Tournament(
         **in_person_only(payload.model_dump()),
         organizer_id=organizer.id,
-        organization_id=organizer.organization_id,
+        organization_id=store_id,
     )
     db.add(tournament)
     db.commit()
@@ -1280,14 +1285,20 @@ def create_announcement(
             )
     # Notifica Web Push (no-op se VAPID non configurato)
     if tournament:
+        from backend.app.services.inbox import event_url, notify
         from backend.app.services.notifications import push_to_tournament
+
+        audience = [user.id for user in recipients]
+        # Nella campanella anche con le email spente, come il push qui sotto.
+        notify(db, audience, "announcement", context=tournament.name,
+               title=payload.title, body=payload.body, url=event_url(tournament_id))
 
         push_to_tournament(
             db,
             tournament_id,
             f"{tournament.name}: {payload.title}",
             payload.body,
-            user_ids=[user.id for user in recipients] if payload.tag_ids else None,
+            user_ids=audience if payload.tag_ids else None,
         )
     return announcement
 

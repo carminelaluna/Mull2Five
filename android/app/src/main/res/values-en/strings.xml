@@ -393,4 +393,29 @@
     <string name="stats_history">Tournaments played</string>
     <string name="stats_no_history">No tournaments played yet.</string>
     <string name="stats_invited">Invite</string>
+
+    <!-- La campanella: le stesse frasi di js/inbox.js sul sito. -->
+    <string name="inbox_title">Notifications</string>
+    <string name="inbox_unread">Notifications: %1$d unread</string>
+    <string name="inbox_empty">No notifications yet.</string>
+    <string name="inbox_more">Show older ones</string>
+    <string name="inbox_for">For %1$s</string>
+    <string name="inbox_other">Notification</string>
+    <string name="inbox_registered">Registration confirmed</string>
+    <string name="inbox_waitlisted">You\'re on the waiting list</string>
+    <string name="inbox_waitlist_in">A seat opened up: you\'re in</string>
+    <string name="inbox_waitlist_pay">A seat opened up: pay within %1$s hours</string>
+    <string name="inbox_paid">Payment received: %1$s</string>
+    <string name="inbox_reminder">You play tomorrow</string>
+    <string name="inbox_reminder_at">You play tomorrow at %1$s</string>
+    <string name="inbox_started">The tournament has started</string>
+    <string name="inbox_pairings">Round %1$s: pairings are up</string>
+    <string name="inbox_announcement">New announcement</string>
+    <string name="inbox_cancelled">Tournament cancelled</string>
+    <string name="inbox_cancelled_refunded">Tournament cancelled: your refund is on its way</string>
+    <string name="inbox_cancelled_requested">Tournament cancelled: the store will refund you</string>
+    <string name="inbox_ticket_new">New report</string>
+    <string name="inbox_ticket_reply">New reply to a report</string>
+    <string name="inbox_channel">Tournaments</string>
+    <string name="inbox_channel_info">Registrations, rounds, announcements and reports: the same as the bell.</string>
 </resources>

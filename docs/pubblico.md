@@ -175,6 +175,31 @@ quota di mezzo. Dice cosa succede alla quota: il rimborso è partito e torna sul
 metodo con cui si è pagato, oppure la richiesta è registrata e la restituisce
 il negozio; chi non aveva pagato non deve fare niente.
 
+## La campanella
+
+Dal 25/11/2026, in alto accanto alla lingua, a chi è collegato: lo **storico
+delle notifiche**, in un menu a tendina. Ci finisce tutto quello che il sito
+dice da solo — iscrizione confermata o lista d'attesa, posto liberato,
+pagamento ricevuto, promemoria del giorno prima, torneo iniziato, abbinamenti
+di ogni turno, annunci dell'organizzatore, torneo annullato, segnalazioni nuove
+e risposte — **anche con le email del torneo spente**: quell'interruttore
+spegne le email, non la campanella. Le risposte alle segnalazioni, che email
+non ne mandano, arrivano solo qui.
+
+Il numero sulla campanella sono quelle non lette; aprire il menu le segna come
+viste, e quelle nuove restano evidenziate finché è aperto. Ogni riga porta alla
+pagina giusta (il torneo, Le mie iscrizioni, Segnalazioni). Un genitore vede
+anche quelle dei profili che gestisce, con "Per <nome>". Dopo 90 giorni se ne
+vanno da sole; con l'account se ne vanno tutte, e l'esportazione dei dati le
+contiene.
+
+Come è fatta: `services/inbox.py` le scrive (le chiamano `services/notifications.py`,
+gli annunci, la lista d'attesa, il promemoria, le risposte alle segnalazioni),
+`routers/notifications.py` le serve (`GET /api/notifications`, `/unread`,
+`POST /read`), `js/inbox.js` le mostra. Il server salva il tipo e i pezzi della
+frase, non la frase: la scrive chi la mostra, nella lingua di chi legge. Un tipo
+nuovo vuole la sua frase in `phrase()` (e nell'app), o compare come "Notifica".
+
 ## Le mie liste
 
 `decks.html`. Un costruttore con ricerca carte e controllo delle regole del
@@ -183,6 +208,27 @@ direttamente a un torneo** a cui sei iscritto, senza copiare e incollare. Lo
 stesso al contrario: dalla pagina del torneo (iscrivendosi o da iscritto) e
 dalla finestra "Carica lista" di "Le mie iscrizioni" si sceglie una delle liste
 salvate. Quali offrire e in che ordine lo decide `js/saved-decks.js`.
+
+**Come si guarda una lista** (`js/deck-view.js`, dal 25/11/2026), uguale
+nell'archivio, nello storico, in Le mie iscrizioni, nel costruttore e nel
+back-office. Tre modi:
+
+- **Immagini**: le carte del main ordinate per tipo, poi per costo, poi per
+  nome, con il numero di copie sulla carta; il sideboard in colonna a destra,
+  le carte una sopra l'altra in modo che se ne leggano i titoli. Sul telefono
+  il sideboard va sotto.
+- **Testo**: la lista divisa per tipo (Creature, Istantanei, Terre…) con il
+  costo di mana.
+- **Grafica**: un'immagine da scaricare e condividere, 16:9 o 1:1 — titolo,
+  giocatore, torneo, piazzamento, il main e il sideboard. La disegna il browser
+  su un canvas.
+
+Le carte le chiede il server a Scryfall (`POST /api/cards/lookup`, con la cache;
+pubblica, perché l'archivio è pubblico): il browser non può chiamare
+`api.scryfall.com`, che la Content-Security-Policy non permette, ed è per questo
+che prima le immagini non comparivano. Le immagini arrivano da
+`cards.scryfall.io`, che `img-src` permette e che manda gli header CORS: senza,
+la grafica non si potrebbe scaricare.
 
 ## Segnalazioni
 

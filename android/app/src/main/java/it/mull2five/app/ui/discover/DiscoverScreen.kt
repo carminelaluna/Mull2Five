@@ -67,6 +67,7 @@ import it.mull2five.app.ui.MessageBox
 import it.mull2five.app.ui.Panel
 import it.mull2five.app.ui.Tone
 import it.mull2five.app.ui.appViewModel
+import it.mull2five.app.ui.inbox.InboxAction
 import it.mull2five.app.ui.rememberLoad
 import it.mull2five.app.ui.rememberLocationRequest
 import it.mull2five.app.ui.theme.Brand
@@ -81,7 +82,7 @@ import kotlin.math.roundToInt
 @Composable
 fun DiscoverScreen(onStore: (String) -> Unit, onCircuit: (String) -> Unit, onDeck: (Int) -> Unit) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
-    Scaffold(topBar = { TopAppBar(title = { Text(stringResource(R.string.discover_title)) }) }) { padding ->
+    Scaffold(topBar = { TopAppBar(title = { Text(stringResource(R.string.discover_title)) }, actions = { InboxAction() }) }) { padding ->
         Column(Modifier.padding(padding).fillMaxSize()) {
             PrimaryTabRow(selectedTabIndex = tab, containerColor = Brand.Bg) {
                 listOf(R.string.discover_stores, R.string.discover_circuits, R.string.discover_decks).forEachIndexed { index, label ->

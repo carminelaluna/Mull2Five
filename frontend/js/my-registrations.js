@@ -471,7 +471,9 @@ async function showMyDeck(tournamentId, tournamentName, fmt = '') {
   dialog.showModal();
   try {
     const deck = await apiFetch(`/tournaments/${tournamentId}/decklist?format=${encodeURIComponent(fmt)}`);
-    await renderDeck(body, deck?.raw_text || '');
+    await renderDeck(body, deck?.raw_text || '', { meta: {
+      title: deck?.archetype || tr('La mia lista'), details: [tournamentName, fmt],
+    } });
   } catch (err) {
     body.innerHTML = `<p class="empty">${esc(err.message)}</p>`;
   }

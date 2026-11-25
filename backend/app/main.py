@@ -32,6 +32,7 @@ from backend.app.routers import (
     events,
     games,
     google_auth,
+    notifications,
     organizations,
     payments,
     public_api,
@@ -119,8 +120,10 @@ async def _hold_sweeper(interval: int) -> None:
 
 
 async def _reminder_sweeper(interval: int) -> None:
-    """Manda il promemoria del giorno prima ai tornei che non l'hanno ancora avuto."""
+    """Manda il promemoria del giorno prima ai tornei che non l'hanno ancora avuto,
+    e già che c'è toglie dalla campanella le notifiche troppo vecchie."""
     from backend.app.db import SessionLocal
+    from backend.app.services.inbox import prune
     from backend.app.services.reminders import send_event_reminders
 
     while True:
@@ -131,6 +134,7 @@ async def _reminder_sweeper(interval: int) -> None:
                 n = await asyncio.to_thread(send_event_reminders, db)
                 if n:
                     logger.info("Promemoria: %d email per i tornei di domani", n)
+                await asyncio.to_thread(prune, db)
             finally:
                 db.close()
         except Exception:  # noqa: BLE001
@@ -407,6 +411,7 @@ app.include_router(payments.router, prefix="/api")
 app.include_router(seasons.router, prefix="/api")
 app.include_router(admin.router, prefix="/api")
 app.include_router(push.router, prefix="/api")
+app.include_router(notifications.router, prefix="/api")
 app.include_router(organizations.router, prefix="/api")
 app.include_router(tags.router, prefix="/api")
 app.include_router(tickets.router, prefix="/api")

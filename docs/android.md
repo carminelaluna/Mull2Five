@@ -62,9 +62,28 @@ rimanda al sito, tranne privacy e termini), in quattro schede:
     "Scarica i miei dati", "Esci da tutti i dispositivi" ed "Elimina
     l'account".
 
-**Non c'è**: il back-office (gli organizzatori usano il sito) e le notifiche.
-Il Web Push del sito non arriva a un'app nativa: servirebbe Firebase Cloud
-Messaging, e un server che mandi a lui oltre che al browser.
+**La campanella** (dal 25/11/2026) sta in alto nelle quattro schede, col numero
+da leggere: è lo stesso storico del sito (`GET /api/notifications`, vedi
+`docs/pubblico.md`, "La campanella"), e aprirla le segna come viste. Toccarne
+una porta alla schermata giusta: il torneo, il torneo dal vivo fra le
+iscrizioni, le segnalazioni.
+
+Le stesse arrivano **fra le notifiche del telefono**, senza Firebase: ogni
+quindici minuti WorkManager sveglia `InboxWorker` (`notify/Inbox.kt`), che
+chiede al server quelle dopo l'ultima mostrata e le mette sul telefono, nel
+canale "Tornei". Non sono istantanee: arrivano entro un quarto d'ora, di più se
+il telefono è in risparmio energetico. La prima volta per un account segna solo
+il punto da cui partire, così chi installa l'app non riceve lo storico intero.
+Da Android 13 il permesso lo si chiede una volta, appena si entra; negato, la
+campanella dentro l'app funziona lo stesso. Il giro usa il token dell'app e lo
+rinnova come fa l'app aperta: si ferma solo uscendo, o con "Esci da tutti i
+dispositivi".
+
+Per averle all'istante servirebbe Firebase Cloud Messaging: un progetto
+Firebase, il `google-services.json` nell'app e la chiave del servizio sul
+server, che manderebbe a Firebase oltre che al browser.
+
+**Non c'è** il back-office: gli organizzatori usano il sito.
 
 **Le lingue** sono quelle del sito: italiano, inglese, spagnolo, francese e
 tedesco, scelte da quella del telefono. I testi dell'app stanno in
@@ -350,6 +369,7 @@ ignora.
 |---|---|---|
 | Il link a un torneo apre il browser, non l'app | Il sito non riconosce la firma dell'app | `assetlinks.json` (comando sopra): pacchetto giusto? Impronta giusta? L'APK compilato su un altro PC ha un'altra chiave di debug; quella di Google Play ha l'impronta della *chiave di firma dell'app*. Corretto Render, Android ricontrolla quando l'app si reinstalla o si aggiorna |
 | "Nessuna connessione" sullo staging | Lo staging dormiva | Un minuto, poi "Riprova" |
+| Le notifiche non arrivano sul telefono, ma la campanella nell'app sì | Permesso negato, canale "Tornei" spento, o il risparmio energetico ferma il giro | Impostazioni di Android → App → Mull2Five → Notifiche; per la batteria, "Senza restrizioni". Il giro passa ogni 15 minuti, non subito |
 | *Accesso con Google non è attivo* | Il servizio non ha `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` | `docs/hosting.md`, "Accesso con Google" |
 | `compila.ps1`: *Manca …config.json* | Strumenti mai installati su questo PC | `android\strumenti.ps1` |
 | `compila.ps1`: *Manca la chiave di caricamento* | La chiave non è in `%USERPROFILE%\.mull2five` | Si ripristina dal backup, o si indica con `$env:M2F_KEYSTORE` |

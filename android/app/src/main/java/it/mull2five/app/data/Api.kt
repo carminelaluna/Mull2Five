@@ -218,6 +218,16 @@ class Api(siteUrl: String, private val session: Session, private val texts: Serv
     suspend fun closeTicket(id: Int): Ticket = decode(send("POST", "/tickets/$id/close", null))
     suspend fun reopenTicket(id: Int): Ticket = decode(send("POST", "/tickets/$id/reopen", null))
 
+    // ── La campanella ─────────────────────────────────────────────────────
+    // Sempre dell'account, anche agendo per un figlio: il server mette insieme
+    // le sue e quelle dei profili che gestisce.
+
+    suspend fun notifications(afterId: Int = 0, offset: Int = 0, limit: Int = 30): NotificationsPage =
+        get("/notifications", listOf("after_id" to "$afterId", "offset" to "$offset", "limit" to "$limit"))
+    suspend fun unreadNotifications(): UnreadCount = get("/notifications/unread")
+    suspend fun markNotificationsRead(ids: List<Int>? = null): UnreadCount =
+        post("/notifications/read", NotificationsReadIn(ids))
+
     // ── Il trasporto ──────────────────────────────────────────────────────
 
     private suspend inline fun <reified T> get(path: String, query: List<Pair<String, String>> = emptyList()): T =

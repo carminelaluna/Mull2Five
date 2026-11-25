@@ -45,6 +45,7 @@ import it.mull2five.app.ui.LocalContainer
 import it.mull2five.app.ui.MessageBox
 import it.mull2five.app.ui.NavRow
 import it.mull2five.app.ui.appViewModel
+import it.mull2five.app.ui.inbox.InboxAction
 import it.mull2five.app.ui.openInTab
 import it.mull2five.app.ui.theme.Brand
 import kotlinx.coroutines.launch
@@ -87,7 +88,7 @@ fun ProfileScreen(
     val context = LocalContext.current
     val open = { page: String -> context.openInTab("${container.siteUrl}/$page") }
 
-    Scaffold(topBar = { TopAppBar(title = { Text(stringResource(R.string.profile_title)) }) }) { padding ->
+    Scaffold(topBar = { TopAppBar(title = { Text(stringResource(R.string.profile_title)) }, actions = { InboxAction() }) }) { padding ->
         Column(Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState())) {
             if (user == null) {
                 Column(Modifier.padding(vertical = 24.dp)) {

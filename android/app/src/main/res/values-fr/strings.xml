@@ -393,4 +393,29 @@
     <string name="stats_history">Tournois joués</string>
     <string name="stats_no_history">Aucun tournoi joué pour l\'instant.</string>
     <string name="stats_invited">Invitation</string>
+
+    <!-- La campanella: le stesse frasi di js/inbox.js sul sito. -->
+    <string name="inbox_title">Notifications</string>
+    <string name="inbox_unread">Notifications : %1$d non lues</string>
+    <string name="inbox_empty">Aucune notification pour l\'instant.</string>
+    <string name="inbox_more">Afficher les précédentes</string>
+    <string name="inbox_for">Pour %1$s</string>
+    <string name="inbox_other">Notification</string>
+    <string name="inbox_registered">Inscription confirmée</string>
+    <string name="inbox_waitlisted">Vous êtes sur liste d\'attente</string>
+    <string name="inbox_waitlist_in">Une place s\'est libérée : vous êtes inscrit</string>
+    <string name="inbox_waitlist_pay">Une place s\'est libérée : payez sous %1$s heures</string>
+    <string name="inbox_paid">Paiement reçu : %1$s</string>
+    <string name="inbox_reminder">On joue demain</string>
+    <string name="inbox_reminder_at">On joue demain à %1$s</string>
+    <string name="inbox_started">Le tournoi a commencé</string>
+    <string name="inbox_pairings">Ronde %1$s : appariements prêts</string>
+    <string name="inbox_announcement">Nouvelle annonce</string>
+    <string name="inbox_cancelled">Tournoi annulé</string>
+    <string name="inbox_cancelled_refunded">Tournoi annulé : le remboursement est en cours</string>
+    <string name="inbox_cancelled_requested">Tournoi annulé : le magasin vous remboursera</string>
+    <string name="inbox_ticket_new">Nouveau signalement</string>
+    <string name="inbox_ticket_reply">Nouvelle réponse à un signalement</string>
+    <string name="inbox_channel">Tournois</string>
+    <string name="inbox_channel_info">Inscriptions, rondes, annonces et signalements : les mêmes que la cloche.</string>
 </resources>

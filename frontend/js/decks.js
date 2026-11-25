@@ -8,7 +8,9 @@
  */
 import './lang.js';   // prima di tutto: la lingua (vedi lang.js)
 import { actingAs, actingBanner, bindActingBanner } from './acting.js';
-import { deckToText, manaSymbols, mergeCards, parseDeck, renderDeck } from './deck-view.js';
+import {
+  CATEGORY_ORDER, categoryLabel, deckToText, manaSymbols, mergeCards, parseDeck, renderDeck,
+} from './deck-view.js';
 import { esc } from './escape.js';
 import { loadGames } from './games.js';
 import { t as tr } from './i18n.js';
@@ -33,13 +35,6 @@ function updateAuthNav() {
 }
 
 /* ── Stato ───────────────────────────────────────────── */
-// L'ordine dei gruppi, come nelle liste stampate (le categorie vengono dal server).
-const CATEGORIES = [
-  ['creature', 'Creature'], ['planeswalker', 'Planeswalker'], ['battle', 'Battaglie'],
-  ['instant', 'Istantanei'], ['sorcery', 'Stregonerie'], ['artifact', 'Artefatti'],
-  ['enchantment', 'Incantesimi'], ['land', 'Terre'], ['other', 'Altre carte'],
-];
-
 let games = [];
 let decks = [];
 let current = null;          // la lista aperta: { id, name, game, format, archetype, main, side }
@@ -257,11 +252,11 @@ function renderCards(flash = '') {
     }
     // Finché Scryfall non ha risposto le carte restano in un gruppo solo, senza titoli.
     const groups = cards.some((card) => card.info)
-      ? CATEGORIES.map(([key, label]) => [label, cards.filter((card) => (card.info?.category || 'other') === key)])
+      ? CATEGORY_ORDER.map((key) => [categoryLabel(key), cards.filter((card) => (card.info?.category || 'other') === key)])
         .filter(([, list]) => list.length)
       : [['', cards]];
     box.innerHTML = title + groups.map(([label, list]) => `<div class="deck-group">
-        ${label ? `<h4>${esc(tr(label))} <span class="muted">(${count(list)})</span></h4>` : ''}
+        ${label ? `<h4>${esc(label)} <span class="muted">(${count(list)})</span></h4>` : ''}
         ${list.map((card) => cardRow(section, card)).join('')}
       </div>`).join('');
   }
@@ -466,7 +461,9 @@ async function preview() {
   const dialog = $('#deckViewDialog');
   $('#deckViewTitle').textContent = current.name || tr('Lista senza nome');
   dialog.showModal();
-  await renderDeck($('#deckViewBody'), deckToText(current));
+  await renderDeck($('#deckViewBody'), deckToText(current), {
+    meta: { title: current.name || tr('Lista senza nome'), details: [current.format, current.archetype] },
+  });
 }
 
 /* ── Invia a un torneo ───────────────────────────────────

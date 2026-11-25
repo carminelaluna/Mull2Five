@@ -151,7 +151,7 @@ async function renderNoStore() {
   $('#panel').innerHTML = `${storeSwitcher(stores, true)}
   <div class="panel">
     <h3>${esc(tr('Il tuo negozio'))}</h3>
-    <p class="muted" style="margin-top:0">${esc(tr('Non fai ancora parte di un negozio: i tuoi tornei per ora escono sotto Mull2Five. Apri il tuo negozio per avere una pagina tua, le tue sedi e uno staff che gestisce i tornei con te. I tornei e i tag che hai già creato vengono con te.'))}</p>
+    <p class="muted" style="margin-top:0">${esc(tr('Non fai ancora parte di un negozio. Aprilo qui con il nome e la città che vuoi, oppure crea il primo torneo: il negozio nasce da solo, col nome del tuo account, e lo cambi quando vuoi. Hai una pagina tua, le tue sedi e uno staff che gestisce i tornei con te.'))}</p>
     <p class="muted">${esc(tr('Lavori per un negozio che è già qui? Chiedi al titolare di aggiungerti allo staff con la tua email.'))}</p>
     <form id="newStore" class="bo-grid">
       <label class="span-2">${esc(tr('Nome del negozio'))}<input id="nsName" required minlength="2" maxlength="120" /></label>

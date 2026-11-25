@@ -10,14 +10,22 @@ C'era un giro in più — le email passavano da un executor di asyncio preso con
 get_event_loop() — che dentro una rotta sincrona, cioè in un thread del pool di
 FastAPI, sollevava RuntimeError: nessuna email partiva, e i chiamanti lo
 ingoiavano. Da qui in poi si manda e si prova con un test (test_notifications).
+
+Dal 25/11/2026 ognuna resta anche nello storico della campanella (inbox.py),
+prima di guardare se le email del torneo sono accese: quell'interruttore spegne
+le email, non la campanella.
 """
 import logging
+from collections import defaultdict
 from typing import TYPE_CHECKING
+
+from sqlalchemy.orm import object_session
 
 if TYPE_CHECKING:
     from backend.app.models import Registration, Ticket, Tournament, User
 
 from backend.app.services.email import Sender, event_announcement_html, send_email
+from backend.app.services.inbox import TICKETS_URL, event_url, live_url, notify
 
 logger = logging.getLogger(__name__)
 
@@ -100,9 +108,13 @@ def _tournament_cancelled(
 
 
 def notify_registration_confirmed(registration: "Registration") -> None:
+    tournament = registration.tournament
+    if tournament:
+        notify(object_session(registration), [registration.player_id],
+               "waitlisted" if registration.waitlisted else "registered",
+               context=tournament.name, url=event_url(tournament.id))
     if not registration.player or not registration.player.email:
         return
-    tournament = registration.tournament
     if not tournament or not getattr(tournament, "email_notifications_enabled", False):
         return
     subject, body, html = _registration_confirmed(
@@ -112,6 +124,8 @@ def notify_registration_confirmed(registration: "Registration") -> None:
 
 
 def notify_pairings_ready(tournament: "Tournament", round_number: int, registrations: list) -> None:
+    notify(object_session(tournament), [reg.player_id for reg in registrations], "pairings",
+           context=tournament.name, detail=str(round_number), url=live_url(tournament.id))
     if not getattr(tournament, "email_notifications_enabled", False):
         return
     for reg in registrations:
@@ -123,6 +137,8 @@ def notify_pairings_ready(tournament: "Tournament", round_number: int, registrat
 
 
 def notify_tournament_started(tournament: "Tournament", registrations: list) -> None:
+    notify(object_session(tournament), [reg.player_id for reg in registrations], "started",
+           context=tournament.name, url=live_url(tournament.id))
     if not getattr(tournament, "email_notifications_enabled", False):
         return
     for reg in registrations:
@@ -189,6 +205,12 @@ def notify_tournament_cancelled(
     quota ("refunded", "requested" o None se non aveva pagato). Parte anche con
     le email del torneo spente, come la ricevuta: ci sono di mezzo dei soldi, e
     chi viene apposta deve saperlo."""
+    by_refund: dict[str, list[int]] = defaultdict(list)
+    for reg, refund, _ in notices:
+        by_refund[refund or ""].append(reg.player_id)
+    for refund, players in by_refund.items():
+        notify(object_session(tournament), players, "cancelled",
+               context=tournament.name, detail=refund, url=event_url(tournament.id))
     for reg, refund, amount in notices:
         if not reg.player or not reg.player.email:
             continue
@@ -220,16 +242,32 @@ def notify_ticket_opened(ticket: "Ticket", recipients: list["User"], page: str) 
     """Una segnalazione nuova: lo si dice a chi la deve leggere, che sennò lo
     scopre solo aprendo la pagina. Parte anche con le email del torneo spente:
     quelle sono per i giocatori, questa è posta per chi organizza."""
+    notify(object_session(ticket), [user.id for user in recipients], "ticket_new",
+           context=ticket.tournament.name if ticket.tournament else "", title=ticket.subject,
+           body=ticket.messages[0].body if ticket.messages else "", url=TICKETS_URL)
     for user in recipients:
         if user.email:
             subject, body, html = _ticket_opened(user.display_name, ticket, page)
             send_email(user.email, subject, body, html)
 
 
+def notify_ticket_reply(ticket: "Ticket", body: str, recipients: list["User"]) -> None:
+    """Una risposta: solo nella campanella. Chi ha aperto la segnalazione la
+    aspetta, e prima lo scopriva solo riaprendo la pagina; niente email, che
+    per una conversazione sarebbero una per messaggio."""
+    notify(object_session(ticket), [user.id for user in recipients], "ticket_reply",
+           context=ticket.tournament.name if ticket.tournament else "", title=ticket.subject,
+           body=body, url=TICKETS_URL)
+
+
 def notify_payment_confirmed(registration: "Registration", amount: float) -> None:
+    tournament = registration.tournament
+    if tournament:
+        notify(object_session(registration), [registration.player_id], "paid",
+               context=tournament.name, detail=f"{amount:.2f} {tournament.currency}",
+               url=event_url(tournament.id))
     if not registration.player or not registration.player.email:
         return
-    tournament = registration.tournament
     subject, body, html = _payment_confirmed(
         registration.player.display_name, tournament, amount
     )
