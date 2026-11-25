@@ -84,3 +84,97 @@ def test_an_organizer_ticket_needs_a_tournament(client, scena):
     rifiutata = client.post("/api/tickets", headers=scena["player"], json={
         "scope": "organizer", "subject": "Senza torneo", "body": "A chi lo mando?"})
     assert rifiutata.status_code == 422
+
+
+# ── L'email a chi la riceve (25/11/2026) ─────────────────────
+# Prima una segnalazione nuova la scopriva solo chi apriva la pagina.
+
+
+@pytest.fixture
+def posta(monkeypatch):
+    """Le email consegnate, senza uscire dal processo."""
+    from backend.app.core.config import get_settings
+    from backend.app.services import email
+
+    monkeypatch.setattr(get_settings(), "smtp_host", "smtp.example.com")
+    consegnate = []
+
+    class FakeSMTP:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+        def starttls(self):
+            pass
+
+        def login(self, *args):
+            pass
+
+        def send_message(self, message):
+            consegnate.append(message)
+
+    monkeypatch.setattr(email.smtplib, "SMTP", FakeSMTP)
+    return consegnate
+
+
+def _testo(message):
+    return message.get_body(("plain",)).get_content()
+
+
+def test_a_new_ticket_on_a_tournament_mails_who_runs_it(client, scena, posta):
+    # Aprendo il negozio il torneo ne entra a far parte: lo staff lo gestisce.
+    slug = client.post("/api/organizations/mine", headers=scena["org"],
+                       json={"name": "Carte e Draghi", "city": "Pavia"}).json()["slug"]
+    _user(client, "tk-staff@example.com")
+    assert client.post(f"/api/organizations/{slug}/members", headers=scena["org"],
+                       json={"email": "tk-staff@example.com", "role": "organizer"}).status_code == 201
+
+    aperta = client.post("/api/tickets", headers=scena["player"], json={
+        "scope": "organizer", "tournament_id": scena["tid"],
+        "subject": "Risultato\nsbagliato", "body": "Il mio 2-1 risulta 1-2."})
+    assert aperta.status_code == 201, aperta.text
+
+    # Chi organizza e lo staff del negozio; non l'altro organizzatore, né chi l'ha aperta.
+    assert sorted(m["To"] for m in posta) == ["tk-org@example.com", "tk-staff@example.com"]
+    # L'a capo scritto nell'oggetto non rompe l'intestazione: resta su una riga.
+    assert posta[0]["Subject"] == "Nuova segnalazione: Risultato sbagliato"
+    testo = _testo(posta[0])
+    assert "tk-player ha aperto una segnalazione sul torneo Serata" in testo
+    assert "Il mio 2-1 risulta 1-2." in testo
+    assert "/tickets.html" in testo
+
+
+def test_a_site_ticket_mails_the_admins_only(client, db_session, scena, posta):
+    from backend.app.models import User, UserRole
+
+    _user(client, "tk-admin@example.com")
+    db_session.query(User).filter_by(email="tk-admin@example.com").one().role = UserRole.ADMIN
+    db_session.commit()
+
+    aperta = client.post("/api/tickets", headers=scena["player"], json={
+        "scope": "admin", "subject": "Non riesco a entrare", "body": "La password non va."})
+    assert aperta.status_code == 201, aperta.text
+
+    assert [m["To"] for m in posta] == ["tk-admin@example.com"]
+    assert "tk-player ha aperto una segnalazione per chi tiene il sito" in _testo(posta[0])
+
+
+def test_a_mail_that_fails_does_not_lose_the_ticket(client, scena, monkeypatch):
+    from backend.app.routers import tickets
+
+    def guasto(*args, **kwargs):
+        raise RuntimeError("SMTP giù")
+
+    monkeypatch.setattr(tickets, "notify_ticket_opened", guasto)
+    aperta = client.post("/api/tickets", headers=scena["player"], json={
+        "scope": "organizer", "tournament_id": scena["tid"],
+        "subject": "Pagamento", "body": "Ho pagato al banco."})
+    # Salvata e restituita: l'organizzatore la trova comunque nella sua posta.
+    assert aperta.status_code == 201, aperta.text
+    assert [t["id"] for t in client.get("/api/tickets/inbox", headers=scena["org"]).json()] \
+        == [aperta.json()["id"]]

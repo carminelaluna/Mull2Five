@@ -195,3 +195,11 @@ salvate. Quali offrire e in che ordine lo decide `js/saved-decks.js`.
 Chi la riceve risponde nella stessa conversazione. Finché aspetti è "In
 attesa"; quando ti rispondono diventa "Risposta". Una segnalazione chiusa si
 può riaprire.
+
+**Chi la riceve lo sa per email** (dal 25/11/2026): quando ne nasce una,
+"Nuova segnalazione: <oggetto>" arriva a chi può leggerla, tranne chi l'ha
+aperta — gli admin se è per il sito; se è per un torneo chi lo organizza, chi
+tiene l'evento che lo contiene e lo staff del negozio (`recipients` in
+`routers/tickets.py`). Dentro ci sono il primo messaggio e il link a
+`tickets.html`, dove si risponde dalla scheda **Ricevute** (compare solo a chi ne
+ha). Le risposte successive non mandano email.

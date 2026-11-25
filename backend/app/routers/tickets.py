@@ -8,16 +8,22 @@ diversi e due permessi diversi, ed e' per questo che scope sta sulla riga e
 non si deduce.
 
 Chi legge una segnalazione: chi l'ha aperta, sempre; poi gli admin se e' per
-il sito, o chi gestisce quel torneo se e' per l'organizzatore.
+il sito, o chi gestisce quel torneo se e' per l'organizzatore. Quando ne nasce
+una, a loro arriva un'email (`recipients`, dal 25/11/2026): prima lo si
+scopriva solo aprendo la pagina.
 """
+import logging
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session, selectinload
 
+from backend.app.core.config import get_settings
 from backend.app.db import get_db
 from backend.app.models import (
+    Event,
+    StoreMember,
     Ticket,
     TicketMessage,
     TicketScope,
@@ -28,9 +34,11 @@ from backend.app.models import (
 )
 from backend.app.schemas import TicketCreate, TicketMessageIn, TicketOut
 from backend.app.security import get_current_user
+from backend.app.services.notifications import notify_ticket_opened
 from backend.app.services.stores import managed_tournaments
 from backend.app.services.tournament_access import owns_tournament
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/tickets", tags=["tickets"])
 
 
@@ -83,6 +91,35 @@ def load_ticket(ticket_id: int, user: User, db: Session) -> Ticket:
     return ticket
 
 
+def recipients(ticket: Ticket, db: Session) -> list[User]:
+    """A chi arriva l'email di una segnalazione nuova: a chi può leggerla
+    (can_read), tranne chi l'ha aperta. Gli admin se è per il sito; se è per un
+    torneo, chi lo organizza, chi tiene l'evento che lo contiene e lo staff del
+    negozio."""
+    if ticket.scope == TicketScope.ADMIN:
+        who = User.role == UserRole.ADMIN
+    else:
+        tournament = ticket.tournament
+        if not tournament:
+            return []
+        ids = {tournament.organizer_id}
+        if tournament.event_id:
+            ids.add(db.scalar(select(Event.organizer_id).where(Event.id == tournament.event_id)))
+        if tournament.organization_id:
+            ids.update(db.scalars(select(StoreMember.user_id).where(
+                StoreMember.organization_id == tournament.organization_id)))
+        ids.discard(None)
+        who = User.id.in_(ids)
+    return list(db.scalars(
+        select(User).where(who, User.is_active.is_(True), User.id != ticket.opened_by_id).order_by(User.id)
+    ))
+
+
+def _tickets_page() -> str:
+    settings = get_settings()
+    return f"{(settings.site_url or str(settings.frontend_url)).rstrip('/')}/tickets.html"
+
+
 @router.post("", response_model=TicketOut, status_code=201)
 def open_ticket(
     payload: TicketCreate,
@@ -106,7 +143,12 @@ def open_ticket(
     ticket.messages.append(TicketMessage(author_id=user.id, body=payload.body.strip()))
     db.add(ticket)
     db.commit()
-    return ticket_out(load_ticket(ticket.id, user, db))
+    opened = load_ticket(ticket.id, user, db)
+    try:
+        notify_ticket_opened(opened, recipients(opened, db), _tickets_page())
+    except Exception:  # noqa: BLE001 — è già salvata: un'email mancata non la fa sembrare fallita
+        logger.exception("Email per la segnalazione %s non partita", opened.id)
+    return ticket_out(opened)
 
 
 @router.get("/mine", response_model=list[TicketOut])

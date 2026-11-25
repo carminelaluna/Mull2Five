@@ -15,7 +15,7 @@ import logging
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from backend.app.models import Registration, Tournament
+    from backend.app.models import Registration, Ticket, Tournament, User
 
 from backend.app.services.email import Sender, event_announcement_html, send_email
 
@@ -194,6 +194,36 @@ def notify_tournament_cancelled(
             continue
         subject, body, html = _tournament_cancelled(reg.player.display_name, tournament, refund, amount)
         send_email(reg.player.email, subject, body, html, sender=Sender.PAYMENTS)
+
+
+def _ticket_opened(recipient_name: str, ticket: "Ticket", page: str) -> tuple[str, str, str]:
+    opener = ticket.opened_by.display_name if ticket.opened_by else "Un giocatore"
+    about = f"sul torneo {ticket.tournament.name}" if ticket.tournament else "per chi tiene il sito"
+    # L'oggetto lo scrive il giocatore e va nell'intestazione dell'email, dove un
+    # a capo non può stare (EmailMessage solleva): lo si tiene su una riga.
+    title = " ".join(ticket.subject.split())
+    first = ticket.messages[0].body if ticket.messages else ""
+    subject = f"Nuova segnalazione: {title}"
+    body = (
+        f"Ciao {recipient_name},\n\n"
+        f"{opener} ha aperto una segnalazione {about}.\n\n"
+        f"{title}\n\n{first}\n\n"
+        f"La leggi e rispondi da Segnalazioni, scheda Ricevute: {page}\n\n"
+        "Mull2Five"
+    )
+    context = ticket.tournament.name if ticket.tournament else "Segnalazione al sito"
+    html = event_announcement_html(context, "Nuova segnalazione", body)
+    return subject, body, html
+
+
+def notify_ticket_opened(ticket: "Ticket", recipients: list["User"], page: str) -> None:
+    """Una segnalazione nuova: lo si dice a chi la deve leggere, che sennò lo
+    scopre solo aprendo la pagina. Parte anche con le email del torneo spente:
+    quelle sono per i giocatori, questa è posta per chi organizza."""
+    for user in recipients:
+        if user.email:
+            subject, body, html = _ticket_opened(user.display_name, ticket, page)
+            send_email(user.email, subject, body, html)
 
 
 def notify_payment_confirmed(registration: "Registration", amount: float) -> None:
