@@ -212,7 +212,7 @@ Sempre il 24 novembre, una passata per l'uso di tutti i giorni:
   dominio e, se è `ok`, lo dice a Healthchecks.io (`HEARTBEAT_URL`). Se smette,
   è Healthchecks.io ad avvisare su Telegram: l'unico avviso che non dipende né
   dal sito né da GitHub. **Acceso il 25/11/2026**: controllo `mull2five.it`,
-  ogni 5 minuti più 10 di tolleranza, avvisi su Telegram ed email. Il valore di
+  ogni 5 minuti più 10 di tolleranza, avvisi su Telegram. Il valore di
   `HEARTBEAT_URL` va incollato **senza a capo**: con l'a capo httpx rifiuta
   l'indirizzo e il battito tace, senza che Healthchecks.io veda niente.
 - Sulle pagine di ricerca, da telefono, i filtri stanno dietro un pulsante
