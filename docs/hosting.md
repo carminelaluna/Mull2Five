@@ -557,7 +557,8 @@ Per accenderlo:
    - copia il **Ping URL** del controllo (`https://hc-ping.com/…`) e mettilo su
      Render → `mull2five` → Environment come `HEARTBEAT_URL`, solo in
      produzione. Chi lo conosce può far credere che il sito sia vivo: non va
-     altrove.
+     altrove. **Senza a capo in fondo**: se il valore se lo porta dietro, httpx
+     rifiuta l'indirizzo e il battito non parte (25/11/2026).
 
    Dopo il deploy il primo battito parte entro un minuto, e il controllo su
    Healthchecks.io passa da *new* a *up*. Per provare l'avviso: *Pause* e poi

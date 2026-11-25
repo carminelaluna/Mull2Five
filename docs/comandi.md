@@ -73,6 +73,7 @@ dei fornitori:
 | ❌ CI rossa su main | Quel commit non va in produzione: il sito resta alla versione di prima | Sezione 5; corretto e pushato, con la CI verde il deploy parte da solo |
 | mull2five.it is DOWN (dal bot di Healthchecks.io) | Da un quarto d'ora il sito non manda il battito: giù, o non raggiungibile dal suo dominio | Come 🔴: status page, poi i log di Render (sezione 3) |
 | mull2five.it is UP (Healthchecks.io) | Il battito è tornato | Niente |
+| Su Healthchecks.io il controllo resta *new* o va *late* subito dopo aver messo `HEARTBEAT_URL`, e nessuna richiesta arriva da `python-httpx` | Il valore su Render ha un a capo o uno spazio in fondo: httpx rifiuta l'indirizzo | Render → `mull2five` → Environment → *Edit*: nel valore *Fine* e poi *Backspace*, *Save, rebuild and deploy*. Il primo battito arriva un minuto dopo il deploy |
 | 🔴 Backup del database fallito | Il backup di oggi non c'è | Sezione 7, "Il backup fallisce" |
 | 🗄️ Nessun backup riuscito da … | GitHub non l'ha fatto partire | Sezione 7, lanciarlo a mano |
 | ✅ Backup di nuovo a posto | Risolto | Niente |

@@ -211,7 +211,10 @@ Sempre il 24 novembre, una passata per l'uso di tutti i giorni:
 - **Il battito**: ogni cinque minuti il sito chiama il proprio `/health` dal
   dominio e, se è `ok`, lo dice a Healthchecks.io (`HEARTBEAT_URL`). Se smette,
   è Healthchecks.io ad avvisare su Telegram: l'unico avviso che non dipende né
-  dal sito né da GitHub.
+  dal sito né da GitHub. **Acceso il 25/11/2026**: controllo `mull2five.it`,
+  ogni 5 minuti più 10 di tolleranza, avvisi su Telegram ed email. Il valore di
+  `HEARTBEAT_URL` va incollato **senza a capo**: con l'a capo httpx rifiuta
+  l'indirizzo e il battito tace, senza che Healthchecks.io veda niente.
 - Sulle pagine di ricerca, da telefono, i filtri stanno dietro un pulsante
   (`js/facets-toggle.js`). DMARC del dominio acceso (`p=none`), DKIM c'era già.
 
@@ -259,13 +262,10 @@ Dettaglio in `TODO.md`. Quelle che contano:
    tipo — `info@` l'accesso, `commercial@` i pagamenti, la casella admin il resto
    (`Sender` in `services/email.py`). Il reset password è stato provato e arriva.
 
-**Infrastruttura**
-5. Accendere il battito: account e controllo su Healthchecks.io, collegati a
-   Telegram, e il Ping URL in `HEARTBEAT_URL` su Render (`docs/hosting.md`,
-   "Avvisi su Telegram", punto 6). Il codice c'è; senza l'indirizzo è spento.
-   Il resto del guasto del 23/09 è chiuso: il deploy aspetta la CI, gli avvisi
-   su Telegram sono accesi, il ripristino dal backup è stato provato il 29/09,
-   e lo staging esiste.
+**Infrastruttura** — niente di aperto. Il guasto del 23/09 è chiuso del tutto:
+il deploy aspetta la CI, gli avvisi su Telegram sono accesi, il battito su
+Healthchecks.io anche (25/11/2026), il ripristino dal backup è stato provato il
+29/09, e lo staging esiste.
 
 **Rimandabili**
 Locator (spento per le condizioni d'uso di Wizards), ri-podding, l'app Android
