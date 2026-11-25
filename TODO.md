@@ -226,7 +226,7 @@ decisioni tue.
 ## Infrastruttura (dal guasto in produzione del 23 settembre 2026)
 
 - [x] **Il deploy aspetta la CI** (24/11/2026). Render pubblicava al push comunque: il 23/09 la CI era rossa e il deploy è uscito. Ora *Auto-Deploy → After CI Checks Pass* (`autoDeployTrigger: checksPass` in `render.yaml`); lo staging resta a ogni push.
-- [x] **Il battito su Healthchecks.io: acceso il 25/11/2026.** Controllo `mull2five.it` (5 minuti più 10 di tolleranza) collegato a Telegram, `HEARTBEAT_URL` su Render; primo battito dal sito alle 14:51, la notifica di prova ("The check TEST is DOWN") è arrivata su Telegram. La prima volta il valore era stato incollato con un a capo in fondo: httpx rifiutava l'indirizzo e il battito non partiva. Passi in `docs/hosting.md`, "Avvisi su Telegram", punto 6.
+- [x] **Il battito su Healthchecks.io: acceso il 25/11/2026.** Controllo `mull2five.it` (5 minuti più 10 di tolleranza) collegato a Telegram e all'email dell'account Healthchecks.io, `HEARTBEAT_URL` su Render; primo battito dal sito alle 14:51, la notifica di prova ("The check TEST is DOWN") è arrivata su Telegram e per email. La prima volta il valore era stato incollato con un a capo in fondo: httpx rifiutava l'indirizzo e il battito non partiva. Passi in `docs/hosting.md`, "Avvisi su Telegram", punto 6.
 - [x] **Un deploy rotto non sembra più riuscito** (29/09/2026). `sync_alembic` rilancia l'errore
       invece di annotarlo, e le migrazioni girano prima di uvicorn in `backend/app/prepara_database.py`,
       chiamato dal `CMD`: se falliscono il contenitore esce con un errore, il deploy si ferma e resta
