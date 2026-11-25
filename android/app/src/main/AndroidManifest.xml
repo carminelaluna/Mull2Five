@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- "Vicino a me": la posizione approssimativa, chiesta solo quando si tocca. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
     <!-- Da Android 11 un'app vede solo le app che dichiara: qui il browser con
          le schede personalizzate (Google, pagamenti, pagine del sito). -->

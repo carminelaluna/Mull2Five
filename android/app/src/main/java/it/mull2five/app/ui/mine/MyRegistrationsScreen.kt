@@ -40,6 +40,7 @@ import it.mull2five.app.data.Formats
 import it.mull2five.app.data.MyRegistration
 import it.mull2five.app.data.Registration
 import it.mull2five.app.data.Tournament
+import it.mull2five.app.ui.ActingBanner
 import it.mull2five.app.ui.Badge
 import it.mull2five.app.ui.ErrorBox
 import it.mull2five.app.ui.Load
@@ -75,8 +76,11 @@ class MyRegistrationsViewModel(private val c: AppContainer) : ViewModel() {
 @Composable
 fun MyRegistrationsScreen(onOpen: (Int) -> Unit, onLogin: () -> Unit, onBrowse: () -> Unit) {
     val vm = appViewModel { MyRegistrationsViewModel(it) }
-    val user by LocalContainer.current.session.user.collectAsStateWithLifecycle()
-    LaunchedEffect(user) { vm.load() }
+    val session = LocalContainer.current.session
+    val user by session.user.collectAsStateWithLifecycle()
+    // Con il profilo di un figlio le iscrizioni sono le sue.
+    val acting by session.acting.collectAsStateWithLifecycle()
+    LaunchedEffect(user, acting) { vm.load() }
     LifecycleResumeEffect(vm) {
         vm.load()
         onPauseOrDispose { }
@@ -87,30 +91,33 @@ fun MyRegistrationsScreen(onOpen: (Int) -> Unit, onLogin: () -> Unit, onBrowse: 
             MessageBox(stringResource(R.string.mine_login), modifier, stringResource(R.string.login_submit), onLogin)
             return@Scaffold
         }
-        PullToRefreshBox(isRefreshing = vm.refreshing, onRefresh = { vm.load(pull = true) }, modifier = modifier.fillMaxSize()) {
-            when (val state = vm.state) {
-                Load.Loading -> LoadingBox()
-                is Load.Failed -> ErrorBox(state.message, onRetry = { vm.load(pull = true) })
-                is Load.Ready -> {
-                    val (current, past) = state.value.partition { it.tournament.status in setOf("published", "running") }
-                    if (state.value.isEmpty()) {
-                        MessageBox(stringResource(R.string.mine_empty), action = stringResource(R.string.mine_browse), onAction = onBrowse)
-                    } else {
-                        LazyColumn(
-                            contentPadding = PaddingValues(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp),
-                            modifier = Modifier.fillMaxSize(),
-                        ) {
-                            if (current.isNotEmpty()) {
-                                item { SectionTitle(stringResource(R.string.mine_upcoming), Modifier.padding(top = 0.dp)) }
-                                items(current.sortedBy { it.tournament.startsOn }, key = { it.registration.id }) {
-                                    RegistrationCard(it, onClick = { onOpen(it.tournament.id) })
+        Column(modifier.fillMaxSize()) {
+            acting?.let { ActingBanner(it.name, onStop = { session.actAs(null) }) }
+            PullToRefreshBox(isRefreshing = vm.refreshing, onRefresh = { vm.load(pull = true) }, modifier = Modifier.fillMaxSize()) {
+                when (val state = vm.state) {
+                    Load.Loading -> LoadingBox()
+                    is Load.Failed -> ErrorBox(state.message, onRetry = { vm.load(pull = true) })
+                    is Load.Ready -> {
+                        val (current, past) = state.value.partition { it.tournament.status in setOf("published", "running") }
+                        if (state.value.isEmpty()) {
+                            MessageBox(stringResource(R.string.mine_empty), action = stringResource(R.string.mine_browse), onAction = onBrowse)
+                        } else {
+                            LazyColumn(
+                                contentPadding = PaddingValues(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp),
+                                modifier = Modifier.fillMaxSize(),
+                            ) {
+                                if (current.isNotEmpty()) {
+                                    item { SectionTitle(stringResource(R.string.mine_upcoming), Modifier.padding(top = 0.dp)) }
+                                    items(current.sortedBy { it.tournament.startsOn }, key = { it.registration.id }) {
+                                        RegistrationCard(it, onClick = { onOpen(it.tournament.id) })
+                                    }
                                 }
-                            }
-                            if (past.isNotEmpty()) {
-                                item { SectionTitle(stringResource(R.string.mine_past)) }
-                                items(past.sortedByDescending { it.tournament.startsOn }, key = { it.registration.id }) {
-                                    RegistrationCard(it, onClick = { onOpen(it.tournament.id) })
+                                if (past.isNotEmpty()) {
+                                    item { SectionTitle(stringResource(R.string.mine_past)) }
+                                    items(past.sortedByDescending { it.tournament.startsOn }, key = { it.registration.id }) {
+                                        RegistrationCard(it, onClick = { onOpen(it.tournament.id) })
+                                    }
                                 }
                             }
                         }

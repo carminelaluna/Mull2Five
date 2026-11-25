@@ -25,6 +25,18 @@ cookie. Le differenze:
   POST /auth/google/app/finish    l'app ritira il token col `code` e il segreto
   POST /auth/google/app/complete  chi è nuovo, come /complete
 
+Collegare Google dall'app, a chi è già dentro:
+
+  POST /auth/google/app/link         col token di accesso: un biglietto di due minuti,
+                                     legato alla `challenge` dell'app
+  GET  /auth/google/app/start?link=  la scheda parte col biglietto
+  GET  /auth/google/callback         non collega: rimanda all'app un `code`
+  POST /auth/google/app/link/finish  col token di accesso, il `code` e il segreto: collega
+
+Il collegamento avviene solo nell'ultimo passo, che chiede insieme il token della
+persona e il segreto dell'app: chi si prendesse il biglietto e facesse il giro con
+il proprio Google non riuscirebbe a collegarlo all'account di un altro.
+
 Il `code` passa dall'indirizzo, ma da solo non serve: per ritirarlo serve il
 segreto, che non è mai uscito dall'app (è PKCE, RFC 7636). Un'altra app che si
 prendesse lo schema `it.mull2five.app://` riceverebbe un codice inutile.
@@ -58,6 +70,7 @@ from backend.app.db import get_db
 from backend.app.models import Organization, User, UserIdentity, UserRole
 from backend.app.schemas import (
     GoogleAppCodeIn,
+    GoogleAppLinkIn,
     GoogleAppSignupIn,
     GoogleFinishOut,
     GoogleSignupIn,
@@ -78,6 +91,7 @@ COOKIE_PATH = "/api/auth/google"
 FLOW_MINUTES = 10      # il tempo per scegliere l'account su Google
 RESULT_MINUTES = 2     # il token pronto da ritirare
 SIGNUP_MINUTES = 15    # il tempo per completare la registrazione
+TICKET_MINUTES = 2     # il biglietto con cui l'app apre la scheda per collegare Google
 # `next` arriva dall'indirizzo: solo pagine di questo sito, niente "//altrove" o "javascript:".
 _SAFE_NEXT = re.compile(r"^[A-Za-z0-9_\-][A-Za-z0-9_\-./?=&%+]*$")
 # Le app a cui il callback può rimandare: lo schema è il nome del pacchetto.
@@ -267,21 +281,50 @@ def start_link(
     return _start(response, "", link_user=user)
 
 
+@router.post("/app/link")
+@limiter.limit("10/minute")
+def ticket_for_app_link(
+    request: Request, payload: GoogleAppLinkIn,
+    user: User = Depends(own_account), db: Session = Depends(get_db),
+) -> dict[str, str]:
+    """L'app, dal profilo: il biglietto per aprire la scheda che collega Google.
+    La scheda non ha il token di accesso, che sta nell'app: lo sostituisce questo."""
+    _require_enabled()
+    if _identity_of(db, user.id):
+        raise HTTPException(status_code=409, detail="Google è già collegato al tuo account")
+    return {"ticket": _sign("app-link-start", TICKET_MINUTES, uid=user.id,
+                            tv=user.token_version or 0, ch=payload.challenge)}
+
+
+def _ticket_user(ticket: str, challenge: str, db: Session) -> User:
+    claims = _unsign(ticket)
+    user = db.get(User, int(claims.get("uid", 0))) if claims.get("purpose") == "app-link-start" else None
+    if (user is None or not user.is_active or claims.get("tv") != (user.token_version or 0)
+            or not hmac.compare_digest(str(claims.get("ch", "")), challenge)):
+        raise HTTPException(status_code=400, detail="Il collegamento con Google è scaduto: riprova")
+    return user
+
+
 @router.get("/app/start", include_in_schema=False)
 @limiter.limit("10/minute")
 def start_from_app(
     request: Request,
     app: str = Query(max_length=60),
     challenge: str = Query(max_length=43),
+    link: str = Query(default="", max_length=2000),
+    db: Session = Depends(get_db),
 ) -> RedirectResponse:
     """L'app apre qui la scheda di Chrome: il cookie del giro finisce nel browser,
-    che è quello che poi torna dal callback, e la scheda va da Google."""
+    che è quello che poi torna dal callback, e la scheda va da Google. Con `link`
+    (il biglietto di /app/link) il giro collega Google invece di entrare."""
     if app not in APP_PACKAGES or not _CHALLENGE.match(challenge):
         raise HTTPException(status_code=400, detail="Richiesta non valida")
     if not google_login.is_enabled():
         return _app_redirect(app, error="non_disponibile")
+    link_user = _ticket_user(link, challenge, db) if link else None
     response = RedirectResponse("", status_code=303)
-    response.headers["location"] = _start(response, "", app=app, ch=challenge)["authorization_url"]
+    response.headers["location"] = _start(response, "", link_user=link_user, app=app,
+                                          ch=challenge)["authorization_url"]
     return response
 
 
@@ -322,6 +365,14 @@ def callback(
             user = db.get(User, flow["link"])
             if not user or not user.is_active or flow.get("tv") != (user.token_version or 0):
                 return fail("stato")
+            if app:
+                # Dall'app si collega solo in /app/link/finish, col token e il segreto.
+                response = _app_redirect(app, code=_sign(
+                    "app-google-link", RESULT_MINUTES, ch=str(flow.get("ch", "")), uid=user.id,
+                    tv=user.token_version or 0, gsub=account.subject, email=account.email,
+                    name=account.name))
+                _clear_cookie(response)
+                return response
             _attach(db, user, account)
             db.commit()
             response = _redirect(page, google="collegato")
@@ -396,6 +447,32 @@ def finish_in_app(request: Request, payload: GoogleAppCodeIn,
                   db: Session = Depends(get_db)) -> GoogleFinishOut:
     """L'app, di ritorno da Google: come /finish, col `code` e il segreto al posto del cookie."""
     return _finish(_app_claims(payload), "app-", db)
+
+
+@router.post("/app/link/finish", response_model=GoogleStatusOut)
+@limiter.limit("20/minute")
+def finish_link_in_app(
+    request: Request, payload: GoogleAppCodeIn,
+    user: User = Depends(own_account), db: Session = Depends(get_db),
+) -> GoogleStatusOut:
+    """L'app, di ritorno da Google: collega l'account Google a chi è dentro.
+    Il `code` vale solo con il segreto dell'app e per l'account che l'ha chiesto."""
+    claims = _app_claims(payload)
+    if (claims.get("purpose") != "app-google-link" or claims.get("uid") != user.id
+            or claims.get("tv") != (user.token_version or 0)):
+        raise HTTPException(status_code=400, detail="Il collegamento con Google è scaduto: riprova")
+    account = GoogleAccount(subject=str(claims["gsub"]), email=str(claims["email"]),
+                            name=str(claims.get("name", "")))
+    try:
+        _attach(db, user, account)
+        db.commit()
+    except (GoogleLoginError, IntegrityError) as exc:
+        db.rollback()
+        detail = ("Al tuo account è già collegato un altro account Google"
+                  if isinstance(exc, GoogleLoginError) and exc.code == "altro_google"
+                  else "Questo account Google è già collegato a un altro account")
+        raise HTTPException(status_code=409, detail=detail) from None
+    return google_status(user, db)
 
 
 @router.post("/complete", response_model=TokenOut, status_code=201)

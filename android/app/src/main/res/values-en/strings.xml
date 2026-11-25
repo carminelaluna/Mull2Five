@@ -54,9 +54,6 @@
     <string name="events_search">Search a tournament</string>
     <string name="events_search_clear">Clear search</string>
     <string name="events_empty">No tournaments in this period. Try widening the search.</string>
-    <string name="events_days_7">7 days</string>
-    <string name="events_days_30">30 days</string>
-    <string name="events_days_90">3 months</string>
     <string name="events_in_person">In person</string>
     <string name="events_online">Online</string>
 
@@ -178,9 +175,222 @@
 
     <string name="profile_title">Profile</string>
     <string name="profile_signed_out">Sign in to register for tournaments and follow them from your phone.</string>
-    <string name="profile_decks">Your decklists (on the site)</string>
-    <string name="profile_history">History and stats (on the site)</string>
-    <string name="profile_account">Account and privacy (on the site)</string>
+    <string name="profile_decks">My decklists</string>
+    <string name="profile_account">Account and privacy</string>
     <string name="profile_logout">Sign out</string>
     <string name="profile_version">Version %1$s</string>
+
+    <!-- Comuni (nuovi) -->
+    <string name="close">Close</string>
+    <string name="save">Save</string>
+    <string name="tab_discover">Discover</string>
+    <string name="filter_clear">All</string>
+    <string name="filter_reset">Clear filters</string>
+    <string name="acting_banner">You are using %1$s\'s profile</string>
+    <string name="acting_stop">Back to yours</string>
+    <string name="record_header">W/D/L</string>
+    <string name="standings_player">Player</string>
+    <string name="standings_points">Points</string>
+
+    <!-- Ricerca eventi: filtri -->
+    <string name="events_past">Past</string>
+    <string name="events_period">Period</string>
+    <string name="events_near">Near me</string>
+    <string name="events_distance">Distance</string>
+    <string name="events_type">Type</string>
+    <string name="events_format">Format</string>
+    <string name="events_rel">Level</string>
+    <string name="events_empty_past">No past tournaments match these filters.</string>
+    <string name="period_1">Today</string>
+    <string name="period_7">7 days</string>
+    <string name="period_14">2 weeks</string>
+    <string name="period_30">30 days</string>
+    <string name="period_90">3 months</string>
+    <string name="period_180">6 months</string>
+    <string name="period_365">One year</string>
+    <string name="period_all">All time</string>
+    <string name="distance_all">All of Italy</string>
+    <string name="distance_km">%1$d km</string>
+    <string name="location_missing">Can\'t find your location: turn on location and try again.</string>
+    <string name="type_locals">Local tournament</string>
+    <string name="type_prerelease">Prerelease</string>
+    <string name="type_rcq">RCQ</string>
+    <string name="type_store_championship">Store Championship</string>
+    <string name="type_premier">Premier</string>
+    <string name="type_other">Other</string>
+
+    <!-- Scopri: negozi, circuiti, liste -->
+    <string name="discover_title">Discover</string>
+    <string name="discover_stores">Stores</string>
+    <string name="discover_circuits">Circuits</string>
+    <string name="discover_decks">Decklists</string>
+    <string name="stores_search">Search a store or a city</string>
+    <string name="stores_premium">Premium</string>
+    <string name="stores_upcoming">%1$d upcoming</string>
+    <string name="stores_empty">No stores found.</string>
+    <string name="circuits_empty">No public circuits yet.</string>
+    <string name="circuit_active">Ongoing</string>
+    <string name="circuit_closed">Closed</string>
+    <string name="circuit_stages">%1$d stages</string>
+    <string name="archive_top_all">All</string>
+    <string name="archive_top_8">Top 8</string>
+    <string name="archive_top_winners">Winners</string>
+    <string name="archive_all_formats">All formats</string>
+    <string name="archive_position">Placement</string>
+    <string name="archive_archetype">Archetype</string>
+    <string name="archive_card">Contains card</string>
+    <string name="archive_empty">No public decklists match these filters.</string>
+    <string name="archive_more">Show more (%1$d)</string>
+    <string name="archive_meta_title">The metagame</string>
+    <string name="archive_lists">%1$d decklists</string>
+    <string name="archive_top_cards">Most played cards</string>
+    <string name="archive_of_players">of %1$d</string>
+    <string name="archive_no_archetype">No archetype</string>
+    <string name="archive_deck_title">Decklist</string>
+    <string name="archive_deck_by">by %1$s</string>
+    <string name="archive_save">Save to my decklists</string>
+    <string name="archive_saved">Saved to your decklists.</string>
+    <string name="deck_copied">Decklist copied.</string>
+
+    <!-- Negozio, circuito, manifestazione -->
+    <string name="store_title">Store</string>
+    <string name="store_upcoming">Upcoming</string>
+    <string name="store_past">Already played</string>
+    <string name="store_no_events">No upcoming tournaments.</string>
+    <string name="circuit_title">Circuit</string>
+    <string name="circuit_leaderboard">Leaderboard</string>
+    <string name="circuit_no_leaderboard">The leaderboard starts with the first stage played.</string>
+    <string name="circuit_stages_title">Stages</string>
+    <string name="circuit_rules">How points work</string>
+    <string name="circuit_rule_win_draw">%1$d points per win, %2$d per draw (a bye counts as a win)</string>
+    <string name="circuit_rule_participation">%1$d points for each stage played</string>
+    <string name="circuit_rule_champion">%1$d bonus points to the stage winner</string>
+    <string name="circuit_rule_undefeated">%1$d bonus points for winning every match of a stage</string>
+    <string name="circuit_rule_drop">The worst %1$d scores are dropped after %2$d stages played</string>
+    <string name="circuit_rule_threshold">You qualify with %1$d points</string>
+    <string name="circuit_row_tournaments">%1$d tournaments</string>
+    <string name="circuit_row_titles">%1$d won</string>
+    <string name="circuit_row_undefeated">%1$d undefeated</string>
+    <string name="manifestation_title">Event</string>
+
+    <!-- Risultati -->
+    <string name="results_open">Standings and results</string>
+    <string name="results_title">Results</string>
+    <string name="results_standings">Standings</string>
+    <string name="results_meta">Metagame</string>
+    <string name="results_bracket">Top cut</string>
+    <string name="results_hidden">The organizer doesn\'t publish the standings of this tournament.</string>
+    <string name="results_none">Standings will appear after the first round.</string>
+    <string name="results_points">%1$d points</string>
+    <string name="results_show_deck">See decklist</string>
+    <string name="results_players">Players</string>
+    <string name="results_win_rate">Win %</string>
+    <string name="bracket_final">Final</string>
+    <string name="bracket_semis">Semifinals</string>
+    <string name="bracket_quarters">Quarterfinals</string>
+
+    <!-- Le mie liste -->
+    <string name="decks_title">My decklists</string>
+    <string name="decks_new">New decklist</string>
+    <string name="decks_empty">No saved decklists. Save one here and send it to any tournament in one tap.</string>
+    <string name="deck_counts">%1$d + %2$d</string>
+    <string name="deck_counts_long">%1$d main deck cards, %2$d sideboard</string>
+    <string name="deck_edit_title">Decklist</string>
+    <string name="deck_name">Decklist name</string>
+    <string name="deck_no_format">No format</string>
+    <string name="deck_text">The decklist (one card per line: 4 Name)</string>
+    <string name="deck_search_card">Search a card to add</string>
+    <string name="deck_add_main">+ main</string>
+    <string name="deck_add_side">+ side</string>
+    <string name="deck_check_legality">Check legality</string>
+    <string name="deck_legal">Legal in %1$s</string>
+    <string name="deck_save">Save decklist</string>
+    <string name="deck_saved_ok">Decklist saved.</string>
+    <string name="deck_import_file">Load from file</string>
+    <string name="deck_send_to">Send to a tournament</string>
+    <string name="deck_no_targets">No tournament to send it to: decklists go to tournaments you\'re registered for, while they are open.</string>
+    <string name="deck_delete">Delete decklist</string>
+    <string name="deck_delete_text">Delete \"%1$s\"? Decklists already sent to tournaments stay.</string>
+    <string name="deck_view">See submitted decklist</string>
+    <string name="deck_view_title">Submitted decklist</string>
+
+    <!-- Il mio torneo (nuovi) -->
+    <string name="mine_abandon_payment">I won\'t pay: free the seat</string>
+    <string name="mine_abandon_payment_text">Your registration for %1$s is removed and the seat is freed right away.</string>
+    <string name="mine_add">Add</string>
+    <string name="mine_change">Change</string>
+    <string name="mine_updated">Updated.</string>
+    <string name="mine_publisher_missing">Missing: needed for results and invites</string>
+    <string name="mine_all_pairings">All pairings of round %1$d</string>
+    <string name="mine_all_pairings_hide">Hide pairings of round %1$d</string>
+
+    <!-- Account -->
+    <string name="account_title">Account and privacy</string>
+    <string name="account_data">Your data</string>
+    <string name="account_name_note">Your name appears in standings and pairings. To change it, open a ticket to the site.</string>
+    <string name="account_access">Sign-in</string>
+    <string name="account_profiles">Children\'s profiles</string>
+    <string name="account_privacy">Privacy</string>
+    <string name="account_export_text">Download in a file everything the site knows about you: account, registrations, decklists, payments.</string>
+    <string name="account_export">Download my data</string>
+    <string name="account_export_saved">File saved.</string>
+    <string name="account_logout_all">Sign out everywhere</string>
+    <string name="account_logout_all_text">Sessions open on phones and computers are closed, this one too.</string>
+    <string name="account_delete">Delete account</string>
+    <string name="account_delete_text">Email, name, Wizards ID and saved decklists are deleted, children\'s profiles included; results stay without your name. This can\'t be undone.</string>
+    <string name="account_profile_delete">Delete profile</string>
+    <string name="account_profile_delete_text">Delete %1$s\'s profile? The profile\'s registrations and decklists are deleted.</string>
+    <string name="account_profile_tournaments">%1$d registrations</string>
+    <string name="account_profile_manage">Use</string>
+    <string name="account_profile_request_text">New profiles are created by the site: ask with a ticket.</string>
+    <string name="account_profile_request">Ask for a profile</string>
+    <string name="account_profiles_text">Players under %1$d play with a profile managed by a parent: you register them, pay and submit their decklists.</string>
+    <string name="account_google_linked_as">Linked to Google as %1$s</string>
+    <string name="account_google_unlink">Unlink Google</string>
+    <string name="account_google_needs_password">To unlink Google, choose a password first, or you couldn\'t sign in anymore.</string>
+    <string name="account_google_not_linked">Google isn\'t linked.</string>
+    <string name="account_google_link">Link Google</string>
+    <string name="account_google_unlinked">Google unlinked.</string>
+    <string name="account_google_linked_now">Google linked: from now on you can also sign in with Google.</string>
+    <string name="account_password_text">You sign in with email and password.</string>
+    <string name="account_password_none">You have no password: you sign in with Google.</string>
+    <string name="account_password_change">Change password</string>
+    <string name="account_password_choose">Choose a password</string>
+    <string name="account_password_sent">We sent you an email with a link to choose your password.</string>
+    <string name="account_acting_now">Done: registrations and decklists are now those of the chosen profile.</string>
+
+    <!-- Segnalazioni -->
+    <string name="tickets_title">Tickets</string>
+    <string name="tickets_new">New ticket</string>
+    <string name="tickets_empty">No tickets. If something is wrong, write to the organizer or to the site.</string>
+    <string name="ticket_open">Open</string>
+    <string name="ticket_answered">Answered</string>
+    <string name="ticket_closed">Closed</string>
+    <string name="ticket_to_organizer">To the organizer · %1$s</string>
+    <string name="ticket_to_site">To the site</string>
+    <string name="ticket_closed_text">This ticket is closed. Reopen it if you still need help.</string>
+    <string name="ticket_reopen">Reopen</string>
+    <string name="ticket_reply">Reply</string>
+    <string name="ticket_close">Close ticket</string>
+    <string name="ticket_needs_text">Write a subject and a message.</string>
+    <string name="ticket_profile_subject">Request for a child\'s profile</string>
+    <string name="ticket_profile_body">I\'d like a profile for my child. Name:  Year of birth: </string>
+    <string name="ticket_to">Who to write to</string>
+    <string name="ticket_scope_organizer">To a tournament organizer</string>
+    <string name="ticket_scope_site">To the site (account, payments, problems)</string>
+    <string name="ticket_which_tournament">Which tournament</string>
+    <string name="ticket_subject">Subject</string>
+    <string name="ticket_body">Message</string>
+
+    <!-- Statistiche -->
+    <string name="profile_stats">Stats and history</string>
+    <string name="profile_tickets">Tickets</string>
+    <string name="stats_title">Stats</string>
+    <string name="stats_public_note">This is how others see your public profile.</string>
+    <string name="stats_tournaments">Tournaments</string>
+    <string name="stats_by_format">By format</string>
+    <string name="stats_by_archetype">By archetype</string>
+    <string name="stats_history">Tournaments played</string>
+    <string name="stats_no_history">No tournaments played yet.</string>
+    <string name="stats_invited">Invite</string>
 </resources>

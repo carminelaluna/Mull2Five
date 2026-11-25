@@ -35,6 +35,25 @@ class Session(context: Context) {
     fun clear() {
         prefs.edit { remove(KEY_TOKEN) }
         _user.value = null
+        actAs(null)
+    }
+
+    private val _acting = MutableStateFlow(
+        prefs.getInt(KEY_ACTING_ID, 0).takeIf { it > 0 }?.let { ActingProfile(it, prefs.getString(KEY_ACTING_NAME, "").orEmpty()) }
+    )
+
+    /**
+     * Il profilo di un figlio per cui si sta agendo (acting.js sul sito): iscrizioni,
+     * pagamenti e liste vanno a nome suo, l'account resta quello del genitore.
+     */
+    val acting: StateFlow<ActingProfile?> = _acting.asStateFlow()
+
+    fun actAs(profile: ActingProfile?) {
+        prefs.edit {
+            if (profile == null) remove(KEY_ACTING_ID).remove(KEY_ACTING_NAME)
+            else putInt(KEY_ACTING_ID, profile.id).putString(KEY_ACTING_NAME, profile.name)
+        }
+        _acting.value = profile
     }
 
     /**
@@ -45,11 +64,22 @@ class Session(context: Context) {
         get() = prefs.getString(KEY_VERIFIER, null)
         set(value) = prefs.edit { if (value == null) remove(KEY_VERIFIER) else putString(KEY_VERIFIER, value) }
 
+    /** Il giro con Google in corso collega Google all'account invece di entrare. */
+    var googleLinking: Boolean
+        get() = prefs.getBoolean(KEY_LINKING, false)
+        set(value) = prefs.edit { putBoolean(KEY_LINKING, value) }
+
     private companion object {
         const val KEY_TOKEN = "token"
         const val KEY_VERIFIER = "google_verifier"
+        const val KEY_LINKING = "google_linking"
+        const val KEY_ACTING_ID = "acting_id"
+        const val KEY_ACTING_NAME = "acting_name"
     }
 }
+
+/** Il profilo gestito per cui si agisce: l'id va nell'intestazione X-Act-As. */
+data class ActingProfile(val id: Int, val name: String)
 
 /** Il contenuto del token: chi è e quando scade (secondi dal 1970). */
 data class SessionUser(

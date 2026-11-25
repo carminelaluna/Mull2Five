@@ -20,6 +20,15 @@ data class Tournament(
     @SerialName("allow_intentional_draws") val allowIntentionalDraws: Boolean = true,
     @SerialName("organizer_name") val organizerName: String? = null,
     @SerialName("organization_name") val organizationName: String? = null,
+    @SerialName("organization_slug") val organizationSlug: String? = null,
+    @SerialName("event_slug") val eventSlug: String? = null,
+    @SerialName("event_name") val eventName: String? = null,
+    @SerialName("season_id") val seasonId: Int? = null,
+    @SerialName("rules_enforcement_level") val rel: String = "",
+    @SerialName("distance_km") val distanceKm: Double? = null,
+    @SerialName("pairings_public") val pairingsPublic: Boolean = true,
+    @SerialName("standings_public") val standingsPublic: Boolean = true,
+    @SerialName("decklists_public") val decklistsPublic: Boolean = false,
     @SerialName("event_type") val eventType: String = "locals",
     val venue: String = "",
     val city: String = "",
@@ -174,6 +183,8 @@ data class SavedDeck(
     @SerialName("raw_text") val rawText: String = "",
     @SerialName("main_count") val mainCount: Int = 0,
     @SerialName("side_count") val sideCount: Int = 0,
+    /** Le regole del formato non rispettate (numero di carte, copie): vuoto, è a posto. */
+    val errors: List<String> = emptyList(),
 )
 
 @Serializable

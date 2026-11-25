@@ -9,6 +9,7 @@ import androidx.lifecycle.viewModelScope
 import it.mull2five.app.AppContainer
 import it.mull2five.app.BuildConfig
 import it.mull2five.app.Incoming
+import it.mull2five.app.LinkOutcome
 import it.mull2five.app.R
 import it.mull2five.app.data.AuthRules
 import it.mull2five.app.data.GoogleSignupIn
@@ -82,10 +83,16 @@ class AuthViewModel(private val c: AppContainer) : ViewModel() {
         clearMessages()
         val verifier = Pkce.newVerifier()
         c.session.googleVerifier = verifier
+        // Un collegamento lasciato a metà non deve trasformare questo accesso in un collegamento.
+        c.session.googleLinking = false
         context.openInTab(c.api.googleStartUrl(BuildConfig.APPLICATION_ID, Pkce.challenge(verifier)))
     }
 
     fun finishGoogle(back: Incoming.GoogleReturn) {
+        if (c.session.googleLinking) {
+            finishLink(back)
+            return
+        }
         clearMessages()
         val verifier = c.session.googleVerifier
         if (back.code == null || verifier == null) {
@@ -103,6 +110,25 @@ class AuthViewModel(private val c: AppContainer) : ViewModel() {
                 googleSignup = GoogleSignup(out.signupEmail.orEmpty(), out.signupName.orEmpty(), back.code)
                 _events.send(AuthEvent.NeedsGoogleSignup)
             }
+        }
+    }
+
+    /**
+     * Il ritorno da Google partito dall'account ("Collega Google"): si ritira il
+     * `code` con il segreto e il token di chi è dentro, e Google si collega.
+     */
+    private fun finishLink(back: Incoming.GoogleReturn) {
+        c.session.googleLinking = false
+        val verifier = c.session.googleVerifier
+        c.session.googleVerifier = null
+        if (back.code == null || verifier == null) {
+            c.googleLink.value = LinkOutcome(UiText.Res(googleErrorText(back.error)), isError = true)
+            return
+        }
+        viewModelScope.launch {
+            c.attempt { c.api.googleLinkFinish(back.code, verifier) }
+                .onSuccess { c.googleLink.value = LinkOutcome(UiText.Res(R.string.account_google_linked_now), isError = false) }
+                .onFailure { c.googleLink.value = LinkOutcome(UiText.Raw(c.messageOf(it)), isError = true) }
         }
     }
 

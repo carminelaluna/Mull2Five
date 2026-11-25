@@ -63,17 +63,37 @@ class Api(siteUrl: String, private val session: Session, private val texts: Serv
 
     // ── I tornei ──────────────────────────────────────────────────────────
 
-    /** La ricerca degli eventi, come events.js: in calendario fra oggi e `days` giorni. */
-    suspend fun tournaments(name: String, days: Int, online: Boolean?): List<Tournament> {
+    /**
+     * La ricerca degli eventi, come events.js: in calendario fra oggi e `days`
+     * giorni, oppure i conclusi degli ultimi `days`; vicino a un punto se c'è.
+     */
+    suspend fun tournaments(search: EventSearch): List<Tournament> {
+        val today = java.time.LocalDate.now()
         val query = buildList {
-            add("status" to "published,running")
-            add("days" to days.toString())
-            if (name.isNotBlank()) add("name" to name.trim())
-            if (online != null) add("online" to online.toString())
+            if (search.past) {
+                add("status" to "completed")
+                add("date_from" to today.minusDays(search.days.toLong()).toString())
+                add("date_to" to today.toString())
+            } else {
+                add("status" to "published,running")
+                add("days" to search.days.toString())
+            }
+            if (search.name.isNotBlank()) add("name" to search.name.trim())
+            if (search.online != null) add("online" to search.online.toString())
+            if (search.formats.isNotEmpty()) add("formats" to search.formats.joinToString(","))
+            if (search.eventTypes.isNotEmpty()) add("event_types" to search.eventTypes.joinToString(","))
+            if (search.rel.isNotEmpty()) add("rel" to search.rel.joinToString(","))
+            search.near?.let { (lat, lng) ->
+                add("near_lat" to lat.toString())
+                add("near_lng" to lng.toString())
+                add("radius_km" to search.radiusKm.toString())
+            }
             add("limit" to "300")
         }
         return get("/tournaments", query)
     }
+
+    suspend fun games(): List<Game> = get("/games")
 
     suspend fun tournament(id: Int): Tournament = get("/tournaments/$id")
     suspend fun fields(id: Int): List<RegistrationField> = get("/tournaments/$id/fields")
@@ -107,10 +127,96 @@ class Api(siteUrl: String, private val session: Session, private val texts: Serv
         send("POST", "/tournaments/$id/pairings/$pairingId/player-result/reject", json.encodeToString(RejectIn(note)))
     }
 
-    suspend fun decks(): List<SavedDeck> = get("/decks")
+    suspend fun rounds(id: Int): List<Round> = get("/tournaments/$id/rounds")
+    suspend fun abandonPayment(id: Int) { send("POST", "/tournaments/$id/my-registration/abandon-payment", null) }
+    suspend fun setPublisherId(id: Int, value: String): Registration =
+        decode(send("PUT", "/tournaments/$id/my-publisher-id", json.encodeToString(PublisherIdIn(value))))
+    suspend fun setGameHandle(id: Int, value: String): Registration =
+        decode(send("PUT", "/tournaments/$id/my-handle", json.encodeToString(GameHandleIn(value))))
+
+    /** La lista consegnata per un segmento, o null se non c'è ancora. */
+    suspend fun submittedDeck(id: Int, format: String): SubmittedDeck? = try {
+        get("/tournaments/$id/decklist", listOf("format" to format))
+    } catch (e: ApiException) {
+        if (e.status == 404) null else throw e
+    }
+
     suspend fun sendDecklist(id: Int, body: DecklistIn) {
         send("POST", "/tournaments/$id/decklist", json.encodeToString(body))
     }
+
+    // ── Le liste salvate ──────────────────────────────────────────────────
+
+    suspend fun decks(): List<SavedDeck> = get("/decks")
+    suspend fun createDeck(body: SavedDeckIn): SavedDeck = post("/decks", body)
+    suspend fun updateDeck(id: Int, body: SavedDeckIn): SavedDeck =
+        decode(send("PUT", "/decks/$id", json.encodeToString(body)))
+    suspend fun deleteDeck(id: Int) { send("DELETE", "/decks/$id", null) }
+    suspend fun checkDeck(body: DeckValidateIn): DeckCheck = post("/decks/validate", body)
+    suspend fun searchCards(query: String, game: String): List<String> =
+        get<CardNames>("/cards/search", listOf("q" to query, "game" to game)).names
+
+    // ── Scoprire: negozi, circuiti, manifestazioni, liste, risultati ──────
+
+    suspend fun stores(near: Pair<Double, Double>?): List<Store> =
+        get("/organizations", near?.let { (lat, lng) -> listOf("near_lat" to "$lat", "near_lng" to "$lng") }.orEmpty())
+    suspend fun store(slug: String): StorePage = get("/organizations/$slug/profile")
+    suspend fun circuits(): List<Circuit> = get("/seasons/public")
+    suspend fun circuit(slug: String): CircuitPage = get("/seasons/by-slug/$slug")
+    suspend fun manifestation(slug: String): ManifestationPage = get("/events/by-slug/$slug")
+
+    /** L'archivio delle liste (decklists.html): `days` 0 è da sempre, `top` 0 tutte le posizioni. */
+    suspend fun archive(filter: ArchiveFilter, page: Int): ArchivePage =
+        get("/decklists", buildList {
+            if (filter.format.isNotBlank()) add("format" to filter.format)
+            if (filter.archetype.isNotBlank()) add("archetype" to filter.archetype.trim())
+            if (filter.card.isNotBlank()) add("card" to filter.card.trim())
+            add("days" to filter.days.toString())
+            add("top" to filter.top.toString())
+            add("page" to page.toString())
+        })
+    suspend fun archiveMeta(format: String, days: Int): ArchiveMeta =
+        get("/decklists/meta", buildList {
+            if (format.isNotBlank()) add("format" to format)
+            add("days" to days.toString())
+        })
+    suspend fun archiveDeck(id: Int): ArchiveDeck = get("/decklists/$id")
+
+    suspend fun results(id: Int): PublicResults = get("/tournaments/$id/public-results")
+    suspend fun meta(id: Int): List<MetaRow> = get("/tournaments/$id/public-meta")
+    suspend fun bracket(id: Int): List<BracketMatch> = get("/tournaments/$id/public-bracket")
+    suspend fun player(publicId: String): PlayerProfile = get("/tournaments/players/$publicId/public-history")
+    suspend fun myHistory(): List<HistoryRow> = get("/tournaments/me/history")
+
+    // ── L'account ─────────────────────────────────────────────────────────
+
+    suspend fun logoutEverywhere(): String = decode<Detail>(send("POST", "/auth/logout-all", null)).detail
+    suspend fun exportData(): String = send("GET", "/auth/me/export", null)
+    suspend fun deleteAccount(): String = decode<Detail>(send("DELETE", "/auth/me", null)).detail
+    suspend fun profiles(): List<ManagedProfile> = get("/auth/me/profiles")
+    suspend fun deleteProfile(id: Int) { send("DELETE", "/auth/me/profiles/$id", null) }
+
+    suspend fun googleStatus(): GoogleStatus = get("/auth/google/me")
+    suspend fun googleUnlink(): GoogleStatus = decode(send("DELETE", "/auth/google/me", null))
+    suspend fun googleLinkTicket(challenge: String): String =
+        post<GoogleLinkIn, GoogleLinkTicket>("/auth/google/app/link", GoogleLinkIn(challenge)).ticket
+    suspend fun googleLinkFinish(code: String, verifier: String): GoogleStatus =
+        post("/auth/google/app/link/finish", GoogleCodeIn(code, verifier))
+
+    /** La scheda che collega Google: come quella dell'accesso, col biglietto. */
+    fun googleLinkUrl(app: String, challenge: String, ticket: String): String =
+        "$base/auth/google/app/start".toHttpUrl().newBuilder()
+            .addQueryParameter("app", app).addQueryParameter("challenge", challenge)
+            .addQueryParameter("link", ticket).build().toString()
+
+    // ── Le segnalazioni ───────────────────────────────────────────────────
+
+    suspend fun tickets(): List<Ticket> = get("/tickets/mine")
+    suspend fun ticket(id: Int): Ticket = get("/tickets/$id")
+    suspend fun openTicket(body: TicketIn): Ticket = post("/tickets", body)
+    suspend fun replyTicket(id: Int, body: String): Ticket = post("/tickets/$id/messages", TicketMessageIn(body))
+    suspend fun closeTicket(id: Int): Ticket = decode(send("POST", "/tickets/$id/close", null))
+    suspend fun reopenTicket(id: Int): Ticket = decode(send("POST", "/tickets/$id/reopen", null))
 
     // ── Il trasporto ──────────────────────────────────────────────────────
 
@@ -137,9 +243,12 @@ class Api(siteUrl: String, private val session: Session, private val texts: Serv
             else -> ByteArray(0).toRequestBody(null)
         }
         val token = session.token
+        // Per il profilo di un figlio: iscrizioni, pagamenti e liste (acting.js). L'account no.
+        val acting = session.acting.value?.takeIf { token != null && ACTING_PATHS.any(path::startsWith) }
         val request = Request.Builder().url(url).method(method, content)
             .header("Accept", "application/json")
             .apply { if (token != null) header("Authorization", "Bearer $token") }
+            .apply { if (acting != null) header("X-Act-As", acting.id.toString()) }
             .build()
         val response = try {
             client.newCall(request).execute()
@@ -168,5 +277,32 @@ class Api(siteUrl: String, private val session: Session, private val texts: Serv
 
     private companion object {
         val JSON_TYPE = "application/json; charset=utf-8".toMediaType()
+        val ACTING_PATHS = listOf("/tournaments", "/decks", "/payments", "/cards")
     }
+}
+
+/** I filtri dell'archivio delle liste (decklists.js, readState). */
+data class ArchiveFilter(
+    val format: String = "",
+    val archetype: String = "",
+    val card: String = "",
+    val days: Int = 90,
+    val top: Int = 0,
+)
+
+/** I filtri della ricerca degli eventi (events.js, readState). */
+data class EventSearch(
+    val name: String = "",
+    val days: Int = 30,
+    val past: Boolean = false,
+    val online: Boolean? = null,
+    val formats: List<String> = emptyList(),
+    val eventTypes: List<String> = emptyList(),
+    val rel: List<String> = emptyList(),
+    val near: Pair<Double, Double>? = null,
+    val radiusKm: Int = 50,
+) {
+    val filtered: Boolean
+        get() = name.isNotBlank() || online != null || formats.isNotEmpty() || eventTypes.isNotEmpty() ||
+            rel.isNotEmpty() || near != null
 }

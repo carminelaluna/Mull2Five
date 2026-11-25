@@ -492,3 +492,86 @@ def test_dallapp_senza_credenziali_google(client):
     response = client.get("/api/auth/google/app/start", params={"app": APP, "challenge": "a" * 43},
                           follow_redirects=False)
     assert back_to_app(response) == {"error": "non_disponibile"}
+
+
+# ── Collegare Google dall'app, a chi è già dentro ────────────────────────
+
+def app_link(client, google, headers, verifier=VERIFIER, **claims):
+    """Il giro dell'app per collegare: biglietto, scheda, Google, ritorno col `code`."""
+    ticket = client.post("/api/auth/google/app/link", headers=headers,
+                         json={"challenge": challenge(verifier)})
+    assert ticket.status_code == 200, ticket.text
+    response = client.get("/api/auth/google/app/start", follow_redirects=False, params={
+        "app": APP, "challenge": challenge(verifier), "link": ticket.json()["ticket"]})
+    assert response.status_code == 303, response.text
+    query = parse_qs(urlparse(response.headers["location"]).query)
+    google.next_token = id_token(query["nonce"][0], **claims)
+    return back_to_app(client.get("/api/auth/google/callback", follow_redirects=False,
+                                  params={"code": "codice", "state": query["state"][0]}))
+
+
+def test_dallapp_si_collega_google_solo_col_token_e_il_segreto(client, google):
+    headers = register(client)
+    code = app_link(client, google, headers, sub="google-altro", email="mario.rossi@gmail.com")["code"]
+    # Il ritorno da Google non collega ancora niente.
+    assert client.get("/api/auth/google/me", headers=headers).json()["linked"] is False
+
+    other = register(client, email="luigi@example.com")
+    wrong_secret = {"code": code, "verifier": "un-altro-segreto-" + "y" * 40}
+    assert client.post("/api/auth/google/app/link/finish", headers=headers, json=wrong_secret).status_code == 400
+    # Il `code` vale per chi l'ha chiesto, non per un altro account con lo stesso segreto.
+    assert client.post("/api/auth/google/app/link/finish", headers=other,
+                       json={"code": code, "verifier": VERIFIER}).status_code == 400
+    # E non apre la sessione: non è un `code` di accesso.
+    assert client.post("/api/auth/google/app/finish", json={"code": code, "verifier": VERIFIER}).status_code == 400
+
+    linked = client.post("/api/auth/google/app/link/finish", headers=headers,
+                         json={"code": code, "verifier": VERIFIER})
+    assert linked.status_code == 200, linked.text
+    assert linked.json() == {"available": True, "linked": True,
+                             "email": "mario.rossi@gmail.com", "has_password": True}
+    assert client.post("/api/auth/google/app/link", headers=headers,
+                       json={"challenge": challenge()}).status_code == 409
+
+    # Da adesso con quel Google dall'app si entra nello stesso account.
+    query = app_sign_in(client, google, sub="google-altro", email="mario.rossi@gmail.com")
+    token = client.post("/api/auth/google/app/finish", json={"code": query["code"], "verifier": VERIFIER}).json()
+    assert client.get("/api/auth/me", headers=bearer(token["access_token"])).json()["email"] == "mario@example.com"
+
+
+def test_il_biglietto_per_collegare_si_controlla(client, google):
+    headers = register(client)
+    ticket = client.post("/api/auth/google/app/link", headers=headers,
+                         json={"challenge": challenge()}).json()["ticket"]
+
+    def start(**params):
+        return client.get("/api/auth/google/app/start", follow_redirects=False,
+                          params={"app": APP, "challenge": challenge(), "link": ticket, **params})
+
+    # Con un'altra challenge, o un biglietto qualsiasi, la scheda non parte.
+    assert start(challenge=challenge("un-altro-segreto-" + "y" * 40)).status_code == 400
+    assert start(link="non-un-biglietto").status_code == 400
+    # Un biglietto non è un token di accesso.
+    assert client.get("/api/auth/me", headers=bearer(ticket)).status_code == 401
+    # Per i profili gestiti Google non si collega.
+    acting = client.post("/api/auth/google/app/link", headers={**headers, "X-Act-As": "999"},
+                         json={"challenge": challenge()})
+    assert acting.status_code in {400, 403}
+    # Uscire da tutti i dispositivi spegne anche i biglietti già dati.
+    assert start().status_code == 303
+    client.post("/api/auth/logout-all", headers=headers)
+    assert start().status_code == 400
+
+
+def test_dallapp_non_si_collega_un_google_che_e_di_un_altro(client, google):
+    headers = register(client)
+    code = app_link(client, google, headers, sub="google-mario", email="mario.rossi@gmail.com")["code"]
+    assert client.post("/api/auth/google/app/link/finish", headers=headers,
+                       json={"code": code, "verifier": VERIFIER}).status_code == 200
+
+    other = register(client, email="anna@example.com")
+    code = app_link(client, google, other, sub="google-mario", email="mario.rossi@gmail.com")["code"]
+    taken = client.post("/api/auth/google/app/link/finish", headers=other,
+                        json={"code": code, "verifier": VERIFIER})
+    assert taken.status_code == 409
+    assert taken.json()["detail"] == "Questo account Google è già collegato a un altro account"

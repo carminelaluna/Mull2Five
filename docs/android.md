@@ -18,28 +18,53 @@ caricamento sta fuori dal progetto, la sua password nel password manager.
 
 ## Cosa fa
 
-È il lato del **giocatore**, in tre schede:
+È il lato del **giocatore**, tutto dentro l'app (dal 25/11/2026 nessuna voce
+rimanda al sito, tranne privacy e termini), in quattro schede:
 
-- **Eventi** — la ricerca dei tornei pubblicati e in corso, per nome, nei
-  prossimi 7 giorni, 30 o 3 mesi, dal vivo od online. La pagina del torneo ha
-  le informazioni, "Condividi", il calendario, la mappa e **l'iscrizione**:
-  Wizards Account o nome in gioco se il gioco li vuole, le domande
-  dell'organizzatore, il codice sconto e il modo di pagare. Il pagamento online
-  apre Stripe o PayPal in una scheda di Chrome dentro l'app; tornati, la pagina
-  si ricarica da sola.
+- **Eventi** — la ricerca dei tornei, come `index.html`: per nome, periodo
+  (da oggi a un anno), dal vivo od online, **vicino a me** con la distanza
+  (la posizione la chiede il telefono, solo approssimativa), tipo di evento,
+  formato e livello (REL), e i **conclusi**. La pagina del torneo ha le
+  informazioni, "Condividi", il calendario, la mappa, i collegamenti alla
+  **manifestazione**, al **negozio** e al **circuito**, "Classifica e
+  risultati" da quando è partito, e **l'iscrizione**: Wizards Account o nome
+  in gioco se il gioco li vuole, le domande dell'organizzatore, il codice
+  sconto e il modo di pagare. Il pagamento online apre Stripe o PayPal in una
+  scheda di Chrome dentro l'app; tornati, la pagina si ricarica da sola.
+- **Scopri** — i **negozi** (cerca, vicino a me, Premium) con la loro pagina:
+  sedi, tornei in programma e giocati; i **circuiti** con regole, classifica e
+  tappe; l'**archivio delle liste** (`decklists.html`): filtri per formato,
+  piazzamento, periodo, archetipo e carta, il metagame del periodo, e la lista
+  aperta da copiare, salvare fra le proprie o seguire fino ai risultati.
 - **Iscrizioni** — i tornei a cui si è iscritti, da giocare e conclusi. Dentro
-  ognuno, **il torneo dal vivo**: quota (e "Paga" se manca), check-in, lista
-  (scelta fra quelle salvate o incollata), il turno con tavolo e avversario, il
-  risultato da mandare, confermare o contestare, la classifica, e "Ritirati" o
-  "Annulla l'iscrizione". Mentre il torneo è in corso la schermata si aggiorna
-  ogni 30 secondi.
+  ognuno, **il torneo dal vivo**: quota ("Paga", o "Non pago: libera il posto"
+  per chi aveva scelto di pagare online), check-in, lista (fra quelle salvate,
+  incollata o da file; quella consegnata si rilegge per ogni segmento),
+  Wizards Account negli eventi ufficiali e nome in gioco online, il turno con
+  tavolo e avversario e tutti gli abbinamenti del turno, il risultato da
+  mandare, confermare o contestare, la classifica, i risultati pubblici, e
+  "Ritirati" o "Annulla l'iscrizione". Mentre il torneo è in corso la
+  schermata si aggiorna ogni 30 secondi.
 - **Profilo** — accesso con password o con Google, registrazione, password
-  dimenticata, uscita. Le liste salvate, lo storico e l'account si aprono sul
-  sito, in una scheda di Chrome.
+  dimenticata, uscita, e poi:
+  - **Statistiche e storico**: quello che mostra `player.html` di sé, con il
+    record per formato e per archetipo e i tornei giocati;
+  - **Le mie liste**: l'editor, con la ricerca delle carte, il controllo di
+    legalità, "Carica da file" e "Manda a un torneo" a cui si è iscritti;
+  - **Segnalazioni**: all'organizzatore di un torneo o al sito, con la
+    conversazione, chiudi e riapri;
+  - **Account e privacy**: Google collegato o da collegare (anche da qui, con
+    lo stesso giro PKCE dell'accesso: `POST /api/auth/google/app/link` dà un
+    biglietto, la scheda di Chrome lo porta a Google, il ritorno passa da
+    `/api/auth/google/app/link/finish`), la password (l'email per sceglierla),
+    i **profili dei figli** ("Usa" fa agire l'app come quel profilo, con
+    l'intestazione `X-Act-As` come il sito; una fascia in alto lo ricorda),
+    "Scarica i miei dati", "Esci da tutti i dispositivi" ed "Elimina
+    l'account".
 
-**Non c'è**: il back-office (gli organizzatori usano il sito), i circuiti, le
-notifiche. Il Web Push del sito non arriva a un'app nativa: servirebbe Firebase
-Cloud Messaging, e un server che mandi a lui oltre che al browser.
+**Non c'è**: il back-office (gli organizzatori usano il sito) e le notifiche.
+Il Web Push del sito non arriva a un'app nativa: servirebbe Firebase Cloud
+Messaging, e un server che mandi a lui oltre che al browser.
 
 **Le lingue** sono quelle del sito: italiano, inglese, spagnolo, francese e
 tedesco, scelte da quella del telefono. I testi dell'app stanno in
@@ -191,7 +216,15 @@ $c = Get-Content "$HOME\.bubblewrap\config.json" -Raw | ConvertFrom-Json; $env:J
 ```
 
 Il giro dell'accesso con Google lato server lo provano i test del backend
-(`tests/test_google_login.py`, quelli con `app`).
+(`tests/test_google_login.py`, quelli con `app`, anche il collegamento
+dall'account). La lettura delle liste (`DeckLines`, la stessa regola di
+`frontend/js/deck-view.js`) ha i suoi test nell'app.
+
+**Un endpoint che l'app usa si allarga, non si cambia**: l'app installata resta
+indietro finché non si aggiorna. Se un campo di una risposta cambia nome, i
+modelli in `data/*Models.kt` lo leggono come assente (prendono il valore di
+partenza) senza errori: quando si tocca una risposta usata dall'app, si
+controlla che il nome in `@SerialName` sia ancora quello.
 
 ## Pubblicare su Google Play
 

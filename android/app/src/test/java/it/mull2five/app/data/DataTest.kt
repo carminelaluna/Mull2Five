@@ -93,3 +93,39 @@ class ScoresTest {
         assertEquals("ID", Scores.invert("ID"))
     }
 }
+
+class DeckLinesTest {
+    @Test
+    fun `legge main e sideboard come il sito`() {
+        val deck = DeckLines.parse("4 Lightning Bolt\n4x Counterspell\n\n2 Pyroblast\nSB: 1 Negate")
+        assertEquals(listOf(DeckLines.Card(4, "Lightning Bolt"), DeckLines.Card(4, "Counterspell")), deck.main)
+        assertEquals(listOf(DeckLines.Card(2, "Pyroblast"), DeckLines.Card(1, "Negate")), deck.side)
+    }
+
+    @Test
+    fun `l'esportazione di Arena con compagno e intestazioni`() {
+        val deck = DeckLines.parse("Companion\n1 Lurrus of the Dream-Den\n\nDeck\n4 Ragavan (MH2) 138\n\nSideboard\n2 Duress")
+        assertEquals(listOf(DeckLines.Card(4, "Ragavan")), deck.main)
+        assertEquals(listOf(DeckLines.Card(1, "Lurrus of the Dream-Den"), DeckLines.Card(2, "Duress")), deck.side)
+    }
+
+    @Test
+    fun `il nome si pulisce da set, numero e foil`() {
+        assertEquals("Fire // Ice", DeckLines.cleanName("Fire//Ice (MH2) 290 *F*"))
+        assertEquals("Sol Ring", DeckLines.cleanName("  Sol   Ring  "))
+    }
+
+    @Test
+    fun `aggiungere una carta somma le copie e tiene il sideboard`() {
+        val raw = "3 Lightning Bolt\n\nSideboard\n1 Negate"
+        assertEquals("4 Lightning Bolt\n\nSideboard\n1 Negate", DeckLines.add(raw, "lightning bolt", side = false))
+        assertEquals("3 Lightning Bolt\n\nSideboard\n2 Negate", DeckLines.add(raw, "Negate", side = true))
+        assertEquals("1 Island", DeckLines.add("", "Island", side = false))
+    }
+
+    @Test
+    fun `il testo riscritto si rilegge uguale`() {
+        val deck = DeckLines.Deck(listOf(DeckLines.Card(4, "Bolt")), listOf(DeckLines.Card(2, "Duress")))
+        assertEquals(deck, DeckLines.parse(DeckLines.toText(deck)))
+    }
+}

@@ -6,6 +6,7 @@ import it.mull2five.app.data.Api
 import it.mull2five.app.data.ApiException
 import it.mull2five.app.data.ServerText
 import it.mull2five.app.data.Session
+import it.mull2five.app.ui.UiText
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 
@@ -30,6 +31,9 @@ class AppContainer(context: Context) {
     /** Un indirizzo arrivato da fuori, in attesa che l'interfaccia lo prenda. */
     val incoming = MutableStateFlow<Incoming?>(null)
 
+    /** Com'è andato il collegamento con Google chiesto dall'account: lo mostra la schermata dell'account. */
+    val googleLink = MutableStateFlow<LinkOutcome?>(null)
+
     /** Il messaggio da mostrare per un errore: quello del server, o uno generico. */
     fun messageOf(error: Throwable): String = (error as? ApiException)?.message ?: texts.unexpected
 
@@ -42,6 +46,9 @@ class AppContainer(context: Context) {
         Result.failure(e)
     }
 }
+
+/** L'esito di un giro con Google per collegarlo all'account. */
+data class LinkOutcome(val text: UiText, val isError: Boolean)
 
 sealed interface Incoming {
     /** Un link alla pagina di un torneo (event.html?id=…), anche dal QR dell'iscrizione. */

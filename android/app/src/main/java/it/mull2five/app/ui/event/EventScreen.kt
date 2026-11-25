@@ -21,12 +21,15 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -52,11 +55,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import it.mull2five.app.AppContainer
 import it.mull2five.app.R
+import it.mull2five.app.data.Circuit
 import it.mull2five.app.data.Formats
 import it.mull2five.app.data.Registration
 import it.mull2five.app.data.RegistrationField
 import it.mull2five.app.data.RegistrationIn
 import it.mull2five.app.data.Tournament
+import it.mull2five.app.ui.ActingBanner
 import it.mull2five.app.ui.Badge
 import it.mull2five.app.ui.ErrorBox
 import it.mull2five.app.ui.InfoRow
@@ -81,7 +86,8 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
 
-data class EventData(val tournament: Tournament, val registration: Registration?)
+/** Il torneo, l'iscrizione di chi guarda e il circuito di cui fa parte (se è pubblico). */
+data class EventData(val tournament: Tournament, val registration: Registration?, val circuit: Circuit? = null)
 
 /** Quello che serve al modulo d'iscrizione, chiesto all'API quando lo si apre. */
 data class RegisterForm(
@@ -108,7 +114,7 @@ class EventViewModel(private val c: AppContainer, private val id: Int, openRegis
 
     /** Chi apre il link del QR, o chi è andato ad accedere per iscriversi: il modulo si apre da solo. */
     private var wantsToRegister = openRegistration
-    private var userId: Int? = c.session.user.value?.id
+    private var sessionKey = sessionKey(c.session.user.value?.id, c.session.acting.value?.id)
 
     private val _links = Channel<String>(Channel.BUFFERED)
     val links = _links.receiveAsFlow()
@@ -117,19 +123,29 @@ class EventViewModel(private val c: AppContainer, private val id: Int, openRegis
 
     // Il primo caricamento lo fa la schermata quando si apre (LifecycleResumeEffect).
 
-    /** Dopo l'accesso (o l'uscita) la pagina si ricarica: cambia l'iscrizione da mostrare. */
-    fun onSession(id: Int?) {
-        if (id == userId) return
-        userId = id
+    /**
+     * Dopo l'accesso, l'uscita o il cambio di profilo (un figlio) la pagina si
+     * ricarica: cambia l'iscrizione da mostrare.
+     */
+    fun onSession(userId: Int?, actingId: Int?) {
+        val key = sessionKey(userId, actingId)
+        if (key == sessionKey) return
+        sessionKey = key
         load()
     }
+
+    private fun sessionKey(userId: Int?, actingId: Int?) = "$userId/$actingId"
 
     fun load(quiet: Boolean = false) {
         viewModelScope.launch {
             if (!quiet && state !is Load.Ready) state = Load.Loading
             c.attempt {
                 val tournament = c.api.tournament(id)
-                EventData(tournament, if (signedIn) c.api.myRegistration(id) else null)
+                // Il circuito si conosce solo per id: il nome e l'indirizzo stanno nell'elenco pubblico.
+                val circuit = tournament.seasonId?.let { season ->
+                    c.attempt { c.api.circuits() }.getOrNull()?.firstOrNull { it.id == season && !it.slug.isNullOrBlank() }
+                }
+                EventData(tournament, if (signedIn) c.api.myRegistration(id) else null, circuit)
             }.onSuccess { data ->
                 state = Load.Ready(data)
                 if (wantsToRegister && signedIn && data.registration == null && canRegister(data.tournament)) {
@@ -198,12 +214,23 @@ class EventViewModel(private val c: AppContainer, private val id: Int, openRegis
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EventScreen(id: Int, openRegistration: Boolean, onBack: () -> Unit, onLogin: () -> Unit, onOpenMine: () -> Unit) {
+fun EventScreen(
+    id: Int,
+    openRegistration: Boolean,
+    onBack: () -> Unit,
+    onLogin: () -> Unit,
+    onOpenMine: () -> Unit,
+    onResults: () -> Unit,
+    onStore: (String) -> Unit,
+    onCircuit: (String) -> Unit,
+    onManifestation: (String) -> Unit,
+) {
     val container = LocalContainer.current
     val vm = appViewModel(key = "evento-$id") { EventViewModel(it, id, openRegistration) }
     val context = LocalContext.current
     val user by container.session.user.collectAsStateWithLifecycle()
-    LaunchedEffect(user) { vm.onSession(user?.id) }
+    val acting by container.session.acting.collectAsStateWithLifecycle()
+    LaunchedEffect(user, acting) { vm.onSession(user?.id, acting?.id) }
     LaunchedEffect(vm) { vm.links.collect { context.openInTab(it) } }
     // Di ritorno dal pagamento (o da un'altra app) l'iscrizione può essere cambiata.
     LifecycleResumeEffect(vm) {
@@ -229,16 +256,21 @@ fun EventScreen(id: Int, openRegistration: Boolean, onBack: () -> Unit, onLogin:
         when (val state = vm.state) {
             Load.Loading -> LoadingBox(Modifier.padding(padding))
             is Load.Failed -> ErrorBox(state.message, onRetry = { vm.load() }, modifier = Modifier.padding(padding))
-            is Load.Ready -> EventBody(
-                data = state.value,
-                vm = vm,
-                modifier = Modifier.padding(padding),
-                onLogin = {
-                    vm.loginToRegister()
-                    onLogin()
-                },
-                onOpenMine = onOpenMine,
-            )
+            is Load.Ready -> Column(Modifier.padding(padding)) {
+                // Chi gestisce il profilo di un figlio iscrive lui: deve vederlo prima di premere.
+                if (user != null) acting?.let { ActingBanner(it.name, onStop = { container.session.actAs(null) }) }
+                EventBody(
+                    data = state.value,
+                    vm = vm,
+                    modifier = Modifier,
+                    onLogin = {
+                        vm.loginToRegister()
+                        onLogin()
+                    },
+                    onOpenMine = onOpenMine,
+                    links = EventLinks(onResults, onStore, onCircuit, onManifestation),
+                )
+            }
         }
     }
 
@@ -256,9 +288,24 @@ fun EventScreen(id: Int, openRegistration: Boolean, onBack: () -> Unit, onLogin:
     }
 }
 
+/** Dove porta la pagina: i risultati, il negozio, il circuito, la manifestazione. */
+private class EventLinks(
+    val results: () -> Unit,
+    val store: (String) -> Unit,
+    val circuit: (String) -> Unit,
+    val manifestation: (String) -> Unit,
+)
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun EventBody(data: EventData, vm: EventViewModel, modifier: Modifier, onLogin: () -> Unit, onOpenMine: () -> Unit) {
+private fun EventBody(
+    data: EventData,
+    vm: EventViewModel,
+    modifier: Modifier,
+    onLogin: () -> Unit,
+    onOpenMine: () -> Unit,
+    links: EventLinks,
+) {
     val t = data.tournament
     val context = LocalContext.current
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
@@ -315,6 +362,32 @@ private fun EventBody(data: EventData, vm: EventViewModel, modifier: Modifier, o
                     else stringResource(R.string.event_players, t.registeredPlayers),
                 )
                 structureText(t)?.let { InfoRow(Icons.Filled.Info, it) }
+                val manifestation = t.eventSlug
+                if (!manifestation.isNullOrBlank()) {
+                    InfoRow(
+                        Icons.AutoMirrored.Filled.List,
+                        t.eventName ?: stringResource(R.string.manifestation_title),
+                        detail = stringResource(R.string.manifestation_title),
+                        modifier = Modifier.clickable { links.manifestation(manifestation) },
+                    )
+                }
+                val store = t.organizationSlug
+                if (!store.isNullOrBlank()) {
+                    InfoRow(
+                        Icons.Filled.Home,
+                        t.organizationName ?: stringResource(R.string.store_title),
+                        detail = stringResource(R.string.store_title),
+                        modifier = Modifier.clickable { links.store(store) },
+                    )
+                }
+                data.circuit?.slug?.let { slug ->
+                    InfoRow(
+                        Icons.Filled.Star,
+                        data.circuit.name,
+                        detail = stringResource(R.string.circuit_title),
+                        modifier = Modifier.clickable { links.circuit(slug) },
+                    )
+                }
             }
         }
 
@@ -322,6 +395,12 @@ private fun EventBody(data: EventData, vm: EventViewModel, modifier: Modifier, o
         Action(data, vm, onLogin, onOpenMine)
         vm.notice?.let {
             Text(it.asString(), color = Brand.Green, modifier = Modifier.padding(top = 12.dp))
+        }
+        // Classifica, metagame e taglio: dal primo turno in poi.
+        if (t.status == "running" || t.status == "completed") {
+            OutlinedButton(onClick = links.results, modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) {
+                Text(stringResource(R.string.results_open))
+            }
         }
 
         Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {

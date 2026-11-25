@@ -217,16 +217,21 @@ Sempre il 24 novembre, una passata per l'uso di tutti i giorni:
 
 Il 24 novembre è nata **l'app Android**, il 25 rifatta **nativa** (Kotlin e
 Jetpack Compose, in `android/`): la prima, il sito dentro Chrome (TWA), "è
-praticamente una pagina web". È il lato del giocatore — ricerca, pagina del
-torneo e iscrizione, le mie iscrizioni con il torneo dal vivo (check-in,
-pagamento, lista, turno, risultato, classifica, ritiro), profilo e accesso —
-sulla stessa API del sito; niente back-office né notifiche (servirebbe
-Firebase). Pacchetto `it.mull2five.app`, e `it.mull2five.app.staging` che parla
+praticamente una pagina web". È **tutto il lato del giocatore**, senza rimandi
+al sito (solo privacy e termini): ricerca con tutti i filtri e "vicino a me",
+pagina del torneo e iscrizione, Scopri (negozi, circuiti, archivio delle liste
+e metagame), risultati pubblici, le mie iscrizioni con il torneo dal vivo
+(check-in, pagamento, lista, turno e tutti gli abbinamenti, risultato,
+classifica, ritiro, ID Wizards), statistiche, le mie liste con l'editor,
+segnalazioni, account (Google, profili dei figli con `X-Act-As`, esporta,
+elimina) — sulla stessa API del sito; niente back-office né notifiche
+(servirebbe Firebase). Pacchetto `it.mull2five.app`, e `it.mull2five.app.staging` che parla
 con lo staging. **L'accesso con Google dell'app** è un giro a sé con PKCE
 (`/api/auth/google/app/start|finish|complete` in `routers/google_auth.py`):
 Chrome non passa il cookie all'app, quindi la `/callback` rimanda a
 `<pacchetto>://google?code=…` e il `code` si ritira solo col segreto dell'app.
-I testi sono in `res/values*/strings.xml`; gli errori del server l'app li
+"Collega Google" dall'account fa lo stesso giro con un biglietto
+(`/api/auth/google/app/link` e `/link/finish`). I testi sono in `res/values*/strings.xml`; gli errori del server l'app li
 traduce con `frontend/locales`, copiati a ogni compilazione. Un endpoint che
 l'app usa (`data/Api.kt`, `Models.kt`) si allarga, non si cambia: l'app
 installata resta indietro finché non si aggiorna. I link a `/event.html` (e i

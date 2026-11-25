@@ -2,6 +2,7 @@ package it.mull2five.app.ui.mine
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -52,6 +53,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import it.mull2five.app.AppContainer
 import it.mull2five.app.R
@@ -65,11 +67,14 @@ import it.mull2five.app.data.Round
 import it.mull2five.app.data.SavedDeck
 import it.mull2five.app.data.Scores
 import it.mull2five.app.data.Standing
+import it.mull2five.app.data.SubmittedDeck
 import it.mull2five.app.data.Tournament
 import it.mull2five.app.ui.Badge
+import it.mull2five.app.ui.DeckText
 import it.mull2five.app.ui.ErrorBox
 import it.mull2five.app.ui.Load
 import it.mull2five.app.ui.LoadingBox
+import it.mull2five.app.ui.LocalContainer
 import it.mull2five.app.ui.Panel
 import it.mull2five.app.ui.SectionTitle
 import it.mull2five.app.ui.Tone
@@ -80,6 +85,7 @@ import it.mull2five.app.ui.event.Choice
 import it.mull2five.app.ui.login.SubmitButton
 import it.mull2five.app.ui.openExternal
 import it.mull2five.app.ui.openInTab
+import it.mull2five.app.ui.rememberTextFilePicker
 import it.mull2five.app.ui.theme.Brand
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
@@ -91,7 +97,13 @@ data class MyTournament(
     val registration: Registration,
     val round: Round?,
     val standings: List<Standing>,
+    /** L'ultimo turno con tutti i tavoli, se l'organizzatore pubblica gli abbinamenti. */
+    val allRound: Round? = null,
 ) {
+    /** Negli eventi ufficiali l'ID presso l'editore serve per risultati e inviti. */
+    val official: Boolean
+        get() = tournament.eventType in setOf("rcq", "store_championship", "premier") || tournament.invites > 0
+
     /** Il proprio tavolo nell'ultimo turno: si cerca per iscrizione, i nomi possono ripetersi. */
     val pairing: Pairing?
         get() = round?.pairings?.firstOrNull {
@@ -117,6 +129,14 @@ class MyTournamentViewModel(private val c: AppContainer, private val id: Int) : 
     var decks by mutableStateOf<List<SavedDeck>?>(null)
         private set
 
+    /** La lista già consegnata per ogni segmento, per ripartire da lì quando la si cambia. */
+    var currentDecks by mutableStateOf<Map<String, String>>(emptyMap())
+        private set
+
+    /** La lista consegnata che si sta guardando. */
+    var shownDeck by mutableStateOf<SubmittedDeck?>(null)
+        private set
+
     private val _effects = Channel<TournamentEffect>(Channel.BUFFERED)
     val effects = _effects.receiveAsFlow()
 
@@ -139,10 +159,11 @@ class MyTournamentViewModel(private val c: AppContainer, private val id: Int) : 
                     ?: throw ApiException(404, c.texts.translate("Iscrizione non trovata"))
                 val round = c.attempt { c.api.myPairings(id) }.getOrNull()?.lastOrNull()
                 // La classifica può essere nascosta dall'organizzatore: allora non c'è.
-                val standings = if (t.status == "running" || t.status == "completed") {
-                    c.attempt { c.api.standings(id) }.getOrDefault(emptyList())
-                } else emptyList()
-                MyTournament(t, registration, round, standings)
+                val started = t.status == "running" || t.status == "completed"
+                val standings = if (started) c.attempt { c.api.standings(id) }.getOrDefault(emptyList()) else emptyList()
+                // Anche gli abbinamenti possono essere nascosti: allora c'è solo il proprio tavolo.
+                val allRound = if (started) c.attempt { c.api.rounds(id) }.getOrNull()?.maxByOrNull { it.number } else null
+                MyTournament(t, registration, round, standings, allRound)
             }.onSuccess { state = Load.Ready(it) }
                 .onFailure { if (!quiet || state !is Load.Ready) state = Load.Failed(c.messageOf(it)) }
         }
@@ -172,14 +193,38 @@ class MyTournamentViewModel(private val c: AppContainer, private val id: Int) : 
 
     fun reject(pairing: Pairing, note: String) = act(R.string.result_rejected_now) { c.api.rejectResult(id, pairing.id, note) }
 
-    fun openDecks(game: String) {
+    /** Se il pagamento online non si fa più: il posto torna libero subito, non fra mezz'ora. */
+    fun abandonPayment() = act {
+        c.api.abandonPayment(id)
+        _effects.send(TournamentEffect.Closed)
+    }
+
+    fun setPublisherId(value: String) = act(R.string.mine_updated) { c.api.setPublisherId(id, value.trim()) }
+
+    fun setGameHandle(value: String) = act(R.string.mine_updated) { c.api.setGameHandle(id, value.trim()) }
+
+    fun openDecks(t: Tournament, hasDeck: Boolean) {
         viewModelScope.launch {
-            decks = c.attempt { c.api.decks() }.getOrDefault(emptyList()).filter { it.game == game }
+            // In modifica si riparte dalla lista già consegnata, non da un foglio bianco.
+            currentDecks = if (hasDeck) {
+                t.decklistFormats.associateWith { format ->
+                    c.attempt { c.api.submittedDeck(id, format) }.getOrNull()?.rawText.orEmpty()
+                }
+            } else emptyMap()
+            decks = c.attempt { c.api.decks() }.getOrDefault(emptyList()).filter { it.game == t.game }
         }
     }
 
     fun closeDecks() {
         decks = null
+    }
+
+    fun viewDeck(format: String) = act {
+        shownDeck = c.api.submittedDeck(id, format) ?: throw ApiException(404, c.texts.translate("Lista non trovata"))
+    }
+
+    fun closeDeckView() {
+        shownDeck = null
     }
 
     fun sendDeck(body: DecklistIn) = act(R.string.deck_sent) {
@@ -203,7 +248,7 @@ class MyTournamentViewModel(private val c: AppContainer, private val id: Int) : 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MyTournamentScreen(id: Int, onBack: () -> Unit, onOpenEvent: () -> Unit) {
+fun MyTournamentScreen(id: Int, onBack: () -> Unit, onOpenEvent: () -> Unit, onResults: () -> Unit) {
     val vm = appViewModel(key = "torneo-$id") { MyTournamentViewModel(it, id) }
     val context = LocalContext.current
     LaunchedEffect(vm) {
@@ -234,23 +279,39 @@ fun MyTournamentScreen(id: Int, onBack: () -> Unit, onOpenEvent: () -> Unit) {
         when (val state = vm.state) {
             Load.Loading -> LoadingBox(Modifier.padding(padding))
             is Load.Failed -> ErrorBox(state.message, onRetry = { vm.load() }, modifier = Modifier.padding(padding))
-            is Load.Ready -> Body(state.value, vm, Modifier.padding(padding), onOpenEvent)
+            is Load.Ready -> Body(state.value, vm, Modifier.padding(padding), onOpenEvent, onResults)
         }
     }
     val ready = (vm.state as? Load.Ready)?.value
     val decks = vm.decks
     if (ready != null && decks != null) {
-        DeckSheet(ready.tournament, decks, vm.busy, onDismiss = vm::closeDecks, onSend = vm::sendDeck)
+        DeckSheet(ready.tournament, decks, vm.currentDecks, vm.busy, onDismiss = vm::closeDecks, onSend = vm::sendDeck)
+    }
+    vm.shownDeck?.let { deck ->
+        AlertDialog(
+            onDismissRequest = vm::closeDeckView,
+            title = { Text(stringResource(R.string.deck_view_title) + if (deck.format.isNotBlank()) " · ${deck.format}" else "") },
+            text = {
+                Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(stringResource(R.string.deck_counts, deck.mainCount, deck.sideCount), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (deck.validationErrors.isNotBlank()) Text(deck.validationErrors, color = MaterialTheme.colorScheme.error)
+                    DeckText(deck.rawText)
+                }
+            },
+            confirmButton = { TextButton(onClick = vm::closeDeckView) { Text(stringResource(R.string.close)) } },
+        )
     }
 }
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun Body(data: MyTournament, vm: MyTournamentViewModel, modifier: Modifier, onOpenEvent: () -> Unit) {
+private fun Body(data: MyTournament, vm: MyTournamentViewModel, modifier: Modifier, onOpenEvent: () -> Unit, onResults: () -> Unit) {
     val t = data.tournament
     val r = data.registration
     val active = t.status == "published" || t.status == "running"
+    val acting by LocalContainer.current.session.acting.collectAsStateWithLifecycle()
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
+        acting?.let { Text(stringResource(R.string.acting_banner, it.name), color = Brand.Accent, modifier = Modifier.padding(bottom = 8.dp)) }
         Text(t.name, style = MaterialTheme.typography.headlineSmall)
         val time = t.startTime?.let { " · $it" }.orEmpty()
         val where = if (t.isOnline) stringResource(R.string.event_online) else t.place
@@ -264,8 +325,11 @@ private fun Body(data: MyTournament, vm: MyTournamentViewModel, modifier: Modifi
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) { StatusBadges(t, r) }
-        TextButton(onClick = onOpenEvent, modifier = Modifier.padding(start = 0.dp)) {
-            Text(stringResource(R.string.mine_open_event))
+        Row {
+            TextButton(onClick = onOpenEvent) { Text(stringResource(R.string.mine_open_event)) }
+            if (t.status == "running" || t.status == "completed") {
+                TextButton(onClick = onResults) { Text(stringResource(R.string.results_open)) }
+            }
         }
 
         vm.message?.let {
@@ -282,6 +346,7 @@ private fun Body(data: MyTournament, vm: MyTournamentViewModel, modifier: Modifi
             SectionTitle(stringResource(R.string.round_title, round.number))
             PairingPanel(t, round, pairing, r, vm)
         }
+        data.allRound?.takeIf { it.pairings.size > 1 }?.let { AllPairings(it, r.id) }
 
         SectionTitle(stringResource(R.string.mine_registration))
         Panel {
@@ -289,6 +354,24 @@ private fun Body(data: MyTournament, vm: MyTournamentViewModel, modifier: Modifi
                 PaymentRow(t, r, vm)
                 CheckInRow(t, r, vm, active)
                 DeckRow(t, r, vm)
+                if (data.official) {
+                    EditableLine(
+                        label = stringResource(if (t.game == "mtg") R.string.register_wizards else R.string.register_player_id),
+                        value = r.wizardsAccount,
+                        missing = stringResource(R.string.mine_publisher_missing),
+                        busy = vm.busy,
+                        onSave = vm::setPublisherId,
+                    )
+                }
+                if (t.isOnline && t.status != "completed") {
+                    EditableLine(
+                        label = stringResource(R.string.register_handle),
+                        value = r.gameHandle,
+                        missing = null,
+                        busy = vm.busy,
+                        onSave = vm::setGameHandle,
+                    )
+                }
                 r.fixedTable?.let { Line(stringResource(R.string.mine_seat), stringResource(R.string.mine_fixed_table, it)) }
                 r.teamName?.let { Line(stringResource(R.string.mine_team), it) }
                 val link = r.onlineLink.ifBlank { t.onlineLink }
@@ -469,6 +552,101 @@ private fun PaymentRow(t: Tournament, r: Registration, vm: MyTournamentViewModel
             if (t.payAtEvent && r.paymentDueBy == null) {
                 Text(stringResource(R.string.mine_pay_at_event), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
+            // Chi ha scelto di pagare online e ci ripensa: il posto si libera subito.
+            if (r.paymentDueBy != null && t.status == "published") {
+                var asking by remember { mutableStateOf(false) }
+                TextButton(onClick = { asking = true }, enabled = !vm.busy) {
+                    Text(stringResource(R.string.mine_abandon_payment), color = MaterialTheme.colorScheme.error)
+                }
+                if (asking) {
+                    AlertDialog(
+                        onDismissRequest = { asking = false },
+                        title = { Text(stringResource(R.string.mine_abandon_payment)) },
+                        text = { Text(stringResource(R.string.mine_abandon_payment_text, t.name)) },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                asking = false
+                                vm.abandonPayment()
+                            }) { Text(stringResource(R.string.confirm), color = MaterialTheme.colorScheme.error) }
+                        },
+                        dismissButton = { TextButton(onClick = { asking = false }) { Text(stringResource(R.string.cancel)) } },
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** Un dato che il giocatore corregge da sé: l'ID presso l'editore o il nome in gioco. */
+@Composable
+private fun EditableLine(label: String, value: String, missing: String?, busy: Boolean, onSave: (String) -> Unit) {
+    var editing by remember { mutableStateOf(false) }
+    Column {
+        Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.weight(1f)) {
+                when {
+                    value.isNotBlank() -> Text(value)
+                    missing != null -> Badge(missing, Tone.Warn)
+                    else -> Text("—", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            TextButton(onClick = { editing = true }, enabled = !busy) {
+                Text(stringResource(if (value.isBlank()) R.string.mine_add else R.string.mine_change))
+            }
+        }
+    }
+    if (editing) {
+        var text by rememberSaveable { mutableStateOf(value) }
+        AlertDialog(
+            onDismissRequest = { editing = false },
+            title = { Text(label) },
+            text = { OutlinedTextField(text, { text = it.take(120) }, singleLine = true, label = { Text(label) }) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        editing = false
+                        if (text.trim() != value) onSave(text)
+                    },
+                ) { Text(stringResource(R.string.save)) }
+            },
+            dismissButton = { TextButton(onClick = { editing = false }) { Text(stringResource(R.string.cancel)) } },
+        )
+    }
+}
+
+/** Tutti i tavoli del turno, non solo il proprio. */
+@Composable
+private fun AllPairings(round: Round, myRegistrationId: Int) {
+    var open by rememberSaveable { mutableStateOf(false) }
+    TextButton(onClick = { open = !open }) {
+        Text(stringResource(if (open) R.string.mine_all_pairings_hide else R.string.mine_all_pairings, round.number))
+    }
+    if (!open) return
+    Panel {
+        Column {
+            round.pairings.sortedBy { it.tableNumber }.forEachIndexed { index, p ->
+                if (index > 0) HorizontalDivider(color = Brand.Line)
+                val mine = p.playerARegistrationId == myRegistrationId || p.playerBRegistrationId == myRegistrationId
+                Row(
+                    Modifier.fillMaxWidth()
+                        .then(if (mine) Modifier.background(Brand.AccentDim, RoundedCornerShape(8.dp)) else Modifier)
+                        .padding(vertical = 8.dp, horizontal = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("${p.tableNumber}", Modifier.width(32.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Column(Modifier.weight(1f)) {
+                        Text(p.playerA, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = if (mine) FontWeight.Bold else null)
+                        Text(
+                            p.playerB ?: stringResource(R.string.round_bye),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Text(p.result, fontWeight = FontWeight.Bold)
+                }
+            }
         }
     }
 }
@@ -501,10 +679,21 @@ private fun DeckRow(t: Tournament, r: Registration, vm: MyTournamentViewModel) {
             Text(stringResource(R.string.mine_deck), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(96.dp))
             Badge(stringResource(label), tone)
         }
-        // Le liste si chiudono quando il torneo parte (o prima, se l'organizzatore lo decide).
-        if (t.status == "published" && !t.decklistLocked && !r.dropped) {
-            OutlinedButton(onClick = { vm.openDecks(t.game) }, enabled = !vm.busy) {
-                Text(stringResource(if (r.decklistStatus == "missing") R.string.deck_send else R.string.deck_change))
+        val hasDeck = r.decklistStatus != "missing"
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Le liste si chiudono quando il torneo parte (o prima, se l'organizzatore lo decide).
+            if (t.status == "published" && !t.decklistLocked && !r.dropped) {
+                OutlinedButton(onClick = { vm.openDecks(t, hasDeck) }, enabled = !vm.busy) {
+                    Text(stringResource(if (hasDeck) R.string.deck_change else R.string.deck_send))
+                }
+            }
+            // Negli eventi misti c'è una lista per formato: si guarda una per una.
+            if (hasDeck) {
+                t.decklistFormats.forEach { format ->
+                    TextButton(onClick = { vm.viewDeck(format) }, enabled = !vm.busy) {
+                        Text(stringResource(R.string.deck_view) + if (format.isNotBlank()) " · $format" else "")
+                    }
+                }
             }
         }
     }
@@ -582,10 +771,21 @@ private fun Leave(t: Tournament, vm: MyTournamentViewModel) {
 /** La lista per il torneo: una di quelle salvate nel profilo, o incollata. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DeckSheet(t: Tournament, decks: List<SavedDeck>, busy: Boolean, onDismiss: () -> Unit, onSend: (DecklistIn) -> Unit) {
+private fun DeckSheet(
+    t: Tournament,
+    decks: List<SavedDeck>,
+    current: Map<String, String>,
+    busy: Boolean,
+    onDismiss: () -> Unit,
+    onSend: (DecklistIn) -> Unit,
+) {
     var picked by remember { mutableStateOf<SavedDeck?>(null) }
-    var pasted by rememberSaveable { mutableStateOf("") }
     var format by rememberSaveable { mutableStateOf(t.decklistFormats.firstOrNull().orEmpty()) }
+    var pasted by rememberSaveable { mutableStateOf(current[format].orEmpty()) }
+    val pickFile = rememberTextFilePicker {
+        pasted = it
+        picked = null
+    }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(
             Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).imePadding()
@@ -597,7 +797,11 @@ private fun DeckSheet(t: Tournament, decks: List<SavedDeck>, busy: Boolean, onDi
             if (t.decklistFormats.size > 1) {
                 Text(stringResource(R.string.deck_format), style = MaterialTheme.typography.labelLarge)
                 t.decklistFormats.forEach { f ->
-                    Choice(f.ifBlank { stringResource(R.string.deck_main_format) }, selected = format == f) { format = f }
+                    Choice(f.ifBlank { stringResource(R.string.deck_main_format) }, selected = format == f) {
+                        // Cambiando segmento si riparte dalla sua lista, se c'è.
+                        if (picked == null && pasted == current[format].orEmpty()) pasted = current[f].orEmpty()
+                        format = f
+                    }
                 }
             }
             if (decks.isNotEmpty()) {
@@ -621,6 +825,7 @@ private fun DeckSheet(t: Tournament, decks: List<SavedDeck>, busy: Boolean, onDi
                 minLines = 5,
                 modifier = Modifier.fillMaxWidth(),
             )
+            TextButton(onClick = pickFile) { Text(stringResource(R.string.deck_import_file)) }
             val deck = picked
             SubmitButton(stringResource(R.string.send), busy, enabled = deck != null || pasted.trim().length >= 5) {
                 onSend(

@@ -54,9 +54,6 @@
     <string name="events_search">Busca un torneo</string>
     <string name="events_search_clear">Borrar la búsqueda</string>
     <string name="events_empty">No hay torneos en este periodo. Prueba a ampliar la búsqueda.</string>
-    <string name="events_days_7">7 días</string>
-    <string name="events_days_30">30 días</string>
-    <string name="events_days_90">3 meses</string>
     <string name="events_in_person">Presencial</string>
     <string name="events_online">Online</string>
 
@@ -178,9 +175,222 @@
 
     <string name="profile_title">Perfil</string>
     <string name="profile_signed_out">Entra para inscribirte en torneos y seguirlos desde el móvil.</string>
-    <string name="profile_decks">Tus listas (en la web)</string>
-    <string name="profile_history">Historial y estadísticas (en la web)</string>
-    <string name="profile_account">Cuenta y privacidad (en la web)</string>
+    <string name="profile_decks">Mis listas</string>
+    <string name="profile_account">Cuenta y privacidad</string>
     <string name="profile_logout">Salir</string>
     <string name="profile_version">Versión %1$s</string>
+
+    <!-- Comuni (nuovi) -->
+    <string name="close">Cerrar</string>
+    <string name="save">Guardar</string>
+    <string name="tab_discover">Descubrir</string>
+    <string name="filter_clear">Todos</string>
+    <string name="filter_reset">Quitar filtros</string>
+    <string name="acting_banner">Estás usando el perfil de %1$s</string>
+    <string name="acting_stop">Volver al tuyo</string>
+    <string name="record_header">V/E/D</string>
+    <string name="standings_player">Jugador</string>
+    <string name="standings_points">Puntos</string>
+
+    <!-- Ricerca eventi: filtri -->
+    <string name="events_past">Terminados</string>
+    <string name="events_period">Periodo</string>
+    <string name="events_near">Cerca de mí</string>
+    <string name="events_distance">Distancia</string>
+    <string name="events_type">Tipo</string>
+    <string name="events_format">Formato</string>
+    <string name="events_rel">Nivel</string>
+    <string name="events_empty_past">Ningún torneo terminado con estos filtros.</string>
+    <string name="period_1">Hoy</string>
+    <string name="period_7">7 días</string>
+    <string name="period_14">2 semanas</string>
+    <string name="period_30">30 días</string>
+    <string name="period_90">3 meses</string>
+    <string name="period_180">6 meses</string>
+    <string name="period_365">Un año</string>
+    <string name="period_all">Desde siempre</string>
+    <string name="distance_all">Toda Italia</string>
+    <string name="distance_km">%1$d km</string>
+    <string name="location_missing">No encuentro tu ubicación: activa la localización y vuelve a intentarlo.</string>
+    <string name="type_locals">Torneo local</string>
+    <string name="type_prerelease">Presentación</string>
+    <string name="type_rcq">RCQ</string>
+    <string name="type_store_championship">Store Championship</string>
+    <string name="type_premier">Premier</string>
+    <string name="type_other">Otro</string>
+
+    <!-- Scopri: negozi, circuiti, liste -->
+    <string name="discover_title">Descubrir</string>
+    <string name="discover_stores">Tiendas</string>
+    <string name="discover_circuits">Circuitos</string>
+    <string name="discover_decks">Listas</string>
+    <string name="stores_search">Busca una tienda o una ciudad</string>
+    <string name="stores_premium">Premium</string>
+    <string name="stores_upcoming">%1$d próximos</string>
+    <string name="stores_empty">No se encontraron tiendas.</string>
+    <string name="circuits_empty">Todavía no hay circuitos públicos.</string>
+    <string name="circuit_active">En curso</string>
+    <string name="circuit_closed">Cerrado</string>
+    <string name="circuit_stages">%1$d etapas</string>
+    <string name="archive_top_all">Todas</string>
+    <string name="archive_top_8">Top 8</string>
+    <string name="archive_top_winners">Ganadores</string>
+    <string name="archive_all_formats">Todos los formatos</string>
+    <string name="archive_position">Posición</string>
+    <string name="archive_archetype">Arquetipo</string>
+    <string name="archive_card">Contiene la carta</string>
+    <string name="archive_empty">Ninguna lista pública con estos filtros.</string>
+    <string name="archive_more">Mostrar más (%1$d)</string>
+    <string name="archive_meta_title">El metagame</string>
+    <string name="archive_lists">%1$d listas</string>
+    <string name="archive_top_cards">Las cartas más jugadas</string>
+    <string name="archive_of_players">de %1$d</string>
+    <string name="archive_no_archetype">Sin arquetipo</string>
+    <string name="archive_deck_title">Lista</string>
+    <string name="archive_deck_by">de %1$s</string>
+    <string name="archive_save">Guardar en mis listas</string>
+    <string name="archive_saved">Guardada en tus listas.</string>
+    <string name="deck_copied">Lista copiada.</string>
+
+    <!-- Negozio, circuito, manifestazione -->
+    <string name="store_title">Tienda</string>
+    <string name="store_upcoming">Próximos</string>
+    <string name="store_past">Ya jugados</string>
+    <string name="store_no_events">No hay torneos programados.</string>
+    <string name="circuit_title">Circuito</string>
+    <string name="circuit_leaderboard">Clasificación</string>
+    <string name="circuit_no_leaderboard">La clasificación empieza con la primera etapa jugada.</string>
+    <string name="circuit_stages_title">Etapas</string>
+    <string name="circuit_rules">Cómo se suman los puntos</string>
+    <string name="circuit_rule_win_draw">%1$d puntos por victoria, %2$d por empate (un bye es una victoria)</string>
+    <string name="circuit_rule_participation">%1$d puntos por cada etapa jugada</string>
+    <string name="circuit_rule_champion">%1$d puntos extra para quien gana la etapa</string>
+    <string name="circuit_rule_undefeated">%1$d puntos extra a quien gana todos los matches de una etapa</string>
+    <string name="circuit_rule_drop">Se descartan las %1$d peores puntuaciones, a partir de %2$d etapas jugadas</string>
+    <string name="circuit_rule_threshold">Te clasificas con %1$d puntos</string>
+    <string name="circuit_row_tournaments">%1$d torneos</string>
+    <string name="circuit_row_titles">%1$d ganados</string>
+    <string name="circuit_row_undefeated">%1$d invicto</string>
+    <string name="manifestation_title">Evento</string>
+
+    <!-- Risultati -->
+    <string name="results_open">Clasificación y resultados</string>
+    <string name="results_title">Resultados</string>
+    <string name="results_standings">Clasificación</string>
+    <string name="results_meta">Metagame</string>
+    <string name="results_bracket">Top cut</string>
+    <string name="results_hidden">El organizador no publica la clasificación de este torneo.</string>
+    <string name="results_none">La clasificación aparecerá después de la primera ronda.</string>
+    <string name="results_points">%1$d puntos</string>
+    <string name="results_show_deck">Ver la lista</string>
+    <string name="results_players">Jugadores</string>
+    <string name="results_win_rate">% victorias</string>
+    <string name="bracket_final">Final</string>
+    <string name="bracket_semis">Semifinales</string>
+    <string name="bracket_quarters">Cuartos</string>
+
+    <!-- Le mie liste -->
+    <string name="decks_title">Mis listas</string>
+    <string name="decks_new">Nueva lista</string>
+    <string name="decks_empty">Ninguna lista guardada. Guárdala aquí y envíala a cualquier torneo con un toque.</string>
+    <string name="deck_counts">%1$d + %2$d</string>
+    <string name="deck_counts_long">%1$d cartas de main, %2$d de side</string>
+    <string name="deck_edit_title">Lista</string>
+    <string name="deck_name">Nombre de la lista</string>
+    <string name="deck_no_format">Sin formato</string>
+    <string name="deck_text">La lista (una carta por línea: 4 Nombre)</string>
+    <string name="deck_search_card">Busca una carta para añadir</string>
+    <string name="deck_add_main">+ main</string>
+    <string name="deck_add_side">+ side</string>
+    <string name="deck_check_legality">Comprobar legalidad</string>
+    <string name="deck_legal">Legal en %1$s</string>
+    <string name="deck_save">Guardar la lista</string>
+    <string name="deck_saved_ok">Lista guardada.</string>
+    <string name="deck_import_file">Cargar desde archivo</string>
+    <string name="deck_send_to">Enviar a un torneo</string>
+    <string name="deck_no_targets">Ningún torneo al que enviarla: las listas se envían a los torneos en los que estás inscrito, mientras estén abiertos.</string>
+    <string name="deck_delete">Eliminar la lista</string>
+    <string name="deck_delete_text">¿Eliminar \"%1$s\"? Las listas ya enviadas a torneos se quedan.</string>
+    <string name="deck_view">Ver la lista entregada</string>
+    <string name="deck_view_title">Lista entregada</string>
+
+    <!-- Il mio torneo (nuovi) -->
+    <string name="mine_abandon_payment">No pago: libera la plaza</string>
+    <string name="mine_abandon_payment_text">Tu inscripción en %1$s se cancela y la plaza queda libre enseguida.</string>
+    <string name="mine_add">Añadir</string>
+    <string name="mine_change">Cambiar</string>
+    <string name="mine_updated">Actualizado.</string>
+    <string name="mine_publisher_missing">Falta: sirve para resultados e invitaciones</string>
+    <string name="mine_all_pairings">Todos los emparejamientos de la ronda %1$d</string>
+    <string name="mine_all_pairings_hide">Ocultar los emparejamientos de la ronda %1$d</string>
+
+    <!-- Account -->
+    <string name="account_title">Cuenta y privacidad</string>
+    <string name="account_data">Tus datos</string>
+    <string name="account_name_note">Tu nombre aparece en clasificaciones y emparejamientos. Para cambiarlo, abre una incidencia al sitio.</string>
+    <string name="account_access">Acceso</string>
+    <string name="account_profiles">Perfiles de los hijos</string>
+    <string name="account_privacy">Privacidad</string>
+    <string name="account_export_text">Descarga en un archivo todo lo que el sitio sabe de ti: cuenta, inscripciones, listas, pagos.</string>
+    <string name="account_export">Descargar mis datos</string>
+    <string name="account_export_saved">Archivo guardado.</string>
+    <string name="account_logout_all">Cerrar sesión en todos los dispositivos</string>
+    <string name="account_logout_all_text">Se cierran las sesiones abiertas en móviles y ordenadores, también esta.</string>
+    <string name="account_delete">Eliminar la cuenta</string>
+    <string name="account_delete_text">Se borran el email, el nombre, el ID de Wizards y las listas guardadas, también de los perfiles de los hijos; los resultados quedan sin tu nombre. No se puede deshacer.</string>
+    <string name="account_profile_delete">Eliminar el perfil</string>
+    <string name="account_profile_delete_text">¿Eliminar el perfil de %1$s? Se borran sus inscripciones y listas.</string>
+    <string name="account_profile_tournaments">%1$d inscripciones</string>
+    <string name="account_profile_manage">Usar</string>
+    <string name="account_profile_request_text">Los perfiles nuevos los crea el sitio: pídelo con una incidencia.</string>
+    <string name="account_profile_request">Pedir un perfil</string>
+    <string name="account_profiles_text">Quien tiene menos de %1$d años juega con un perfil gestionado por un padre: lo inscribes, pagas y entregas sus listas.</string>
+    <string name="account_google_linked_as">Vinculado a Google como %1$s</string>
+    <string name="account_google_unlink">Desvincular Google</string>
+    <string name="account_google_needs_password">Para desvincular Google elige primero una contraseña, o ya no podrías entrar.</string>
+    <string name="account_google_not_linked">Google no está vinculado.</string>
+    <string name="account_google_link">Vincular Google</string>
+    <string name="account_google_unlinked">Google desvinculado.</string>
+    <string name="account_google_linked_now">Google vinculado: a partir de ahora también puedes entrar con Google.</string>
+    <string name="account_password_text">Entras con email y contraseña.</string>
+    <string name="account_password_none">No tienes contraseña: entras con Google.</string>
+    <string name="account_password_change">Cambiar contraseña</string>
+    <string name="account_password_choose">Elegir una contraseña</string>
+    <string name="account_password_sent">Te hemos enviado un email con el enlace para elegir la contraseña.</string>
+    <string name="account_acting_now">Hecho: las inscripciones y listas ahora son las del perfil elegido.</string>
+
+    <!-- Segnalazioni -->
+    <string name="tickets_title">Incidencias</string>
+    <string name="tickets_new">Nueva incidencia</string>
+    <string name="tickets_empty">Ninguna incidencia. Si algo va mal, escribe al organizador o al sitio.</string>
+    <string name="ticket_open">Abierta</string>
+    <string name="ticket_answered">Respondida</string>
+    <string name="ticket_closed">Cerrada</string>
+    <string name="ticket_to_organizer">Al organizador · %1$s</string>
+    <string name="ticket_to_site">Al sitio</string>
+    <string name="ticket_closed_text">La incidencia está cerrada. Reábrela si aún la necesitas.</string>
+    <string name="ticket_reopen">Reabrir</string>
+    <string name="ticket_reply">Responder</string>
+    <string name="ticket_close">Cerrar la incidencia</string>
+    <string name="ticket_needs_text">Escribe el asunto y el mensaje.</string>
+    <string name="ticket_profile_subject">Solicitud de un perfil para un hijo</string>
+    <string name="ticket_profile_body">Quisiera un perfil para mi hijo/hija. Nombre:  Año de nacimiento: </string>
+    <string name="ticket_to">A quién escribes</string>
+    <string name="ticket_scope_organizer">Al organizador de un torneo</string>
+    <string name="ticket_scope_site">Al sitio (cuenta, pagos, problemas)</string>
+    <string name="ticket_which_tournament">Qué torneo</string>
+    <string name="ticket_subject">Asunto</string>
+    <string name="ticket_body">Mensaje</string>
+
+    <!-- Statistiche -->
+    <string name="profile_stats">Estadísticas e historial</string>
+    <string name="profile_tickets">Incidencias</string>
+    <string name="stats_title">Estadísticas</string>
+    <string name="stats_public_note">Así te ve quien abre tu perfil público.</string>
+    <string name="stats_tournaments">Torneos</string>
+    <string name="stats_by_format">Por formato</string>
+    <string name="stats_by_archetype">Por arquetipo</string>
+    <string name="stats_history">Torneos jugados</string>
+    <string name="stats_no_history">Todavía ningún torneo jugado.</string>
+    <string name="stats_invited">Invitación</string>
 </resources>

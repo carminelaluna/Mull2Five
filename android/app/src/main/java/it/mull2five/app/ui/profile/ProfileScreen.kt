@@ -10,6 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Star
@@ -39,8 +40,10 @@ import it.mull2five.app.AppContainer
 import it.mull2five.app.BuildConfig
 import it.mull2five.app.R
 import it.mull2five.app.data.User
+import it.mull2five.app.ui.ActingBanner
 import it.mull2five.app.ui.LocalContainer
 import it.mull2five.app.ui.MessageBox
+import it.mull2five.app.ui.NavRow
 import it.mull2five.app.ui.appViewModel
 import it.mull2five.app.ui.openInTab
 import it.mull2five.app.ui.theme.Brand
@@ -58,23 +61,31 @@ class ProfileViewModel(private val c: AppContainer) : ViewModel() {
         viewModelScope.launch { c.attempt { c.api.me() }.onSuccess { me = it } }
     }
 
+    fun stopActing() = c.session.actAs(null)
+
     fun logout() = c.session.clear()
 }
 
 /**
- * Il profilo. Quello che l'app non fa ancora (liste salvate, storico, dati e
- * privacy dell'account) si apre sul sito, in una scheda: lì si entra a parte.
+ * Il profilo: le statistiche, le liste salvate, le segnalazioni e l'account,
+ * tutto dentro l'app. Fuori restano solo privacy e termini, che sono pagine del sito.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ProfileScreen(onLogin: () -> Unit) {
+fun ProfileScreen(
+    onLogin: () -> Unit,
+    onStats: () -> Unit,
+    onDecks: () -> Unit,
+    onTickets: () -> Unit,
+    onAccount: () -> Unit,
+) {
     val vm = appViewModel { ProfileViewModel(it) }
     val container = LocalContainer.current
     val user by container.session.user.collectAsStateWithLifecycle()
+    val acting by container.session.acting.collectAsStateWithLifecycle()
     LaunchedEffect(user) { vm.load() }
     val context = LocalContext.current
-    val site = container.siteUrl
-    val open = { page: String -> context.openInTab("$site/$page") }
+    val open = { page: String -> context.openInTab("${container.siteUrl}/$page") }
 
     Scaffold(topBar = { TopAppBar(title = { Text(stringResource(R.string.profile_title)) }) }) { padding ->
         Column(Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState())) {
@@ -88,6 +99,7 @@ fun ProfileScreen(onLogin: () -> Unit) {
                     )
                 }
             } else {
+                acting?.let { ActingBanner(it.name, onStop = vm::stopActing) }
                 ListItem(
                     headlineContent = { Text(vm.me?.displayName ?: user?.email.orEmpty(), style = MaterialTheme.typography.titleMedium) },
                     supportingContent = { Text(user?.email.orEmpty()) },
@@ -95,9 +107,10 @@ fun ProfileScreen(onLogin: () -> Unit) {
                     colors = ListItemDefaults.colors(containerColor = Brand.Bg),
                 )
                 HorizontalDivider(color = Brand.Line)
-                Item(Icons.AutoMirrored.Filled.List, stringResource(R.string.profile_decks)) { open("decks.html") }
-                Item(Icons.Filled.Star, stringResource(R.string.profile_history)) { open("history.html") }
-                Item(Icons.Filled.Lock, stringResource(R.string.profile_account)) { open("my-registrations.html") }
+                NavRow(stringResource(R.string.profile_stats), icon = Icons.Filled.Star, onClick = onStats)
+                NavRow(stringResource(R.string.profile_decks), icon = Icons.AutoMirrored.Filled.List, onClick = onDecks)
+                NavRow(stringResource(R.string.profile_tickets), icon = Icons.Filled.Email, onClick = onTickets)
+                NavRow(stringResource(R.string.profile_account), icon = Icons.Filled.Lock, onClick = onAccount)
                 Item(Icons.AutoMirrored.Filled.ExitToApp, stringResource(R.string.profile_logout), onClick = vm::logout)
                 HorizontalDivider(color = Brand.Line)
             }

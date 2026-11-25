@@ -68,6 +68,11 @@ class GoogleAppSignupIn(GoogleSignupIn, GoogleAppCodeIn):
     """Chi entra dall'app con Google per la prima volta."""
 
 
+class GoogleAppLinkIn(BaseModel):
+    """L'app che vuole collegare Google: l'hash del suo segreto (PKCE)."""
+    challenge: str = Field(pattern=r"^[A-Za-z0-9_-]{43}$")
+
+
 class GoogleFinishOut(BaseModel):
     """Il ritorno da Google: o il token di accesso, o la registrazione da completare."""
     access_token: str | None = None
