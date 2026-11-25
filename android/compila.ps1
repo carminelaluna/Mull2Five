@@ -1,27 +1,30 @@
 ﻿<#
 .SYNOPSIS
-  Compila l'app Android di Mull2Five. Istruzioni complete: docs/android.md.
+  Compila l'app Android di Mull2Five (Kotlin e Jetpack Compose). Istruzioni
+  complete: docs/android.md.
 
 .DESCRIPTION
-  Rifà da capo il progetto Gradle da <Ambiente>\twa-manifest.json, che è l'unica
-  cosa nel repository, e lo compila. Le icone le scarica dal sito: il sito di
-  quell'ambiente dev'essere acceso e avere il commit con le icone.
-
   -Ambiente staging
-      APK di prova, firmato con la chiave di debug di questo PC
+      L'app di prova, che parla con lo staging: pacchetto it.mull2five.app.staging,
+      nome "M2F staging", firmata con la chiave di debug di questo PC
       (%USERPROFILE%\.android\debug.keystore, la crea Gradle la prima volta).
-      Esce in android\staging\mull2five-staging.apk, e lo script stampa
-      l'impronta da mettere su Render in ANDROID_CERT_FINGERPRINTS dello staging.
-
-  -Ambiente produzione
-      AAB per Google Play (app-release-bundle.aab) e APK firmato, con la chiave
-      di caricamento indicata in produzione\twa-manifest.json (signingKey).
-      Le password le chiede Bubblewrap qui nel terminale.
+      Esce in android\mull2five-staging.apk.
 
   -Ambiente produzione -ChiaveDebug
       L'app vera (mull2five.it) firmata con la chiave di debug di questo PC, per
-      provarla sul telefono senza Google Play: android\produzione\mull2five-produzione-debug.apk.
+      provarla sul telefono senza Google Play: android\mull2five-produzione-debug.apk.
       Prima di installare quella di Google Play va disinstallata.
+
+  -Ambiente produzione
+      Per Google Play: android\mull2five-produzione.aab, e l'APK firmato allo
+      stesso modo. La chiave di caricamento è %USERPROFILE%\.mull2five\mull2five-upload.jks
+      (alias "upload"), o quella in M2F_KEYSTORE / M2F_KEY_ALIAS; la password
+      la chiede lo script qui nel terminale e non resta scritta da nessuna parte.
+
+  Alla fine stampa l'impronta SHA-256 della firma dell'APK: è quella che va su
+  Render in ANDROID_CERT_FINGERPRINTS perché i link a /event.html si aprano
+  nell'app. Per l'app scaricata da Google Play vale invece l'impronta della
+  chiave di Google (Play Console, "Integrità dell'app").
 
   Prima volta su questo PC: android\strumenti.ps1.
 
@@ -31,17 +34,22 @@
 
 .PARAMETER Installa
   Dopo la compilazione installa l'APK sul telefono collegato con il cavo (adb).
+
+.PARAMETER Api
+  Fa parlare l'app con un'altra API invece che col sito del suo ambiente. Per
+  l'API di sviluppo sul PC, dall'emulatore: -Api http://10.0.2.2:8000
 #>
 param(
     [Parameter(Mandatory)][ValidateSet('staging', 'produzione')][string]$Ambiente,
     [switch]$ChiaveDebug,
-    [switch]$Installa
+    [switch]$Installa,
+    [string]$Api
 )
 
 $ErrorActionPreference = 'Stop'
 
 function Invoke-Checked([string]$What, [scriptblock]$Command) {
-    # Gradle e Bubblewrap scrivono avvisi su stderr: conta solo il codice d'uscita.
+    # Gradle scrive avvisi su stderr: conta solo il codice d'uscita.
     $ErrorActionPreference = 'Continue'
     & $Command
     if ($LASTEXITCODE -ne 0) { throw "$What è uscito con il codice $LASTEXITCODE" }
@@ -52,57 +60,58 @@ if (-not (Test-Path $configFile)) { throw "Manca $configFile`: prima va lanciato
 $config = Get-Content $configFile -Raw | ConvertFrom-Json
 $env:JAVA_HOME = $config.jdkPath
 $env:ANDROID_HOME = $config.androidSdkPath
+$env:Path = "$(Join-Path $config.jdkPath 'bin');$env:Path"
 
+$flavor = (Get-Culture).TextInfo.ToTitleCase($Ambiente)   # staging → Staging, per i nomi dei task
 $debug = $ChiaveDebug -or $Ambiente -eq 'staging'
-if ($debug) {
-    # La crea Gradle alla prima compilazione; ha la stessa password su tutti i
-    # PC ("android"): non è un segreto, ed è diversa da PC a PC.
-    $key = Join-Path $HOME '.android\debug.keystore'
-    $alias = 'androiddebugkey'
-} else {
-    $twa = Get-Content (Join-Path $PSScriptRoot "$Ambiente\twa-manifest.json") -Raw | ConvertFrom-Json
-    $key = $twa.signingKey.path -replace '^~', $HOME
-    $alias = $twa.signingKey.alias
-}
 $service = if ($Ambiente -eq 'staging') { 'mull2five-staging' } else { 'mull2five' }
-$bubblewrap = Join-Path $PSScriptRoot 'node_modules\@bubblewrap\cli\bin\bubblewrap.js'
+$outputs = Join-Path $PSScriptRoot 'app\build\outputs'
+
+$gradleArgs = @("assemble${flavor}Release", '--no-daemon', '--console=plain')
+if ($Api) { $gradleArgs += "-Papi=$Api" }
+if ($debug) {
+    $gradleArgs += '-PfirmaDebug'
+} else {
+    $gradleArgs += "bundle${flavor}Release"
+    $key = if ($env:M2F_KEYSTORE) { $env:M2F_KEYSTORE } else { Join-Path $HOME '.mull2five\mull2five-upload.jks' }
+    if (-not (Test-Path $key)) { throw "Manca la chiave di caricamento $key (docs/android.md, ""La chiave di caricamento"")" }
+    $secure = Read-Host "Password della chiave $key" -AsSecureString
+    $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
+    try { $env:M2F_KEYSTORE_PASSWORD = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr) }
+    finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
+}
 
 Push-Location $PSScriptRoot
 try {
-    if (-not (Test-Path $bubblewrap)) { Invoke-Checked 'npm ci' { npm.cmd ci } }
-
-    # Percorsi relativi: la cartella del progetto ha uno spazio nel nome.
-    Invoke-Checked 'bubblewrap update' {
-        node $bubblewrap update --skipVersionUpgrade "--manifest=$Ambiente/twa-manifest.json" "--directory=$Ambiente"
-    }
-
-    Set-Location $Ambiente
-    if ($debug) {
-        Invoke-Checked 'gradle' { .\gradlew.bat assembleDebug --no-daemon }
-        $name = if ($Ambiente -eq 'staging') { 'mull2five-staging.apk' } else { 'mull2five-produzione-debug.apk' }
-        $apk = Join-Path (Get-Location) $name
-        Copy-Item 'app\build\outputs\apk\debug\app-debug.apk' $apk -Force
-
-        $keytool = Join-Path $config.jdkPath 'bin\keytool.exe'
-        $sha = & $keytool -list -v -keystore $key -alias $alias -storepass android |
-            Select-String 'SHA256:' | ForEach-Object { ($_ -split 'SHA256:')[1].Trim() }
-        Write-Host ''
-        Write-Host "Impronta della chiave di debug di questo PC: $sha"
-        Write-Host "Su Render, servizio ${service}: ANDROID_CERT_FINGERPRINTS (separate da virgola se sono piu' di una)."
-    } else {
-        if (-not (Test-Path $key)) { throw "Manca la chiave di caricamento $key (docs/android.md, ""La chiave di caricamento"")" }
-        Invoke-Checked 'bubblewrap build' {
-            node $bubblewrap build --skipPwaValidation "--signingKeyPath=$key" "--signingKeyAlias=$alias"
-        }
-        $apk = Join-Path (Get-Location) 'app-release-signed.apk'
-        Write-Host ''
-        Write-Host "Per Google Play: $(Join-Path (Get-Location) 'app-release-bundle.aab')"
-    }
-    Write-Host "APK: $apk"
-
-    if ($Installa) {
-        Invoke-Checked 'adb install' { & (Join-Path $env:ANDROID_HOME 'platform-tools\adb.exe') install -r $apk }
-    }
+    Invoke-Checked 'gradle' { .\gradlew.bat @gradleArgs }
 } finally {
+    Remove-Item Env:M2F_KEYSTORE_PASSWORD -ErrorAction SilentlyContinue
     Pop-Location
+}
+
+$name = if ($Ambiente -eq 'staging') { 'mull2five-staging' } elseif ($debug) { 'mull2five-produzione-debug' } else { 'mull2five-produzione' }
+$apk = Join-Path $PSScriptRoot "$name.apk"
+Copy-Item (Join-Path $outputs "apk\$Ambiente\release\app-$Ambiente-release.apk") $apk -Force
+Write-Host ''
+Write-Host "APK: $apk"
+if (-not $debug) {
+    $aab = Join-Path $PSScriptRoot "$name.aab"
+    Copy-Item (Join-Path $outputs "bundle\${Ambiente}Release\app-$Ambiente-release.aab") $aab -Force
+    Write-Host "Per Google Play: $aab"
+}
+
+# L'impronta la si legge dall'APK, così non serve la password della chiave.
+$buildTools = Get-ChildItem (Join-Path $env:ANDROID_HOME 'build-tools') -Directory |
+    Sort-Object { [version]$_.Name } | Select-Object -Last 1
+$apksigner = Join-Path $buildTools.FullName 'apksigner.bat'
+$hex = & $apksigner verify --print-certs $apk | Select-String 'certificate SHA-256 digest: ([0-9a-f]+)' |
+    ForEach-Object { $_.Matches[0].Groups[1].Value } | Select-Object -First 1
+if ($hex) {
+    $sha = (($hex.ToUpper() -split '(..)') | Where-Object { $_ }) -join ':'
+    Write-Host "Impronta della firma: $sha"
+    Write-Host "Su Render, servizio ${service}: ANDROID_CERT_FINGERPRINTS (separate da virgola se sono piu' di una)."
+}
+
+if ($Installa) {
+    Invoke-Checked 'adb install' { & (Join-Path $env:ANDROID_HOME 'platform-tools\adb.exe') install -r $apk }
 }

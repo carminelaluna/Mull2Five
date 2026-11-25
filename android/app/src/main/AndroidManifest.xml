@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Da Android 11 un'app vede solo le app che dichiara: qui il browser con
+         le schede personalizzate (Google, pagamenti, pagine del sito). -->
+    <queries>
+        <intent>
+            <action android:name="android.support.customtabs.action.CustomTabsService" />
+        </intent>
+    </queries>
+
+    <application
+        android:name=".Mull2FiveApp"
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.Mull2Five"
+        android:usesCleartextTraffic="${cleartext}">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- Il ritorno da Google: <pacchetto>://google?code=… (routers/google_auth.py). -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:host="google"
+                    android:scheme="${applicationId}" />
+            </intent-filter>
+
+            <!-- La pagina di un torneo, anche dal QR dell'iscrizione, si apre qui.
+                 Chrome la lascia all'app solo se /.well-known/assetlinks.json la nomina. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:host="${siteHost}"
+                    android:path="/event.html"
+                    android:scheme="https" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

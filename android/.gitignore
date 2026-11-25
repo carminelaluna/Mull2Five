@@ -1,11 +1,15 @@
-node_modules/
+# Quello che Gradle e Android Studio rigenerano.
+.gradle/
+.kotlin/
+build/
+local.properties
+.idea/
+*.iml
+captures/
 
-# Il progetto Gradle lo rigenera compila.ps1 da twa-manifest.json, a ogni
-# compilazione: nel repository c'è solo quello.
-produzione/*
-!produzione/twa-manifest.json
-staging/*
-!staging/twa-manifest.json
+# Gli APK e gli AAB compilati: si rifanno con compila.ps1.
+*.apk
+*.aab
 
 # Le chiavi di firma non entrano mai: il repository è pubblico.
 *.jks

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Il tema serve solo alla finestra prima che parta Compose: colori e caratteri sono in ui/theme/Theme.kt. -->
+<resources>
+    <style name="Theme.Mull2Five" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/background</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+</resources>

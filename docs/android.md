@@ -1,11 +1,9 @@
 # L'app Android
 
-L'app **è il sito**, aperto da Chrome a schermo intero: una *Trusted Web
-Activity* (TWA), costruita con [Bubblewrap](https://github.com/GoogleChromeLabs/bubblewrap).
-Deciso il 24/11/2026, scartando Capacitor e un'app nativa: con un solo codice,
-ogni deploy aggiorna anche l'app, e le due cose difficili — l'accesso con Google
-e le notifiche — funzionano già così. In una WebView (Capacitor) Google rifiuta
-l'accesso, e le notifiche andrebbero rifatte con Firebase.
+Un'**app nativa** in Kotlin e Jetpack Compose, che parla con la stessa API del
+sito (`/api`). Dal 25/11/2026: la prima versione del 24/11 era il sito dentro
+Chrome (TWA, con Bubblewrap), ma "è praticamente una pagina web", e l'utente ha
+scelto l'app nativa.
 
 I comandi sono per **PowerShell**, dalla cartella del progetto:
 
@@ -18,88 +16,114 @@ caricamento sta fuori dal progetto, la sua password nel password manager.
 
 ---
 
+## Cosa fa
+
+È il lato del **giocatore**, in tre schede:
+
+- **Eventi** — la ricerca dei tornei pubblicati e in corso, per nome, nei
+  prossimi 7 giorni, 30 o 3 mesi, dal vivo od online. La pagina del torneo ha
+  le informazioni, "Condividi", il calendario, la mappa e **l'iscrizione**:
+  Wizards Account o nome in gioco se il gioco li vuole, le domande
+  dell'organizzatore, il codice sconto e il modo di pagare. Il pagamento online
+  apre Stripe o PayPal in una scheda di Chrome dentro l'app; tornati, la pagina
+  si ricarica da sola.
+- **Iscrizioni** — i tornei a cui si è iscritti, da giocare e conclusi. Dentro
+  ognuno, **il torneo dal vivo**: quota (e "Paga" se manca), check-in, lista
+  (scelta fra quelle salvate o incollata), il turno con tavolo e avversario, il
+  risultato da mandare, confermare o contestare, la classifica, e "Ritirati" o
+  "Annulla l'iscrizione". Mentre il torneo è in corso la schermata si aggiorna
+  ogni 30 secondi.
+- **Profilo** — accesso con password o con Google, registrazione, password
+  dimenticata, uscita. Le liste salvate, lo storico e l'account si aprono sul
+  sito, in una scheda di Chrome.
+
+**Non c'è**: il back-office (gli organizzatori usano il sito), i circuiti, le
+notifiche. Il Web Push del sito non arriva a un'app nativa: servirebbe Firebase
+Cloud Messaging, e un server che mandi a lui oltre che al browser.
+
+**Le lingue** sono quelle del sito: italiano, inglese, spagnolo, francese e
+tedesco, scelte da quella del telefono. I testi dell'app stanno in
+`android/app/src/main/res/values*/strings.xml`; i messaggi d'errore del server,
+che arrivano in italiano, l'app li traduce con gli stessi
+`frontend/locales/*.json` del sito, copiati dentro a ogni compilazione.
+
+**Il QR dell'iscrizione e i link al torneo** (`/event.html?id=…`) aprono l'app,
+se è installata, sulla pagina del torneo (con `&iscriviti=1` apre anche
+l'iscrizione). Android lo fa solo se il sito la riconosce: vedi "Il legame col
+sito".
+
 ## Come funziona
 
 | | Produzione | Staging |
 |---|---|---|
 | Pacchetto | `it.mull2five.app` | `it.mull2five.app.staging` |
-| Apre | `https://mull2five.it` | `https://mull2five-staging.onrender.com` |
+| Nome sul telefono | Mull2Five | M2F staging |
+| Parla con | `https://mull2five.it` | `https://mull2five-staging.onrender.com` |
 | Firmata con | la chiave di Google Play (Play App Signing) | la chiave di debug del PC che la compila |
 | Si installa | da Google Play | a mano, dall'APK |
 
 Le due app hanno pacchetti diversi, quindi stanno sullo stesso telefono. Serve
-Android 7.0 o più recente (`minSdkVersion` 24: meno di così la libreria di Google
-per le TWA non compila).
+Android 8.0 o più recente (`minSdk` 26).
 
-**La barra dell'indirizzo.** Chrome apre l'app a schermo intero solo se il sito
-la riconosce: `/.well-known/assetlinks.json` deve nominare il pacchetto e
-l'impronta SHA-256 del certificato con cui l'app è firmata. Lo scrive il backend
-(`routers/site.py`, `asset_links`) da due variabili su Render:
+**La sessione** è la stessa del sito: lo stesso token, tenuto nelle preferenze
+private dell'app. A ogni ritorno nell'app, passata mezza giornata, se ne chiede
+uno nuovo; se il server risponde 401, l'app esce.
 
-- `ANDROID_PACKAGE` — il pacchetto; in produzione resta quello predefinito
-  (`it.mull2five.app`), lo staging ha `it.mull2five.app.staging`;
-- `ANDROID_CERT_FINGERPRINTS` — le impronte, separate da virgola.
+**L'accesso con Google** non può usare il giro del sito, che passa il risultato
+con un cookie del browser: la scheda di Chrome il cookie non lo dà all'app.
+Così l'app fa un giro suo, con PKCE (RFC 7636), in `routers/google_auth.py`:
 
-Senza impronte la risposta è `[]`: l'app si apre lo stesso, ma con la barra
-dell'indirizzo in cima, come una scheda qualsiasi. Non si rompe niente.
+1. l'app inventa un segreto e apre in una scheda di Chrome
+   `GET /api/auth/google/app/start?app=<pacchetto>&challenge=<hash del segreto>`;
+2. da lì si va da Google e si torna alla `/callback` di sempre, che invece di
+   tornare al sito rimanda a `<pacchetto>://google?code=…` (o `?error=…`): un
+   indirizzo che apre solo l'app;
+3. l'app ritira il token con `POST /api/auth/google/app/finish`, mandando il
+   `code` e il segreto; per un account nuovo, completa con
+   `POST /api/auth/google/app/complete` (età e termini, come sul sito).
 
-**Cosa funziona come sul sito.**
-- **Accesso**, con la password e con Google: per Google è Chrome, non una
-  WebView, e lo lascia passare.
-- **Pagamenti**: le pagine di Stripe e PayPal si aprono con la loro barra in
-  cima, perché sono un altro dominio; tornati sul sito, la barra sparisce.
-- **Notifiche**: è il Web Push che c'è già (`sw.js`, `push.js`), consegnato
-  all'app. Da Android 13 il permesso lo chiede l'app. L'icona piccola delle
-  notifiche è `icon-monochrome-512.png`: Android la disegna in un colore solo, e
-  un'icona piena diventerebbe un quadrato.
-- **Posizione** ("Usa la mia posizione"): il permesso lo chiede l'app.
-- **I link al sito**, compresi i QR dell'iscrizione, aprono l'app se è
-  installata: lo stesso `assetlinks.json` vale anche per questo.
-- Tenendo premuta l'icona compaiono due scorciatoie: **Cerca eventi** e
-  **Le mie iscrizioni**.
-
-Senza Chrome (o un altro browser che sappia fare da TWA) l'app apre il sito in
-una *Custom Tab*, con la barra.
-
-**Quando va ricompilata.** Quasi mai: le pagine arrivano dal sito, quindi un
-deploy aggiorna l'app da solo. Si ricompila solo se cambiano nome, icone,
-colori, scorciatoie o pacchetto, per un Bubblewrap nuovo, e quando Google Play
-chiede un `targetSdk` più recente (una volta l'anno, ad agosto).
+Il `code` da solo non serve a niente: un'altra app che lo intercettasse non ha
+il segreto. I pacchetti accettati sono solo i due della tabella
+(`APP_PACKAGES`). Su Google Cloud non cambia niente: l'indirizzo di ritorno che
+Google conosce resta quello del sito.
 
 ## Cosa c'è nel repository
 
-| File | A cosa serve |
+| Percorso | A cosa serve |
 |---|---|
-| `android/produzione/twa-manifest.json` | La descrizione dell'app vera: pacchetto, indirizzo, icone, colori, versione, chiave |
-| `android/staging/twa-manifest.json` | La stessa, per l'app di prova sullo staging |
+| `android/app/src/main/java/it/mull2five/app/` | Il codice: `data/` (API, sessione, modelli), `ui/` (le schermate) |
+| `android/app/src/main/res/` | Testi, icone, tema |
+| `android/app/build.gradle.kts` | Versione, ambienti, firma, librerie |
+| `android/app/src/test/` | I test che girano sul PC, senza telefono |
 | `android/strumenti.ps1` | Installa JDK 17 e Android SDK, una volta per PC |
-| `android/compila.ps1` | Rifà il progetto Gradle dal `twa-manifest.json` e lo compila |
-| `android/package.json` | Bubblewrap, a una versione fissa (1.27.0) |
+| `android/compila.ps1` | Compila, firma, stampa l'impronta, installa |
+| `android/gradlew.bat`, `android/gradle/` | Gradle, a una versione fissa (8.11.1) |
 
-Il progetto Gradle **non** sta nel repository: `compila.ps1` lo rigenera ogni
-volta da `twa-manifest.json` (lo ignora `android/.gitignore`, insieme a ogni
-`*.jks` e `*.keystore`). Per cambiare l'app si cambia il `twa-manifest.json`.
+`android/.gitignore` tiene fuori quello che Gradle rigenera, gli APK e gli AAB,
+e ogni `*.jks` e `*.keystore`.
+
+Per lavorarci con Android Studio si apre la cartella `android`.
 
 ## La prima volta su un PC
 
-Servono Node.js (c'è già per il frontend) e circa 1 GB:
+Servono circa 1,5 GB:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File android\strumenti.ps1
 ```
 
 Scarica il JDK 17 (Temurin, 64 bit) e l'Android SDK in
-`%USERPROFILE%\.bubblewrap`, e scrive `%USERPROFILE%\.bubblewrap\config.json`,
-che Bubblewrap legge. **Chiede di accettare la licenza dell'Android SDK**
+`%USERPROFILE%\.bubblewrap` (il nome viene dalla prima versione dell'app; non
+serve più Bubblewrap), e scrive `%USERPROFILE%\.bubblewrap\config.json`, che
+`compila.ps1` legge. **Chiede di accettare la licenza dell'Android SDK**
 (https://developer.android.com/studio/terms): si risponde `y`. Con
 `-AccettoLicenzeSdk` la accetta senza chiedere. Rilanciato, salta quello che
 c'è già.
 
-Perché non lo fa Bubblewrap da solo: su Windows prende un JDK a 32 bit, con cui
-Gradle resta senza memoria. E perché gli strumenti dell'SDK sono fermi alla
-19.0: dalla 23.0 `sdkmanager` è diventato la "Android CLI", che non capisce i
-nomi dei pacchetti, scarica 300 MB in `%USERPROFILE%\.android` ed esce con 0
-anche quando non ha installato niente (24/11/2026).
+Gli strumenti dell'SDK sono fermi alla 19.0: dalla 23.0 `sdkmanager` è diventato
+la "Android CLI", che non capisce i nomi dei pacchetti, scarica 300 MB in
+`%USERPROFILE%\.android` ed esce con 0 anche quando non ha installato niente
+(24/11/2026).
 
 ## L'app di prova (staging)
 
@@ -108,17 +132,7 @@ powershell -ExecutionPolicy Bypass -File android\compila.ps1 -Ambiente staging
 ```
 
 La prima volta Gradle scarica sé stesso e le sue librerie: qualche minuto. Esce
-`android\staging\mull2five-staging.apk`, e lo script stampa l'impronta della
-chiave di debug di questo PC.
-
-**La prima volta su un PC**, quell'impronta va detta allo staging: Render →
-`mull2five-staging` → *Environment* → `ANDROID_CERT_FINGERPRINTS`. Se c'è già
-quella di un altro PC, si aggiunge dopo una virgola. Salvato, il servizio
-riparte. Per controllare:
-
-```powershell
-Invoke-RestMethod https://mull2five-staging.onrender.com/.well-known/assetlinks.json | ConvertTo-Json -Depth 5
-```
+`android\mull2five-staging.apk`, e lo script stampa l'impronta della firma.
 
 **Installarla sul telefono**, in uno di due modi:
 - copiare l'APK sul telefono e aprirlo (Android chiede di permettere
@@ -129,24 +143,55 @@ Invoke-RestMethod https://mull2five-staging.onrender.com/.well-known/assetlinks.
   powershell -ExecutionPolicy Bypass -File android\compila.ps1 -Ambiente staging -Installa
   ```
 
-Lo staging è sul piano gratuito e **si addormenta** dopo 15 minuti: la prima
-apertura dopo una pausa resta sulla schermata iniziale per un minuto circa.
+Lo staging è sul piano gratuito e **si addormenta** dopo 15 minuti: dopo una
+pausa la prima richiesta può non rispondere in tempo, e l'app dice "Nessuna
+connessione". Un minuto, e "Riprova".
+
+Perché i link allo staging aprano l'app, l'impronta va detta allo staging (la
+prima volta su ogni PC): Render → `mull2five-staging` → *Environment* →
+`ANDROID_CERT_FINGERPRINTS`, dopo una virgola se c'è già quella di un altro PC.
 
 ## L'app vera sul telefono, senza Google Play
 
-Per provare l'app di produzione (`it.mull2five.app`, apre `mull2five.it`) prima
-che ci sia Google Play, la si firma con la chiave di debug come lo staging:
+Per provare l'app di produzione (`it.mull2five.app`, parla con `mull2five.it`)
+prima che ci sia Google Play, la si firma con la chiave di debug come lo staging:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File android\compila.ps1 -Ambiente produzione -ChiaveDebug
 ```
 
-Esce `android\produzione\mull2five-produzione-debug.apk`, e lo script stampa
-l'impronta: va in `ANDROID_CERT_FINGERPRINTS` del servizio `mull2five`, accanto
-alle altre. Due cose da sapere:
-- quando arriverà quella di Google Play, questa va **disinstallata** prima: la
-  firma è diversa e Android non la sovrascrive;
-- arrivate le impronte della Play Console, quella di debug si toglie da Render.
+Esce `android\mull2five-produzione-debug.apk`. Quando arriverà quella di Google
+Play, questa va **disinstallata** prima: la firma è diversa e Android non la
+sovrascrive. Lo stesso vale per la prima versione (il sito dentro Chrome),
+se è ancora sul telefono: si disinstalla, poi si installa questa.
+
+## Con l'API di sviluppo, dall'emulatore
+
+Con l'API accesa sul PC (`docs/comandi.md`, "Lavorare in locale") e un
+emulatore di Android Studio:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File android\compila.ps1 -Ambiente staging -Api http://10.0.2.2:8000 -Installa
+```
+
+`10.0.2.2` è il PC visto dall'emulatore. Solo con `-Api http://…` l'app accetta
+indirizzi senza HTTPS. L'accesso con Google in locale non va: Google rimanda a
+`localhost:5173`, che dall'emulatore non è il PC.
+
+## I test
+
+```powershell
+cd android; .\gradlew.bat testProduzioneDebugUnitTest; cd ..
+```
+
+Prima, `JAVA_HOME` e `ANDROID_HOME` come li mette `compila.ps1`:
+
+```powershell
+$c = Get-Content "$HOME\.bubblewrap\config.json" -Raw | ConvertFrom-Json; $env:JAVA_HOME = $c.jdkPath; $env:ANDROID_HOME = $c.androidSdkPath
+```
+
+Il giro dell'accesso con Google lato server lo provano i test del backend
+(`tests/test_google_login.py`, quelli con `app`).
 
 ## Pubblicare su Google Play
 
@@ -179,33 +224,32 @@ New-Item -ItemType Directory -Force "$HOME\.mull2five" | Out-Null
 
 `keytool` chiede la password due volte. Il file
 `%USERPROFILE%\.mull2five\mull2five-upload.jks` va copiato nel backup, la
-password nel password manager. Il percorso e l'alias (`upload`) sono quelli
-scritti in `android/produzione/twa-manifest.json`, sotto `signingKey`.
+password nel password manager. Percorso e alias sono quelli che
+`compila.ps1` e `android/app/build.gradle.kts` si aspettano; per usarne altri,
+prima di compilare: `$env:M2F_KEYSTORE = "…"` e `$env:M2F_KEY_ALIAS = "…"`.
 
 ### Compilare
-
-Il sito di produzione deve avere già le icone di questo commit (il merge in
-`main` fatto e pubblicato), perché Bubblewrap le scarica da lì.
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File android\compila.ps1 -Ambiente produzione
 ```
 
-Bubblewrap chiede la password della chiave due volte (*keystore* e *key*: con
-`keytool` di oggi sono la stessa). Escono, in `android\produzione\`:
-- `app-release-bundle.aab` — quello da caricare su Google Play;
-- `app-release-signed.apk` — per provarlo sul telefono prima di caricarlo.
+Lo script chiede la password della chiave (una volta: con il `keytool` di oggi
+*keystore* e *key* hanno la stessa) e la passa a Gradle solo per quella
+compilazione. Escono, in `android\`:
+- `mull2five-produzione.aab` — quello da caricare su Google Play;
+- `mull2five-produzione.apk` — per provarlo sul telefono prima di caricarlo.
 
 **Ogni caricamento vuole una versione più alta.** Prima di compilare un
-aggiornamento si alzano `appVersionCode` (1, 2, 3…) e `appVersion` ("1.0.1"…)
-in `android/produzione/twa-manifest.json`, e si fa il commit.
+aggiornamento si alzano `versionCode` (2, 3, 4…: l'1 era la prima versione) e
+`versionName` ("2.0.1"…) in `android/app/build.gradle.kts`, e si fa il commit.
 
 ### Il primo caricamento
 
 1. Play Console → *Crea app*: nome **Mull2Five**, lingua predefinita italiano,
    app, gratuita.
 2. *Test e rilascio* → *Test chiuso* (con l'account personale) → nuova versione
-   → carica `app-release-bundle.aab`. La firma la lascia gestire a Google Play
+   → carica `mull2five-produzione.aab`. La firma la lascia gestire a Google Play
    (è la scelta proposta).
 3. I tester: una lista di email o un gruppo Google, e il link di adesione da
    mandare loro. Servono 12 tester che restino iscritti per 14 giorni.
@@ -213,16 +257,26 @@ in `android/produzione/twa-manifest.json`, e si fa il commit.
    - **Accesso all'app**: alcune parti vogliono un account; si dà a Google un
      account di prova creato apposta sul sito di produzione;
    - **Sicurezza dei dati**: cosa raccoglie il sito, coerente con
-     `privacy.html`; la posizione non si raccoglie, resta sul telefono;
+     `privacy.html`; l'app non raccoglie la posizione;
    - **Pubblico di destinazione**: dai 14 anni in su, come i termini (sotto i 13
      scattano le regole per le famiglie);
    - classificazione dei contenuti, pubblicità (nessuna), scheda dello store:
-     descrizione breve e lunga, icona 512×512 (`android\produzione\store_icon.png`,
-     la genera Bubblewrap), immagine in evidenza 1024×500, almeno due
-     schermate del telefono.
+     descrizione breve e lunga, icona 512×512 (`frontend/public/icon-512.png`),
+     immagine in evidenza 1024×500, almeno due schermate del telefono.
 5. Dopo i 14 giorni: *Richiedi l'accesso alla produzione*.
 
-### Il legame col sito, dopo il primo caricamento
+### Il legame col sito
+
+Perché i link a `/event.html` (e i QR dell'iscrizione) aprano l'app, Android
+controlla `/.well-known/assetlinks.json` del sito: deve nominare il pacchetto e
+l'impronta SHA-256 del certificato con cui l'app è firmata. Lo scrive il backend
+(`routers/site.py`, `asset_links`) da due variabili su Render:
+
+- `ANDROID_PACKAGE` — il pacchetto: vuota in produzione (vale
+  `it.mull2five.app`), `it.mull2five.app.staging` sullo staging;
+- `ANDROID_CERT_FINGERPRINTS` — le impronte, separate da virgola.
+
+Senza, i link si aprono nel browser come sempre: l'app funziona lo stesso.
 
 L'app scaricata da Google Play è firmata con la chiave di Google, non con la
 nostra: è quella che il sito deve conoscere.
@@ -232,40 +286,38 @@ nostra: è quella che il sito deve conoscere.
    dell'app** (di Google) e quella del **certificato della chiave di
    caricamento** (la nostra).
 2. Render → `mull2five` → *Environment* → `ANDROID_CERT_FINGERPRINTS`: tutte e
-   due, separate da una virgola. Salvato, il servizio riparte.
+   due, separate da una virgola (più quelle di debug finché servono). Salvato,
+   il servizio riparte.
 3. Controllo:
    ```powershell
    Invoke-RestMethod https://mull2five.it/.well-known/assetlinks.json | ConvertTo-Json -Depth 5
    ```
-   Deve comparire `it.mull2five.app` con le due impronte. In Play Console,
+   Deve comparire `it.mull2five.app` con le impronte. In Play Console,
    *Deep link* dice se il dominio risulta verificato.
 
-## Aggiornare Bubblewrap
+## Aggiornare
 
-Serve quando Google Play chiede un `targetSdk` più recente di quello del
-progetto generato (oggi 36).
+**Ogni anno, ad agosto**, Google Play chiede un `targetSdk` più recente. Si
+alzano `compileSdk` e `targetSdk` in `android/app/build.gradle.kts`, la
+piattaforma in `android/strumenti.ps1` (`$platform`), e di solito il plugin
+Android in `android/build.gradle.kts` (e Gradle in
+`android/gradle/wrapper/gradle-wrapper.properties`, alla versione che il plugin
+vuole). Si rilancia `strumenti.ps1`, si compila lo staging e lo si prova sul
+telefono, poi la produzione con la versione alzata.
 
-```powershell
-cd android; npm.cmd install --save-dev --save-exact @bubblewrap/cli@latest; cd ..
-```
-
-Poi si guardano due numeri del Bubblewrap nuovo e si riportano in
-`android\strumenti.ps1` (`$buildTools`, `$platform`):
-- `BUILD_TOOLS_VERSION` in
-  `android\node_modules\@bubblewrap\core\dist\lib\androidSdk\AndroidSdkTools.js`;
-- `compileSdkVersion` in
-  `android\node_modules\@bubblewrap\core\template_project\app\build.gradle`.
-
-Si rilancia `strumenti.ps1`, si compila lo staging e lo si prova sul telefono,
-poi la produzione con la versione alzata.
+**Quando cambia l'API.** L'app è un client come il sito: se un endpoint che usa
+cambia forma (`android/app/src/main/java/it/mull2five/app/data/Api.kt` e
+`Models.kt`), l'app installata smette di capirlo finché non si aggiorna. Si
+aggiungono campi, non si tolgono né si rinominano; i campi nuovi l'app li
+ignora.
 
 ## Quando qualcosa non va
 
 | Sintomo | Perché | Cosa fare |
 |---|---|---|
-| L'app ha la barra dell'indirizzo in cima | Il sito non riconosce la firma dell'app | `assetlinks.json` (comando sopra): pacchetto giusto? Impronta giusta? L'APK di staging compilato su un altro PC ha un'altra chiave di debug; quella di Google Play ha l'impronta della *chiave di firma dell'app*. Corretto Render, Chrome ricontrolla alla riapertura dell'app; se resta, si disinstalla e si reinstalla |
+| Il link a un torneo apre il browser, non l'app | Il sito non riconosce la firma dell'app | `assetlinks.json` (comando sopra): pacchetto giusto? Impronta giusta? L'APK compilato su un altro PC ha un'altra chiave di debug; quella di Google Play ha l'impronta della *chiave di firma dell'app*. Corretto Render, Android ricontrolla quando l'app si reinstalla o si aggiorna |
+| "Nessuna connessione" sullo staging | Lo staging dormiva | Un minuto, poi "Riprova" |
+| *Accesso con Google non è attivo* | Il servizio non ha `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` | `docs/hosting.md`, "Accesso con Google" |
 | `compila.ps1`: *Manca …config.json* | Strumenti mai installati su questo PC | `android\strumenti.ps1` |
-| `bubblewrap update` fallisce scaricando un'icona | Il sito è spento, o non ha ancora il commit con le icone | Lo staging si sveglia aprendolo nel browser; in produzione serve il deploy di `main` |
-| `npm ci` o `node` non trovati | Node.js manca dal `PATH` | Lo stesso Node del frontend: `node --version` |
-| Le notifiche non arrivano nell'app | Permesso negato, o VAPID spento sul server | Impostazioni di Android → App → Mull2Five → Notifiche; sul sito, `VAPID_*` su Render |
-| *Accedi con Google* dà errore solo nell'app | L'app è finita in una WebView invece che in Chrome | Non dovrebbe: `fallbackType` è `customtabs`. Controllare che Chrome sia installato e aggiornato |
+| `compila.ps1`: *Manca la chiave di caricamento* | La chiave non è in `%USERPROFILE%\.mull2five` | Si ripristina dal backup, o si indica con `$env:M2F_KEYSTORE` |
+| `adb install` fallisce con `INSTALL_FAILED_UPDATE_INCOMPATIBLE` | Sul telefono c'è la stessa app firmata con un'altra chiave (un altro PC, Google Play, o la prima versione) | Si disinstalla quella e si riprova |

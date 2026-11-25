@@ -6,6 +6,8 @@ qui con una chiave RSA dei test, e quella è la chiave pubblica "di Google". La
 verifica che gira è quella vera: firma, `aud`, `iss`, scadenza, `nonce`, email
 verificata.
 """
+import base64
+import hashlib
 import time
 from urllib.parse import parse_qs, urlparse
 
@@ -378,3 +380,115 @@ def test_eliminare_laccount_toglie_anche_google(client, google, db_session):
     assert db_session.scalar(select(func.count(UserIdentity.id))) == 0
     _, query = google_sign_in(client, google, sub="google-mario")
     assert query["google"] == "registrati"
+
+
+# ── L'app Android: la scheda di Chrome e il ritorno con il `code` ────────
+
+APP = "it.mull2five.app"
+VERIFIER = "segreto-dell-app-" + "x" * 40
+
+
+def challenge(verifier=VERIFIER):
+    digest = hashlib.sha256(verifier.encode()).digest()
+    return base64.urlsafe_b64encode(digest).rstrip(b"=").decode()
+
+
+def app_begin(client, app=APP, verifier=VERIFIER):
+    response = client.get("/api/auth/google/app/start",
+                          params={"app": app, "challenge": challenge(verifier)}, follow_redirects=False)
+    assert response.status_code == 303, response.text
+    query = parse_qs(urlparse(response.headers["location"]).query)
+    assert query["client_id"] == [CLIENT_ID]
+    return query["state"][0], query["nonce"][0]
+
+
+def back_to_app(response, app=APP):
+    """Il callback non va su una pagina del sito: apre l'app con il suo schema."""
+    assert response.status_code == 303, response.text
+    location = urlparse(response.headers["location"])
+    assert (location.scheme, location.netloc) == (app, "google")
+    return {k: v[0] for k, v in parse_qs(location.query).items()}
+
+
+def app_sign_in(client, google, app=APP, verifier=VERIFIER, **claims):
+    state, nonce = app_begin(client, app, verifier)
+    google.next_token = id_token(nonce, **claims)
+    return back_to_app(client.get("/api/auth/google/callback", params={"code": "codice", "state": state},
+                                  follow_redirects=False), app)
+
+
+def test_dallapp_nuovo_utente_si_registra_col_code_e_il_segreto(client, google, db_session):
+    query = app_sign_in(client, google, sub="google-app", email="app@example.com")
+    code = query["code"]
+    # Il cookie del giro è finito: nel browser non resta niente da ritirare.
+    assert client.cookies.get("m2f_google") is None
+    assert client.post("/api/auth/google/finish").status_code == 400
+
+    wrong = {"code": code, "verifier": "un-altro-segreto-" + "y" * 40}
+    assert client.post("/api/auth/google/app/finish", json=wrong).status_code == 400
+    pending = client.post("/api/auth/google/app/finish", json={"code": code, "verifier": VERIFIER}).json()
+    assert pending["access_token"] is None and pending["signup_email"] == "app@example.com"
+
+    signup = {"display_name": "Anna App", "age_confirmed": True, "terms_accepted": True}
+    assert client.post("/api/auth/google/app/complete", json={**signup, **wrong}).status_code == 400
+    refused = client.post("/api/auth/google/app/complete",
+                          json={**signup, "terms_accepted": False, "code": code, "verifier": VERIFIER})
+    assert refused.status_code == 422
+    created = client.post("/api/auth/google/app/complete", json={**signup, "code": code, "verifier": VERIFIER})
+    assert created.status_code == 201, created.text
+    me = client.get("/api/auth/me", headers=bearer(created.json()["access_token"])).json()
+    assert me["email"] == "app@example.com" and me["display_name"] == "Anna App"
+
+    # La seconda volta il `code` è già quello di accesso.
+    query = app_sign_in(client, google, sub="google-app", email="app@example.com")
+    token = client.post("/api/auth/google/app/finish", json={"code": query["code"], "verifier": VERIFIER}).json()
+    assert client.get("/api/auth/me", headers=bearer(token["access_token"])).json()["id"] == me["id"]
+
+
+def test_dallapp_si_entra_nellaccount_che_cera(client, google, mails):
+    register(client)
+    query = app_sign_in(client, google, app="it.mull2five.app.staging")
+    token = client.post("/api/auth/google/app/finish", json={"code": query["code"], "verifier": VERIFIER}).json()
+    assert token["linked_existing"] is True
+    assert client.get("/api/auth/me", headers=bearer(token["access_token"])).json()["email"] == "mario@example.com"
+
+
+def test_il_code_dellapp_e_il_cookie_del_sito_non_si_scambiano(client, google):
+    register(client)
+    code = app_sign_in(client, google)["code"]
+    client.cookies.set("m2f_google", code, path="/api/auth/google")
+    assert client.post("/api/auth/google/finish").status_code == 400
+
+    client.cookies.clear()
+    google_sign_in(client, google)
+    cookie = client.cookies.get("m2f_google")
+    assert cookie
+    assert client.post("/api/auth/google/app/finish",
+                       json={"code": cookie, "verifier": VERIFIER}).status_code == 400
+
+
+@pytest.mark.parametrize("params", [
+    {"app": "com.altra.app", "challenge": "a" * 43},
+    {"app": "https", "challenge": "a" * 43},
+    {"app": APP, "challenge": "corta"},
+    {"app": APP, "challenge": "a" * 42 + "!"},
+])
+def test_lapp_e_la_challenge_si_controllano(client, google, params):
+    response = client.get("/api/auth/google/app/start", params=params, follow_redirects=False)
+    assert response.status_code in {400, 422}
+
+
+def test_gli_errori_tornano_allapp(client, google):
+    state, _ = app_begin(client)
+    query = back_to_app(client.get("/api/auth/google/callback", params={"error": "access_denied", "state": state},
+                                   follow_redirects=False))
+    assert query == {"error": "annullato"}
+
+    query = app_sign_in(client, google, verified=False)
+    assert query == {"error": "non_verificata"}
+
+
+def test_dallapp_senza_credenziali_google(client):
+    response = client.get("/api/auth/google/app/start", params={"app": APP, "challenge": "a" * 43},
+                          follow_redirects=False)
+    assert back_to_app(response) == {"error": "non_disponibile"}

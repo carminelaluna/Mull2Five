@@ -132,10 +132,10 @@ def _sitemap(base: str, db: Session) -> str:
 def asset_links() -> JSONResponse:
     """Il legame fra il sito e l'app Android (docs/android.md).
 
-    Chrome apre l'app a schermo intero solo se trova qui il suo pacchetto e
-    l'impronta del certificato che la firma; altrimenti la apre lo stesso, ma
-    con la barra dell'indirizzo in cima, come una scheda qualsiasi. Senza
-    impronte la lista è vuota: il sito non riconosce nessuna app."""
+    Android apre nell'app i link a /event.html (il QR dell'iscrizione
+    compreso) solo se trova qui il suo pacchetto e l'impronta del certificato
+    che la firma; altrimenti li apre nel browser, come sempre. Senza impronte
+    la lista è vuota: il sito non riconosce nessuna app."""
     settings = get_settings()
     fingerprints = [f.strip().upper() for f in settings.android_cert_fingerprints.split(",") if f.strip()]
     if not fingerprints:

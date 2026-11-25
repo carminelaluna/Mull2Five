@@ -59,10 +59,9 @@ class Settings(BaseSettings):
     legal_vat_id: str = ""
     # Statistiche delle visite senza cookie né dati personali (routers/site.py).
     analytics_enabled: bool = True
-    # L'app Android è il sito dentro Chrome (TWA, docs/android.md). Chrome la
-    # mostra senza la barra dell'indirizzo solo se il sito, in
-    # /.well-known/assetlinks.json, nomina il pacchetto e l'impronta SHA-256 del
-    # certificato che la firma. Più impronte separate da virgola (la chiave di
+    # L'app Android (docs/android.md) apre i link a /event.html solo se il sito,
+    # in /.well-known/assetlinks.json, nomina il pacchetto e l'impronta SHA-256
+    # del certificato che la firma. Più impronte separate da virgola (la chiave di
     # Google Play e quella di caricamento); vuote, il sito non riconosce nessuna app.
     android_package: str = "it.mull2five.app"
     android_cert_fingerprints: str = ""

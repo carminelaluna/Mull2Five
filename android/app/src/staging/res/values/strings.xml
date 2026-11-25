@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Sul telefono l'app di prova si distingue da quella vera. -->
+<resources>
+    <string name="app_name" translatable="false">M2F staging</string>
+</resources>

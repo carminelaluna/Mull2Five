@@ -215,19 +215,27 @@ Sempre il 24 novembre, una passata per l'uso di tutti i giorni:
 - Sulle pagine di ricerca, da telefono, i filtri stanno dietro un pulsante
   (`js/facets-toggle.js`). DMARC del dominio acceso (`p=none`), DKIM c'era già.
 
-Sempre il 24 novembre è nata **l'app Android**: è il sito dentro Chrome (TWA,
-Bubblewrap), scelta al posto di Capacitor perché in una WebView Google rifiuta
-l'accesso e le notifiche andrebbero rifatte. Pacchetto `it.mull2five.app`, e
-`it.mull2five.app.staging` per la prova sullo staging. Nel repository solo
-`android/<ambiente>/twa-manifest.json` e due script PowerShell: `strumenti.ps1`
-(JDK 17 e Android SDK in `%USERPROFILE%\.bubblewrap`, una volta per PC) e
-`compila.ps1` (rigenera il progetto Gradle e lo compila). Chrome la apre senza
-barra solo se `/.well-known/assetlinks.json` (`routers/site.py`) nomina il
-pacchetto e l'impronta della firma: `ANDROID_PACKAGE` e
-`ANDROID_CERT_FINGERPRINTS` su Render, vuote vale `[]`. Le notifiche sono il
-Web Push di sempre, con il badge monocromatico (`icon-monochrome-512.png`).
-Gli strumenti dell'SDK restano alla 19.0: dalla 23.0 `sdkmanager` è la "Android
-CLI", che non installa i pacchetti ed esce con 0. Tutto in `docs/android.md`.
+Il 24 novembre è nata **l'app Android**, il 25 rifatta **nativa** (Kotlin e
+Jetpack Compose, in `android/`): la prima, il sito dentro Chrome (TWA), "è
+praticamente una pagina web". È il lato del giocatore — ricerca, pagina del
+torneo e iscrizione, le mie iscrizioni con il torneo dal vivo (check-in,
+pagamento, lista, turno, risultato, classifica, ritiro), profilo e accesso —
+sulla stessa API del sito; niente back-office né notifiche (servirebbe
+Firebase). Pacchetto `it.mull2five.app`, e `it.mull2five.app.staging` che parla
+con lo staging. **L'accesso con Google dell'app** è un giro a sé con PKCE
+(`/api/auth/google/app/start|finish|complete` in `routers/google_auth.py`):
+Chrome non passa il cookie all'app, quindi la `/callback` rimanda a
+`<pacchetto>://google?code=…` e il `code` si ritira solo col segreto dell'app.
+I testi sono in `res/values*/strings.xml`; gli errori del server l'app li
+traduce con `frontend/locales`, copiati a ogni compilazione. Un endpoint che
+l'app usa (`data/Api.kt`, `Models.kt`) si allarga, non si cambia: l'app
+installata resta indietro finché non si aggiorna. I link a `/event.html` (e i
+QR) aprono l'app se `/.well-known/assetlinks.json` (`routers/site.py`) nomina
+pacchetto e impronta: `ANDROID_PACKAGE` e `ANDROID_CERT_FINGERPRINTS` su Render.
+Si compila con `android\compila.ps1` (JDK 17 e SDK da `android\strumenti.ps1`,
+in `%USERPROFILE%\.bubblewrap`); gli strumenti dell'SDK restano alla 19.0,
+perché dalla 23.0 `sdkmanager` è la "Android CLI", che non installa i pacchetti
+ed esce con 0. Tutto in `docs/android.md`.
 
 ## Cosa resta — in ordine
 

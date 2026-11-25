@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- L'app parte dall'italiano, come il sito: le altre lingue sono in values-en|es|fr|de. -->
+<resources>
+    <string name="app_name" translatable="false">Mull2Five</string>
+
+    <!-- Comuni -->
+    <string name="retry">Riprova</string>
+    <string name="back">Indietro</string>
+    <string name="refresh">Aggiorna</string>
+    <string name="send">Invia</string>
+    <string name="cancel">Annulla</string>
+    <string name="confirm">Conferma</string>
+    <string name="copy">Copia</string>
+    <string name="error_offline">Nessuna connessione: controlla la rete e riprova.</string>
+    <string name="error_generic">Qualcosa non ha funzionato (errore %1$d): riprova.</string>
+    <string name="error_unexpected">Qualcosa non ha funzionato: riprova.</string>
+    <string name="link_terms">Termini</string>
+    <string name="link_privacy">Privacy</string>
+
+    <!-- Schede -->
+    <string name="tab_events">Eventi</string>
+    <string name="tab_mine">Iscrizioni</string>
+    <string name="tab_profile">Profilo</string>
+
+    <!-- Stato del torneo -->
+    <string name="status_published">In programma</string>
+    <string name="status_running">In corso</string>
+    <string name="status_completed">Concluso</string>
+    <string name="status_cancelled">Annullato</string>
+
+    <!-- Accesso -->
+    <string name="login_title">Accedi</string>
+    <string name="login_tab_signin">Accedi</string>
+    <string name="login_tab_signup">Registrati</string>
+    <string name="login_email">Email</string>
+    <string name="login_password">Password</string>
+    <string name="login_submit">Accedi</string>
+    <string name="login_forgot">Password dimenticata?</string>
+    <string name="login_forgot_needs_email">Scrivi la tua email, poi tocca «Password dimenticata?».</string>
+    <string name="login_forgot_sent">Se l\'email è registrata, ti abbiamo mandato un link per scegliere una nuova password.</string>
+    <string name="login_or">oppure</string>
+    <string name="login_google">Entra con Google</string>
+    <string name="signup_name">Nome e cognome</string>
+    <string name="signup_password_hint">Almeno 8 caratteri</string>
+    <string name="signup_age">Ho almeno %1$d anni</string>
+    <string name="signup_terms">Accetto i termini e l\'informativa privacy</string>
+    <string name="signup_submit">Crea l\'account</string>
+    <string name="google_signup_title">Completa la registrazione</string>
+    <string name="google_signup_intro">Stai creando un account con l\'indirizzo Google %1$s.</string>
+    <string name="google_error_cancelled">Accesso con Google annullato.</string>
+    <string name="google_error_expired">L\'accesso con Google è scaduto: riprova.</string>
+    <string name="google_error_refused">Google non ha confermato l\'accesso: riprova.</string>
+    <string name="google_error_unverified">Il tuo indirizzo Google non è verificato: verificalo su Google, o registrati con email e password.</string>
+    <string name="google_error_disabled">Questo account è disattivato.</string>
+    <string name="google_error_linked_elsewhere">Questo account Google è già collegato a un altro account Mull2Five.</string>
+    <string name="google_error_other_google">Al tuo account è già collegato un altro account Google: entra con quello o con la password.</string>
+    <string name="google_error_unavailable">L\'accesso con Google non è attivo.</string>
+    <string name="google_error_generic">Accesso con Google non riuscito: riprova.</string>
+
+    <!-- Eventi -->
+    <string name="events_title">Eventi</string>
+    <string name="events_search">Cerca un torneo</string>
+    <string name="events_search_clear">Cancella la ricerca</string>
+    <string name="events_empty">Nessun torneo in questo periodo. Prova ad allargare la ricerca.</string>
+    <string name="events_days_7">7 giorni</string>
+    <string name="events_days_30">30 giorni</string>
+    <string name="events_days_90">3 mesi</string>
+    <string name="events_in_person">Dal vivo</string>
+    <string name="events_online">Online</string>
+
+    <!-- Pagina del torneo -->
+    <string name="event_title">Torneo</string>
+    <string name="event_share">Condividi</string>
+    <string name="event_online">Online</string>
+    <string name="event_free">Gratis</string>
+    <string name="event_full">Pieno</string>
+    <string name="event_places">%1$d/%2$d posti</string>
+    <string name="event_organized_by">Organizzato da %1$s</string>
+    <string name="event_early_bird">Prezzo early bird fino al %1$s, poi %2$s</string>
+    <string name="event_players_of">%1$d iscritti su %2$d posti</string>
+    <string name="event_players">%1$d iscritti</string>
+    <string name="event_swiss_rounds">%1$d turni svizzeri</string>
+    <string name="event_top_cut">Top %1$d</string>
+    <string name="event_calendar">Calendario</string>
+    <string name="event_map">Mappa</string>
+    <string name="event_details">Dettagli</string>
+    <string name="event_refunds">Rimborsi</string>
+    <string name="event_register">Iscriviti</string>
+    <string name="event_login_to_register">Accedi per iscriverti</string>
+    <string name="event_register_elsewhere">Iscriviti sul sito dell\'evento</string>
+    <string name="event_registered">Sei iscritto</string>
+    <string name="event_registered_now">Iscrizione fatta.</string>
+    <string name="event_waitlisted">Sei in lista d\'attesa</string>
+    <string name="event_open_mine">Apri il tuo torneo</string>
+    <string name="event_invite_only">Iscrizione solo su invito.</string>
+    <string name="event_registration_closed">Iscrizioni chiuse.</string>
+
+    <!-- Iscrizione -->
+    <string name="register_title">Iscrizione</string>
+    <string name="register_wizards">Wizards Account</string>
+    <string name="register_player_id">ID giocatore</string>
+    <string name="register_id_needed">Serve per risultati e inviti</string>
+    <string name="register_optional">(opzionale)</string>
+    <string name="register_handle">Nome in gioco</string>
+    <string name="register_discount">Codice sconto (opzionale)</string>
+    <string name="register_fee">Quota: %1$s</string>
+    <string name="register_how_to_pay">Come paghi</string>
+    <string name="register_no_payment">Questo torneo non ha un modo per pagare la quota: contatta l\'organizzatore.</string>
+    <string name="register_confirm">Conferma l\'iscrizione</string>
+    <string name="register_go_pay">Vai al pagamento</string>
+    <string name="pay_at_event">Al banco, il giorno del torneo</string>
+    <string name="pay_stripe">Online con carta (Stripe)</string>
+    <string name="pay_paypal">Online con PayPal</string>
+
+    <!-- Le mie iscrizioni -->
+    <string name="mine_title">Le mie iscrizioni</string>
+    <string name="mine_login">Accedi per vedere i tornei a cui sei iscritto.</string>
+    <string name="mine_empty">Non sei iscritto a nessun torneo.</string>
+    <string name="mine_browse">Cerca un torneo</string>
+    <string name="mine_upcoming">Da giocare</string>
+    <string name="mine_past">Conclusi</string>
+    <string name="mine_waitlisted">Lista d\'attesa</string>
+    <string name="mine_dropped">Ritirato</string>
+    <string name="mine_to_pay">Da pagare</string>
+    <string name="mine_paid">Pagato</string>
+    <string name="mine_checked_in">Check-in fatto</string>
+
+    <!-- Il tuo torneo -->
+    <string name="mine_tournament_title">Il tuo torneo</string>
+    <string name="mine_open_event">Vedi la pagina del torneo</string>
+    <string name="mine_registration">La tua iscrizione</string>
+    <string name="mine_fee">Quota</string>
+    <string name="mine_pay_by">Non sei ancora iscritto: paga entro le %1$s.</string>
+    <string name="mine_pay_stripe">Paga con carta</string>
+    <string name="mine_pay_paypal">Paga con PayPal</string>
+    <string name="mine_pay_at_event">Puoi pagare anche al banco.</string>
+    <string name="mine_check_in">Check-in</string>
+    <string name="mine_do_check_in">Fai il check-in</string>
+    <string name="mine_check_in_desk">Si fa al banco</string>
+    <string name="mine_checked_in_now">Check-in fatto: sei pronto per il primo turno.</string>
+    <string name="mine_deck">Lista</string>
+    <string name="mine_seat">Posto</string>
+    <string name="mine_fixed_table">Tavolo fisso %1$d</string>
+    <string name="mine_team">Squadra</string>
+    <string name="mine_online_link">Apri il link della partita</string>
+    <string name="mine_drop">Ritirati</string>
+    <string name="mine_drop_text">Ti ritiri da «%1$s»: resti in classifica con quello che hai fatto, ma non vieni più abbinato.</string>
+    <string name="mine_dropped_now">Ti sei ritirato.</string>
+    <string name="mine_cancel">Annulla l\'iscrizione</string>
+    <string name="mine_cancel_text">Annulli l\'iscrizione a «%1$s». Per i rimborsi valgono le regole del torneo.</string>
+
+    <!-- Turno e risultato -->
+    <string name="round_title">Turno %1$d</string>
+    <string name="round_table">Tavolo %1$d</string>
+    <string name="round_vs">contro %1$s</string>
+    <string name="round_bye">BYE</string>
+    <string name="round_ends">Il turno finisce alle %1$s</string>
+    <string name="result_send">Invia il risultato</string>
+    <string name="result_final">Dopo l\'invio l\'avversario lo conferma: non si può più cambiare.</string>
+    <string name="result_sent">Risultato inviato: aspetta la conferma dell\'avversario.</string>
+    <string name="result_waiting">Hai inviato %1$s: in attesa dell\'avversario</string>
+    <string name="result_opponent_sent">L\'avversario ha inserito %1$s.</string>
+    <string name="result_confirm">Conferma</string>
+    <string name="result_reject">Contesta</string>
+    <string name="result_reject_text">Il risultato non torna? Contestalo e chiama un judge al tavolo.</string>
+    <string name="result_reject_note">Nota (opzionale)</string>
+    <string name="result_confirmed">Risultato confermato: %1$s</string>
+    <string name="result_confirmed_now">Risultato confermato.</string>
+    <string name="result_rejected_now">Risultato contestato: chiama un judge.</string>
+    <string name="result_conflict">Risultato in conflitto: chiama un judge</string>
+    <string name="score_won">%1$s (ho vinto)</string>
+    <string name="score_lost">%1$s (ho perso)</string>
+    <string name="score_draw">%1$s (patta)</string>
+
+    <!-- Classifica -->
+    <string name="standings_title">Classifica</string>
+    <string name="standings_me">Sei %1$d° · %2$d punti · %3$s</string>
+
+    <!-- Lista -->
+    <string name="deck_title">La tua lista</string>
+    <string name="deck_format">Formato</string>
+    <string name="deck_main_format">Lista principale</string>
+    <string name="deck_saved">Le tue liste salvate</string>
+    <string name="deck_none_saved">Non hai liste salvate per questo gioco: incollala qui sotto.</string>
+    <string name="deck_paste">Oppure incolla la lista</string>
+    <string name="deck_send">Invia la lista</string>
+    <string name="deck_change">Cambia la lista</string>
+    <string name="deck_sent">Lista inviata.</string>
+    <string name="deck_missing">Da inviare</string>
+    <string name="deck_submitted">Inviata</string>
+    <string name="deck_valid">Valida</string>
+    <string name="deck_invalid">Da correggere</string>
+
+    <!-- Profilo -->
+    <string name="profile_title">Profilo</string>
+    <string name="profile_signed_out">Accedi per iscriverti ai tornei e seguirli dal telefono.</string>
+    <string name="profile_decks">Le tue liste (sul sito)</string>
+    <string name="profile_history">Storico e statistiche (sul sito)</string>
+    <string name="profile_account">Account e privacy (sul sito)</string>
+    <string name="profile_logout">Esci</string>
+    <string name="profile_version">Versione %1$s</string>
+</resources>

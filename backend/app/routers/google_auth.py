@@ -14,6 +14,21 @@ Il token di accesso non passa mai dall'indirizzo, dove resterebbe nella cronolog
 il callback lo lascia pronto in un cookie HttpOnly che vale due minuti, e la
 pagina lo ritira con una chiamata. Il token è quello di sempre (security.py).
 
+L'app Android fa lo stesso giro in una scheda di Chrome, che però non le passa i
+cookie. Le differenze:
+
+  GET  /auth/google/app/start     la scheda parte da qui (il cookie del giro va
+                                  messo nel browser, non nell'app): `app` è il
+                                  pacchetto, `challenge` l'hash di un segreto dell'app
+  GET  /auth/google/callback      invece della pagina di accesso, rimanda a
+                                  `<pacchetto>://google?code=…` (o `?error=…`)
+  POST /auth/google/app/finish    l'app ritira il token col `code` e il segreto
+  POST /auth/google/app/complete  chi è nuovo, come /complete
+
+Il `code` passa dall'indirizzo, ma da solo non serve: per ritirarlo serve il
+segreto, che non è mai uscito dall'app (è PKCE, RFC 7636). Un'altra app che si
+prendesse lo schema `it.mull2five.app://` riceverebbe un codice inutile.
+
 Quale account apre Google:
 - l'account Google è già collegato a un utente: quell'utente;
 - c'è un utente con la stessa email, verificata da Google: si entra in quello e
@@ -22,6 +37,8 @@ Quale account apre Google:
   un'email altrui, che qui non si verifica) la cambi;
 - nessuno: la registrazione, con termini ed età come per tutti.
 """
+import base64
+import hashlib
 import hmac
 import re
 import secrets
@@ -29,7 +46,7 @@ from datetime import UTC, datetime, timedelta
 from urllib.parse import urlencode
 
 import jwt
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -40,6 +57,8 @@ from backend.app.core.limiter import limiter
 from backend.app.db import get_db
 from backend.app.models import Organization, User, UserIdentity, UserRole
 from backend.app.schemas import (
+    GoogleAppCodeIn,
+    GoogleAppSignupIn,
     GoogleFinishOut,
     GoogleSignupIn,
     GoogleStartIn,
@@ -61,6 +80,10 @@ RESULT_MINUTES = 2     # il token pronto da ritirare
 SIGNUP_MINUTES = 15    # il tempo per completare la registrazione
 # `next` arriva dall'indirizzo: solo pagine di questo sito, niente "//altrove" o "javascript:".
 _SAFE_NEXT = re.compile(r"^[A-Za-z0-9_\-][A-Za-z0-9_\-./?=&%+]*$")
+# Le app a cui il callback può rimandare: lo schema è il nome del pacchetto.
+APP_PACKAGES = frozenset({"it.mull2five.app", "it.mull2five.app.staging"})
+# L'hash SHA-256 del segreto dell'app, in base64url senza "=": sempre 43 caratteri.
+_CHALLENGE = re.compile(r"^[A-Za-z0-9_-]{43}$")
 
 
 def safe_next(value: str | None) -> str:
@@ -70,27 +93,16 @@ def safe_next(value: str | None) -> str:
 
 # ── Il cookie del giro ────────────────────────────────────────────────────
 
-def _set_cookie(response: Response, purpose: str, minutes: int, **claims) -> None:
+def _sign(purpose: str, minutes: int, **claims) -> str:
     """Un JWT firmato col segreto del sito. Porta `purpose`, quindi
     get_current_user non lo accetta come token di accesso."""
-    settings = get_settings()
-    value = jwt.encode(
+    return jwt.encode(
         {"purpose": purpose, "exp": datetime.now(UTC) + timedelta(minutes=minutes), **claims},
-        settings.secret_key, algorithm="HS256",
-    )
-    response.set_cookie(
-        COOKIE, value, max_age=minutes * 60, path=COOKIE_PATH, httponly=True,
-        # Lax: il ritorno da Google è una navigazione, e il cookie la segue.
-        samesite="lax", secure=str(settings.frontend_url).startswith("https://"),
+        get_settings().secret_key, algorithm="HS256",
     )
 
 
-def _clear_cookie(response: Response) -> None:
-    response.delete_cookie(COOKIE, path=COOKIE_PATH)
-
-
-def _read_cookie(request: Request) -> dict:
-    raw = request.cookies.get(COOKIE)
+def _unsign(raw: str | None) -> dict:
     if not raw:
         return {}
     try:
@@ -100,9 +112,48 @@ def _read_cookie(request: Request) -> dict:
         return {}
 
 
+def _set_cookie(response: Response, purpose: str, minutes: int, **claims) -> None:
+    response.set_cookie(
+        COOKIE, _sign(purpose, minutes, **claims), max_age=minutes * 60, path=COOKIE_PATH,
+        # Lax: il ritorno da Google è una navigazione, e il cookie la segue.
+        httponly=True, samesite="lax",
+        secure=str(get_settings().frontend_url).startswith("https://"),
+    )
+
+
+def _clear_cookie(response: Response) -> None:
+    response.delete_cookie(COOKIE, path=COOKIE_PATH)
+
+
+def _read_cookie(request: Request) -> dict:
+    return _unsign(request.cookies.get(COOKIE))
+
+
 def _redirect(page: str, **params: str) -> RedirectResponse:
     query = urlencode({key: value for key, value in params.items() if value})
     return RedirectResponse(f"/{page}" + (f"?{query}" if query else ""), status_code=303)
+
+
+# ── L'app Android ─────────────────────────────────────────────────────────
+
+def _app_redirect(app: str, **params: str) -> RedirectResponse:
+    """Il ritorno all'app: Chrome apre l'app che ha lo schema `<pacchetto>://`."""
+    return RedirectResponse(f"{app}://google?{urlencode(params)}", status_code=303)
+
+
+def _challenge_of(verifier: str) -> str:
+    digest = hashlib.sha256(verifier.encode("ascii")).digest()
+    return base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
+
+
+def _app_claims(payload: GoogleAppCodeIn) -> dict:
+    """Il contenuto del `code`, se è buono e chi lo porta ha il segreto giusto."""
+    claims = _unsign(payload.code)
+    if not str(claims.get("purpose", "")).startswith("app-") or not hmac.compare_digest(
+        _challenge_of(payload.verifier), str(claims.get("ch", ""))
+    ):
+        raise HTTPException(status_code=400, detail="L'accesso con Google è scaduto: riprova")
+    return claims
 
 
 # ── Gli account ───────────────────────────────────────────────────────────
@@ -183,9 +234,10 @@ def _require_enabled() -> None:
         raise HTTPException(status_code=503, detail="L'accesso con Google non è attivo")
 
 
-def _start(response: Response, next_page: str, link_user: User | None = None) -> dict[str, str]:
+def _start(response: Response, next_page: str, link_user: User | None = None,
+           **app: str) -> dict[str, str]:
     state, nonce = secrets.token_urlsafe(32), secrets.token_urlsafe(32)
-    claims = {"state": state, "nonce": nonce, "next": next_page}
+    claims = {"state": state, "nonce": nonce, "next": next_page, **app}
     if link_user is not None:
         claims |= {"link": link_user.id, "tv": link_user.token_version or 0}
     _set_cookie(response, "google-flow", FLOW_MINUTES, **claims)
@@ -215,6 +267,24 @@ def start_link(
     return _start(response, "", link_user=user)
 
 
+@router.get("/app/start", include_in_schema=False)
+@limiter.limit("10/minute")
+def start_from_app(
+    request: Request,
+    app: str = Query(max_length=60),
+    challenge: str = Query(max_length=43),
+) -> RedirectResponse:
+    """L'app apre qui la scheda di Chrome: il cookie del giro finisce nel browser,
+    che è quello che poi torna dal callback, e la scheda va da Google."""
+    if app not in APP_PACKAGES or not _CHALLENGE.match(challenge):
+        raise HTTPException(status_code=400, detail="Richiesta non valida")
+    if not google_login.is_enabled():
+        return _app_redirect(app, error="non_disponibile")
+    response = RedirectResponse("", status_code=303)
+    response.headers["location"] = _start(response, "", app=app, ch=challenge)["authorization_url"]
+    return response
+
+
 @router.get("/callback", include_in_schema=False)
 @limiter.limit("20/minute")
 def callback(
@@ -229,10 +299,12 @@ def callback(
     linking = "link" in flow
     page = "my-registrations.html" if linking else "login.html"
     next_page = safe_next(flow.get("next"))
+    app = flow.get("app") if flow.get("app") in APP_PACKAGES else ""
 
     def fail(reason: str) -> RedirectResponse:
         db.rollback()
-        response = _redirect(page, google_error=reason, next=next_page)
+        response = (_app_redirect(app, error=reason) if app
+                    else _redirect(page, google_error=reason, next=next_page))
         _clear_cookie(response)
         return response
 
@@ -255,14 +327,25 @@ def callback(
             response = _redirect(page, google="collegato")
             _clear_cookie(response)
             return response
-        return _sign_in(db, account, next_page)
+        return _sign_in(db, account, next_page, app, str(flow.get("ch", "")))
     except GoogleLoginError as exc:
         return fail(exc.code)
     except IntegrityError:   # due giri insieme sullo stesso account Google
         return fail("gia_collegato")
 
 
-def _sign_in(db: Session, account: GoogleAccount, next_page: str) -> RedirectResponse:
+def _sign_in(db: Session, account: GoogleAccount, next_page: str,
+             app: str = "", challenge: str = "") -> RedirectResponse:
+    def hand_over(purpose: str, minutes: int, google: str, **claims) -> RedirectResponse:
+        """Il sito ritira dal cookie; l'app col `code`, e il cookie del giro si butta."""
+        if app:
+            response = _app_redirect(app, code=_sign(f"app-{purpose}", minutes, ch=challenge, **claims))
+            _clear_cookie(response)
+        else:
+            response = _redirect("login.html", google=google, next=next_page)
+            _set_cookie(response, purpose, minutes, **claims)
+        return response
+
     identity = _identity_by_subject(db, account.subject)
     merged = False
     if identity is not None:
@@ -270,10 +353,8 @@ def _sign_in(db: Session, account: GoogleAccount, next_page: str) -> RedirectRes
     else:
         user = _user_by_email(db, account.email)
         if user is None:
-            response = _redirect("login.html", google="registrati", next=next_page)
-            _set_cookie(response, "google-signup", SIGNUP_MINUTES,
-                        gsub=account.subject, email=account.email, name=account.name)
-            return response
+            return hand_over("google-signup", SIGNUP_MINUTES, "registrati",
+                             gsub=account.subject, email=account.email, name=account.name)
         if user.is_active:
             had_password = _merge_by_email(db, user, account)
             db.commit()
@@ -282,27 +363,39 @@ def _sign_in(db: Session, account: GoogleAccount, next_page: str) -> RedirectRes
                 _tell_about_merge(user, account)
     if user is None or not user.is_active:
         raise GoogleLoginError("disattivato")
-    response = _redirect("login.html", google="1", next=next_page)
-    _set_cookie(response, "google-login", RESULT_MINUTES,
-                uid=user.id, tv=user.token_version or 0, merged=merged)
-    return response
+    return hand_over("google-login", RESULT_MINUTES, "1",
+                     uid=user.id, tv=user.token_version or 0, merged=merged)
+
+
+def _finish(claims: dict, purpose_prefix: str, db: Session) -> GoogleFinishOut:
+    """Il token di accesso, o i dati per completare la registrazione."""
+    if claims.get("purpose") == f"{purpose_prefix}google-signup":
+        return GoogleFinishOut(signup_email=claims.get("email"), signup_name=claims.get("name"))
+    expired = HTTPException(status_code=400, detail="L'accesso con Google è scaduto: riprova")
+    if claims.get("purpose") != f"{purpose_prefix}google-login":
+        raise expired
+    user = db.get(User, int(claims.get("uid", 0)))
+    if not user or not user.is_active or claims.get("tv") != (user.token_version or 0):
+        raise expired
+    return GoogleFinishOut(access_token=create_access_token(user),
+                           linked_existing=bool(claims.get("merged")))
 
 
 @router.post("/finish", response_model=GoogleFinishOut)
 def finish(request: Request, response: Response, db: Session = Depends(get_db)) -> GoogleFinishOut:
     """Di ritorno da Google: il token di accesso, o i dati per completare la registrazione."""
-    claims = _read_cookie(request)
-    if claims.get("purpose") == "google-signup":
-        return GoogleFinishOut(signup_email=claims.get("email"), signup_name=claims.get("name"))
-    expired = HTTPException(status_code=400, detail="L'accesso con Google è scaduto: riprova")
-    if claims.get("purpose") != "google-login":
-        raise expired
-    user = db.get(User, int(claims.get("uid", 0)))
-    if not user or not user.is_active or claims.get("tv") != (user.token_version or 0):
-        raise expired
-    _clear_cookie(response)   # il token si ritira una volta
-    return GoogleFinishOut(access_token=create_access_token(user),
-                           linked_existing=bool(claims.get("merged")))
+    out = _finish(_read_cookie(request), "", db)
+    if out.access_token:
+        _clear_cookie(response)   # il token si ritira una volta
+    return out
+
+
+@router.post("/app/finish", response_model=GoogleFinishOut)
+@limiter.limit("20/minute")
+def finish_in_app(request: Request, payload: GoogleAppCodeIn,
+                  db: Session = Depends(get_db)) -> GoogleFinishOut:
+    """L'app, di ritorno da Google: come /finish, col `code` e il segreto al posto del cookie."""
+    return _finish(_app_claims(payload), "app-", db)
 
 
 @router.post("/complete", response_model=TokenOut, status_code=201)
@@ -314,6 +407,24 @@ def complete_signup(
     claims = _read_cookie(request)
     if claims.get("purpose") != "google-signup":
         raise HTTPException(status_code=400, detail="La registrazione con Google è scaduta: riprova")
+    user = _create_from_google(claims, payload, db)
+    _clear_cookie(response)
+    return TokenOut(access_token=create_access_token(user))
+
+
+@router.post("/app/complete", response_model=TokenOut, status_code=201)
+@limiter.limit("5/minute")
+def complete_signup_in_app(
+    request: Request, payload: GoogleAppSignupIn, db: Session = Depends(get_db),
+) -> TokenOut:
+    """Come /complete, per l'app: il `code` di registrazione e il segreto al posto del cookie."""
+    claims = _app_claims(payload)
+    if claims.get("purpose") != "app-google-signup":
+        raise HTTPException(status_code=400, detail="La registrazione con Google è scaduta: riprova")
+    return TokenOut(access_token=create_access_token(_create_from_google(claims, payload, db)))
+
+
+def _create_from_google(claims: dict, payload: GoogleSignupIn, db: Session) -> User:
     if payload.age_confirmed is not True:
         raise HTTPException(
             status_code=422,
@@ -353,8 +464,7 @@ def complete_signup(
     db.refresh(user)
     if merged:
         _tell_about_merge(user, account)
-    _clear_cookie(response)
-    return TokenOut(access_token=create_access_token(user))
+    return user
 
 
 @router.get("/me", response_model=GoogleStatusOut)

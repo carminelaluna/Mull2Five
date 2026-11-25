@@ -524,10 +524,10 @@ certificato può fallire per qualche minuto, poi Render ritenta da solo.
 
 ## 11. L'app Android
 
-È il sito dentro Chrome (TWA). Tutto il resto — prima installazione, chiave,
-Google Play — in [`android.md`](android.md).
+È un'app nativa che parla con l'API del sito. Tutto il resto — prima
+installazione, chiave, Google Play — in [`android.md`](android.md).
 
-### L'app si apre con la barra dell'indirizzo in cima
+### Il link a un torneo apre il browser, non l'app
 Il sito non riconosce la firma dell'app. Cosa dichiara:
 ```powershell
 Invoke-RestMethod https://mull2five.it/.well-known/assetlinks.json | ConvertTo-Json -Depth 5
@@ -538,18 +538,26 @@ Invoke-RestMethod https://mull2five-staging.onrender.com/.well-known/assetlinks.
 - `[]`: manca `ANDROID_CERT_FINGERPRINTS` su Render. In produzione vanno le due
   impronte della Play Console (*Integrità dell'app* → *Firma dell'app*); sullo
   staging quella che stampa `compila.ps1`.
-- Pacchetto o impronta diversi da quelli dell'app installata: un APK di staging
-  compilato su un altro PC ha un'altra chiave di debug; si aggiunge la sua
-  impronta dopo una virgola.
+- Pacchetto o impronta diversi da quelli dell'app installata: un APK compilato
+  su un altro PC ha un'altra chiave di debug; si aggiunge la sua impronta dopo
+  una virgola.
 
-Corretta la variabile, Render riparte; Chrome ricontrolla alla riapertura
-dell'app. Se la barra resta, si disinstalla e si reinstalla l'app.
+Corretta la variabile, Render riparte; Android ricontrolla quando l'app si
+reinstalla o si aggiorna.
+
+### L'app dice "Nessuna connessione"
+Sullo staging di solito dormiva: un minuto, poi "Riprova". In produzione si
+guarda se il sito risponde:
+```powershell
+Invoke-RestMethod https://mull2five.it/health
+```
 
 ### Ricompilare
 ```powershell
 powershell -ExecutionPolicy Bypass -File android\compila.ps1 -Ambiente staging
 ```
-⚠️ Quella vera, da caricare su Google Play (chiede la password della chiave):
+⚠️ Quella vera, da caricare su Google Play (chiede la password della chiave;
+prima si alza `versionCode` in `android/app/build.gradle.kts`):
 ```powershell
 powershell -ExecutionPolicy Bypass -File android\compila.ps1 -Ambiente produzione
 ```

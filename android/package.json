@@ -1,9 +1,0 @@
-{
-  "name": "mull2five-android",
-  "private": true,
-  "description": "L'app Android di Mull2Five: il sito dentro Chrome (Trusted Web Activity). Istruzioni in docs/android.md.",
-  "type": "module",
-  "devDependencies": {
-    "@bubblewrap/cli": "1.27.0"
-  }
-}

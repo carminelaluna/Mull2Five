@@ -57,6 +57,17 @@ class GoogleSignupIn(BaseModel):
     terms_accepted: bool | None = None
 
 
+class GoogleAppCodeIn(BaseModel):
+    """L'app di ritorno da Google: il `code` dell'indirizzo e il segreto che solo lei ha."""
+    code: str = Field(min_length=1, max_length=4000)
+    # PKCE (RFC 7636): da 43 a 128 caratteri.
+    verifier: str = Field(min_length=43, max_length=128, pattern=r"^[A-Za-z0-9._~-]+$")
+
+
+class GoogleAppSignupIn(GoogleSignupIn, GoogleAppCodeIn):
+    """Chi entra dall'app con Google per la prima volta."""
+
+
 class GoogleFinishOut(BaseModel):
     """Il ritorno da Google: o il token di accesso, o la registrazione da completare."""
     access_token: str | None = None

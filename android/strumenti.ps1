@@ -1,16 +1,17 @@
 ﻿<#
 .SYNOPSIS
   Gli strumenti per compilare l'app Android: JDK 17 e Android SDK, in
-  %USERPROFILE%\.bubblewrap, con la configurazione che Bubblewrap legge.
+  %USERPROFILE%\.bubblewrap, con la configurazione che compila.ps1 legge.
 
 .DESCRIPTION
-  Una volta per PC; rilanciato, salta quello che c'è già. Circa 1 GB.
-  Bubblewrap saprebbe scaricarli da solo, ma su Windows prende un JDK a 32 bit
-  (Gradle resta senza memoria) e gli strumenti dell'SDK del 2020: qui si
-  prendono il Temurin 17 a 64 bit e gli strumenti più recenti che hanno ancora
-  sdkmanager, in tools\ dentro l'SDK. È una delle due cartelle dove Bubblewrap
-  li cerca; l'altra, la radice dell'SDK, non va: con i loro file lì Gradle prende
-  tutto l'SDK per un pacchetto solo e non trova più le piattaforme.
+  Una volta per PC; rilanciato, salta quello che c'è già. Circa 1 GB, più le
+  librerie che Gradle scarica alla prima compilazione.
+  La cartella si chiama così per la prima versione dell'app (il sito dentro
+  Chrome, fatto con Bubblewrap): l'app nativa non lo usa più, ma i PC che
+  l'avevano hanno già tutto lì. Si prendono il Temurin 17 a 64 bit e gli
+  strumenti più recenti che hanno ancora sdkmanager, in tools\ dentro l'SDK:
+  nella radice dell'SDK Gradle prenderebbe tutto l'SDK per un pacchetto solo e
+  non troverebbe più le piattaforme.
 
   Istruzioni complete: docs/android.md.
 
@@ -26,9 +27,8 @@ $ProgressPreference = 'SilentlyContinue'   # con la barra, Invoke-WebRequest di 
 $root = Join-Path $HOME '.bubblewrap'
 $jdkRoot = Join-Path $root 'jdk'
 $sdk = Join-Path $root 'android_sdk'
-# Quelle che vuole il progetto generato da Bubblewrap 1.27: BUILD_TOOLS_VERSION in
-# @bubblewrap/core e compileSdkVersion del suo modello. Con un Bubblewrap nuovo
-# vanno ricontrollate (docs/android.md, "Aggiornare Bubblewrap").
+# Quelle che vuole android/app/build.gradle.kts: la piattaforma è il suo
+# compileSdk, e vanno alzate insieme (docs/android.md, "Aggiornare").
 $buildTools = '36.1.0'
 $platform = 'android-36'
 # Gli strumenti 19.0: dai 23.0 sdkmanager è sostituito dalla "Android CLI", che
@@ -76,8 +76,8 @@ foreach ($dir in "build-tools\$buildTools", "platforms\$platform", 'platform-too
     if (-not (Test-Path (Join-Path $sdk $dir))) { throw "sdkmanager non ha installato $dir" }
 }
 
-# ── La configurazione di Bubblewrap ─────────────────────────────────────────
-# Senza BOM: Bubblewrap la legge con JSON.parse, e il BOM di PowerShell 5.1 la rompe.
+# ── La configurazione che compila.ps1 legge ─────────────────────────────────
+# Senza BOM, come la scriveva la prima versione: ConvertFrom-Json la legge comunque.
 $config = @{ jdkPath = $jdk.FullName; androidSdkPath = $sdk } | ConvertTo-Json
 [IO.File]::WriteAllText((Join-Path $root 'config.json'), $config)
 Write-Host "Pronto. Configurazione in $(Join-Path $root 'config.json')"
