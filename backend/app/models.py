@@ -198,6 +198,9 @@ class Organization(Base):
     # Negozi importati (source "wizards"): l'id della scheda sul Wizards Store Locator.
     source: Mapped[str] = mapped_column(String(20), default="", server_default="")
     external_id: Mapped[str] = mapped_column(String(40), default="", server_default="", index=True)
+    # Chiuso perché chi lo gestiva da solo ha eliminato l'account (`close_store`):
+    # resta per lo storico dei tornei, senza nome né indirizzo, e non è fra i negozi.
+    closed_at: Mapped[datetime | None] = mapped_column(UtcDateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(UtcDateTime(timezone=True), default=now_utc)
 
 

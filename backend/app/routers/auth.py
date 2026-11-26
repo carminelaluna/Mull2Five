@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
+from backend.app.core.cache import cache_invalidate
 from backend.app.core.config import get_settings
 from backend.app.core.limiter import limiter
 from backend.app.core.lockout import is_locked, record_failed
@@ -39,6 +40,7 @@ from backend.app.security import (
 )
 from backend.app.services import google_login
 from backend.app.services.email import Sender, send_email
+from backend.app.services.stores import leave_stores
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -276,6 +278,9 @@ def delete_my_account(
     db.execute(delete(Notification).where(Notification.user_id.in_([user.id, *(p.id for p in profiles)])))
     # E nessun telefono si sveglia più per un account che non c'è.
     db.execute(delete(DeviceToken).where(DeviceToken.user_id == user.id))
+    # Il negozio nato da solo porta il suo nome: se non resta nessuno a
+    # gestirlo, si chiude; altrimenti va avanti con lo staff.
+    leave_stores(user, db)
     for profile in profiles:
         profile.email = f"deleted-{profile.id}@anon.invalid"
         profile.display_name = "Utente eliminato"
@@ -289,6 +294,10 @@ def delete_my_account(
     for reg in db.scalars(select(Registration).where(Registration.player_id == user.id)):
         reg.wizards_account = ""
     db.commit()
+    # Le liste dei tornei in cache hanno ancora il nome del negozio chiuso, e la
+    # sitemap la sua vecchia pagina.
+    cache_invalidate("tournaments:")
+    cache_invalidate("site:sitemap:")
     return {"detail": "Account eliminato. I tuoi dati personali sono stati rimossi."}
 
 

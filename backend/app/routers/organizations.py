@@ -110,8 +110,9 @@ def list_organizations(
     db: Session = Depends(get_db),
 ) -> list[OrganizationOut]:
     """Elenco pubblico dei negozi, con conteggi e distanza opzionale. Il negozio
-    di default non c'è: è un deposito interno, non un posto dove giocare."""
-    stmt = select(Organization).where(Organization.is_default.is_(False))
+    di default non c'è: è un deposito interno, non un posto dove giocare. Nemmeno
+    i negozi chiusi (`close_store`)."""
+    stmt = select(Organization).where(Organization.is_default.is_(False), Organization.closed_at.is_(None))
     if premium_only:
         stmt = stmt.where(Organization.is_premium.is_(True))
     found = db.scalars(stmt.order_by(Organization.name)).all()
@@ -134,7 +135,9 @@ def list_organizations(
 @router.get("/{slug}/profile", response_model=StoreProfileOut)
 def store_profile(slug: str, db: Session = Depends(get_db)) -> StoreProfileOut:
     """Pagina pubblica del negozio: anagrafica, prossimi eventi e albo d'oro."""
-    org = db.scalar(select(Organization).where(Organization.slug == slug))
+    org = db.scalar(
+        select(Organization).where(Organization.slug == slug, Organization.closed_at.is_(None))
+    )
     if not org:
         raise HTTPException(status_code=404, detail="Negozio non trovato")
     today = local_today()

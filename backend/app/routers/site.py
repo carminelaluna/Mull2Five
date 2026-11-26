@@ -118,7 +118,11 @@ def _sitemap(base: str, db: Session) -> str:
         select(Tournament.id).where(Tournament.status.in_(visible), Tournament.starts_on >= since)
         .order_by(Tournament.starts_on.desc()).limit(40_000)
     )]
-    urls += [f"{base}/store.html?s={slug}" for slug in db.scalars(select(Organization.slug).order_by(Organization.id))]
+    urls += [f"{base}/store.html?s={slug}" for slug in db.scalars(
+        select(Organization.slug)
+        .where(Organization.is_default.is_(False), Organization.closed_at.is_(None))
+        .order_by(Organization.id)
+    )]
     urls += [f"{base}/series.html?c={slug}" for slug in db.scalars(
         select(Season.slug).where(Season.is_public.is_(True), Season.is_active.is_(True), Season.slug.is_not(None))
     )]

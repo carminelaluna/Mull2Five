@@ -11,12 +11,13 @@ suo nome (`working_store`). Prima quei tornei uscivano a nome di "Mull2Five".
 """
 import re
 
-from sqlalchemy import ColumnElement, false, or_, select, text
+from sqlalchemy import ColumnElement, delete, false, or_, select, text
 from sqlalchemy.orm import Session
 
 from backend.app.core.clock import local_today
 from backend.app.models import (
     Event,
+    Location,
     Organization,
     PlayerTag,
     Season,
@@ -27,6 +28,7 @@ from backend.app.models import (
     TournamentTemplate,
     User,
     UserRole,
+    now_utc,
 )
 
 # Le parole che l'API usa dopo /organizations/: un negozio con quello slug non
@@ -135,6 +137,52 @@ def open_store(user: User, name: str, db: Session, city: str = "") -> Organizati
     return org
 
 
+CLOSED_STORE_NAME = "Negozio chiuso"
+
+
+def close_store(org: Organization, db: Session) -> None:
+    """Chiude un negozio rimasto senza nessuno. Il negozio nato da solo porta il
+    nome dell'account, e lo slug lo ripete: vanno via tutti e due, con il
+    profilo e le sedi, che possono essere l'indirizzo di casa di chi
+    organizzava. I tornei restano, con il luogo scritto. Non esce più fra i
+    negozi. Gli incassi restano collegati: servono ai rimborsi."""
+    for tournament in db.scalars(
+        select(Tournament).join(Location, Tournament.location_id == Location.id)
+        .where(Location.organization_id == org.id)
+    ).all():
+        keep_place(tournament)
+    db.execute(delete(Location).where(Location.organization_id == org.id))
+    org.name = CLOSED_STORE_NAME
+    org.slug = f"negozio-chiuso-{org.id}"
+    org.description = org.city = org.address = org.website = org.logo_url = ""
+    org.latitude = org.longitude = None
+    org.is_premium = False
+    org.closed_at = now_utc()
+
+
+def leave_stores(user: User, db: Session) -> None:
+    """Chi elimina l'account esce dai suoi negozi. Dove resta qualcuno dello
+    staff il negozio va avanti, e se se ne va il titolare lo diventa chi ne fa
+    parte da più tempo; dove non resta nessuno, il negozio si chiude. Non salva:
+    lo fa chi chiama."""
+    memberships = db.scalars(select(StoreMember).where(StoreMember.user_id == user.id)).all()
+    for membership in memberships:
+        org_id = membership.organization_id
+        db.delete(membership)
+        others = db.scalars(
+            select(StoreMember).join(User, User.id == StoreMember.user_id)
+            .where(StoreMember.organization_id == org_id, StoreMember.user_id != user.id,
+                   User.is_active.is_(True))
+            .order_by(StoreMember.created_at, StoreMember.id)
+        ).all()
+        org = db.get(Organization, org_id)
+        if not others and not org.is_default:
+            close_store(org, db)
+        elif not any(m.role == StoreRole.OWNER for m in others):
+            others[0].role = StoreRole.OWNER
+    db.flush()
+
+
 def own_store(user: User, db: Session) -> int | None:
     """Il negozio per cui si lavora, se c'è: quello scelto sull'account se se ne
     fa parte (all'admin basta averlo scelto), altrimenti il primo di cui si fa
@@ -173,6 +221,8 @@ def give_stores_to_organizers(db: Session) -> int:
     people = db.scalars(
         select(User).where(
             User.role.in_([UserRole.ORGANIZER, UserRole.ADMIN]),
+            # Un account eliminato non apre negozi: avrebbe nome e titolare di nessuno.
+            User.is_active.is_(True),
             ~select(StoreMember.id).where(StoreMember.user_id == User.id).exists(),
             or_(*(User.id.in_(q) for q in homeless)),
         ).order_by(User.id)
