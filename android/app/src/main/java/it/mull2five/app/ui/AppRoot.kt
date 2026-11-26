@@ -154,7 +154,11 @@ fun AppRoot(container: AppContainer) {
         val askNotifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
         LaunchedEffect(user?.id) {
             if (user == null) return@LaunchedEffect
-            container.attempt { container.inbox.refreshUnread() }
+            // Prima di registrare il telefono: `showNew` segna il punto di partenza
+            // della campanella. Senza, il primo messaggio che arriva — l'iscrizione
+            // appena fatta — verrebbe preso per quel punto e non comparirebbe fra
+            // le notifiche del telefono.
+            container.attempt { container.inbox.showNew() }
             // Con Firebase, il server sveglia questo telefono per chi è appena entrato.
             container.attempt { container.inbox.registerDevice() }
             if (container.inbox.needsPermissionPrompt()) {
