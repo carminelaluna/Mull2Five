@@ -67,6 +67,9 @@ def test_deleting_the_only_organizer_closes_the_store_and_keeps_the_place(client
     sala = _location(client, organizer, slug)
     tournament_id = _tournament(client, organizer, location_id=sala["id"])["id"]
     org_id = db_session.scalar(select(Organization.id).where(Organization.slug == slug))
+    org = db_session.get(Organization, org_id)
+    org.paypal_email = "owner@example.com"
+    db_session.commit()
 
     deleted = client.delete("/api/auth/me", headers=organizer)
     assert deleted.status_code == 200, deleted.text
@@ -95,9 +98,9 @@ def test_deleting_the_only_organizer_closes_the_store_and_keeps_the_place(client
         select(func.count(StoreMember.id)).where(StoreMember.organization_id == org_id)
     ) == 0
 
-    # Il profilo del negozio non tiene più nome, indirizzo o coordinate di casa.
+    # Il profilo del negozio non tiene più nome, indirizzo, email o coordinate di casa.
     assert (closed.description, closed.city, closed.address) == ("", "", "")
-    assert (closed.website, closed.logo_url) == ("", "")
+    assert (closed.website, closed.logo_url, closed.paypal_email) == ("", "", "")
     assert (closed.latitude, closed.longitude) == (None, None)
     assert closed.is_premium is False
 

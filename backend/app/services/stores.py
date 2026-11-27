@@ -143,8 +143,8 @@ CLOSED_STORE_NAME = "Negozio chiuso"
 def close_store(org: Organization, db: Session) -> None:
     """Chiude un negozio rimasto senza nessuno. Il negozio nato da solo porta il
     nome dell'account, e lo slug lo ripete: vanno via tutti e due, con il
-    profilo e le sedi, che possono essere l'indirizzo di casa di chi
-    organizzava. I tornei restano, con il luogo scritto. Non esce più fra i
+    profilo, le sedi e l'email PayPal, che possono essere l'indirizzo di casa di
+    chi organizzava. I tornei restano, con il luogo scritto. Non esce più fra i
     negozi. Gli incassi restano collegati: servono ai rimborsi."""
     for tournament in db.scalars(
         select(Tournament).join(Location, Tournament.location_id == Location.id)
@@ -155,6 +155,7 @@ def close_store(org: Organization, db: Session) -> None:
     org.name = CLOSED_STORE_NAME
     org.slug = f"negozio-chiuso-{org.id}"
     org.description = org.city = org.address = org.website = org.logo_url = ""
+    org.paypal_email = ""
     org.latitude = org.longitude = None
     org.is_premium = False
     org.closed_at = now_utc()
