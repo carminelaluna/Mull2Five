@@ -1,0 +1,582 @@
+{
+  "Modern": [
+    {
+      "format": "Modern",
+      "archetype": "Rakdos Aggro",
+      "deck_id": 916338,
+      "event_id": 94370,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "1 Arid Mesa\n3 Blood Crypt\n4 Bloodstained Mire\n2 Marsh Flats\n1 Mountain\n1 Polluted Delta\n2 Raucous Theater\n2 Swamp\n1 Verdant Catacombs\n4 Dark Matter Manipulator\n1 Death's Shadow\n4 Detective's Phoenix\n4 Fear of Missing Out\n4 Moonshadow\n3 Nethergoyf\n4 Street Wraith\n2 Troll of Khazad-dûm\n2 Fatal Push\n4 Lightning Bolt\n4 Thoughtseize\n2 Unholy Heat\n4 Mishra's Bauble\n1 Nihil Spellbomb\n\nSideboard\n1 Blood Moon\n1 End of the Hunt\n1 Fatal Push\n1 Glistening Deluge\n1 Inquisition of Kozilek\n4 Leyline of the Void\n1 Liliana of the Veil\n2 Meltdown\n1 Ob Nixilis, the Adversary\n1 Obsidian Charmaw\n1 Rough / Tumble"
+    },
+    {
+      "format": "Modern",
+      "archetype": "Rakdos Aggro",
+      "deck_id": 916340,
+      "event_id": 94370,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "1 Arid Mesa\n1 Blackcleave Cliffs\n3 Blood Crypt\n4 Bloodstained Mire\n4 Marsh Flats\n1 Mountain\n1 Raucous Theater\n2 Swamp\n4 Dark Matter Manipulator\n4 Detective's Phoenix\n4 Fear of Missing Out\n4 Moonshadow\n4 Nethergoyf\n4 Street Wraith\n2 Troll of Khazad-dûm\n1 Fatal Push\n4 Lightning Bolt\n4 Thoughtseize\n2 Unholy Heat\n1 Blood Moon\n4 Mishra's Bauble\n1 Nihil Spellbomb\n\nSideboard\n2 Blood Moon\n2 Fatal Push\n2 Glistening Deluge\n1 Ingot Chewer\n2 Inquisition of Kozilek\n3 Meltdown\n1 Nihil Spellbomb\n2 Ob Nixilis, the Adversary"
+    },
+    {
+      "format": "Modern",
+      "archetype": "Rakdos Aggro",
+      "deck_id": 916962,
+      "event_id": 94461,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "1 Blackcleave Cliffs\n3 Blood Crypt\n4 Bloodstained Mire\n4 Marsh Flats\n2 Raucous Theater\n2 Swamp\n1 Verdant Catacombs\n4 Dark Matter Manipulator\n4 Detective's Phoenix\n4 Fear of Missing Out\n4 Moonshadow\n4 Nethergoyf\n2 Stitcher's Supplier\n4 Street Wraith\n1 Troll of Khazad-dûm\n1 Fatal Push\n4 Flare of Malice\n3 Lightning Bolt\n4 Thoughtseize\n4 Mishra's Bauble\n\nSideboard\n2 Blood Moon\n1 Fatal Push\n2 Glistening Deluge\n1 Grafdigger's Cage\n1 Inquisition of Kozilek\n2 Meltdown\n2 Nihil Spellbomb\n2 Ob Nixilis, the Adversary\n1 Obsidian Charmaw\n1 Steel Wrecking Ball"
+    },
+    {
+      "format": "Modern",
+      "archetype": "Rakdos Aggro",
+      "deck_id": 916974,
+      "event_id": 94461,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "1 Arid Mesa\n1 Blackcleave Cliffs\n3 Blood Crypt\n4 Bloodstained Mire\n4 Marsh Flats\n1 Mountain\n1 Raucous Theater\n2 Swamp\n4 Dark Matter Manipulator\n4 Detective's Phoenix\n4 Fear of Missing Out\n4 Moonshadow\n4 Nethergoyf\n4 Street Wraith\n2 Troll of Khazad-dûm\n1 Fatal Push\n4 Lightning Bolt\n4 Thoughtseize\n2 Unholy Heat\n1 Blood Moon\n4 Mishra's Bauble\n1 Nihil Spellbomb\n\nSideboard\n1 Blood Moon\n2 Fatal Push\n2 Glistening Deluge\n1 Ingot Chewer\n1 Inquisition of Kozilek\n2 Meltdown\n1 Nihil Spellbomb\n2 Ob Nixilis, the Adversary\n3 Obsidian Charmaw"
+    },
+    {
+      "format": "Modern",
+      "archetype": "Rakdos Aggro",
+      "deck_id": 916293,
+      "event_id": 94365,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "1 Arid Mesa\n1 Blackcleave Cliffs\n3 Blood Crypt\n4 Bloodstained Mire\n4 Marsh Flats\n1 Mountain\n1 Raucous Theater\n2 Swamp\n4 Dark Matter Manipulator\n4 Detective's Phoenix\n4 Fear of Missing Out\n4 Moonshadow\n4 Nethergoyf\n4 Street Wraith\n2 Troll of Khazad-dûm\n1 Fatal Push\n4 Lightning Bolt\n4 Thoughtseize\n2 Unholy Heat\n1 Blood Moon\n4 Mishra's Bauble\n1 Nihil Spellbomb\n\nSideboard\n2 Blood Moon\n2 Fatal Push\n2 Glistening Deluge\n1 Ingot Chewer\n2 Inquisition of Kozilek\n3 Meltdown\n1 Nihil Spellbomb\n2 Ob Nixilis, the Adversary"
+    },
+    {
+      "format": "Modern",
+      "archetype": "Broodscale Bloodchief",
+      "deck_id": 916358,
+      "event_id": 94372,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "2 Boseiju, Who Endures\n4 Eldrazi Temple\n6 Forest\n1 Gemstone Caverns\n1 Shifting Woodland\n4 Ugin's Labyrinth\n4 Urza's Saga\n4 Basking Broodscale\n2 Devourer of Destiny\n4 Emrakul, the Promised End\n1 Haywire Mite\n2 Sire of Seven Deaths\n4 Sowing Mycospawn\n4 Ancient Stirrings\n3 Dismember\n4 Kozilek's Command\n4 Malevolent Rumble\n2 Blade of the Bloodchief\n1 Soul-Guide Lantern\n1 Springleaf Drum\n1 Talisman of Resilience\n1 Vexing Bauble\n\nSideboard\n1 Cavern of Souls\n1 Chalice of the Void\n1 Grafdigger's Cage\n2 Nature's Claim\n2 The Stone Brain\n1 Thief of Existence\n3 Thought-Knot Seer\n2 Trinisphere\n1 Vexing Bauble\n1 Warping Wail"
+    },
+    {
+      "format": "Modern",
+      "archetype": "Broodscale Bloodchief",
+      "deck_id": 916359,
+      "event_id": 94372,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "1 Boseiju, Who Endures\n1 Cavern of Souls\n4 Eldrazi Temple\n9 Forest\n4 Ugin's Labyrinth\n4 Urza's Saga\n3 Basking Broodscale\n1 Emrakul, the Exigent Doom\n4 Emrakul, the Promised End\n1 Haywire Mite\n4 Sowing Mycospawn\n2 World Breaker\n4 Ancient Stirrings\n3 Dismember\n4 Kozilek's Command\n4 Malevolent Rumble\n2 Blade of the Bloodchief\n1 Soul-Guide Lantern\n1 Springleaf Drum\n2 Talisman of Resilience\n1 Vexing Bauble\n\nSideboard\n1 Bojuka Bog\n1 Dismember\n2 Grafdigger's Cage\n2 Nature's Claim\n1 Oblivion Sower\n1 Pithing Needle\n1 Shadowspear\n2 Sire of Seven Deaths\n2 Trinisphere\n2 Vexing Bauble"
+    },
+    {
+      "format": "Modern",
+      "archetype": "Broodscale Bloodchief",
+      "deck_id": 916360,
+      "event_id": 94372,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "1 Ba Sing Se\n1 Boseiju, Who Endures\n4 Eldrazi Temple\n6 Forest\n1 Gemstone Caverns\n1 Shifting Woodland\n4 Ugin's Labyrinth\n4 Urza's Saga\n4 Basking Broodscale\n2 Devourer of Destiny\n4 Emrakul, the Promised End\n1 Haywire Mite\n2 Sire of Seven Deaths\n4 Sowing Mycospawn\n4 Ancient Stirrings\n3 Dismember\n4 Kozilek's Command\n4 Malevolent Rumble\n2 Blade of the Bloodchief\n1 Soul-Guide Lantern\n1 Springleaf Drum\n1 Talisman of Resilience\n1 Vexing Bauble\n\nSideboard\n2 Chalice of the Void\n1 Grafdigger's Cage\n2 Nature's Claim\n2 The Stone Brain\n2 Thought-Knot Seer\n3 Trinisphere\n1 Vexing Bauble\n2 Warping Wail"
+    },
+    {
+      "format": "Modern",
+      "archetype": "Broodscale Bloodchief",
+      "deck_id": 916363,
+      "event_id": 94372,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "2 Boseiju, Who Endures\n4 Eldrazi Temple\n6 Forest\n1 Gemstone Caverns\n1 Shifting Woodland\n4 Ugin's Labyrinth\n4 Urza's Saga\n4 Basking Broodscale\n2 Devourer of Destiny\n4 Emrakul, the Promised End\n1 Haywire Mite\n2 Sire of Seven Deaths\n4 Sowing Mycospawn\n4 Ancient Stirrings\n3 Dismember\n4 Kozilek's Command\n4 Malevolent Rumble\n2 Blade of the Bloodchief\n1 Soul-Guide Lantern\n1 Springleaf Drum\n1 Talisman of Resilience\n1 Vexing Bauble\n\nSideboard\n1 Cavern of Souls\n1 Chalice of the Void\n1 Grafdigger's Cage\n2 Nature's Claim\n2 The Stone Brain\n1 Thief of Existence\n3 Thought-Knot Seer\n2 Trinisphere\n1 Vexing Bauble\n1 Warping Wail"
+    },
+    {
+      "format": "Modern",
+      "archetype": "Broodscale Bloodchief",
+      "deck_id": 916960,
+      "event_id": 94461,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "2 Boseiju, Who Endures\n1 Cavern of Souls\n4 Eldrazi Temple\n6 Forest\n1 Gemstone Caverns\n4 Ugin's Labyrinth\n4 Urza's Saga\n4 Basking Broodscale\n2 Devourer of Destiny\n4 Emrakul, the Promised End\n1 Haywire Mite\n2 Sire of Seven Deaths\n4 Sowing Mycospawn\n4 Ancient Stirrings\n3 Dismember\n4 Kozilek's Command\n4 Malevolent Rumble\n2 Blade of the Bloodchief\n1 Soul-Guide Lantern\n1 Springleaf Drum\n1 Talisman of Resilience\n1 Vexing Bauble\n\nSideboard\n1 Ba Sing Se\n2 Chalice of the Void\n1 Grafdigger's Cage\n2 Nature's Claim\n1 Pithing Needle\n2 The Stone Brain\n2 Thought-Knot Seer\n3 Trinisphere\n1 Vexing Bauble"
+    },
+    {
+      "format": "Modern",
+      "archetype": "Boros Aggro",
+      "deck_id": 916348,
+      "event_id": 94372,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "3 Arena of Glory\n4 Arid Mesa\n1 Dalkovan Encampment\n1 Elegant Parlor\n4 Flooded Strand\n3 Marsh Flats\n1 Plains\n3 Sacred Foundry\n1 Snow-Covered Mountain\n1 Snow-Covered Plains\n4 Ajani, Nacatl Pariah\n3 Captain James T. Kirk\n4 Guide of Souls\n4 Ocelot Pride\n4 Ragavan, Nimble Pilferer\n3 Seasoned Pyromancer\n4 Voice of Victory\n4 Galvanic Discharge\n2 Lightning Bolt\n2 Thraben Charm\n4 Goblin Bombardment\n\nSideboard\n1 Blood Moon\n1 Celestial Purge\n3 High Noon\n3 Obsidian Charmaw\n1 Prismatic Ending\n2 Surgical Extraction\n2 Wear / Tear\n2 Wrath of the Skies"
+    },
+    {
+      "format": "Modern",
+      "archetype": "Boros Aggro",
+      "deck_id": 916351,
+      "event_id": 94372,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "3 Arena of Glory\n4 Arid Mesa\n1 Dalkovan Encampment\n2 Elegant Parlor\n3 Flooded Strand\n4 Marsh Flats\n1 Mountain\n2 Plains\n3 Sacred Foundry\n4 Ajani, Nacatl Pariah\n3 Captain James T. Kirk\n4 Guide of Souls\n1 Hero of Bladehold\n4 Ocelot Pride\n4 Ragavan, Nimble Pilferer\n3 Seasoned Pyromancer\n4 Voice of Victory\n4 Galvanic Discharge\n1 Lightning Bolt\n2 Thraben Charm\n3 Goblin Bombardment\n\nSideboard\n2 Blood Moon\n2 Celestial Purge\n2 High Noon\n3 Obsidian Charmaw\n2 Orim's Chant\n2 Rest in Peace\n1 Wear / Tear\n1 Wrath of the Skies"
+    },
+    {
+      "format": "Modern",
+      "archetype": "Boros Aggro",
+      "deck_id": 916288,
+      "event_id": 94365,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "3 Arena of Glory\n4 Arid Mesa\n1 Dalkovan Encampment\n2 Elegant Parlor\n3 Flooded Strand\n4 Marsh Flats\n1 Mountain\n2 Plains\n3 Sacred Foundry\n4 Ajani, Nacatl Pariah\n3 Captain James T. Kirk\n4 Guide of Souls\n1 Hero of Bladehold\n4 Ocelot Pride\n4 Ragavan, Nimble Pilferer\n3 Seasoned Pyromancer\n4 Voice of Victory\n4 Galvanic Discharge\n1 Lightning Bolt\n2 Thraben Charm\n3 Goblin Bombardment\n\nSideboard\n1 Blood Moon\n2 Celestial Purge\n2 High Noon\n3 Obsidian Charmaw\n2 Orim's Chant\n1 Q, Stacking the Deck\n2 Rest in Peace\n1 Wear / Tear\n1 Wrath of the Skies"
+    },
+    {
+      "format": "Modern",
+      "archetype": "Boros Aggro",
+      "deck_id": 916297,
+      "event_id": 94365,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "3 Arena of Glory\n4 Arid Mesa\n1 Dalkovan Encampment\n2 Elegant Parlor\n4 Flooded Strand\n3 Marsh Flats\n1 Plains\n3 Sacred Foundry\n1 Snow-Covered Mountain\n1 Snow-Covered Plains\n4 Ajani, Nacatl Pariah\n3 Captain James T. Kirk\n4 Guide of Souls\n4 Ocelot Pride\n4 Ragavan, Nimble Pilferer\n4 Seasoned Pyromancer\n4 Voice of Victory\n4 Galvanic Discharge\n2 Thraben Charm\n4 Goblin Bombardment\n\nSideboard\n1 Blood Moon\n1 Celestial Purge\n3 High Noon\n4 Obsidian Charmaw\n1 Prismatic Ending\n2 Surgical Extraction\n2 Wear / Tear\n1 Wrath of the Skies"
+    },
+    {
+      "format": "Modern",
+      "archetype": "Affinity",
+      "deck_id": 916349,
+      "event_id": 94372,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "3 Fiery Islet\n1 Shivan Reef\n1 Snow-Covered Island\n4 Spirebluff Canal\n3 Starting Town\n4 Urza's Saga\n4 Arcbound Ravager\n4 Kappa Cannoneer\n2 Memnite\n1 Ornithopter\n4 Pinnacle Emissary\n2 Sink into Stupor\n2 Claws of Gix\n4 Engineered Explosives\n4 Mishra's Bauble\n4 Mox Opal\n1 Paradise Mantle\n1 Skateboard\n1 Springleaf Drum\n3 Tormod's Crypt\n4 Weapons Manufacturing\n3 Welding Jar\n\nSideboard\n3 Consign to Memory\n3 Damping Sphere\n1 Galvanic Blast\n1 Grafdigger's Cage\n2 Haywire Mite\n3 Metallic Rebuke\n1 Pithing Needle\n1 Shadowspear"
+    },
+    {
+      "format": "Modern",
+      "archetype": "Affinity",
+      "deck_id": 916361,
+      "event_id": 94372,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "4 Fiery Islet\n1 Island\n3 Shivan Reef\n4 Spirebluff Canal\n1 Steam Vents\n4 Urza's Saga\n2 Emry, Lurker of the Loch\n4 Kappa Cannoneer\n4 Pinnacle Emissary\n3 Metallic Rebuke\n2 Preordain\n1 Sink into Stupor\n3 Claws of Gix\n4 Engineered Explosives\n4 Mishra's Bauble\n4 Mox Opal\n1 Pithing Needle\n1 Shadowspear\n1 Skateboard\n4 Tormod's Crypt\n4 Weapons Manufacturing\n1 Welding Jar\n\nSideboard\n2 Blood Moon\n3 Consign to Memory\n2 Damping Sphere\n3 Galvanic Blast\n1 Grafdigger's Cage\n2 Mystical Dispute\n2 Whipflare"
+    },
+    {
+      "format": "Modern",
+      "archetype": "Affinity",
+      "deck_id": 916618,
+      "event_id": 94416,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "1 Blackcleave Cliffs\n4 Castle Doom\n2 Darkslick Shores\n1 Island\n1 Spirebluff Canal\n4 Starting Town\n4 Urza's Saga\n1 Watery Grave\n4 Collation Trimatrix\n1 Haywire Mite\n4 Kappa Cannoneer\n3 Memnite\n4 Ornithopter\n4 Pinnacle Emissary\n4 Ravenous Robots\n1 Borg Cube\n4 Mishra's Bauble\n4 Mox Opal\n1 Pithing Needle\n1 Shadowspear\n1 Skateboard\n1 Synthesizer Labship\n4 Tormod's Crypt\n1 Welding Jar\n\nSideboard\n1 Crashing Footfalls\n3 Damping Sphere\n3 Disruptor Flute\n1 Doomwake Giant\n2 Grim Bauble\n3 Thought-Knot Seer\n1 Vexing Bauble\n1 Whipflare"
+    },
+    {
+      "format": "Modern",
+      "archetype": "Mono Black Aggro",
+      "deck_id": 916284,
+      "event_id": 94364,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "4 Eldrazi Temple\n4 Ifnir Deadlands\n1 Marsh Flats\n4 Prismatic Vista\n4 Swamp\n2 Urborg, Tomb of Yawgmoth\n4 Urza's Saga\n1 Wastes\n4 Emperor of Bones\n4 Nethergoyf\n3 Orcish Bowmasters\n4 Thought-Knot Seer\n4 Fatal Push\n2 Inquisition of Kozilek\n4 Kozilek's Command\n4 Thoughtseize\n4 Mishra's Bauble\n1 Nihil Spellbomb\n1 Pithing Needle\n1 Shadowspear\n\nSideboard\n1 Ashiok, Dream Render\n2 Break the Ice\n2 Damping Sphere\n1 Dismember\n1 Dreams of Steel and Oil\n1 Force of Despair\n2 Pithing Needle\n1 Shoot the Sheriff\n1 Surgical Extraction\n2 Toxic Deluge\n1 Wasteland Strangler"
+    },
+    {
+      "format": "Modern",
+      "archetype": "Mono Black Aggro",
+      "deck_id": 916321,
+      "event_id": 94368,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "4 Eldrazi Temple\n4 Ifnir Deadlands\n1 Marsh Flats\n4 Prismatic Vista\n4 Swamp\n2 Urborg, Tomb of Yawgmoth\n4 Urza's Saga\n1 Wastes\n4 Emperor of Bones\n4 Nethergoyf\n3 Orcish Bowmasters\n4 Thought-Knot Seer\n4 Fatal Push\n2 Inquisition of Kozilek\n4 Kozilek's Command\n4 Thoughtseize\n4 Mishra's Bauble\n1 Nihil Spellbomb\n1 Pithing Needle\n1 Shadowspear\n\nSideboard\n1 Ashiok, Dream Render\n2 Break the Ice\n2 Damping Sphere\n1 Dismember\n1 Dreams of Steel and Oil\n1 Force of Despair\n2 Pithing Needle\n1 Shoot the Sheriff\n1 Surgical Extraction\n2 Toxic Deluge\n1 Wasteland Strangler"
+    },
+    {
+      "format": "Modern",
+      "archetype": "Mono Black Aggro",
+      "deck_id": 916252,
+      "event_id": 94361,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "4 Eldrazi Temple\n4 Ifnir Deadlands\n1 Marsh Flats\n4 Prismatic Vista\n4 Swamp\n2 Urborg, Tomb of Yawgmoth\n4 Urza's Saga\n1 Wastes\n4 Emperor of Bones\n4 Nethergoyf\n3 Orcish Bowmasters\n4 Thought-Knot Seer\n4 Fatal Push\n2 Inquisition of Kozilek\n4 Kozilek's Command\n4 Thoughtseize\n4 Mishra's Bauble\n1 Nihil Spellbomb\n1 Pithing Needle\n1 Shadowspear\n\nSideboard\n1 Ashiok, Dream Render\n2 Break the Ice\n2 Damping Sphere\n1 Dismember\n1 Dreams of Steel and Oil\n1 Force of Despair\n2 Pithing Needle\n1 Shoot the Sheriff\n1 Surgical Extraction\n2 Toxic Deluge\n1 Wasteland Strangler"
+    },
+    {
+      "format": "Modern",
+      "archetype": "UR Aggro",
+      "deck_id": 916335,
+      "event_id": 94370,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "4 Bloodstained Mire\n2 Fiery Islet\n3 Mountain\n2 Scalding Tarn\n4 Steam Vents\n1 Thundering Falls\n3 Wooded Foothills\n4 Dragon's Rage Channeler\n4 Monastery Swiftspear\n2 Pompous Battlemage\n1 Slickshot Show-Off\n1 Boomerang Basics\n3 Expressive Iteration\n1 Flashback\n4 Lava Dart\n4 Lightning Bolt\n3 Mutagenic Growth\n4 Preordain\n1 Violent Urge\n4 Cori-Steel Cutter\n4 Mishra's Bauble\n1 Stormchaser's Talent\n\nSideboard\n1 Abrade\n3 Consign to Memory\n1 Meltdown\n1 Prismari Charm\n1 Spell Pierce\n2 Spell Snare\n2 Surgical Extraction\n1 Tormod's Crypt\n3 Unholy Heat"
+    },
+    {
+      "format": "Modern",
+      "archetype": "UR Aggro",
+      "deck_id": 916279,
+      "event_id": 94364,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "2 Arid Mesa\n3 Bloodstained Mire\n1 Fiery Islet\n3 Mountain\n2 Scalding Tarn\n3 Steam Vents\n1 Thundering Falls\n3 Wooded Foothills\n4 Dragon's Rage Channeler\n4 Monastery Swiftspear\n4 Slickshot Show-Off\n4 Expressive Iteration\n4 Lava Dart\n4 Lightning Bolt\n4 Mutagenic Growth\n4 Preordain\n1 Unholy Heat\n1 Violent Urge\n4 Cori-Steel Cutter\n4 Mishra's Bauble\n\nSideboard\n4 Consign to Memory\n1 End the Festivities\n1 Meltdown\n1 Mystical Dispute\n1 Spell Pierce\n2 Spell Snare\n2 Tormod's Crypt\n3 Unholy Heat"
+    },
+    {
+      "format": "Modern",
+      "archetype": "UR Aggro",
+      "deck_id": 916311,
+      "event_id": 94366,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "3 Bloodstained Mire\n1 Fiery Islet\n2 Mountain\n4 Scalding Tarn\n3 Steam Vents\n1 Stomping Ground\n1 Thundering Falls\n3 Wooded Foothills\n4 Dragon's Rage Channeler\n4 Monastery Swiftspear\n4 Slickshot Show-Off\n4 Expressive Iteration\n4 Lava Dart\n4 Lightning Bolt\n2 Mutagenic Growth\n4 Preordain\n1 Unholy Heat\n2 Violent Urge\n4 Cori-Steel Cutter\n4 Mishra's Bauble\n1 Tormod's Crypt\n\nSideboard\n3 Consign to Memory\n1 Heritage Reclamation\n1 Meltdown\n1 Mystical Dispute\n2 Obsidian Charmaw\n1 Pick Your Poison\n2 Spell Pierce\n1 Surgical Extraction\n3 Unholy Heat"
+    },
+    {
+      "format": "Modern",
+      "archetype": "Amulet Titan",
+      "deck_id": 916299,
+      "event_id": 94365,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "3 Boseiju, Who Endures\n4 Crumbling Vestige\n1 Dryad Arbor\n1 Echoing Deeps\n3 Forest\n3 Gruul Turf\n1 Hanweir Battlements\n1 Mirrorpool\n1 Otawara, Soaring City\n1 Roiling Canopy\n4 Simic Growth Chamber\n1 Tolaria West\n4 Urza's Saga\n1 Vesuva\n1 Yavimaya, Cradle of Growth\n4 Arboreal Grazer\n1 Cultivator Colossus\n4 Primeval Titan\n3 Green Sun's Zenith\n3 Malevolent Rumble\n2 Summoner's Pact\n4 Amulet of Vigor\n1 Expedition Map\n4 Genesis Device\n4 Spelunking\n\nSideboard\n2 Ba Sing Se\n1 Bojuka Bog\n3 Dismember\n3 Force of Vigor\n2 Sowing Mycospawn\n4 Trinisphere"
+    },
+    {
+      "format": "Modern",
+      "archetype": "Amulet Titan",
+      "deck_id": 916301,
+      "event_id": 94365,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "3 Boseiju, Who Endures\n4 Crumbling Vestige\n1 Dryad Arbor\n1 Echoing Deeps\n3 Forest\n3 Gruul Turf\n1 Hanweir Battlements\n1 Mirrorpool\n1 Otawara, Soaring City\n1 Roiling Canopy\n4 Simic Growth Chamber\n1 Tolaria West\n4 Urza's Saga\n1 Vesuva\n1 Yavimaya, Cradle of Growth\n4 Arboreal Grazer\n1 Cultivator Colossus\n3 Primeval Titan\n4 Green Sun's Zenith\n2 Malevolent Rumble\n4 Scapeshift\n2 Summoner's Pact\n4 Amulet of Vigor\n2 Genesis Device\n4 Spelunking\n\nSideboard\n1 Aftermath Analyst\n1 Ba Sing Se\n1 Bojuka Bog\n1 Collector Ouphe\n3 Dismember\n1 Elvish Reclaimer\n1 Engineered Explosives\n1 Force of Vigor\n1 Genesis Device\n1 Otawara, Soaring City\n3 Trinisphere"
+    },
+    {
+      "format": "Modern",
+      "archetype": "Amulet Titan",
+      "deck_id": 916310,
+      "event_id": 94366,
+      "main_count": 61,
+      "side_count": 15,
+      "raw_text": "3 Boseiju, Who Endures\n4 Crumbling Vestige\n1 Dryad Arbor\n1 Echoing Deeps\n3 Forest\n3 Gruul Turf\n1 Hanweir Battlements\n1 Mirrorpool\n1 Otawara, Soaring City\n1 Roiling Canopy\n4 Simic Growth Chamber\n1 Tolaria West\n4 Urza's Saga\n1 Vesuva\n1 Yavimaya, Cradle of Growth\n4 Arboreal Grazer\n1 Cultivator Colossus\n4 Primeval Titan\n4 Green Sun's Zenith\n3 Malevolent Rumble\n3 Scapeshift\n2 Summoner's Pact\n4 Amulet of Vigor\n2 Genesis Device\n4 Spelunking\n\nSideboard\n1 Aftermath Analyst\n1 Ba Sing Se\n1 Bojuka Bog\n3 Dismember\n2 Force of Vigor\n1 Icetill Explorer\n1 Shifting Woodland\n1 Six\n3 Trinisphere\n1 Vexing Bauble"
+    },
+    {
+      "format": "Modern",
+      "archetype": "Creatures Toolbox",
+      "deck_id": 916971,
+      "event_id": 94461,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "2 Boseiju, Who Endures\n3 City of Brass\n1 Dryad Arbor\n1 Forest\n1 Godless Shrine\n1 Lush Portico\n1 Misty Rainforest\n2 Overgrown Tomb\n1 Stomping Ground\n1 Temple Garden\n4 Verdant Catacombs\n4 Windswept Heath\n3 Ajani, Nacatl Pariah\n2 Carrion Feeder\n4 Cauldron Familiar\n2 Delighted Halfling\n4 Gilded Goose\n1 Haywire Mite\n2 Salt Vampire\n4 Samwise Gamgee\n1 Viscera Seer\n1 Yawgmoth, Thran Physician\n3 Young Wolf\n4 Chord of Calling\n4 Birthing Ritual\n3 Goblin Bombardment\n\nSideboard\n1 Abrupt Decay\n1 Collector Ouphe\n1 Crystal Barricade\n1 Endurance\n1 Fatal Push\n2 Force of Vigor\n1 Prismatic Ending\n1 Reclamation Sage\n1 Sanctifier en-Vec\n1 Sanctum Prelate\n1 Skyclave Apparition\n2 Thoughtseize\n1 Vexing Bauble"
+    },
+    {
+      "format": "Modern",
+      "archetype": "Creatures Toolbox",
+      "deck_id": 916264,
+      "event_id": 94362,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "2 Boseiju, Who Endures\n3 City of Brass\n1 Dryad Arbor\n1 Forest\n1 Godless Shrine\n1 Lush Portico\n1 Misty Rainforest\n1 Overgrown Tomb\n1 Stomping Ground\n1 Temple Garden\n4 Verdant Catacombs\n4 Windswept Heath\n1 Wooded Foothills\n4 Ajani, Nacatl Pariah\n3 Carrion Feeder\n4 Cauldron Familiar\n2 Delighted Halfling\n4 Gilded Goose\n1 Haywire Mite\n1 Orcish Bowmasters\n4 Samwise Gamgee\n1 Yawgmoth, Thran Physician\n3 Young Wolf\n4 Chord of Calling\n4 Birthing Ritual\n3 Goblin Bombardment\n\nSideboard\n1 Abrupt Decay\n1 Endurance\n1 Fatal Push\n2 Force of Vigor\n1 Gaddock Teeg\n1 Grist, the Hunger Tide\n1 Masked Vandal\n1 Sanctifier en-Vec\n1 Sanctum Prelate\n1 Seam Rip\n1 Skyclave Apparition\n2 Thoughtseize\n1 Vexing Bauble"
+    },
+    {
+      "format": "Modern",
+      "archetype": "Instant Reanimator",
+      "deck_id": 916961,
+      "event_id": 94461,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "1 Breeding Pool\n4 Flooded Strand\n1 Godless Shrine\n1 Hallowed Fountain\n1 Island\n4 Marsh Flats\n1 Meticulous Archive\n1 Plains\n4 Polluted Delta\n1 Shadowy Backstreet\n1 Swamp\n1 Undercity Sewers\n1 Watery Grave\n4 Atraxa, Grand Unifier\n1 Griselbrand\n4 Psychic Frog\n4 Quantum Riddler\n4 Solitude\n1 Consign to Memory\n4 Ephemerate\n3 Faithful Mending\n2 Force of Negation\n4 Goryo's Vengeance\n1 March of Otherworldly Light\n2 Prismatic Ending\n3 Thoughtseize\n1 Wrath of the Skies\n\nSideboard\n1 Celestial Purge\n3 Consign to Memory\n1 Emperor of Bones\n3 Mystical Dispute\n1 Nihil Spellbomb\n2 Tamiyo, Inquisitive Student\n2 Teferi, Time Raveler\n2 Wrath of the Skies"
+    },
+    {
+      "format": "Modern",
+      "archetype": "Instant Reanimator",
+      "deck_id": 916290,
+      "event_id": 94365,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "4 Flooded Strand\n1 Godless Shrine\n1 Hallowed Fountain\n1 Hedge Maze\n1 Island\n4 Marsh Flats\n1 Meticulous Archive\n1 Plains\n4 Polluted Delta\n1 Shadowy Backstreet\n1 Swamp\n1 Undercity Sewers\n1 Watery Grave\n4 Atraxa, Grand Unifier\n1 Griselbrand\n4 Psychic Frog\n4 Quantum Riddler\n4 Solitude\n1 Superior Spider-Man\n4 Ephemerate\n3 Faithful Mending\n3 Force of Negation\n4 Goryo's Vengeance\n1 Pest Control\n2 Prismatic Ending\n3 Thoughtseize\n\nSideboard\n1 Celestial Purge\n4 Consign to Memory\n1 March of Otherworldly Light\n3 Mystical Dispute\n1 Nihil Spellbomb\n2 Teferi, Time Raveler\n3 Wrath of the Skies"
+    },
+    {
+      "format": "Modern",
+      "archetype": "UrzaTron",
+      "deck_id": 916332,
+      "event_id": 94369,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "4 Eldrazi Temple\n1 Swamp\n4 Ugin's Labyrinth\n4 Urza's Mine\n4 Urza's Power Plant\n4 Urza's Tower\n3 Devourer of Destiny\n3 Glaring Fleshraker\n2 Sire of Seven Deaths\n4 Thought-Knot Seer\n1 Ulamog, the Ceaseless Hunger\n1 All Is Dust\n2 Dismember\n4 Kozilek's Command\n4 Expedition Map\n4 Karn, the Great Creator\n4 Mind Stone\n1 Trinisphere\n4 Ugin, Eye of the Storms\n2 Vexing Bauble\n\nSideboard\n1 Chalice of the Void\n1 Cityscape Leveler\n1 Ensnaring Bridge\n1 Extinguisher Battleship\n1 Grafdigger's Cage\n1 Liquimetal Coating\n1 Mindslaver\n1 Skysovereign, Consul Flagship\n1 The Filigree Sylex\n1 The Stone Brain\n1 Tormod's Crypt\n1 Torpor Orb\n1 Trinisphere\n1 Vexing Bauble\n1 Walking Ballista"
+    },
+    {
+      "format": "Modern",
+      "archetype": "UrzaTron",
+      "deck_id": 916334,
+      "event_id": 94370,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "1 Abstergo Entertainment\n4 Eldrazi Temple\n1 Secluded Starforge\n1 Swamp\n4 Ugin's Labyrinth\n4 Urza's Mine\n4 Urza's Power Plant\n4 Urza's Tower\n4 Devourer of Destiny\n3 Glaring Fleshraker\n3 Thought-Knot Seer\n1 All Is Dust\n2 Dismember\n4 Kozilek's Command\n2 Warping Wail\n4 Expedition Map\n4 Karn, the Great Creator\n4 Mind Stone\n1 Relic of Progenitus\n1 The Holodeck\n3 Ugin, Eye of the Storms\n1 Vexing Bauble\n\nSideboard\n1 Chalice of the Void\n1 Cityscape Leveler\n1 Ensnaring Bridge\n1 Grafdigger's Cage\n1 Karn, Argent Defender\n1 Kozilek, Butcher of Truth\n1 Liquimetal Coating\n1 Skysovereign, Consul Flagship\n1 The Echoverse Fulcrum\n1 The Stone Brain\n1 Tormod's Crypt\n2 Torpor Orb\n1 Trinisphere\n1 Walking Ballista"
+    }
+  ],
+  "Standard": [
+    {
+      "format": "Standard",
+      "archetype": "Selesnya Aggro",
+      "deck_id": 917004,
+      "event_id": 94467,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "2 Abandoned Air Temple\n6 Forest\n4 Hushwood Verge\n2 Multiversal Passage\n2 Plains\n3 Starting Town\n4 Temple Garden\n4 Bejeweled Warg\n2 Brightglass Gearhulk\n4 Gene Pollinator\n1 Guiding Hydra\n4 Llanowar Elves\n4 Michelangelo, Weirdness to 11\n4 Ouroboroid\n4 Pawpatch Recruit\n2 Surrak, Elusive Hunter\n4 Practiced Offense\n2 Meltstrider's Resolve\n2 Seam Rip\n\nSideboard\n1 Arachne, Psionic Weaver\n1 Brightglass Gearhulk\n2 Clarion Conqueror\n4 Doorkeeper Thrull\n1 Erode\n2 Leatherhead, Swamp Stalker\n2 Sheltered by Ghosts\n1 Skateboard\n1 Surrak, Elusive Hunter"
+    },
+    {
+      "format": "Standard",
+      "archetype": "Selesnya Aggro",
+      "deck_id": 916631,
+      "event_id": 94419,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "1 Abandoned Air Temple\n1 Ba Sing Se\n6 Forest\n4 Hushwood Verge\n3 Multiversal Passage\n2 Plains\n2 Starting Town\n4 Temple Garden\n3 Bejeweled Warg\n3 Brightglass Gearhulk\n3 Frenzied Baloth\n1 Goldvein Hydra\n1 Guiding Hydra\n1 Jennifer Walters\n1 Leatherhead, Swamp Stalker\n4 Llanowar Elves\n3 Michelangelo, Weirdness to 11\n1 Nurturing Pixie\n2 Ouroboroid\n4 Pawpatch Recruit\n2 Surrak, Elusive Hunter\n4 Practiced Offense\n1 Meltstrider's Resolve\n2 Seam Rip\n1 Skateboard\n\nSideboard\n1 Authority of the Consuls\n3 Doorkeeper Thrull\n1 Duty Beyond Death\n1 Elspeth, Storm Slayer\n1 Erode\n1 Goldvein Hydra\n2 Leatherhead, Swamp Stalker\n2 Origin of Metalbending\n2 Sheltered by Ghosts\n1 The Ooze"
+    },
+    {
+      "format": "Standard",
+      "archetype": "Selesnya Aggro",
+      "deck_id": 916640,
+      "event_id": 94419,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "1 Abandoned Air Temple\n6 Forest\n4 Hushwood Verge\n3 Multiversal Passage\n1 Plains\n3 Starting Town\n4 Temple Garden\n4 Bejeweled Warg\n2 Brightglass Gearhulk\n4 Gene Pollinator\n1 Guiding Hydra\n1 Insidious Fungus\n4 Llanowar Elves\n4 Michelangelo, Weirdness to 11\n4 Ouroboroid\n4 Pawpatch Recruit\n2 Surrak, Elusive Hunter\n4 Practiced Offense\n2 Meltstrider's Resolve\n2 Seam Rip\n\nSideboard\n1 Arachne, Psionic Weaver\n1 Brightglass Gearhulk\n1 Dawn's Truce\n3 Doorkeeper Thrull\n2 Erode\n2 Leatherhead, Swamp Stalker\n1 Pawpatch Formation\n2 Sheltered by Ghosts\n1 Skateboard\n1 Surrak, Elusive Hunter"
+    },
+    {
+      "format": "Standard",
+      "archetype": "Selesnya Aggro",
+      "deck_id": 916937,
+      "event_id": 94458,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "2 Abandoned Air Temple\n4 Forest\n4 Hushwood Verge\n4 Multiversal Passage\n2 Plains\n2 Starting Town\n4 Temple Garden\n4 Bejeweled Warg\n2 Brightglass Gearhulk\n4 Gene Pollinator\n1 Guiding Hydra\n4 Llanowar Elves\n4 Michelangelo, Weirdness to 11\n4 Ouroboroid\n4 Pawpatch Recruit\n3 Surrak, Elusive Hunter\n4 Practiced Offense\n2 Meltstrider's Resolve\n2 Seam Rip\n\nSideboard\n2 Aven Interrupter\n2 Dawn's Truce\n3 Doorkeeper Thrull\n2 Erode\n2 Rest in Peace\n4 Sheltered by Ghosts"
+    },
+    {
+      "format": "Standard",
+      "archetype": "Selesnya Aggro",
+      "deck_id": 916921,
+      "event_id": 94457,
+      "main_count": 61,
+      "side_count": 15,
+      "raw_text": "2 Abandoned Air Temple\n5 Forest\n4 Hushwood Verge\n4 Multiversal Passage\n2 Plains\n2 Starting Town\n4 Temple Garden\n4 Bejeweled Warg\n2 Brightglass Gearhulk\n4 Gene Pollinator\n1 Guiding Hydra\n4 Llanowar Elves\n4 Michelangelo, Weirdness to 11\n4 Ouroboroid\n4 Pawpatch Recruit\n3 Surrak, Elusive Hunter\n4 Practiced Offense\n2 Meltstrider's Resolve\n2 Seam Rip\n\nSideboard\n2 Aven Interrupter\n2 Dawn's Truce\n3 Doorkeeper Thrull\n2 Erode\n2 Rest in Peace\n4 Sheltered by Ghosts"
+    },
+    {
+      "format": "Standard",
+      "archetype": "Dimir Control",
+      "deck_id": 916632,
+      "event_id": 94419,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "1 Cavern of Souls\n4 Gloomlake Verge\n1 Island\n3 Restless Reef\n4 Shipwreck Marsh\n5 Swamp\n2 Undercity Sewers\n4 Watery Grave\n4 Deceit\n1 Emeritus of Ideation\n1 Harvester of Misery\n2 Overlord of the Balemurk\n3 Seasoned Cryomancer\n4 Superior Spider-Man\n2 Uldaros Theorix\n3 Bitter Triumph\n1 Deadly Cover-Up\n2 Duress\n4 Requiting Hex\n1 Strategic Betrayal\n2 Theorix Charm\n1 Vraska's Final Mercy\n2 Winternight Stories\n3 The Theorist, Jace Beleren\n\nSideboard\n2 Day of Black Sun\n1 Disdainful Stroke\n2 Doomsday Excruciator\n1 Duress\n1 Emeritus of Ideation\n2 Flashfreeze\n2 Georgiou, Terran Emperor\n2 Ghost Vacuum\n1 M.O.D.O.K.\n1 Qarsi Revenant"
+    },
+    {
+      "format": "Standard",
+      "archetype": "Dimir Control",
+      "deck_id": 916637,
+      "event_id": 94419,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "1 Agna Qel'a\n1 Cavern of Souls\n4 Gloomlake Verge\n1 Island\n2 Multiversal Passage\n3 Restless Reef\n4 Shipwreck Marsh\n4 Swamp\n2 Undercity Sewers\n4 Watery Grave\n4 Deceit\n1 Georgiou, Terran Emperor\n1 M.O.D.O.K.\n2 Overlord of the Balemurk\n4 Salt Vampire\n3 Seasoned Cryomancer\n4 Superior Spider-Man\n2 Uldaros Theorix\n2 Bitter Triumph\n2 Deadly Cover-Up\n3 Requiting Hex\n2 Vraska's Final Mercy\n4 The Theorist, Jace Beleren\n\nSideboard\n1 Disdainful Stroke\n2 Duress\n2 Engineered Explosives\n1 Flashfreeze\n1 Georgiou, Terran Emperor\n1 Ghost Vacuum\n2 Negate\n1 Requiting Hex\n2 Spell Snare\n2 Strategic Betrayal"
+    },
+    {
+      "format": "Standard",
+      "archetype": "Dimir Control",
+      "deck_id": 916639,
+      "event_id": 94419,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "2 Cavern of Souls\n4 Gloomlake Verge\n1 Island\n4 Restless Reef\n4 Shipwreck Marsh\n3 Swamp\n1 The Unicomplex\n2 Undercity Sewers\n4 Watery Grave\n4 Deceit\n1 Georgiou, Terran Emperor\n2 Overlord of the Balemurk\n3 Salt Vampire\n3 Seasoned Cryomancer\n4 Superior Spider-Man\n2 Uldaros Theorix\n3 Bitter Triumph\n1 Deadly Cover-Up\n2 Duress\n3 Requiting Hex\n1 Strategic Betrayal\n2 Theorix Charm\n2 Winternight Stories\n2 The Theorist, Jace Beleren\n\nSideboard\n1 Day of Black Sun\n1 Deadly Cover-Up\n1 Disdainful Stroke\n1 Doomsday Excruciator\n2 Duress\n1 Emeritus of Ideation\n2 Engineered Explosives\n1 Georgiou, Terran Emperor\n1 Ghost Vacuum\n1 M.O.D.O.K.\n3 Spell Snare"
+    },
+    {
+      "format": "Standard",
+      "archetype": "Dimir Control",
+      "deck_id": 916641,
+      "event_id": 94419,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "2 Cavern of Souls\n4 Gloomlake Verge\n1 Island\n4 Restless Reef\n4 Shipwreck Marsh\n4 Swamp\n2 Undercity Sewers\n4 Watery Grave\n4 Deceit\n1 Emeritus of Ideation\n1 Harvester of Misery\n2 Overlord of the Balemurk\n3 Seasoned Cryomancer\n4 Superior Spider-Man\n2 Uldaros Theorix\n3 Bitter Triumph\n1 Deadly Cover-Up\n3 Duress\n4 Requiting Hex\n1 Strategic Betrayal\n2 Theorix Charm\n2 Winternight Stories\n2 The Theorist, Jace Beleren\n\nSideboard\n2 Day of Black Sun\n1 Deadly Cover-Up\n1 Disdainful Stroke\n2 Doomsday Excruciator\n1 Duress\n1 Emeritus of Ideation\n2 Flashfreeze\n2 Georgiou, Terran Emperor\n1 Ghost Vacuum\n1 M.O.D.O.K.\n1 Strategic Betrayal"
+    },
+    {
+      "format": "Standard",
+      "archetype": "Boros Aggro",
+      "deck_id": 916635,
+      "event_id": 94419,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "1 Abandoned Air Temple\n2 Cavern of Souls\n3 Mountain\n2 Multiversal Passage\n4 Plains\n4 Sacred Foundry\n3 Starting Town\n4 Sunbillow Verge\n1 Guiding Hydra\n3 Haliya, Guided by Light\n4 Momo, Friendly Flier\n3 Nova Hellkite\n4 Nurturing Pixie\n4 Sage of the Skies\n3 Starfield Shepherd\n4 Voice of Victory\n1 Weftstalker Ardent\n2 Erode\n2 Practiced Offense\n2 Torch the Tower\n4 The Naked Time\n\nSideboard\n2 Authority of the Consuls\n2 Chandra, Torch of Defiance\n3 Clarion Conqueror\n2 Rest in Peace\n2 Seam Rip\n2 Split Up\n2 Sunspine Lynx"
+    },
+    {
+      "format": "Standard",
+      "archetype": "Boros Aggro",
+      "deck_id": 916917,
+      "event_id": 94456,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "1 Abandoned Air Temple\n1 Floodfarm Verge\n3 Hallowed Fountain\n3 Mountain\n4 Multiversal Passage\n3 Plains\n2 Sacred Foundry\n4 Starting Town\n1 Sunbillow Verge\n1 Guiding Hydra\n4 Momo, Friendly Flier\n2 Nova Hellkite\n3 Nurturing Pixie\n4 Quantum Riddler\n4 Sage of the Skies\n1 Stadium Headliner\n4 Starfield Shepherd\n2 Steamcore Scholar\n3 Voice of Victory\n2 Erode\n4 Practiced Offense\n4 The Naked Time\n\nSideboard\n2 Clarion Conqueror\n1 Erode\n2 Pyrrhic Strike\n2 Rest in Peace\n2 Seam Rip\n2 Sheltered by Ghosts\n1 Spider-Sense\n3 The Theorist, Jace Beleren"
+    },
+    {
+      "format": "Standard",
+      "archetype": "Boros Aggro",
+      "deck_id": 916919,
+      "event_id": 94457,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "1 Abandoned Air Temple\n1 Floodfarm Verge\n3 Hallowed Fountain\n3 Mountain\n4 Multiversal Passage\n3 Plains\n2 Sacred Foundry\n4 Starting Town\n1 Sunbillow Verge\n1 Guiding Hydra\n4 Momo, Friendly Flier\n2 Nova Hellkite\n3 Nurturing Pixie\n4 Quantum Riddler\n4 Sage of the Skies\n4 Starfield Shepherd\n2 Steamcore Scholar\n4 Voice of Victory\n2 Erode\n4 Practiced Offense\n4 The Naked Time\n\nSideboard\n2 Clarion Conqueror\n1 Erode\n2 Pyrrhic Strike\n2 Rest in Peace\n2 Seam Rip\n2 Sheltered by Ghosts\n1 Spider-Sense\n3 The Theorist, Jace Beleren"
+    },
+    {
+      "format": "Standard",
+      "archetype": "UW Control",
+      "deck_id": 916927,
+      "event_id": 94457,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "4 Deserted Beach\n4 Floodfarm Verge\n4 Hallowed Fountain\n3 Island\n3 Meticulous Archive\n1 Multiversal Passage\n3 Petrified Hamlet\n2 Plains\n2 Theorist's Sanctum\n1 Captain Marvel, Earth's Protector\n4 Consult the Star Charts\n4 Countersculpt\n4 Day of Judgment\n4 Get Lost\n3 Jace's Machinations\n3 No More Lies\n2 Spell Snare\n1 Pinnacle Starcage\n4 Seam Rip\n4 The Theorist, Jace Beleren\n\nSideboard\n1 Annul\n1 Captain Marvel, Earth's Protector\n3 Doorkeeper Thrull\n1 Emeritus of Ideation\n1 Erode\n1 Flashfreeze\n1 Negate\n1 Rest in Peace\n1 Spell Snare\n2 Sphinx of False Conclusions\n1 Voice of Victory\n1 Wan Shi Tong, Librarian"
+    },
+    {
+      "format": "Standard",
+      "archetype": "UW Control",
+      "deck_id": 916930,
+      "event_id": 94457,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "4 Deserted Beach\n4 Floodfarm Verge\n4 Hallowed Fountain\n3 Island\n3 Meticulous Archive\n1 Multiversal Passage\n3 Petrified Hamlet\n2 Plains\n2 Theorist's Sanctum\n1 Captain Marvel, Earth's Protector\n4 Consult the Star Charts\n4 Countersculpt\n4 Day of Judgment\n4 Get Lost\n3 Jace's Machinations\n3 No More Lies\n2 Spell Snare\n1 Pinnacle Starcage\n4 Seam Rip\n4 The Theorist, Jace Beleren\n\nSideboard\n1 Annul\n1 Captain Marvel, Earth's Protector\n3 Doorkeeper Thrull\n1 Emeritus of Ideation\n1 Erode\n1 Flashfreeze\n1 Rest in Peace\n1 Spell Snare\n2 Sphinx of False Conclusions\n1 Sphinx of the Final Word\n1 Voice of Victory\n1 Wan Shi Tong, Librarian"
+    },
+    {
+      "format": "Standard",
+      "archetype": "UW Control",
+      "deck_id": 916690,
+      "event_id": 94425,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "2 Demolition Field\n4 Deserted Beach\n4 Floodfarm Verge\n4 Hallowed Fountain\n3 Island\n2 Meticulous Archive\n2 Petrified Hamlet\n3 Plains\n2 Theorist's Sanctum\n1 Captain Marvel, Earth's Protector\n4 Consult the Star Charts\n3 Countersculpt\n2 Day of Judgment\n1 Erode\n2 Fatehold Charm\n3 Get Lost\n2 Jace's Machinations\n3 No More Lies\n1 Settle the Wreckage\n2 Spell Snare\n1 Three Steps Ahead\n1 Aang's Iceberg\n1 Pinnacle Starcage\n3 Seam Rip\n4 The Theorist, Jace Beleren\n\nSideboard\n1 Beza, the Bounding Spring\n1 Captain Marvel, Earth's Protector\n2 Exorcise\n2 Flashfreeze\n1 Pinnacle Starcage\n3 Rest in Peace\n1 Settle the Wreckage\n2 Tishana's Tidebinder\n1 Ultima\n1 Wan Shi Tong, Librarian"
+    },
+    {
+      "format": "Standard",
+      "archetype": "4/5C Control",
+      "deck_id": 917001,
+      "event_id": 94466,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "1 Cori Mountain Monastery\n2 Gloomlake Verge\n1 Godless Shrine\n4 Great Hall of the Biblioplex\n2 Hallowed Fountain\n1 Island\n1 Mistrise Village\n1 Multiversal Passage\n1 Plains\n3 Sacred Foundry\n2 Shattered Sanctum\n4 Steam Vents\n1 Stormcarved Coast\n1 Sunbillow Verge\n1 Sundown Pass\n3 Consult the Star Charts\n2 Day of Judgment\n2 Fire Magic\n2 Flashback\n4 Inevitable Defeat\n4 Jeskai Revelation\n3 No More Lies\n2 Sear\n4 Stock Up\n2 Together as One\n2 Twinned Vision\n4 Tablet of Discovery\n\nSideboard\n2 Day of Judgment\n2 Emeritus of Ideation\n1 Fire Magic\n2 Flashfreeze\n2 Negate\n1 Outrageous Robbery\n2 Spell Snare\n2 Strategic Betrayal\n1 Thor, God of Thunder"
+    },
+    {
+      "format": "Standard",
+      "archetype": "4/5C Control",
+      "deck_id": 917005,
+      "event_id": 94467,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "1 Cori Mountain Monastery\n3 Gloomlake Verge\n4 Great Hall of the Biblioplex\n3 Hallowed Fountain\n1 Island\n1 Mistrise Village\n1 Plains\n1 Sacred Foundry\n2 Shattered Sanctum\n4 Steam Vents\n1 Sunbillow Verge\n4 Sundown Pass\n2 Consult the Star Charts\n2 Day of Judgment\n2 Fire Magic\n2 Flashback\n4 Inevitable Defeat\n4 Jeskai Revelation\n3 No More Lies\n2 Sear\n1 Spell Snare\n4 Stock Up\n2 Together as One\n2 Twinned Vision\n4 Tablet of Discovery\n\nSideboard\n2 Day of Judgment\n1 Fire Magic\n2 Flashfreeze\n2 Negate\n1 Outrageous Robbery\n2 Spell Snare\n2 Strategic Betrayal\n1 Thor, God of Thunder\n2 Torpor Orb"
+    },
+    {
+      "format": "Standard",
+      "archetype": "4/5C Control",
+      "deck_id": 916636,
+      "event_id": 94419,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "1 Cori Mountain Monastery\n2 Deserted Beach\n1 Floodfarm Verge\n2 Gloomlake Verge\n4 Great Hall of the Biblioplex\n3 Hallowed Fountain\n1 Island\n1 Mistrise Village\n1 Mountain\n1 Multiversal Passage\n1 Plains\n3 Sacred Foundry\n2 Shattered Sanctum\n3 Steam Vents\n1 Captain Marvel, Earth's Protector\n4 Consult the Star Charts\n3 Day of Judgment\n2 Flashback\n4 Get Lost\n3 Inevitable Defeat\n3 Jeskai Revelation\n3 Lightning Helix\n4 No More Lies\n2 Spell Snare\n3 Stock Up\n2 Three Steps Ahead\n\nSideboard\n2 Clarion Conqueror\n1 Day of Judgment\n1 Disdainful Stroke\n1 Erode\n1 Flashfreeze\n1 Negate\n1 Outrageous Robbery\n1 Petrified Hamlet\n2 Rest in Peace\n1 Sphinx of the Final Word\n2 Torpor Orb\n1 Ultima"
+    },
+    {
+      "format": "Standard",
+      "archetype": "Azorius Aggro",
+      "deck_id": 916998,
+      "event_id": 94466,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "4 Floodfarm Verge\n3 Gleaming Bastion\n4 Hallowed Fountain\n1 Island\n3 Multiversal Passage\n6 Plains\n1 Curious Farm Animals\n1 Guiding Hydra\n4 Momo, Friendly Flier\n1 Nurturing Pixie\n4 Quantum Riddler\n4 Sage of the Skies\n4 Starfield Shepherd\n4 Steamcore Scholar\n2 The Wondrous Wasp\n4 Daydream\n2 Get Lost\n4 Practiced Offense\n4 Springleaf Drum\n\nSideboard\n2 Avatar's Wrath\n1 Exorcise\n1 Ghost Vacuum\n2 No More Lies\n1 Pyrrhic Strike\n4 Seam Rip\n2 Sphinx of False Conclusions\n2 The Theorist, Jace Beleren"
+    },
+    {
+      "format": "Standard",
+      "archetype": "Azorius Aggro",
+      "deck_id": 917007,
+      "event_id": 94467,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "4 Floodfarm Verge\n3 Gleaming Bastion\n4 Hallowed Fountain\n3 Multiversal Passage\n7 Plains\n1 Curious Farm Animals\n1 Guiding Hydra\n4 Momo, Friendly Flier\n1 Nurturing Pixie\n4 Quantum Riddler\n4 Sage of the Skies\n4 Starfield Shepherd\n4 Steamcore Scholar\n2 The Wondrous Wasp\n4 Daydream\n2 Get Lost\n4 Practiced Offense\n4 Springleaf Drum\n\nSideboard\n2 Avatar's Wrath\n1 Exorcise\n1 Ghost Vacuum\n2 No More Lies\n1 Pyrrhic Strike\n4 Seam Rip\n2 Sphinx of False Conclusions\n2 The Theorist, Jace Beleren"
+    },
+    {
+      "format": "Standard",
+      "archetype": "Azorius Aggro",
+      "deck_id": 917008,
+      "event_id": 94467,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "4 Floodfarm Verge\n3 Gleaming Bastion\n4 Hallowed Fountain\n1 Island\n2 Multiversal Passage\n7 Plains\n1 Guiding Hydra\n4 Momo, Friendly Flier\n1 Nurturing Pixie\n4 Quantum Riddler\n4 Sage of the Skies\n4 Starfield Shepherd\n4 Steamcore Scholar\n2 The Wondrous Wasp\n4 Daydream\n1 Erode\n4 Practiced Offense\n2 Seam Rip\n4 Springleaf Drum\n\nSideboard\n2 Avatar's Wrath\n2 Clarion Conqueror\n1 Erode\n2 No More Lies\n1 Rest in Peace\n2 Seam Rip\n2 Spider-Sense\n3 The Theorist, Jace Beleren"
+    },
+    {
+      "format": "Standard",
+      "archetype": "Izzet Control",
+      "deck_id": 917002,
+      "event_id": 94466,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "6 Island\n2 Multiversal Passage\n4 Riverpyre Verge\n4 Spirebluff Canal\n4 Steam Vents\n4 Eddymurk Crab\n4 Hearth Elemental\n4 Sunderflock\n4 Burst Lightning\n2 Get Out\n4 Opt\n4 Prismari Charm\n1 Sear\n4 Sleight of Hand\n3 Spell Snare\n2 Three Steps Ahead\n4 Traumatic Critique\n\nSideboard\n1 Abrade\n1 Annul\n3 Colorstorm Stallion\n1 Disdainful Stroke\n3 Hydro-Man, Fluid Felon\n1 Negate\n2 Spell Pierce\n1 Spell Snare\n1 Sphinx of False Conclusions\n1 Wan Shi Tong, Librarian"
+    },
+    {
+      "format": "Standard",
+      "archetype": "Izzet Control",
+      "deck_id": 916634,
+      "event_id": 94419,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "2 Great Hall of the Biblioplex\n6 Island\n4 Riverpyre Verge\n4 Spirebluff Canal\n4 Steam Vents\n2 Stormcarved Coast\n1 Burst Lightning\n2 Consult the Star Charts\n1 Fire Magic\n4 Flashback\n1 Impractical Joke\n3 Into the Flood Maw\n2 Long River's Pull\n4 Opt\n1 Sear\n4 Sleight of Hand\n2 Spell Pierce\n2 Spell Snare\n2 Torch the Tower\n1 Traumatic Critique\n4 Anthropological Mission\n1 Chandra, Chill of Compliance\n3 Ral, Crackling Wit\n\nSideboard\n1 Ajani Unrelenting\n2 Annul\n3 Bothersome Noisemaker\n2 Emeritus of Ideation\n2 Essence Burn\n1 Ghost Vacuum\n1 Impractical Joke\n1 Negate\n1 Spell Snare\n1 Stock Up"
+    },
+    {
+      "format": "Standard",
+      "archetype": "Izzet Control",
+      "deck_id": 916643,
+      "event_id": 94419,
+      "main_count": 61,
+      "side_count": 15,
+      "raw_text": "6 Island\n4 Riverpyre Verge\n4 Spirebluff Canal\n4 Steam Vents\n2 Stormcarved Coast\n4 Eddymurk Crab\n4 Hearth Elemental\n2 Hydro-Man, Fluid Felon\n4 Sunderflock\n3 Burst Lightning\n4 Flow State\n2 Impractical Joke\n4 Opt\n4 Prismari Charm\n4 Sleight of Hand\n3 Spell Snare\n3 Traumatic Critique\n\nSideboard\n2 Annul\n2 Avengers Disassembled\n4 Colorstorm Stallion\n2 Disdainful Stroke\n2 Spell Pierce\n2 Sunspine Lynx\n1 The Theorist, Jace Beleren"
+    },
+    {
+      "format": "Standard",
+      "archetype": "Jund Aggro",
+      "deck_id": 916997,
+      "event_id": 94466,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "2 Blazemire Verge\n3 Blood Crypt\n4 Blooming Marsh\n1 Forest\n1 Mountain\n3 Overgrown Tomb\n4 Starting Town\n3 Stomping Ground\n1 Swamp\n1 Wastewood Verge\n4 Biotech Specialist\n4 Gene Pollinator\n4 Greedy Freebooter\n2 Magda, the Hoardmaster\n1 Smaug the Magnificent\n4 The Sackville-Bagginses\n2 Umbral Collar Zealot\n1 Wolverine, Fierce Fighter\n1 Deadly Precision\n4 Lively Dirge\n4 Torch the Tower\n2 Witherbloom Charm\n4 Obsessive Pursuit\n\nSideboard\n2 Deathmark\n3 Duress\n1 Fire Magic\n1 Guerrilla Gorilla\n1 Leatherhead, Swamp Stalker\n1 Q, Stacking the Deck\n1 Shoot the Sheriff\n1 Strategic Betrayal\n1 Terminal Criticism\n1 Test of Courage\n1 The Ooze\n1 Vicious Rivalry"
+    },
+    {
+      "format": "Standard",
+      "archetype": "Jund Aggro",
+      "deck_id": 916638,
+      "event_id": 94419,
+      "main_count": 61,
+      "side_count": 15,
+      "raw_text": "1 Blazemire Verge\n3 Blood Crypt\n4 Blooming Marsh\n1 Forest\n1 Mountain\n3 Overgrown Tomb\n4 Starting Town\n3 Stomping Ground\n1 Swamp\n1 Thornspire Verge\n4 Biotech Specialist\n4 Gene Pollinator\n4 Greedy Freebooter\n1 Leatherhead, Swamp Stalker\n2 Rottenmouth Viper\n1 Smaug the Magnificent\n4 The Sackville-Bagginses\n3 Umbral Collar Zealot\n1 Deadly Precision\n4 Lively Dirge\n1 Stir Up Trouble\n3 Torch the Tower\n2 Witherbloom Charm\n4 Obsessive Pursuit\n1 The Ooze\n\nSideboard\n2 Deathmark\n3 Duress\n1 Engineered Explosives\n1 Fire Magic\n2 Maelstrom Pulse\n1 Professor Dellian Fel\n2 Strategic Betrayal\n1 Terminal Criticism\n2 Test of Courage"
+    },
+    {
+      "format": "Standard",
+      "archetype": "Jund Aggro",
+      "deck_id": 916642,
+      "event_id": 94419,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "1 Blazemire Verge\n3 Blood Crypt\n4 Blooming Marsh\n1 Forest\n1 Mountain\n1 Overgrown Tomb\n4 Starting Town\n4 Stomping Ground\n1 Swamp\n1 Thornspire Verge\n1 Wastewood Verge\n4 Biotech Specialist\n4 Gene Pollinator\n4 Greedy Freebooter\n1 Llanowar Elves\n2 Magda, the Hoardmaster\n1 Smaug the Magnificent\n4 The Sackville-Bagginses\n3 Umbral Collar Zealot\n1 Wolverine, Fierce Fighter\n4 Lively Dirge\n4 Torch the Tower\n2 Witherbloom Charm\n4 Obsessive Pursuit\n\nSideboard\n2 Bitter Triumph\n4 Duress\n2 Engineered Explosives\n1 Fire Magic\n1 Ghost Vacuum\n1 Guerrilla Gorilla\n1 Leatherhead, Swamp Stalker\n1 Maelstrom Pulse\n1 Q, Stacking the Deck\n1 The Ooze"
+    },
+    {
+      "format": "Standard",
+      "archetype": "Mardu Aggro",
+      "deck_id": 916931,
+      "event_id": 94457,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "4 Blazemire Verge\n4 Blood Crypt\n4 Godless Shrine\n1 Mountain\n4 Sacred Foundry\n4 Starting Town\n1 Swamp\n4 Bloodghast\n4 Carnage, Crimson Chaos\n4 Dark Matter Manipulator\n4 Iron-Shield Elf\n4 Masked Meower\n4 Moonshadow\n4 Proft, Sinister Mastermind\n4 Practiced Offense\n2 Quag Feast\n4 Cool but Rude\n\nSideboard\n1 Captain James T. Kirk\n2 Deathmark\n2 Duress\n1 Eddie Brock\n2 Ghost Vacuum\n2 Karn, Argent Defender\n2 Molten Collapse\n1 Q, Stacking the Deck\n2 Seam Rip"
+    },
+    {
+      "format": "Standard",
+      "archetype": "Mardu Aggro",
+      "deck_id": 916907,
+      "event_id": 94455,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "3 Blazemire Verge\n3 Bleachbone Verge\n4 Blood Crypt\n1 Mountain\n2 Multiversal Passage\n3 Sacred Foundry\n4 Starting Town\n1 Swamp\n4 Bloodghast\n4 Carnage, Crimson Chaos\n4 Dark Matter Manipulator\n4 Darklight Phoenix\n3 Fanatical Firebrand\n1 Iron-Shield Elf\n4 Masked Meower\n4 Moonshadow\n4 Practiced Offense\n3 Bloodthorn Flail\n4 Cool but Rude\n\nSideboard\n1 Captain James T. Kirk\n2 Deathmark\n2 Duress\n1 Eddie Brock\n2 Ghost Vacuum\n2 Karn, Argent Defender\n2 Molten Collapse\n1 Q, Stacking the Deck\n2 Seam Rip"
+    },
+    {
+      "format": "Standard",
+      "archetype": "Mardu Aggro",
+      "deck_id": 916665,
+      "event_id": 94422,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "2 Bleachbone Verge\n4 Blood Crypt\n4 Godless Shrine\n1 Mountain\n1 Plains\n4 Sacred Foundry\n4 Starting Town\n2 Sunbillow Verge\n1 Swamp\n4 Bloodghast\n1 Carnage, Crimson Chaos\n1 Casey Jones, Vigilante\n4 Hardened Academic\n4 Iron-Shield Elf\n4 Marauding Mako\n4 Moonshadow\n3 Timeline Culler\n2 Bitter Triumph\n4 Practiced Offense\n4 Cool but Rude\n2 Seam Rip\n\nSideboard\n2 Arachne, Psionic Weaver\n3 Duress\n3 Intimidation Tactics\n3 Strategic Betrayal\n4 Torpor Orb"
+    },
+    {
+      "format": "Standard",
+      "archetype": "Dimir Aggro",
+      "deck_id": 916934,
+      "event_id": 94457,
+      "main_count": 61,
+      "side_count": 15,
+      "raw_text": "4 Gloomlake Verge\n3 Island\n3 Multiversal Passage\n1 Restless Reef\n2 Soulstone Sanctuary\n3 Starting Town\n4 Swamp\n4 Watery Grave\n4 Dream Beavers\n4 Enduring Curiosity\n4 Floodpits Drowner\n4 Spyglass Siren\n2 The Wondrous Wasp\n1 Tishana's Tidebinder\n1 Wan Shi Tong, Librarian\n2 Bitter Triumph\n1 Into the Flood Maw\n3 Requiting Hex\n2 Shoot the Sheriff\n2 Spell Snare\n3 We Say Thee Nay!\n4 Kaito, Bane of Nightmares\n\nSideboard\n2 Disdainful Stroke\n1 Flashfreeze\n1 Qarsi Revenant\n1 Requiting Hex\n1 Shoot the Sheriff\n2 Spell Pierce\n3 Strategic Betrayal\n1 The Unagi of Kyoshi Island\n1 Torpor Orb\n1 Vren, the Relentless\n1 Wan Shi Tong, Librarian"
+    },
+    {
+      "format": "Standard",
+      "archetype": "Dimir Aggro",
+      "deck_id": 916910,
+      "event_id": 94455,
+      "main_count": 60,
+      "side_count": 15,
+      "raw_text": "4 Gloomlake Verge\n2 Hidden Lair\n3 Island\n1 Ni'Var Science Academy\n1 Restless Reef\n3 Shipwreck Marsh\n2 Soulstone Sanctuary\n4 Swamp\n4 Watery Grave\n4 Dream Beavers\n4 Enduring Curiosity\n4 Floodpits Drowner\n4 Spyglass Siren\n2 The Wondrous Wasp\n1 Tishana's Tidebinder\n1 Wan Shi Tong, Librarian\n2 Bitter Triumph\n3 Requiting Hex\n1 Shoot the Sheriff\n2 Spell Snare\n1 Tragic Trajectory\n3 We Say Thee Nay!\n4 Kaito, Bane of Nightmares\n\nSideboard\n1 Annul\n2 Day of Black Sun\n2 Disdainful Stroke\n3 Duress\n2 Engineered Explosives\n1 Flashfreeze\n1 Negate\n1 Spell Snare\n1 Strategic Betrayal\n1 Terminal Criticism"
+    }
+  ]
+}

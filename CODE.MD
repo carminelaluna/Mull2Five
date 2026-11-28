@@ -111,6 +111,30 @@ Lo script è ripartibile: salta i tornei già conclusi e riprende quelli avviati
 Le email sono su `example.com`: non esistono e non ricevono posta. La password
 degli organizzatori è `BulkTest2026!`.
 
+### 2.7 Liste reali per il metashare (staging)
+
+Secondo test massivo, codice `META27`, con liste vere prese da MTGTop8
+(metagame delle ultime due settimane):
+
+- 5 tornei Modern (31–35) e 5 Standard (36–40), 32 iscritti ciascuno;
+- 320 liste reali (160 per formato), tutte valide e con sideboard;
+- ogni giocatore tiene la stessa lista per tutta la lega;
+- 10 archetipi per formato, distribuiti secondo il meta reale:
+  - Modern: Broodscale Bloodchief e Rakdos Aggro 15,6%, Boros Aggro 12,5%,
+    Affinity, Amulet Titan, Mono Black Aggro e UR Aggro 9,4%, Creatures
+    Toolbox, Instant Reanimator e UrzaTron 6,2%;
+  - Standard: Selesnya Aggro 15,6%, Dimir Control 12,5%, 4/5C Control,
+    Azorius Aggro, Boros Aggro, Izzet Control, Jund Aggro, Mardu Aggro e
+    UW Control 9,4%, Dimir Aggro 6,2%;
+- 2 circuiti con scarto del peggior risultato dopo 4 tappe:
+  - `[META27] Lega Modern`, tornei 31–35;
+  - `[META27] Lega Standard`, tornei 36–40;
+- date dal 06/10/2026 al 04/11/2026.
+
+Le liste finte BULK27 di Modern e Standard sono state nascoste dall'archivio
+(`decklists_public = false`), così il metashare mostra solo le liste vere.
+I tornei BULK27 restano, con classifiche e circuiti.
+
 ---
 
 ## 3. Verifiche fatte
@@ -145,6 +169,13 @@ degli organizzatori è `BulkTest2026!`.
     pubblica raggiungibile.
 - Gli scarti delle leghe sono a 0: con 3 tappe a testa nessuno supera la
   soglia di 4, quindi la regola non scatta (comportamento atteso).
+- Dati META27 verificati dalle API:
+  - 10 tornei conclusi, 32 iscritti e 32 liste valide ciascuno;
+  - 50 turni, tutti con risultato;
+  - 2 circuiti da 32 giocatori e 160 presenze ciascuno, 5 titoli;
+  - scarto del peggior risultato applicato a tutti (5 tappe a testa);
+  - archivio: 160 liste Modern e 160 Standard, 10 archetipi per formato;
+  - metashare globale pulito: le liste finte BULK27 non compaiono.
 
 ### Android / Firebase
 
@@ -210,6 +241,8 @@ Per chiuderli davvero serve:
       spazio su disco.
 - [ ] Rimuovere i dati BULK27 dallo staging quando non servono più: 2 negozi,
       128 account, 10 tornei e 2 circuiti.
+- [ ] Rimuovere i dati META27 quando non servono più: 10 tornei, 2 circuiti
+      e le 320 liste reali (prima di eliminare i negozi BULK27).
 
 ---
 
@@ -253,6 +286,8 @@ Android:
 Strumenti:
 
 - `scripts/seed_bulk_staging.py` — generatore dei dati massivi BULK27;
+- `scripts/seed_meta_staging.py` — generatore dei dati reali META27;
+- `scripts/data/mtgtop8_decks.json` — 64 liste reali Modern/Standard;
 - `CODE.MD` — questo stato del lavoro.
 
 ---
